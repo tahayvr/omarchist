@@ -1,0 +1,24 @@
+# Clippy configuration for Omarchist backend
+# See https://doc.rust-lang.org/clippy/configuration.html for all options
+
+# Complexity thresholds
+cognitive-complexity-threshold = 30
+type-complexity-threshold = 250
+too-many-arguments-threshold = 7
+too-many-lines-threshold = 100
+
+# Naming conventions
+enum-variant-name-threshold = 3
+
+# Documentation
+missing-docs-in-crate-items = true
+
+# Performance
+trivial-copy-size-limit = 128
+
+# Style preferences
+single-char-binding-names-threshold = 4
+literal-representation-threshold = 10
+
+# Avoid false positives for common patterns
+avoid-breaking-exported-api = true

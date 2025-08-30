@@ -1,0 +1,45 @@
+# Rustfmt configuration for Omarchist backend
+# See https://rust-lang.github.io/rustfmt/ for all options
+
+# Basic formatting
+edition = "2021"
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+
+# Import formatting
+imports_granularity = "Crate"
+group_imports = "StdExternalCrate"
+reorder_imports = true
+
+# Function formatting
+fn_args_layout = "Tall"
+brace_style = "SameLineWhere"
+
+# Control flow formatting
+control_brace_style = "AlwaysSameLine"
+match_block_trailing_comma = true
+
+# Comments and documentation
+format_code_in_doc_comments = true
+normalize_comments = true
+normalize_doc_attributes = true
+
+# String formatting
+format_strings = true
+
+# Misc formatting
+use_small_heuristics = "Default"
+newline_style = "Unix"
+remove_nested_parens = true
+spaces_around_ranges = false
+struct_field_align_threshold = 0
+
+# Trailing elements
+trailing_comma = "Vertical"
+trailing_semicolon = true
+
+# Unstable features (require nightly, commented out for stability)
+# unstable_features = true
+# format_macro_matchers = true
+# overflow_delimited_expr = true

@@ -1,0 +1,137 @@
+{
+	"name": "{{THEME_NAME}}",
+	"created_at": "{{CREATED_AT}}",
+	"modified_at": "{{MODIFIED_AT}}",
+	"colors": null,
+	"apps": {
+		"alacritty": {
+			"colors": {
+				"primary": {
+					"background": "#1e1e1e",
+					"foreground": "#d4d4d4",
+					"dim_foreground": "#8a8a8d"
+				},
+				"normal": {
+					"black": "#333333",
+					"red": "#D35F5F",
+					"green": "#FFC107",
+					"yellow": "#b91c1c",
+					"blue": "#e68e0d",
+					"magenta": "#D35F5F",
+					"cyan": "#bebebe",
+					"white": "#bebebe"
+				},
+				"bright": {
+					"black": "#8a8a8d",
+					"red": "#B91C1C",
+					"green": "#FFC107",
+					"yellow": "#b90a0a",
+					"blue": "#f59e0b",
+					"magenta": "#b91c1c",
+					"cyan": "#eaeaea",
+					"white": "#eaeaea"
+				}
+			},
+			"font": {
+				"size": 12.0
+			},
+			"window": {
+				"padding": {
+					"x": 12,
+					"y": 12
+				}
+			}
+		},
+		"waybar": {
+			"background": "#1e1e1e",
+			"foreground": "#8a8a8d"
+		},
+		"btop": {
+			"main_bg": "",
+			"main_fg": "#EAEAEA",
+			"title": "#8a8a8d",
+			"hi_fg": "#f59e0b",
+			"selected_bg": "#f59e0b",
+			"selected_fg": "#EAEAEA",
+			"inactive_fg": "#333333",
+			"proc_misc": "#8a8a8d",
+			"cpu_box": "#8a8a8d",
+			"mem_box": "#8a8a8d",
+			"net_box": "#8a8a8d",
+			"proc_box": "#8a8a8d",
+			"div_line": "#8a8a8d",
+			"temp_start": "#8a8a8d",
+			"temp_mid": "#f59e0b",
+			"temp_end": "#b91c1c",
+			"cpu_start": "#8a8a8d",
+			"cpu_mid": "#f59e0b",
+			"cpu_end": "#b91c1c",
+			"free_start": "#8a8a8d",
+			"free_mid": "#f59e0b",
+			"free_end": "#b91c1c",
+			"cached_start": "#8a8a8d",
+			"cached_mid": "#f59e0b",
+			"cached_end": "#b91c1c",
+			"available_start": "#8a8a8d",
+			"available_mid": "#f59e0b",
+			"available_end": "#b91c1c",
+			"used_start": "#8a8a8d",
+			"used_mid": "#f59e0b",
+			"used_end": "#b91c1c",
+			"download_start": "#8a8a8d",
+			"download_mid": "#f59e0b",
+			"download_end": "#b91c1c",
+			"upload_start": "#8a8a8d",
+			"upload_mid": "#f59e0b",
+			"upload_end": "#b91c1c"
+		},
+		"hyprland": {
+			"active_border": "8A8A8D"
+		},
+		"hyprlock": {
+			"color": "12,12,12,1.0",
+			"inner_color": "138,138,141,0.3",
+			"outer_color": "234,234,234,0.5",
+			"font_color": "234,234,234,1.0",
+			"check_color": "245,158,11,1.0"
+		},
+		"mako": {
+			"text_color": "#8a8a8d",
+			"border_color": "#8A8A8D",
+			"background_color": "#1e1e1e",
+			"width": 420,
+			"height": 110,
+			"padding": 10,
+			"border_size": 2,
+			"font": "Liberation Sans 11",
+			"anchor": "top-right",
+			"outer_margin": 20,
+			"default_timeout": 5000,
+			"max_icon_size": 32
+		},
+		"swayosd": {
+			"background_color": "#121212",
+			"border_color": "#8A8A8D",
+			"label": "#8A8A8D",
+			"image": "#8A8A8D",
+			"progress": "#8A8A8D"
+		},
+		"walker": {
+			"selected_text": "#B91C1C",
+			"text": "#EAEAEA",
+			"base": "#121212",
+			"border": "#EAEAEA88",
+			"foreground": "#EAEAEA",
+			"background": "#121212"
+		},
+		"neovim": {
+			"theme_name": "matteblack",
+			"theme_repo": "tahayvr/matteblack.nvim",
+			"lazy": false,
+			"priority": 1000
+		},
+		"icons": {
+			"theme_name": "Yaru-red"
+		}
+	}
+}
