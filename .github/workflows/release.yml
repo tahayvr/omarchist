@@ -3,6 +3,7 @@ name: 'Tauri Release Build'
 on:
   release:
     types: [published]
+  workflow_dispatch:
 
 # On each release from the `main` branch it will create or update a GitHub release, build your app, and upload the artifacts to the release.
 
