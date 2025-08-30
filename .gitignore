@@ -1,3 +1,5 @@
+# Ignore development files
+dev-files/
 node_modules
 
 # Output

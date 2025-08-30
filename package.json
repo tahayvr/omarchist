@@ -11,7 +11,8 @@
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
 		"test": "vitest",
-		"test:run": "vitest run"
+		"test:run": "vitest run",
+		"tauri": "tauri"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.2.5",
