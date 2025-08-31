@@ -1,6 +1,7 @@
 // Domain-specific service modules
 pub mod cache;
 pub mod config;
+pub mod nvidia_detection;
 pub mod settings;
 pub mod themes;
 

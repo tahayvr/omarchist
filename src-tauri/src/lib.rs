@@ -59,6 +59,11 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Apply NVIDIA compatibility fixes before startup (issue #1)
+    if let Err(e) = services::nvidia_detection::setup_nvidia_compatibility() {
+        log::warn!("Failed to setup NVIDIA compatibility: {}", e);
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_single_instance::init(

@@ -3,31 +3,6 @@
 version = 3
 
 [[package]]
-name = "Omarchist"
-version = "0.0.1"
-dependencies = [
- "base64 0.22.1",
- "chrono",
- "dirs",
- "log",
- "regex",
- "serde",
- "serde_json",
- "tauri",
- "tauri-build",
- "tauri-plugin-cli",
- "tauri-plugin-dialog",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-single-instance",
- "tempfile",
- "thiserror 1.0.69",
- "tokio",
- "toml 0.9.5",
- "uuid",
-]
-
-[[package]]
 name = "addr2line"
 version = "0.24.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2677,6 +2652,31 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "omarchist"
+version = "0.0.1"
+dependencies = [
+ "base64 0.22.1",
+ "chrono",
+ "dirs",
+ "log",
+ "regex",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-cli",
+ "tauri-plugin-dialog",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-single-instance",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml 0.9.5",
+ "uuid",
 ]
 
 [[package]]

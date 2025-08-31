@@ -116,8 +116,8 @@
 					neovim: neovimData
 				}
 			});
-			// Refresh theme adjustments
-			await invoke('refresh_theme_adjustments').catch(console.warn);
+			// Refresh theme adjustments only if auto_apply_theme is enabled
+			await refreshThemeIfEnabled();
 			// Re-fetch theme to verify persistence and refresh data
 			const refreshed = await invoke('get_custom_theme', { name: themeName });
 			alacrittyData = refreshed?.apps?.alacritty || alacrittyData;
@@ -137,6 +137,18 @@
 			alert(`Failed to save theme: ${error}`);
 		} finally {
 			isSaving = false;
+		}
+	}
+
+	async function refreshThemeIfEnabled() {
+		try {
+			const settings = await invoke('get_app_settings');
+			if (settings.auto_apply_theme) {
+				await invoke('refresh_theme_adjustments');
+			}
+		} catch (err) {
+			console.error('Failed to check auto_apply_theme setting:', err);
+			// If we can't get settings, don't refresh theme to be safe
 		}
 	}
 
