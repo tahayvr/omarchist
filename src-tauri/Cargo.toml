@@ -1,5 +1,5 @@
 [package]
-name = "Omarchist"
+name = "omarchist"
 version = "0.0.1"
 description = "A GUI app for Omarchy."
 authors = ["tahayvr <taha@noiserandom.com>"]
