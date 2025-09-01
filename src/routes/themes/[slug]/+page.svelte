@@ -155,6 +155,18 @@
 	function cancelEditing() {
 		goto('/themes');
 	}
+
+	async function launchApp(appName) {
+		await invoke('execute_bash_command_async', {
+			command: `uwsm app -- ${appName}`
+		});
+	}
+
+	async function testNotification() {
+		await invoke('execute_bash_command_async', {
+			command: `notify-send "Test Notification" "This is a test notification"`
+		});
+	}
 </script>
 
 <div class="w-full px-6 py-4">
@@ -194,6 +206,12 @@
 						alacrittyData = { ...alacrittyData };
 					}}
 				/>
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-4 uppercase"
+					onclick={() => launchApp('alacritty --working-directory=$HOME')}>Launch Alacritty</Button
+				>
 			</Tabs.Content>
 			<Tabs.Content value="waybar" class="max-w-[1200px]">
 				<SchemaForm
@@ -227,6 +245,12 @@
 						btopData = { ...btopData };
 					}}
 				/>
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-4 uppercase"
+					onclick={() => launchApp('alacritty -e btop')}>Launch btop</Button
+				>
 			</Tabs.Content>
 			<Tabs.Content value="hyprland">
 				<SchemaForm
@@ -251,13 +275,19 @@
 				/>
 			</Tabs.Content>
 			<Tabs.Content value="icons">
-				<div class="space-y-6">
+				<div>
 					<IconThemeSelector
 						value={iconsData?.theme_name || 'Yaru-red'}
 						on:change={(e) => {
 							iconsData = { ...iconsData, theme_name: e.detail.value };
 						}}
 					/>
+					<Button
+						variant="outline"
+						size="sm"
+						class="mt-4 uppercase"
+						onclick={() => launchApp('nautilus --new-window')}>Launch Nautilus</Button
+					>
 				</div>
 			</Tabs.Content>
 			<Tabs.Content value="mako" class="max-w-[1200px]">
@@ -270,6 +300,12 @@
 						makoData = { ...makoData };
 					}}
 				/>
+				<Button
+					variant="outline"
+					size="sm"
+					class="mt-4 uppercase"
+					onclick={() => testNotification()}>Test Mako Notification</Button
+				>
 			</Tabs.Content>
 			<Tabs.Content value="walker" class="max-w-[1200px]">
 				<SchemaForm

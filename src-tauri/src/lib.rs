@@ -18,6 +18,8 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         commands::shell::get_omarchy_version,
         commands::shell::apply_theme,
         commands::shell::refresh_theme_adjustments,
+        commands::shell::execute_bash_command,
+        commands::shell::execute_bash_command_async,
         // Theme system commands
         services::themes::get_themes::get_themes,
         services::themes::get_sys_themes::get_sys_themes,
