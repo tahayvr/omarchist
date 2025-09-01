@@ -3,6 +3,45 @@
 use dirs;
 use std::process::{Command, Stdio};
 
+// Execute a bash command
+#[tauri::command]
+pub async fn execute_bash_command(command: String) -> Result<String, String> {
+    log::info!("Executing bash command: {}", command);
+
+    let output = Command::new("bash")
+        .arg("-c")
+        .arg(&command)
+        .output()
+        .map_err(|e| format!("Failed to execute command: {e}"))?;
+
+    if output.status.success() {
+        let stdout = String::from_utf8(output.stdout)
+            .map_err(|e| format!("Failed to parse command output: {e}"))?;
+        log::info!("Command executed successfully");
+        Ok(stdout)
+    } else {
+        let stderr = String::from_utf8(output.stderr)
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        log::error!("Command failed: {}", stderr);
+        Err(format!("Command failed: {}", stderr))
+    }
+}
+
+// Execute a bash command without waiting for output (fire and forget)
+#[tauri::command]
+pub fn execute_bash_command_async(command: String) -> Result<(), String> {
+    log::info!("Executing bash command (async): {}", command);
+
+    Command::new("bash")
+        .arg("-c")
+        .arg(&command)
+        .spawn()
+        .map_err(|e| format!("Failed to spawn command: {e}"))?;
+
+    log::info!("Command spawned successfully");
+    Ok(())
+}
+
 // Run Update script for Omarchy
 #[tauri::command]
 pub fn run_update_script(script_path: String) -> Result<(), String> {
