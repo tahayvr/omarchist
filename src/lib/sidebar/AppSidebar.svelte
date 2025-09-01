@@ -7,6 +7,7 @@
 	import { openUrl } from '@tauri-apps/plugin-opener';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
+	import InfoIcon from '@lucide/svelte/icons/info';
 
 	// Menu items.
 	const items = [
@@ -53,6 +54,16 @@
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton>
+					{#snippet child({ props })}
+						<a href="/about" {...props}>
+							<InfoIcon />
+							<span>About</span>
+						</a>
+					{/snippet}
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
