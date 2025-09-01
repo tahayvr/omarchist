@@ -11,11 +11,6 @@
 	// Menu items.
 	const items = [
 		{
-			title: 'Home',
-			url: '/',
-			icon: HouseIcon
-		},
-		{
 			title: 'Themes',
 			url: '/themes',
 			icon: ThemeIcon
