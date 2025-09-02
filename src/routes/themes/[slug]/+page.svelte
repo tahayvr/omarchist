@@ -8,6 +8,7 @@
 	import IconThemeSelector from '$lib/themeDesigner/IconThemeSelector.svelte';
 	import NeovimTextArea from '$lib/themeDesigner/NeovimTextArea.svelte';
 	import BackgroundImageSelector from '$lib/themeDesigner/BackgroundImageSelector.svelte';
+	import GeneralTab from '$lib/themeDesigner/GeneralTab.svelte';
 
 	let themeName = $state('');
 	let isEditing = $state(false);
@@ -183,6 +184,7 @@
 	<div class="w-full">
 		<Tabs.Root value="alacritty" class="w-full">
 			<Tabs.List class="h-auto flex-wrap gap-1">
+				<Tabs.Trigger value="general" class="uppercase">General</Tabs.Trigger>
 				<Tabs.Trigger value="alacritty" class="uppercase">Alacritty</Tabs.Trigger>
 				<Tabs.Trigger value="waybar" class="uppercase">Waybar</Tabs.Trigger>
 				<Tabs.Trigger value="chromium" class="uppercase">Chromium</Tabs.Trigger>
@@ -196,6 +198,9 @@
 				<Tabs.Trigger value="neovim" class="uppercase">Neovim</Tabs.Trigger>
 				<Tabs.Trigger value="backgrounds" class="uppercase">Backgrounds</Tabs.Trigger>
 			</Tabs.List>
+			<Tabs.Content value="general" class="max-w-[1200px]">
+				<GeneralTab bind:themeName />
+			</Tabs.Content>
 			<Tabs.Content value="alacritty" class="max-w-[1200px]">
 				<SchemaForm
 					schema={alacrittySchema}

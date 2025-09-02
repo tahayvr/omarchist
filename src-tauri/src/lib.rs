@@ -52,6 +52,9 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         services::themes::custom_themes::get_background_image_data,
         // Configuration commands
         commands::update_config::update_config,
+        // Light mode commands
+        services::config::light_mode::is_theme_light_mode,
+        services::config::light_mode::set_theme_light_mode,
         // Cache commands
         services::cache::cache_config::get_cache_config,
         services::cache::cache_config::update_cache_config,
