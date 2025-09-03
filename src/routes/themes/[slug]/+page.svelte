@@ -50,6 +50,18 @@
 		ref[parts[parts.length - 1]] = value;
 	}
 
+	$effect(() => {
+		function handleKeydown(e) {
+			// Support both Ctrl+S (Linux/Windows) and Cmd+S (Mac)
+			if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+				e.preventDefault();
+				saveTheme();
+			}
+		}
+		window.addEventListener('keydown', handleKeydown);
+		return () => window.removeEventListener('keydown', handleKeydown);
+	});
+
 	// Load based on route slug
 	$effect(() => {
 		const slug = $page?.params?.slug;
