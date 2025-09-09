@@ -224,8 +224,6 @@ command -v omarchy-restart-swayosd >/dev/null 2>&1 && omarchy-restart-swayosd ||
 command -v makoctl >/dev/null 2>&1 && makoctl reload || true
 command -v hyprctl >/dev/null 2>&1 && hyprctl reload || true
 
-# Set new background
-omarchy-theme-bg-next
 "#;
 
     let status = Command::new("bash")
