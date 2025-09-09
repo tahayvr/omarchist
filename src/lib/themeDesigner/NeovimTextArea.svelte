@@ -32,13 +32,13 @@
 		<p><strong>Example format:</strong></p>
 		<pre class="bg-muted mt-1 rounded p-2 text-xs"><code
 				>{`return {
-  { "folke/tokyonight.nvim", lazy = false, priority = 1000 },
+  { "tahayvr/matteblack.nvim", lazy = false, priority = 1000 },
   {
-    "LazyVim/LazyVim",
-    opts = {
-      colorscheme = "tokyonight",
-    },
-  },
+		"LazyVim/LazyVim",
+		opts = {
+			colorscheme = "matteblack",
+		},
+	},
 }`}</code
 			></pre>
 	</div>
