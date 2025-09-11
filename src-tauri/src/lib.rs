@@ -62,7 +62,7 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
     ]
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
+#[cfg_attr(mobile, tauri::mobile_entry_point)] // Omarchy mobile confirmed?
 pub fn run() {
     // Apply NVIDIA compatibility fixes before startup (issue #1)
     if let Err(e) = services::nvidia_detection::setup_nvidia_compatibility() {

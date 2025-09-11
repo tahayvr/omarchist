@@ -6,14 +6,26 @@
 	import { warn } from '@tauri-apps/plugin-log';
 	import ColorPalette from './ColorPalette.svelte';
 	import { goto } from '$app/navigation';
+	import { themeApplyState } from '$lib/stores/themeApplyState';
+	import { get } from 'svelte/store';
 
 	let { dir, title, imageUrl = '', is_system, is_custom, colors = null } = $props();
 
+	const isApplying = $derived($themeApplyState === dir);
+
 	async function applyTheme(themeDir) {
+		let applying_theme = get(themeApplyState);
+		if (applying_theme != null) {
+			await warn("Skipped applying theme for lock. Already applying `", applying_theme, "`");
+			return;
+		}
+		themeApplyState.set(themeDir);
 		try {
 			await invoke('apply_theme', { dir: themeDir });
 		} catch (e) {
 			// Handle error
+		} finally {
+			themeApplyState.set(null);
 		}
 	}
 
@@ -49,9 +61,9 @@
 			</div>
 			<div class="flex flex-row gap-2">
 				{#if is_custom}
-					<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50"
-						>Custom</Badge
-					>
+					<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50">
+						Custom
+					</Badge>
 				{:else if is_system}
 					<Badge variant="secondary" class="text-muted-foreground">System</Badge>
 				{:else}
@@ -67,13 +79,19 @@
 			{/if}
 		</Card.Content>
 		<Card.Footer class="flex items-center justify-between uppercase">
-			<Button variant="ghost" size="sm" class="uppercase" onclick={() => applyTheme(dir)}>
-				Apply Theme
+			<Button
+				variant={isApplying ? "outline" : "ghost"}
+				size="sm"
+				class="uppercase"
+				onclick={() => applyTheme(dir)}
+				disabled={isApplying}
+			>
+				{isApplying ? 'Applying...' : 'Apply Theme'}
 			</Button>
 			{#if is_custom}
-				<Button variant="ghost" size="sm" class="uppercase" onclick={() => editTheme(dir)}
-					>Edit Theme</Button
-				>
+				<Button variant="ghost" size="sm" class="uppercase" onclick={() => editTheme(dir)}>
+					Edit Theme
+				</Button>
 			{/if}
 		</Card.Footer>
 	</Card.Root>
