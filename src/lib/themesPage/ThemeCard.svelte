@@ -3,6 +3,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Badge } from '$lib/components/ui/badge/index.js';
 	import { invoke } from '@tauri-apps/api/core';
+	import { warn } from '@tauri-apps/plugin-log';
 	import ColorPalette from './ColorPalette.svelte';
 	import { goto } from '$app/navigation';
 
