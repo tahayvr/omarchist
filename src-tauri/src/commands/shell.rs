@@ -20,8 +20,8 @@ pub async fn execute_bash_command(command: String) -> Result<String, String> {
         log::info!("Command executed successfully");
         Ok(stdout)
     } else {
-        let stderr = String::from_utf8(output.stderr)
-            .unwrap_or_else(|_| "Unknown error".to_string());
+        let stderr =
+            String::from_utf8(output.stderr).unwrap_or_else(|_| "Unknown error".to_string());
         log::error!("Command failed: {}", stderr);
         Err(format!("Command failed: {}", stderr))
     }

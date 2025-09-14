@@ -98,7 +98,7 @@ invisible=false
                                     "default": "#8A8A8D",
                                 },
                             }
-                        },                      
+                        },
                     }
                 }
             }

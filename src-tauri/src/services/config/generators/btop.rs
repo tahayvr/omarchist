@@ -29,7 +29,8 @@ impl ConfigGenerator for BtopGenerator {
 
         // gets nested color values from sections
         let get_color = |section: &str, field: &str, default: &str| -> String {
-            colors.get(section)
+            colors
+                .get(section)
                 .and_then(|s| s.get(field))
                 .and_then(|v| v.as_str())
                 .unwrap_or(default)

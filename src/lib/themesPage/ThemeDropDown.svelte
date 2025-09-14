@@ -3,7 +3,9 @@
 	import MoreIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { invoke } from '@tauri-apps/api/core';
-	import { refreshThemes } from '$lib/stores/themeCache.js';
+
+	import { Command } from '@tauri-apps/plugin-shell';
+	import { join, homeDir } from '@tauri-apps/api/path';
 
 	export let themeDir;
 	export let themeTitle;
@@ -23,6 +25,17 @@
 			alert('Failed to delete theme: ' + (err?.message || err));
 		}
 	}
+
+	async function handleOpenFolder() {
+		if (!themeDir) return;
+		try {
+			const home = await homeDir();
+			const themePath = await join(home, '.config', 'omarchy', 'themes', themeDir);
+			await Command.create('nautilus', [themePath]).execute();
+		} catch (err) {
+			alert('Failed to open folder: ' + (err?.message || err));
+		}
+	}
 </script>
 
 <DropdownMenu.Root>
@@ -37,7 +50,7 @@
 	<DropdownMenu.Content align="end">
 		<DropdownMenu.Group>
 			<DropdownMenu.Item onclick={handleDelete}>Delete Theme</DropdownMenu.Item>
-			<DropdownMenu.Item>Open Folder</DropdownMenu.Item>
+			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
