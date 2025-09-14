@@ -13,8 +13,18 @@
 
 	async function loadCustomThemes() {
 		try {
-			// Use optimistic loading - don't show loading immediately for cache hits
 			const themes = await themeCache.getCustomThemes(true);
+
+			function sortKey(t) {
+				return (t.title || t.dir || '').toLowerCase();
+			}
+
+			themes.sort((a, b) => {
+				const keyA = sortKey(a);
+				const keyB = sortKey(b);
+				return keyA.localeCompare(keyB);
+			});
+
 			customThemes = themes;
 			localError = null;
 		} catch (err) {
@@ -54,6 +64,7 @@
 							is_system={theme.is_system}
 							is_custom={theme.is_custom}
 							colors={theme.colors}
+							onDeleted={loadCustomThemes}
 						/>
 					{/each}
 				</div>
