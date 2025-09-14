@@ -3,23 +3,24 @@
 	import MoreIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { invoke } from '@tauri-apps/api/core';
+	import { refreshThemes } from '$lib/stores/themeCache.js';
 
 	import { Command } from '@tauri-apps/plugin-shell';
 	import { join, homeDir } from '@tauri-apps/api/path';
 
 	export let themeDir;
-	export let themeTitle;
 	export let onDeleted = null;
 
 	async function handleDelete() {
 		if (!themeDir) return;
-		const confirmed = confirm(
-			`Are you sure you want to delete the theme '${themeTitle || themeDir}'? This cannot be undone.`
-		);
-		if (!confirmed) return;
 		try {
 			await invoke('delete_custom_theme', { name: themeDir });
-			await refreshThemes();
+			if (typeof refreshThemes === 'function') {
+				await refreshThemes();
+			}
+			window.dispatchEvent(
+				new CustomEvent('themes:changed', { detail: { action: 'deleted', theme: themeDir } })
+			);
 			if (onDeleted) onDeleted();
 		} catch (err) {
 			alert('Failed to delete theme: ' + (err?.message || err));

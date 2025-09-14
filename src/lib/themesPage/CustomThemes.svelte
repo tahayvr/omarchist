@@ -2,13 +2,13 @@
 	import ThemeCard from '$lib/themesPage/ThemeCard.svelte';
 	import { themeCache } from '$lib/stores/themeCache.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	let customThemes = $state([]);
 	let localError = $state(null);
 	let hasLoaded = $state(false);
 
-	// Use the global loading state from theme cache
+	// global loading state from theme cache
 	const { loading, error } = themeCache;
 
 	async function loadCustomThemes() {
@@ -35,8 +35,17 @@
 		}
 	}
 
+	function handleThemesChanged() {
+		loadCustomThemes();
+	}
+
 	onMount(() => {
 		loadCustomThemes();
+		window.addEventListener('themes:changed', handleThemesChanged);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('themes:changed', handleThemesChanged);
 	});
 
 	// Use either global error or local error
