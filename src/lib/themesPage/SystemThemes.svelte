@@ -2,7 +2,7 @@
 	import ThemeCard from '$lib/themesPage/ThemeCard.svelte';
 	import { themeCache } from '$lib/stores/themeCache.js';
 	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 
 	let systemThemes = $state([]);
 	let localError = $state(null);
@@ -24,8 +24,18 @@
 		}
 	}
 
+	function handleThemesChanged() {
+		// Reload system themes when any theme changes (deletion, rename, etc.)
+		loadSystemThemes();
+	}
+
 	onMount(() => {
 		loadSystemThemes();
+		window.addEventListener('themes:changed', handleThemesChanged);
+	});
+
+	onDestroy(() => {
+		window.removeEventListener('themes:changed', handleThemesChanged);
 	});
 
 	const displayError = $derived(error.value || localError);
