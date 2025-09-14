@@ -5,8 +5,17 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import ColorPalette from './ColorPalette.svelte';
 	import { goto } from '$app/navigation';
+	import ThemeDropDown from './ThemeDropDown.svelte';
 
-	let { dir, title, imageUrl = '', is_system, is_custom, colors = null } = $props();
+	let {
+		dir,
+		title,
+		imageUrl = '',
+		is_system,
+		is_custom,
+		colors = null,
+		onDeleted = null
+	} = $props();
 
 	async function applyTheme(themeDir) {
 		try {
@@ -42,20 +51,26 @@
 				<div class="flex flex-col gap-2 uppercase">
 					<Card.Title>{title}</Card.Title>
 				</div>
-				<div>
-					<!-- <Button variant="link">Install</Button> -->
-				</div>
 			</div>
-			<div class="flex flex-row gap-2">
-				{#if is_custom}
-					<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50"
-						>Custom</Badge
-					>
-				{:else if is_system}
-					<Badge variant="secondary" class="text-muted-foreground">System</Badge>
-				{:else}
-					<Badge variant="primary" class="text-muted-foreground">Community</Badge>
-				{/if}
+			<div class="flex items-center gap-2">
+				<div class="flex flex-row gap-2">
+					{#if is_custom}
+						<Badge variant="primary" class="text-muted-foreground bg-muted dark:bg-muted/50"
+							>Custom</Badge
+						>
+					{:else if is_system}
+						<Badge variant="secondary" class="text-muted-foreground">System</Badge>
+					{:else}
+						<Badge variant="primary" class="text-muted-foreground">Community</Badge>
+					{/if}
+				</div>
+				<div>
+					<ThemeDropDown
+						themeDir={dir}
+						themeTitle={title}
+						onDeleted={typeof onDeleted === 'function' ? onDeleted : undefined}
+					/>
+				</div>
 			</div>
 		</Card.Header>
 		<Card.Content>
@@ -71,7 +86,7 @@
 			</Button>
 			{#if is_custom}
 				<Button variant="ghost" size="sm" class="uppercase" onclick={() => editTheme(dir)}
-					>Edit Theme</Button
+					>Edit</Button
 				>
 			{/if}
 		</Card.Footer>
