@@ -50,7 +50,10 @@
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end">
 		<DropdownMenu.Group>
-			<DropdownMenu.Item onclick={handleDelete}>Delete Theme</DropdownMenu.Item>
+			<DropdownMenu.Item
+				onclick={handleDelete}
+				class="bg-red-500/15 text-red-500 hover:text-red-500">Delete Theme</DropdownMenu.Item
+			>
 			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>

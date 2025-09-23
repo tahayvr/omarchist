@@ -47,12 +47,12 @@ impl ConfigGenerator for HyprlandGenerator {
         let gaps_in = general
             .get("gaps_in")
             .and_then(|a| a.as_u64())
-            .unwrap_or(5)
+            .unwrap_or(0)
             .to_string();
         let gaps_out = general
             .get("gaps_out")
             .and_then(|a| a.as_u64())
-            .unwrap_or(20)
+            .unwrap_or(0)
             .to_string();
 
         let decoration = hyprland.get("decoration").unwrap_or(&empty_obj);
@@ -124,7 +124,7 @@ decoration {{
                             "type": "number",
                             "title": "Gaps Out",
                             "description": "gaps between windows and monitor edges",
-                            "default": 20
+                            "default": 10
                         }
                     }
                 },

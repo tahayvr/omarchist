@@ -171,59 +171,17 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
 pub fn refresh_theme_adjustments() -> Result<(), String> {
     // Run a best-effort, silent bash script (no terminal)
     let script = r#"
-THEME_DIR="$HOME/.config/omarchy/current/theme"
+omarchy-restart-waybar
+omarchy-restart-swayosd
+hyprctl reload
+pkill -SIGUSR2 btop
+makoctl reload
 
-# Change GNOME modes
-if [[ -f "$THEME_DIR/light.mode" ]]; then
-  if command -v gsettings >/dev/null 2>&1; then
-    gsettings set org.gnome.desktop.interface color-scheme "prefer-light" || true
-    gsettings set org.gnome.desktop.interface gtk-theme "Adwaita" || true
-  fi
-else
-  if command -v gsettings >/dev/null 2>&1; then
-    gsettings set org.gnome.desktop.interface color-scheme "prefer-dark" || true
-    gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark" || true
-  fi
-fi
-
-# Change GNOME icon theme color
-if [[ -f "$THEME_DIR/icons.theme" ]]; then
-  ICON_THEME="$(<"$THEME_DIR/icons.theme")"
-  if command -v gsettings >/dev/null 2>&1; then
-    gsettings set org.gnome.desktop.interface icon-theme "$ICON_THEME" || true
-  fi
-else
-  if command -v gsettings >/dev/null 2>&1; then
-    gsettings set org.gnome.desktop.interface icon-theme "Yaru-blue" || true
-  fi
-fi
-
-# Change Chromium colors
-if command -v chromium &>/dev/null; then
-  if [[ -f ~/.config/omarchy/current/theme/light.mode ]]; then
-    chromium --no-startup-window --set-color-scheme="light"
-  else
-    chromium --no-startup-window --set-color-scheme="dark"
-  fi
-
-  if [[ -f ~/.config/omarchy/current/theme/chromium.theme ]]; then
-    chromium --no-startup-window --set-theme-color="$(<~/.config/omarchy/current/theme/chromium.theme)"
-  else
-    # Use a default, neutral grey if theme doesn't have a color
-    chromium --no-startup-window --set-theme-color="28,32,39"
-  fi
-fi
-
-# Trigger Alacritty config reload
-touch "$HOME/.config/alacritty/alacritty.toml" || true
-
-# Restart components to apply new theme (best-effort)
-pkill -SIGUSR2 btop 2>/dev/null || true
-command -v omarchy-restart-waybar >/dev/null 2>&1 && omarchy-restart-waybar || true
-command -v omarchy-restart-swayosd >/dev/null 2>&1 && omarchy-restart-swayosd || true
-command -v makoctl >/dev/null 2>&1 && makoctl reload || true
-command -v hyprctl >/dev/null 2>&1 && hyprctl reload || true
-
+omarchy-theme-set-terminal
+omarchy-theme-set-gnome
+omarchy-theme-set-eza
+omarchy-theme-set-browser
+omarchy-theme-set-vscode
 "#;
 
     let status = Command::new("bash")
