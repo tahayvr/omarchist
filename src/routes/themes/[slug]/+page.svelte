@@ -385,6 +385,7 @@
 				/>
 			</Tabs.Content>
 			<Tabs.Content value="browser" class="max-w-[1200px]">
+				<p class="mt-4 uppercase">Chromium</p>
 				<SchemaForm
 					schema={appSchemas?.chromium}
 					data={chromiumData}
@@ -490,7 +491,7 @@
 				/>
 			</Tabs.Content>
 			<Tabs.Content value="editor" class="max-w-[1200px]">
-				<Accordion.Root type="single">
+				<Accordion.Root type="single" value="item-1">
 					<Accordion.Item value="item-1">
 						<Accordion.Trigger>Neovim</Accordion.Trigger>
 						<Accordion.Content

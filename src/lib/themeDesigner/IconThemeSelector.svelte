@@ -25,7 +25,7 @@
 	}
 </script>
 
-<div class="mt-4 flex flex-col gap-4 xl:w-1/2">
+<div class="mt-4 flex flex-col gap-4">
 	<Card.Root>
 		<CardContent>
 			<RadioGroup.Root
