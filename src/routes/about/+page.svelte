@@ -7,7 +7,7 @@
 <div class="flex h-full w-full flex-col items-center justify-center gap-8 px-6 py-12">
 	<div class="flex flex-col items-center">
 		<h2 class="text-4xl font-bold uppercase">Omarchist</h2>
-		<span>v0.4.0</span>
+		<span>v0.5.0</span>
 	</div>
 	<div>
 		<Button
