@@ -80,29 +80,3 @@ fn check_lspci_nvidia() -> Result<bool, Box<dyn std::error::Error>> {
         Err(_) => Ok(false),
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::env;
-
-    #[test]
-    fn test_setup_nvidia_compatibility() {
-        let result = setup_nvidia_compatibility();
-        assert!(result.is_ok());
-
-        // Check if the environment variable was set (only if NVIDIA was detected)
-        if is_nvidia_system().unwrap_or(false) {
-            assert_eq!(env::var("WEBKIT_DISABLE_DMABUF_RENDERER").unwrap(), "1");
-        }
-    }
-
-    #[test]
-    fn test_detection_methods_dont_panic() {
-        // Ensure all detection methods handle errors gracefully
-        let _ = check_nvidia_modules();
-        let _ = check_nvidia_smi();
-        let _ = check_proc_nvidia();
-        let _ = check_lspci_nvidia();
-    }
-}

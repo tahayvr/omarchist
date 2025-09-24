@@ -47,12 +47,12 @@ impl ConfigGenerator for HyprlandGenerator {
         let gaps_in = general
             .get("gaps_in")
             .and_then(|a| a.as_u64())
-            .unwrap_or(0)
+            .unwrap_or(5)
             .to_string();
         let gaps_out = general
             .get("gaps_out")
             .and_then(|a| a.as_u64())
-            .unwrap_or(0)
+            .unwrap_or(10)
             .to_string();
 
         let decoration = hyprland.get("decoration").unwrap_or(&empty_obj);
