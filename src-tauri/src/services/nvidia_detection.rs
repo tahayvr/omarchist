@@ -6,7 +6,7 @@ use std::process::Command;
 /// Detect NVIDIA graphics and apply envs
 pub fn setup_nvidia_compatibility() -> Result<(), Box<dyn std::error::Error>> {
     if is_nvidia_system()? {
-        env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+        env::set_var("__NV_DISABLE_EXPLICIT_SYNC", "1");
         info!("NVIDIA graphics detected - applied WebKit compatibility fix");
     }
     Ok(())
