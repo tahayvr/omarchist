@@ -244,9 +244,9 @@ white = "{bright_white}"
                             "type": "object",
                             "x-order": ["background", "foreground", "dim_foreground"],
                             "properties": {
-                                "background": {"type": "string", "format": "color", "title": "Background Color"},
-                                "foreground": {"type": "string", "format": "color", "title": "Foreground Color"},
-                                "dim_foreground": {"type": "string", "format": "color", "title": "Dim Foreground Color"}
+                                "background": {"type": "string", "format": "color", "title": "Background", "description": "Background color"},
+                                "foreground": {"type": "string", "format": "color", "title": "Foreground", "description": "Foreground color"},
+                                "dim_foreground": {"type": "string", "format": "color", "title": "Dim Foreground", "description": "Dim foreground color"}
                             }
                         },
                         "cursor": {
@@ -259,7 +259,7 @@ white = "{bright_white}"
                         "selection": {
                             "type": "object",
                             "properties": {
-                                "background": {"type": "string", "format": "color", "title": "Selection Background", "default": "#333333"}
+                                "background": {"type": "string", "format": "color", "title": "Selection Background", "default": "#333333", "description": "Background color for selected text"}
                             }
                         },
                         "normal": {

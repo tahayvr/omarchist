@@ -64,8 +64,8 @@ impl ConfigGenerator for HyprlandGenerator {
 
         Ok(format!(
             r#"# ────────────────────────────────────────────────────────────
-# Omarchy Custom Theme for Hyprland
-# Generated with Omarchist
+# Custom Theme for Hyprland
+# Made with Omarchist
 # ────────────────────────────────────────────────────────────
 
 general {{
@@ -96,7 +96,7 @@ decoration {{
                             "type": "string",
                             "title": "Active Border",
                             "format": "color",
-                            "description": "border color for the active window",
+                            "description": "Border color for the active window",
                             "output_format": "hex-no-hash",
                             "default": "8A8A8D",
                         },
@@ -104,26 +104,26 @@ decoration {{
                             "type": "string",
                             "title": "Inactive Border",
                             "format": "color",
-                            "description": "border color for inactive windows",
+                            "description": "Border color for inactive windows",
                             "output_format": "hex-no-hash",
                             "default": "5C5C5E",
                         },
                         "border_size": {
                             "type": "number",
                             "title": "Border Size",
-                            "description": "size of the border around windows",
+                            "description": "Size of the border around windows",
                             "default": 1
                         },
                         "gaps_in": {
                             "type": "number",
                             "title": "Gaps In",
-                            "description": "gaps between windows",
+                            "description": "Gaps between windows",
                             "default": 5
                         },
                         "gaps_out": {
                             "type": "number",
                             "title": "Gaps Out",
-                            "description": "gaps between windows and monitor edges",
+                            "description": "Gaps between windows and monitor edges",
                             "default": 10
                         }
                     }
@@ -134,7 +134,7 @@ decoration {{
                         "rounding": {
                             "type": "number",
                             "title": "Rounding",
-                            "description": "rounded corners' radius",
+                            "description": "Rounded corners' radius",
                             "default": 0
                         }
                     }

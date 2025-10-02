@@ -44,8 +44,8 @@ impl ConfigGenerator for SwayosdGenerator {
 
         Ok(format!(
             r#"/* ────────────────────────────────────────────────────────────
- * Omarchy Custom Theme for SwayOSD
- * Generated with Omarchist
+ * Custom Theme for SwayOSD
+ * Made with Omarchist
  * ────────────────────────────────────────────────────────────
  */
 
@@ -69,35 +69,35 @@ impl ConfigGenerator for SwayosdGenerator {
                                 "type": "string",
                                 "format": "color",
                                 "default": "#121212",
-                                "title": "Background Color",
+                                "title": "Background",
                                 "description": "Background color of OSD"
                             },
                             "border_color": {
                                 "type": "string",
                                 "format": "color",
                                 "default": "#8A8A8D",
-                                "title": "Border Color",
+                                "title": "Border",
                                 "description": "Border color of OSD"
                             },
                             "label": {
                                 "type": "string",
                                 "format": "color",
                                 "default": "#8A8A8D",
-                                "title": "Label Color",
+                                "title": "Label",
                                 "description": "Color of text labels"
                             },
                             "image": {
                                 "type": "string",
                                 "format": "color",
                                 "default": "#8A8A8D",
-                                "title": "Image Color",
+                                "title": "Image",
                                 "description": "Color of icons/images"
                             },
                             "progress": {
                                 "type": "string",
                                 "format": "color",
                                 "default": "#8A8A8D",
-                                "title": "Progress Color",
+                                "title": "Progress",
                                 "description": "Color of progress bars"
                             }
                      }
