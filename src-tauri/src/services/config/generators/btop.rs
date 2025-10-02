@@ -78,8 +78,8 @@ impl ConfigGenerator for BtopGenerator {
 
         Ok(format!(
             r#"# ────────────────────────────────────────────────────────────
-# Omarchy Custom Theme for btop
-# Generated with Omarchist
+# Custom Theme for btop
+# Made with Omarchist
 # ────────────────────────────────────────────────────────────
 
 # Main background, empty for terminal default, need to be empty if you want transparent background

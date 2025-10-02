@@ -1,10 +1,11 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import ColorPicker from 'svelte-awesome-color-picker';
 
 	// Props
-	let { label = 'Color', color = '#000000', format = 'hex' } = $props();
+	let { label = 'Color', color = '#000000', format = 'hex', description = null } = $props();
 
 	const dispatch = createEventDispatcher();
 
@@ -68,7 +69,20 @@
 </script>
 
 <div class="flex items-center space-x-2">
-	<Label>{label}:</Label>
+	<Label>
+		{#if description}
+			<HoverCard.Root>
+				<HoverCard.Trigger>
+					{label}:
+				</HoverCard.Trigger>
+				<HoverCard.Content>
+					{description}
+				</HoverCard.Content>
+			</HoverCard.Root>
+		{:else}
+			{label}:
+		{/if}
+	</Label>
 	<div class="dark">
 		<ColorPicker
 			bind:hex={internalHex}

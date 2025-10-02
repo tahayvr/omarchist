@@ -49,8 +49,8 @@ impl ConfigGenerator for WalkerGenerator {
 
         Ok(format!(
             r#"/* ────────────────────────────────────────────────────────────
- * Omarchy Custom Theme for Walker
- * Generated with Omarchist
+ * Custom Theme for Walker
+ * Made with Omarchist
  * ────────────────────────────────────────────────────────────
  */
 
@@ -70,49 +70,50 @@ impl ConfigGenerator for WalkerGenerator {
                 "properties": {
                     "colors": {
                     "type": "object",
+                    "x-order": ["base", "foreground", "text", "selected_text", "border", "background"],
                     "properties": {
                     "selected_text": {
                         "type": "string",
                         "format": "color",
                         "default": "#B91C1C",
-                        "title": "Selected Text Color",
-                        "description": "Color of selected text"
+                        "title": "Selected Text",
+                        "description": "Text color of selected menu item"
                     },
                     "text": {
                         "type": "string",
                         "format": "color",
                         "default": "#EAEAEA",
-                        "title": "Text Color",
-                        "description": "Color of normal text"
+                        "title": "Text",
+                        "description": "Text color of menu items"
                     },
                     "base": {
                         "type": "string",
                         "format": "color",
                         "default": "#121212",
-                        "title": "Base Color",
-                        "description": "Base background color"
+                        "title": "Base",
+                        "description": "Primary background color"
                     },
                     "border": {
                         "type": "string",
                         "format": "color",
                         "output_format": "hex-alpha",
-                        "default": "EAEAEA88",
-                        "title": "Border Color",
-                        "description": "Border color (can include alpha)"
+                        "default": "#EAEAEA88",
+                        "title": "Border",
+                        "description": "Border color"
                     },
                     "foreground": {
                         "type": "string",
                         "format": "color",
                         "default": "#EAEAEA",
-                        "title": "Foreground Color",
+                        "title": "Foreground",
                         "description": "Primary foreground color"
                     },
                     "background": {
                         "type": "string",
                         "format": "color",
                         "default": "#121212",
-                        "title": "Background Color",
-                        "description": "Primary background color"
+                        "title": "Background",
+                        "description": "Background color"
                     }
                     }
                 }

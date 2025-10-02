@@ -1,6 +1,7 @@
 # Ignore development files
 dev-files/
 node_modules
+AGENTS.md
 
 # Output
 .output
