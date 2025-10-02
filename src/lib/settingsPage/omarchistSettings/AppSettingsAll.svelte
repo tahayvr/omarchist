@@ -73,8 +73,8 @@
 	}
 </script>
 
-<div class="flex w-full flex-col items-center justify-center">
-	<Card.Root>
+<div class="flex flex-col items-center justify-center">
+	<Card.Root class="w-full max-w-lg">
 		<Card.Header>
 			<Card.Title class="uppercase">Theme Designer</Card.Title>
 		</Card.Header>

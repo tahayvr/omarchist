@@ -1,7 +1,8 @@
 <script>
 	import AccordionTrigger from '$lib/components/ui/accordion/accordion-trigger.svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
-	import AppSettingsAll from '$lib/settingsPage/AppSettingsAll.svelte';
+	import HyprlandConfigAll from '$lib/settingsPage/hyprlandConfig/HyprlandConfigAll.svelte';
+	import AppSettingsAll from '$lib/settingsPage/omarchistSettings/AppSettingsAll.svelte';
 </script>
 
 <div class="px-6 py-12">
@@ -12,7 +13,7 @@
 		</Accordion.Item>
 		<Accordion.Item value="item-2">
 			<Accordion.Trigger>Hyprland Configuration</Accordion.Trigger>
-			<Accordion.Content>This is where Hyprland configuration settings will go.</Accordion.Content>
+			<Accordion.Content><HyprlandConfigAll /></Accordion.Content>
 		</Accordion.Item>
 		<Accordion.Item value="item-3">
 			<Accordion.Trigger>Omarchy Settings</Accordion.Trigger>
