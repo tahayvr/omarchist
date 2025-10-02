@@ -14,11 +14,9 @@ use tauri::{App, Manager};
 /// * `Result<StartupCliResult, String>` - Result indicating whether to continue startup
 ///
 /// # Examples
-/// ```
-/// // In app setup:
+/// ```text
 /// let cli_result = check_cli_args(app)?;
 /// if !cli_result.should_continue {
-///     log::info!("Exiting early: {}", cli_result.exit_reason.unwrap_or_default());
 ///     std::process::exit(cli_result.exit_code);
 /// }
 /// ```

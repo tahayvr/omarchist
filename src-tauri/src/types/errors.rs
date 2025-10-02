@@ -32,6 +32,10 @@ pub enum AppError {
     #[error("Configuration error: {0}")]
     Config(#[from] ConfigError),
 
+    /// Hyprland configuration errors
+    #[error("Hyprland error: {0}")]
+    Hyprland(#[from] HyprlandConfigError),
+
     /// Validation errors
     #[error("Validation error: {0}")]
     Validation(String),
@@ -141,6 +145,34 @@ pub enum ConfigError {
     GenerationFailed(String),
 }
 
+/// Hyprland configuration-specific error types
+#[derive(Debug, Error)]
+pub enum HyprlandConfigError {
+    /// Hyprland config value failed validation
+    #[error("Hyprland config validation failed for '{field}': {message}")]
+    Validation { field: String, message: String },
+
+    /// Hyprland config parsing failed
+    #[error("Hyprland config parse failed for '{field}': {message}")]
+    Parse { field: String, message: String },
+
+    /// Hyprland override file not found
+    #[error("Hyprland override file not found at {path}")]
+    FileNotFound { path: String },
+
+    /// Required source directive missing from primary config
+    #[error("Hyprland source directive missing in {path}")]
+    SourceDirectiveMissing { path: String },
+
+    /// Hyprland serialization error
+    #[error("Hyprland config serialization error: {0}")]
+    Serialization(String),
+
+    /// Underlying I/O error
+    #[error(transparent)]
+    Io(#[from] std::io::Error),
+}
+
 /// Result type for application operations
 pub type AppResult<T> = Result<T, AppError>;
 
@@ -155,6 +187,9 @@ pub type CacheResult<T> = Result<T, CacheError>;
 
 /// Result type for configuration operations
 pub type ConfigResult<T> = Result<T, ConfigError>;
+
+/// Result type for Hyprland configuration operations
+pub type HyprlandResult<T> = Result<T, HyprlandConfigError>;
 
 impl From<String> for AppError {
     fn from(s: String) -> Self {

@@ -4,6 +4,7 @@
 pub mod config;
 pub mod errors;
 pub mod theme;
+pub mod hyprland;
 
 #[cfg(test)]
 mod tests;
@@ -12,3 +13,4 @@ mod tests;
 pub use config::*;
 pub use errors::*;
 pub use theme::*;
+pub use hyprland::*;
