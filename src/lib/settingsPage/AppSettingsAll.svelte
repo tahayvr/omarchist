@@ -76,7 +76,7 @@
 <div class="flex w-full flex-col items-center justify-center">
 	<Card.Root>
 		<Card.Header>
-			<Card.Title class="uppercase">App Settings</Card.Title>
+			<Card.Title class="uppercase">Theme Designer</Card.Title>
 		</Card.Header>
 		<Card.Content class="space-y-4">
 			<!-- Settings controls -->
@@ -92,7 +92,7 @@
 					class={`${appSettings.isLoading ? 'opacity-50' : ''} cursor-pointer`}
 					title={getTooltipText()}
 				>
-					Apply theme automatically when entering Edit-Mode
+					Apply theme when entering Edit-Mode
 				</Label>
 			</div>
 		</Card.Content>
