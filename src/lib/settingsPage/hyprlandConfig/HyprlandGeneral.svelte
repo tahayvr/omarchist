@@ -68,7 +68,7 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
-		<div class="grid gap-4 md:grid-cols-2">
+		<div class="grid gap-x-8 gap-y-4 md:grid-cols-2">
 			<div class="flex items-center justify-between gap-4">
 				<Label for="no_border_on_floating" class="flex-1">No border on floating windows</Label>
 				<Switch
