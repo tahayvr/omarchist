@@ -44,8 +44,8 @@ impl ConfigGenerator for HyprlockGenerator {
 
         Ok(format!(
             r#"# ────────────────────────────────────────────────────────────
-# Omarchy Custom Theme for Hyprlock
-# Generated with Omarchist
+# Custom Theme for Hyprlock
+# Made with Omarchist
 # ────────────────────────────────────────────────────────────
 
 $color = rgba({color})
@@ -68,36 +68,36 @@ $check_color = rgba({check_color})
                             "type": "string",
                             "output_format": "rgba-comma",
                             "default": "12,12,12,1.0",
-                            "title": "Background Color",
-                            "description": "Main background color (RGBA format)"
+                            "title": "Background",
+                            "description": "Main background color"
                         },
                         "inner_color": {
                             "type": "string",
                             "output_format": "rgba-comma",
                             "default": "138,138,141,0.3",
                             "title": "Inner Color",
-                            "description": "Inner element color (RGBA format)"
+                            "description": "Color for inner elements"
                         },
                         "outer_color": {
                             "type": "string",
                             "output_format": "rgba-comma",
                             "default": "234,234,234,0.5",
                             "title": "Outer Color",
-                            "description": "Outer element color (RGBA format)"
+                            "description": "Outer element color"
                         },
                         "font_color": {
                             "type": "string",
                             "output_format": "rgba-comma",
                             "default": "234,234,234,1.0",
                             "title": "Font Color",
-                            "description": "Text color (RGBA format)"
+                            "description": "Text color"
                         },
                         "check_color": {
                             "type": "string",
                             "output_format": "rgba-comma",
                             "default": "245,158,11,1.0",
                             "title": "Check Color",
-                            "description": "Check/accent color (RGBA format)"
+                            "description": "Check/accent color"
                         }
                     }
                 }

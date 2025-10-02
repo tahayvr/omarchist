@@ -37,8 +37,8 @@ impl ConfigGenerator for MakoGenerator {
 
         Ok(format!(
             r#"# ────────────────────────────────────────────────────────────
-# Omarchy Custom Theme for Mako
-# Generated with Omarchist
+# Custom Theme for Mako
+# Made with Omarchist
 # ────────────────────────────────────────────────────────────
 
 text-color={text_color}
@@ -79,21 +79,21 @@ invisible=false
                                 "border_color": {
                                     "type": "string",
                                     "format": "color",
-                                    "title": "Border Color",
+                                    "title": "Border",
                                     "description": "Color of notification border",
                                     "default": "#8A8A8D",
                                 },
                                 "background_color": {
                                     "type": "string",
                                     "format": "color",
-                                    "title": "Background Color",
+                                    "title": "Background",
                                     "description": "Background color of notifications",
                                     "default": "#1E1E1E",
                                 },
                                 "text_color": {
                                     "type": "string",
                                     "format": "color",
-                                    "title": "Text Color",
+                                    "title": "Text",
                                     "description": "Color of notification text",
                                     "default": "#8A8A8D",
                                 },

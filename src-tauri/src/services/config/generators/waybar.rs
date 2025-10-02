@@ -33,8 +33,8 @@ impl ConfigGenerator for WaybarGenerator {
             .unwrap_or("#8a8a8d");
         Ok(format!(
             r#"/* ────────────────────────────────────────────────────────────
- * Omarchy Custom Theme for Waybar
- * Generated with Omarchist
+ * Custom Theme for Waybar
+ * Made with Omarchist
  * ────────────────────────────────────────────────────────────
  */
 
@@ -54,8 +54,8 @@ impl ConfigGenerator for WaybarGenerator {
                         "main": {
                             "type": "object",
                             "properties": {
-                                "background": {"type": "string", "format": "color", "title": "Background", "default": "#1e1e1e"},
-                                "foreground": {"type": "string", "format": "color", "title": "Foreground", "default": "#8a8a8d"}
+                                "background": {"type": "string", "format": "color", "title": "Background", "default": "#1e1e1e", "description": "Main background color"},
+                                "foreground": {"type": "string", "format": "color", "title": "Foreground", "default": "#8a8a8d", "description": "Main foreground color"}
                             }
                         },
                     }

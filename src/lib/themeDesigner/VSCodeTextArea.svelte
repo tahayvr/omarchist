@@ -29,7 +29,7 @@
 	/>
 
 	<div class="text-muted-foreground text-xs">
-		<p><strong>Example format:</strong></p>
+		<p><strong>Example:</strong></p>
 		<pre class="bg-muted mt-1 rounded p-2 text-xs"><code
 				>{`{
   "name": "Matte Black",
