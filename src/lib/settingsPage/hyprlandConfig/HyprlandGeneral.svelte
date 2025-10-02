@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { toast } from 'svelte-sonner';
 	import {
 		initializeHyprlandGeneralState,
 		loadHyprlandGeneral,
@@ -35,6 +36,20 @@
 		hyprlandGeneral.validation = validateHyprlandGeneralForm(hyprlandGeneral.form);
 	});
 
+	$effect(() => {
+		if (hyprlandGeneral.error) {
+			toast(hyprlandGeneral.error);
+			hyprlandGeneral.error = null;
+		}
+	});
+
+	$effect(() => {
+		if (hyprlandGeneral.success) {
+			toast(hyprlandGeneral.success);
+			hyprlandGeneral.success = null;
+		}
+	});
+
 	async function handleSave() {
 		await saveHyprlandGeneral(hyprlandGeneral);
 	}
@@ -52,20 +67,6 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
-		{#if hyprlandGeneral.error}
-			<div
-				class="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-3 text-xs font-semibold"
-			>
-				{hyprlandGeneral.error}
-			</div>
-		{/if}
-		{#if hyprlandGeneral.success}
-			<div
-				class="border-primary/30 bg-primary/10 text-primary rounded-md border p-3 text-xs font-semibold"
-			>
-				{hyprlandGeneral.success}
-			</div>
-		{/if}
 		<div class="grid gap-4 md:grid-cols-2">
 			<div class="flex items-center justify-between gap-4">
 				<Label for="no_border_on_floating" class="flex-1">No border on floating windows</Label>

@@ -5,6 +5,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { startThemePreloading } from '../lib/services/themePreloader.js';
 	import { loadSettings } from '../lib/utils/settingsUtils.js';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 
 	let { children } = $props();
 	let themeRefreshUnlisten = null;
@@ -65,6 +66,8 @@
 		}
 	});
 </script>
+
+<Toaster position="top-right" />
 
 <ModeWatcher />
 

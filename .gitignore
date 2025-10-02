@@ -2,6 +2,8 @@
 dev-files/
 node_modules
 AGENTS.md
+implementation_plan.md
+hyprland-docs/
 
 # Output
 .output

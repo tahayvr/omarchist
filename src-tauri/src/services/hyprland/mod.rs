@@ -146,6 +146,7 @@ impl HyprlandConfigService {
 
         let mut overrides = BTreeMap::new();
         let mut preserved_lines = Vec::new();
+        let mut in_general_section = false;
 
         for line in reader.lines() {
             let line = line?;
@@ -156,16 +157,40 @@ impl HyprlandConfigService {
             }
 
             if trimmed.starts_with('#') {
+                if in_general_section {
+                    continue;
+                }
                 if !is_generated_header(trimmed) {
                     preserved_lines.push(line);
                 }
                 continue;
             }
 
-            let (key, value) = if let Some(parts) = split_kv(&line) {
+            if is_section_start(trimmed, "general") {
+                in_general_section = true;
+                continue;
+            }
+
+            if trimmed == "}" {
+                if in_general_section {
+                    in_general_section = false;
+                    continue;
+                }
+
+                preserved_lines.push(line);
+                continue;
+            }
+
+            if !in_general_section {
+                preserved_lines.push(line);
+                continue;
+            }
+
+            let (key, value) = if let Some(parts) = split_kv(trimmed) {
                 parts
             } else {
-                preserved_lines.push(line);
+                // Skip lines we cannot parse inside the general section so the formatter
+                // can regenerate them.
                 continue;
             };
 
@@ -196,14 +221,25 @@ impl HyprlandConfigService {
         buffer.push('\n');
         buffer.push('\n');
 
+        buffer.push_str("general {\n");
+
+        let mut wrote_entry = false;
         for field in general_field_registry() {
             if let Some(value) = overrides.get(field.key()) {
+                wrote_entry = true;
+                buffer.push_str("    ");
                 buffer.push_str(field.key());
                 buffer.push_str(" = ");
                 buffer.push_str(&value.to_string());
                 buffer.push('\n');
             }
         }
+
+        if !wrote_entry {
+            buffer.push_str("    # No overrides currently managed by Omarchist\n");
+        }
+
+        buffer.push_str("}\n");
 
         if !preserved_lines.is_empty() {
             buffer.push('\n');
@@ -251,6 +287,15 @@ fn split_kv(line: &str) -> Option<(String, String)> {
     } else {
         Some((key.trim().to_string(), value.trim().to_string()))
     }
+}
+
+fn is_section_start(line: &str, section: &str) -> bool {
+    if !line.ends_with('{') {
+        return false;
+    }
+
+    let without_brace = line[..line.len() - 1].trim_end();
+    without_brace.eq_ignore_ascii_case(section)
 }
 
 fn is_generated_header(line: &str) -> bool {
@@ -306,9 +351,11 @@ mod tests {
         // Verify override file contents
         let override_contents =
             fs::read_to_string(service.override_path()).expect("read override file");
+        assert!(override_contents.contains("\ngeneral {\n"));
         assert!(override_contents.contains("layout = master"));
         assert!(override_contents.contains("hover_icon_on_border = false"));
         assert!(override_contents.contains("extend_border_grab_area = 25"));
+        assert!(override_contents.contains("\n}\n"));
 
         // Verify source directive appended only once
         let primary_contents =
@@ -348,6 +395,7 @@ mod tests {
 
         let override_contents =
             fs::read_to_string(service.override_path()).expect("read override");
+        assert!(override_contents.contains("\ngeneral {\n"));
         assert!(override_contents.contains("allow_tearing = true"));
         assert!(override_contents.contains("custom_setting = value"));
         assert!(override_contents.contains("# user comment"));
