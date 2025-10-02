@@ -6,8 +6,9 @@
 
 <div class="flex h-full w-full flex-col items-center justify-center gap-8 px-6 py-12">
 	<div class="flex flex-col items-center">
+		<img src="/icon.png" alt="App Icon" class="mb-4 h-24 w-24" />
 		<h2 class="text-4xl font-bold uppercase">Omarchist</h2>
-		<span>v0.6.0</span>
+		<span class="text-muted-foreground">v0.6.0</span>
 	</div>
 	<div>
 		<Button
