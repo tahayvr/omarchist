@@ -54,8 +54,9 @@
 		await saveHyprlandGeneral(hyprlandGeneral);
 	}
 
-	function handleReset() {
+	async function handleReset() {
 		resetHyprlandGeneralToDefaults(hyprlandGeneral);
+		await saveHyprlandGeneral(hyprlandGeneral);
 	}
 </script>
 
@@ -187,7 +188,7 @@
 			<Button
 				variant="outline"
 				onclick={handleReset}
-				disabled={hyprlandGeneral.isLoading}
+				disabled={hyprlandGeneral.isLoading || hyprlandGeneral.isSaving}
 				class="uppercase"
 			>
 				Reset to defaults
