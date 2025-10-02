@@ -3,6 +3,7 @@
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import HyprlandConfigAll from '$lib/settingsPage/hyprlandConfig/HyprlandConfigAll.svelte';
 	import AppSettingsAll from '$lib/settingsPage/omarchistSettings/AppSettingsAll.svelte';
+	import OmarchySettingsAll from '$lib/settingsPage/omarchySettings/OmarchySettingsAll.svelte';
 </script>
 
 <div class="px-6 py-12">
@@ -17,7 +18,7 @@
 		</Accordion.Item>
 		<Accordion.Item value="item-3">
 			<Accordion.Trigger>Omarchy Settings</Accordion.Trigger>
-			<Accordion.Content>This is where Omarchy settings will go.</Accordion.Content>
+			<Accordion.Content><OmarchySettingsAll /></Accordion.Content>
 		</Accordion.Item>
 	</Accordion.Root>
 </div>
