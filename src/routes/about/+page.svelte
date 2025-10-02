@@ -35,7 +35,7 @@
 	<div class="mt-12 max-w-md space-y-2 text-center">
 		<h3 class="text-muted-foreground font-semibold uppercase">hotkeys</h3>
 		<ul class="text-sm">
-			<li><kbd>CTRL</kbd> + <kbd>S</kbd>: Update Theme</li>
+			<li><kbd>CTRL</kbd> + <kbd>S</kbd>: Save Theme/Settings</li>
 		</ul>
 	</div>
 </div>
