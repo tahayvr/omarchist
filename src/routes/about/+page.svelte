@@ -34,8 +34,9 @@
 	</div>
 	<div class="mt-12 max-w-md space-y-2 text-center">
 		<h3 class="text-muted-foreground font-semibold uppercase">hotkeys</h3>
-		<ul class="text-sm">
+		<ul class="list-inside list-disc space-y-1 text-start text-sm leading-6">
 			<li><kbd>CTRL</kbd> + <kbd>S</kbd>: Save Theme/Settings</li>
+			<li><kbd>CTRL</kbd> + <kbd>B</kbd>: Toggle Sidebar</li>
 		</ul>
 	</div>
 </div>
