@@ -237,14 +237,14 @@
 			</div>
 		</div>
 	</Card.Content>
-	<Card.Footer class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+	<Card.Footer class="flex justify-end">
 		<Button
 			variant="outline"
 			onclick={handleReset}
 			disabled={hyprlandGeneral.isLoading || hyprlandGeneral.isSaving}
 			class="uppercase"
 		>
-			Reset to defaults
+			Reset
 		</Button>
 	</Card.Footer>
 </Card.Root>
