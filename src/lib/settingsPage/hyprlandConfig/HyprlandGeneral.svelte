@@ -1,5 +1,5 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
@@ -23,6 +23,9 @@
 		{ label: 'DWINDLE', value: 'dwindle' }
 	];
 
+	let lastValidationToastSignature = null;
+	let lastAutoSaveSuccessToastAt = 0;
+
 	onMount(async () => {
 		await loadHyprlandGeneral(hyprlandGeneral);
 	});
@@ -32,8 +35,43 @@
 		recomputeDirty(hyprlandGeneral);
 	});
 
+	const AUTO_SAVE_DELAY = 600;
+	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
+
+	function clearAutoSaveTimer() {
+		if (hyprlandGeneral.autoSaveHandle) {
+			clearTimeout(hyprlandGeneral.autoSaveHandle);
+			hyprlandGeneral.autoSaveHandle = null;
+		}
+	}
+
 	$effect(() => {
 		hyprlandGeneral.validation = validateHyprlandGeneralForm(hyprlandGeneral.form);
+	});
+
+	$effect(() => {
+		const { validation, dirty, hasHydrated, isLoading } = hyprlandGeneral;
+		if (!hasHydrated || isLoading) {
+			lastValidationToastSignature = null;
+			return;
+		}
+
+		if (!validation?.isValid && dirty) {
+			const signature = JSON.stringify(validation.fieldErrors ?? {});
+			if (signature && signature !== lastValidationToastSignature) {
+				lastValidationToastSignature = signature;
+				const messages = Object.values(validation.fieldErrors ?? {});
+				const description = messages.length
+					? messages.join(' ')
+					: 'Please resolve the highlighted fields.';
+				toast.error('Hyprland general settings need attention.', {
+					description
+				});
+			}
+			return;
+		}
+
+		lastValidationToastSignature = null;
 	});
 
 	$effect(() => {
@@ -50,14 +88,55 @@
 		}
 	});
 
-	async function handleSave() {
-		await saveHyprlandGeneral(hyprlandGeneral);
-	}
+	$effect(() => {
+		const { autoSaveHandle, dirty, hasHydrated, isLoading, isSaving, validation } = hyprlandGeneral;
+		void autoSaveHandle;
+
+		if (!hasHydrated) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (isLoading || isSaving) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (!dirty) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (!validation?.isValid) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		clearAutoSaveTimer();
+		hyprlandGeneral.autoSaveHandle = setTimeout(async () => {
+			hyprlandGeneral.autoSaveHandle = null;
+			const saved = await saveHyprlandGeneral(hyprlandGeneral, { silent: true });
+			if (saved) {
+				const now = Date.now();
+				if (now - lastAutoSaveSuccessToastAt >= AUTO_SAVE_SUCCESS_TOAST_COOLDOWN) {
+					lastAutoSaveSuccessToastAt = now;
+					toast.success('Hyprland general settings saved.');
+				}
+			}
+		}, AUTO_SAVE_DELAY);
+	});
 
 	async function handleReset() {
+		clearAutoSaveTimer();
 		resetHyprlandGeneralToDefaults(hyprlandGeneral);
-		await saveHyprlandGeneral(hyprlandGeneral);
+		await saveHyprlandGeneral(hyprlandGeneral, {
+			message: 'Hyprland general settings reset to defaults.'
+		});
 	}
+
+	onDestroy(() => {
+		clearAutoSaveTimer();
+	});
 </script>
 
 <Card.Root class="space-y-4">
@@ -90,17 +169,12 @@
 							{hyprlandGeneral.form.layout?.toUpperCase() ?? 'SELECT'}
 						</Select.Trigger>
 						<Select.Content>
-							{#each layoutOptions as option}
+							{#each layoutOptions as option (option.value)}
 								<Select.Item value={option.value}>{option.label}</Select.Item>
 							{/each}
 						</Select.Content>
 					</Select.Root>
 				</div>
-				{#if hyprlandGeneral.validation.fieldErrors.layout}
-					<p class="text-destructive text-[10px] font-semibold tracking-wide uppercase">
-						{hyprlandGeneral.validation.fieldErrors.layout}
-					</p>
-				{/if}
 			</div>
 			<div class="flex items-center justify-between gap-4">
 				<Label for="no_focus_fallback" class="flex-1">No focus fallback</Label>
@@ -130,11 +204,6 @@
 						min="0"
 					></Input>
 				</div>
-				{#if hyprlandGeneral.validation.fieldErrors.extend_border_grab_area}
-					<p class="text-destructive text-[10px] font-semibold tracking-wide uppercase">
-						{hyprlandGeneral.validation.fieldErrors.extend_border_grab_area}
-					</p>
-				{/if}
 			</div>
 			<div class="flex items-center justify-between gap-4">
 				<Label for="hover_icon_on_border" class="flex-1">Hover icon on border</Label>
@@ -165,37 +234,17 @@
 						max="4"
 					></Input>
 				</div>
-				{#if hyprlandGeneral.validation.fieldErrors.resize_corner}
-					<p class="text-destructive text-[10px] font-semibold tracking-wide uppercase">
-						{hyprlandGeneral.validation.fieldErrors.resize_corner}
-					</p>
-				{/if}
 			</div>
 		</div>
 	</Card.Content>
 	<Card.Footer class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-		<div class="flex gap-2">
-			<Button
-				onclick={handleSave}
-				disabled={!hyprlandGeneral.dirty ||
-					hyprlandGeneral.isSaving ||
-					hyprlandGeneral.isLoading ||
-					!hyprlandGeneral.validation.isValid}
-				class="uppercase"
-			>
-				{hyprlandGeneral.isSaving ? 'Saving…' : 'Save changes'}
-			</Button>
-			<Button
-				variant="outline"
-				onclick={handleReset}
-				disabled={hyprlandGeneral.isLoading || hyprlandGeneral.isSaving}
-				class="uppercase"
-			>
-				Reset to defaults
-			</Button>
-		</div>
-		{#if hyprlandGeneral.isLoading}
-			<span class="text-muted-foreground text-xs tracking-wide uppercase">Loading settings…</span>
-		{/if}
+		<Button
+			variant="outline"
+			onclick={handleReset}
+			disabled={hyprlandGeneral.isLoading || hyprlandGeneral.isSaving}
+			class="uppercase"
+		>
+			Reset to defaults
+		</Button>
 	</Card.Footer>
 </Card.Root>

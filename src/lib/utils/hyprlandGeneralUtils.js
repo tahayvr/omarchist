@@ -48,6 +48,7 @@ function applySnapshotToState(state, snapshot) {
 	state.snapshot = snapshot ?? null;
 	state.effective = effective;
 	state.overrides = overrides;
+	state.hasHydrated = true;
 
 	state.form = {
 		no_border_on_floating: normalizeBoolean(
@@ -89,7 +90,9 @@ export function initializeHyprlandGeneralState() {
 		error: null,
 		success: null,
 		dirty: false,
-		validation: validateHyprlandGeneralForm(DEFAULT_FORM)
+		validation: validateHyprlandGeneralForm(DEFAULT_FORM),
+		autoSaveHandle: null,
+		hasHydrated: false
 	};
 }
 
@@ -178,10 +181,12 @@ function buildPayloadFromState(state) {
 	};
 }
 
-export async function saveHyprlandGeneral(state) {
+export async function saveHyprlandGeneral(state, options = {}) {
 	if (state.isSaving) {
 		return false;
 	}
+
+	const { silent = false, message } = options;
 
 	const validation = validateHyprlandGeneralForm(state.form);
 	state.validation = validation;
@@ -201,7 +206,8 @@ export async function saveHyprlandGeneral(state) {
 		});
 
 		applySnapshotToState(state, snapshot);
-		state.success = 'Hyprland general settings saved successfully.';
+		const resolvedMessage = message ?? 'Hyprland general settings saved successfully.';
+		state.success = silent ? null : resolvedMessage;
 		return true;
 	} catch (error) {
 		console.error('Failed to save Hyprland general settings:', error);
