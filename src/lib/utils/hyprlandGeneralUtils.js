@@ -1,6 +1,14 @@
 import { invoke } from '@tauri-apps/api/core';
 
-const DEFAULT_FORM = {
+const DEFAULT_SNAP = Object.freeze({
+	enabled: false,
+	window_gap: 10,
+	monitor_gap: 10,
+	border_overlap: false,
+	respect_gaps: false
+});
+
+const DEFAULT_FORM = Object.freeze({
 	no_border_on_floating: false,
 	layout: 'dwindle',
 	no_focus_fallback: false,
@@ -8,8 +16,9 @@ const DEFAULT_FORM = {
 	extend_border_grab_area: 15,
 	hover_icon_on_border: true,
 	allow_tearing: false,
-	resize_corner: 0
-};
+	resize_corner: 0,
+	snap: DEFAULT_SNAP
+});
 
 const VALID_LAYOUTS = new Set(['master', 'dwindle']);
 
@@ -41,50 +50,80 @@ function normalizeInteger(value, fallback = 0) {
 	return fallback;
 }
 
+function normalizeUnsignedInteger(value, fallback = 0) {
+	const parsed = Number(value);
+	if (Number.isFinite(parsed)) {
+		return Math.max(0, Math.trunc(parsed));
+	}
+	return fallback;
+}
+
+function cloneSnap(snapshot = DEFAULT_SNAP) {
+	return {
+		enabled: normalizeBoolean(snapshot.enabled, DEFAULT_SNAP.enabled),
+		window_gap: normalizeUnsignedInteger(snapshot.window_gap, DEFAULT_SNAP.window_gap),
+		monitor_gap: normalizeUnsignedInteger(snapshot.monitor_gap, DEFAULT_SNAP.monitor_gap),
+		border_overlap: normalizeBoolean(snapshot.border_overlap, DEFAULT_SNAP.border_overlap),
+		respect_gaps: normalizeBoolean(snapshot.respect_gaps, DEFAULT_SNAP.respect_gaps)
+	};
+}
+
+function cloneForm(source = DEFAULT_FORM) {
+	return {
+		no_border_on_floating: normalizeBoolean(
+			source.no_border_on_floating,
+			DEFAULT_FORM.no_border_on_floating
+		),
+		layout: normalizeLayout(source.layout ?? DEFAULT_FORM.layout),
+		no_focus_fallback: normalizeBoolean(source.no_focus_fallback, DEFAULT_FORM.no_focus_fallback),
+		resize_on_border: normalizeBoolean(source.resize_on_border, DEFAULT_FORM.resize_on_border),
+		extend_border_grab_area: normalizeInteger(
+			source.extend_border_grab_area,
+			DEFAULT_FORM.extend_border_grab_area
+		),
+		hover_icon_on_border: normalizeBoolean(
+			source.hover_icon_on_border,
+			DEFAULT_FORM.hover_icon_on_border
+		),
+		allow_tearing: normalizeBoolean(source.allow_tearing, DEFAULT_FORM.allow_tearing),
+		resize_corner: normalizeInteger(source.resize_corner, DEFAULT_FORM.resize_corner),
+		snap: cloneSnap(source.snap ?? DEFAULT_SNAP)
+	};
+}
+
 function applySnapshotToState(state, snapshot) {
 	const effective = snapshot?.effective ?? {};
 	const overrides = snapshot?.overrides ?? {};
 
 	state.snapshot = snapshot ?? null;
-	state.effective = effective;
-	state.overrides = overrides;
+	state.effective = {
+		...effective,
+		snap: {
+			...(effective.snap ?? {})
+		}
+	};
+	state.overrides = {
+		...overrides,
+		snap: {
+			...(overrides.snap ?? {})
+		}
+	};
 	state.hasHydrated = true;
 
-	state.form = {
-		no_border_on_floating: normalizeBoolean(
-			effective.no_border_on_floating,
-			DEFAULT_FORM.no_border_on_floating
-		),
-		layout: normalizeLayout(effective.layout ?? DEFAULT_FORM.layout),
-		no_focus_fallback: normalizeBoolean(
-			effective.no_focus_fallback,
-			DEFAULT_FORM.no_focus_fallback
-		),
-		resize_on_border: normalizeBoolean(effective.resize_on_border, DEFAULT_FORM.resize_on_border),
-		extend_border_grab_area: normalizeInteger(
-			effective.extend_border_grab_area,
-			DEFAULT_FORM.extend_border_grab_area
-		),
-		hover_icon_on_border: normalizeBoolean(
-			effective.hover_icon_on_border,
-			DEFAULT_FORM.hover_icon_on_border
-		),
-		allow_tearing: normalizeBoolean(effective.allow_tearing, DEFAULT_FORM.allow_tearing),
-		resize_corner: normalizeInteger(effective.resize_corner, DEFAULT_FORM.resize_corner)
-	};
+	state.form = cloneForm(state.effective);
 
-	state.lastSavedForm = { ...state.form };
+	state.lastSavedForm = cloneForm(state.form);
 	state.dirty = false;
 	state.validation = validateHyprlandGeneralForm(state.form);
 }
 
 export function initializeHyprlandGeneralState() {
 	return {
-		form: { ...DEFAULT_FORM },
-		effective: { ...DEFAULT_FORM },
-		overrides: {},
+		form: cloneForm(),
+		effective: cloneForm(),
+		overrides: cloneForm(),
 		snapshot: null,
-		lastSavedForm: { ...DEFAULT_FORM },
+		lastSavedForm: cloneForm(),
 		isLoading: false,
 		isSaving: false,
 		error: null,
@@ -101,13 +140,17 @@ export function markDirty(state) {
 	state.success = null;
 }
 
-export function recomputeDirty(state) {
-	const current = JSON.stringify(state.form ?? {});
-	const lastSaved = JSON.stringify(state.lastSavedForm ?? {});
+export function recomputeDirty(state, options = {}) {
+	const current = options.currentSignature ?? JSON.stringify(state.form ?? {});
+	const lastSaved = options.lastSavedSignature ?? JSON.stringify(state.lastSavedForm ?? {});
 	state.dirty = current !== lastSaved;
 	if (state.dirty) {
 		state.success = null;
 	}
+	return {
+		currentSignature: current,
+		lastSavedSignature: lastSaved
+	};
 }
 
 export function validateHyprlandGeneralForm(form) {
@@ -137,6 +180,42 @@ export function validateHyprlandGeneralForm(form) {
 	const cornerValue = Number(form.resize_corner);
 	if (!Number.isInteger(cornerValue) || cornerValue < 0 || cornerValue > 4) {
 		fieldErrors.resize_corner = 'Value must be between 0 and 4.';
+	}
+
+	const snap = form.snap ?? {};
+
+	const requireSnapBoolean = (field) => {
+		if (typeof snap[field] !== 'boolean') {
+			fieldErrors[`snap.${field}`] = 'Must be true or false.';
+		}
+	};
+
+	requireSnapBoolean('enabled');
+	requireSnapBoolean('border_overlap');
+	requireSnapBoolean('respect_gaps');
+
+	const windowGapRaw = snap.window_gap;
+	const windowGap = Number(windowGapRaw);
+	if (
+		windowGapRaw === '' ||
+		windowGapRaw === null ||
+		windowGapRaw === undefined ||
+		!Number.isInteger(windowGap) ||
+		windowGap < 0
+	) {
+		fieldErrors['snap.window_gap'] = 'Value must be a non-negative integer.';
+	}
+
+	const monitorGapRaw = snap.monitor_gap;
+	const monitorGap = Number(monitorGapRaw);
+	if (
+		monitorGapRaw === '' ||
+		monitorGapRaw === null ||
+		monitorGapRaw === undefined ||
+		!Number.isInteger(monitorGap) ||
+		monitorGap < 0
+	) {
+		fieldErrors['snap.monitor_gap'] = 'Value must be a non-negative integer.';
 	}
 
 	return {
@@ -173,10 +252,17 @@ function buildPayloadFromState(state) {
 			layout: state.form.layout,
 			no_focus_fallback: state.form.no_focus_fallback,
 			resize_on_border: state.form.resize_on_border,
-			extend_border_grab_area: state.form.extend_border_grab_area,
+			extend_border_grab_area: Number(state.form.extend_border_grab_area),
 			hover_icon_on_border: state.form.hover_icon_on_border,
 			allow_tearing: state.form.allow_tearing,
-			resize_corner: state.form.resize_corner
+			resize_corner: Number(state.form.resize_corner),
+			snap: {
+				enabled: state.form.snap.enabled,
+				window_gap: Number(state.form.snap.window_gap),
+				monitor_gap: Number(state.form.snap.monitor_gap),
+				border_overlap: state.form.snap.border_overlap,
+				respect_gaps: state.form.snap.respect_gaps
+			}
 		}
 	};
 }
@@ -222,11 +308,15 @@ export async function saveHyprlandGeneral(state, options = {}) {
 }
 
 export function resetHyprlandGeneralToDefaults(state) {
-	state.form = { ...DEFAULT_FORM };
+	state.form = cloneForm();
 	state.validation = validateHyprlandGeneralForm(state.form);
 	markDirty(state);
 }
 
 export function getDefaultFormValues() {
-	return { ...DEFAULT_FORM };
+	return cloneForm();
+}
+
+export function getDefaultSnapValues() {
+	return cloneSnap();
 }

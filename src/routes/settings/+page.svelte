@@ -1,5 +1,4 @@
 <script>
-	import AccordionTrigger from '$lib/components/ui/accordion/accordion-trigger.svelte';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import HyprlandConfigAll from '$lib/settingsPage/hyprlandConfig/HyprlandConfigAll.svelte';
 	import AppSettingsAll from '$lib/settingsPage/omarchistSettings/AppSettingsAll.svelte';

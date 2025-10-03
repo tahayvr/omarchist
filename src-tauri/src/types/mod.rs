@@ -3,8 +3,8 @@
 
 pub mod config;
 pub mod errors;
-pub mod theme;
 pub mod hyprland;
+pub mod theme;
 
 #[cfg(test)]
 mod tests;
@@ -12,5 +12,5 @@ mod tests;
 // Re-export commonly used types for easier access
 pub use config::*;
 pub use errors::*;
-pub use theme::*;
 pub use hyprland::*;
+pub use theme::*;

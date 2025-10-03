@@ -6,6 +6,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import { toast } from 'svelte-sonner';
 	import {
 		initializeHyprlandGeneralState,
@@ -16,6 +17,7 @@
 		validateHyprlandGeneralForm
 	} from '$lib/utils/hyprlandGeneralUtils.js';
 	import Explainer from '$lib/components/Explainer.svelte';
+	import HyprlandGeneralSnap from './HyprlandGeneralSnap.svelte';
 
 	const hyprlandGeneral = $state(initializeHyprlandGeneralState());
 
@@ -44,11 +46,6 @@
 		await loadHyprlandGeneral(hyprlandGeneral);
 	});
 
-	$effect(() => {
-		if (!hyprlandGeneral.snapshot) return;
-		recomputeDirty(hyprlandGeneral);
-	});
-
 	const AUTO_SAVE_DELAY = 600;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
 
@@ -61,6 +58,31 @@
 
 	$effect(() => {
 		hyprlandGeneral.validation = validateHyprlandGeneralForm(hyprlandGeneral.form);
+	});
+
+	let lastFormSignature = '';
+	let lastSavedFormSignature = '';
+
+	$effect(() => {
+		if (!hyprlandGeneral.hasHydrated) {
+			lastFormSignature = '';
+			lastSavedFormSignature = '';
+			return;
+		}
+
+		const formSignature = JSON.stringify(hyprlandGeneral.form ?? {});
+		const savedSignature = JSON.stringify(hyprlandGeneral.lastSavedForm ?? {});
+
+		if (formSignature === lastFormSignature && savedSignature === lastSavedFormSignature) {
+			return;
+		}
+
+		lastFormSignature = formSignature;
+		lastSavedFormSignature = savedSignature;
+		recomputeDirty(hyprlandGeneral, {
+			currentSignature: formSignature,
+			lastSavedSignature: savedSignature
+		});
 	});
 
 	$effect(() => {
@@ -293,6 +315,14 @@
 				</div>
 			</div>
 		</div>
+		<Accordion.Root type="single">
+			<Accordion.Item>
+				<Accordion.Trigger class="uppercase">Snap</Accordion.Trigger>
+				<Accordion.Content>
+					<HyprlandGeneralSnap {hyprlandGeneral} />
+				</Accordion.Content>
+			</Accordion.Item>
+		</Accordion.Root>
 	</Card.Content>
 	<Card.Footer class="flex justify-end">
 		<Button

@@ -1,10 +1,10 @@
 // Domain-specific service modules
 pub mod cache;
 pub mod config;
+pub mod hyprland;
 pub mod nvidia_detection;
 pub mod settings;
 pub mod themes;
-pub mod hyprland;
 
 // Utility services that don't fit into specific domains
 pub mod cli_handler;
