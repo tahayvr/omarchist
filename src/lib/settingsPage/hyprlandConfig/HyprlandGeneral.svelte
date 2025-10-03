@@ -15,6 +15,7 @@
 		recomputeDirty,
 		validateHyprlandGeneralForm
 	} from '$lib/utils/hyprlandGeneralUtils.js';
+	import Explainer from '$lib/components/Explainer.svelte';
 
 	const hyprlandGeneral = $state(initializeHyprlandGeneralState());
 
@@ -23,8 +24,21 @@
 		{ label: 'DWINDLE', value: 'dwindle' }
 	];
 
+	const resizeCornerOptions = [
+		{ label: 'Disable', value: 0 },
+		{ label: 'Top left', value: 1 },
+		{ label: 'Top right', value: 2 },
+		{ label: 'Bottom right', value: 3 },
+		{ label: 'Bottom left', value: 4 }
+	];
+
 	let lastValidationToastSignature = null;
 	let lastAutoSaveSuccessToastAt = 0;
+
+	function getResizeCornerLabel(value) {
+		const option = resizeCornerOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
 
 	onMount(async () => {
 		await loadHyprlandGeneral(hyprlandGeneral);
@@ -143,13 +157,16 @@
 	<Card.Header>
 		<Card.Title class="uppercase">General</Card.Title>
 		<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-			Manage Hyprland windowing defaults. Values are applied through Omarchist overrides.
+			Values are applied through Omarchist overrides.
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
-		<div class="grid gap-x-8 gap-y-4 md:grid-cols-2">
+		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 			<div class="flex items-center justify-between gap-4">
-				<Label for="no_border_on_floating" class="flex-1">No border on floating windows</Label>
+				<Label for="no_border_on_floating" class="flex-1">
+					No border on floating windows
+					<Explainer explainerText="disable borders for floating windows" />
+				</Label>
 				<Switch
 					id="no_border_on_floating"
 					bind:checked={hyprlandGeneral.form.no_border_on_floating}
@@ -177,7 +194,12 @@
 				</div>
 			</div>
 			<div class="flex items-center justify-between gap-4">
-				<Label for="no_focus_fallback" class="flex-1">No focus fallback</Label>
+				<Label for="no_focus_fallback" class="flex-1">
+					No focus fallback
+					<Explainer
+						explainerText="if true, will not fall back to the next available window when moving focus in a direction where no window was found"
+					/>
+				</Label>
 				<Switch
 					id="no_focus_fallback"
 					bind:checked={hyprlandGeneral.form.no_focus_fallback}
@@ -185,7 +207,12 @@
 				/>
 			</div>
 			<div class="flex items-center justify-between gap-4">
-				<Label for="resize_on_border" class="flex-1">Resize on border</Label>
+				<Label for="resize_on_border" class="flex-1">
+					Resize on border
+					<Explainer
+						explainerText="enables resizing windows by clicking and dragging on borders and gaps"
+					/>
+				</Label>
 				<Switch
 					id="resize_on_border"
 					bind:checked={hyprlandGeneral.form.resize_on_border}
@@ -194,11 +221,16 @@
 			</div>
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between gap-4">
-					<Label for="extend_border_grab_area" class="flex-1">Extend border grab area</Label>
+					<Label for="extend_border_grab_area" class="flex-1">
+						Extend border grab area
+						<Explainer
+							explainerText="extends the area around the border where you can click and drag on, only used when 'resize_on_border' is on."
+						/>
+					</Label>
 					<Input
 						id="extend_border_grab_area"
 						type="number"
-						class="w-32"
+						class="w-24"
 						bind:value={hyprlandGeneral.form.extend_border_grab_area}
 						disabled={hyprlandGeneral.isLoading}
 						min="0"
@@ -206,7 +238,12 @@
 				</div>
 			</div>
 			<div class="flex items-center justify-between gap-4">
-				<Label for="hover_icon_on_border" class="flex-1">Hover icon on border</Label>
+				<Label for="hover_icon_on_border" class="flex-1">
+					Hover icon on border
+					<Explainer
+						explainerText="show a cursor icon when hovering over borders, only used when 'resize_on_border' is on."
+					/>
+				</Label>
 				<Switch
 					id="hover_icon_on_border"
 					bind:checked={hyprlandGeneral.form.hover_icon_on_border}
@@ -214,7 +251,13 @@
 				/>
 			</div>
 			<div class="flex items-center justify-between gap-4">
-				<Label for="allow_tearing" class="flex-1">Allow tearing</Label>
+				<Label for="allow_tearing" class="flex-1">
+					Allow tearing
+					<Explainer
+						explainerText="master switch for allowing screen tearing."
+						docUrl="https://wiki.hypr.land/Configuring/Tearing/"
+					/>
+				</Label>
 				<Switch
 					id="allow_tearing"
 					bind:checked={hyprlandGeneral.form.allow_tearing}
@@ -223,16 +266,30 @@
 			</div>
 			<div class="flex flex-col gap-2">
 				<div class="flex items-center justify-between gap-4">
-					<Label for="resize_corner" class="flex-1">Resize corner</Label>
-					<Input
-						id="resize_corner"
-						type="number"
-						class="w-32"
-						bind:value={hyprlandGeneral.form.resize_corner}
+					<Label for="resize_corner" class="flex-1">
+						Resize corner
+						<Explainer
+							explainerText="forces floating windows to use a specific corner when being resized."
+						/>
+					</Label>
+					<Select.Root
+						type="single"
+						name="resize_corner"
+						value={String(hyprlandGeneral.form.resize_corner ?? 0)}
+						onValueChange={(value) => {
+							hyprlandGeneral.form.resize_corner = Number(value);
+						}}
 						disabled={hyprlandGeneral.isLoading}
-						min="0"
-						max="4"
-					></Input>
+					>
+						<Select.Trigger class="w-[180px]">
+							{getResizeCornerLabel(hyprlandGeneral.form.resize_corner)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each resizeCornerOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 				</div>
 			</div>
 		</div>
