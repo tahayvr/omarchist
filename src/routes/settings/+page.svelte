@@ -9,15 +9,15 @@
 <div class="px-6 py-12">
 	<Accordion.Root type="single" value="item-1">
 		<Accordion.Item value="item-1">
-			<Accordion.Trigger>Omarchist Settings</Accordion.Trigger>
+			<Accordion.Trigger class="uppercase">Omarchist</Accordion.Trigger>
 			<Accordion.Content><AppSettingsAll /></Accordion.Content>
 		</Accordion.Item>
 		<Accordion.Item value="item-2">
-			<Accordion.Trigger>Hyprland Configuration</Accordion.Trigger>
+			<Accordion.Trigger class="uppercase">Hyprland</Accordion.Trigger>
 			<Accordion.Content><HyprlandConfigAll /></Accordion.Content>
 		</Accordion.Item>
 		<Accordion.Item value="item-3">
-			<Accordion.Trigger>Omarchy Settings</Accordion.Trigger>
+			<Accordion.Trigger class="uppercase">Omarchy</Accordion.Trigger>
 			<Accordion.Content><OmarchySettingsAll /></Accordion.Content>
 		</Accordion.Item>
 	</Accordion.Root>
