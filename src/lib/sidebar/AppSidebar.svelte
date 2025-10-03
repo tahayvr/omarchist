@@ -8,18 +8,20 @@
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import DropIcon from '@lucide/svelte/icons/droplet';
+	import SquareIcon from '@lucide/svelte/icons/square';
 
 	// Menu items.
 	const items = [
 		{
-			title: 'Themes',
-			url: '/themes',
-			icon: ThemeIcon
+			title: 'Hyprland',
+			url: '/hyprland',
+			icon: DropIcon
 		},
 		{
-			title: 'Settings',
-			url: '/settings',
-			icon: SettingsIcon
+			title: 'Omarchy',
+			url: '/omarchy',
+			icon: SquareIcon
 		}
 	];
 
@@ -34,6 +36,23 @@
 	</Sidebar.Header>
 	<Sidebar.Content>
 		<Sidebar.Group>
+			<Sidebar.GroupContent>
+				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton>
+							{#snippet child({ props })}
+								<a href="/themes" {...props}>
+									<ThemeIcon />
+									<span class="uppercase">Themes</span>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+		<Sidebar.Group>
+			<Sidebar.GroupLabel>Configs</Sidebar.GroupLabel>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
 					{#each items as item (item.title)}
@@ -54,6 +73,16 @@
 	</Sidebar.Content>
 	<Sidebar.Footer>
 		<Sidebar.Menu>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton>
+					{#snippet child({ props })}
+						<a href="/settings" {...props}>
+							<SettingsIcon />
+							<span>Settings</span>
+						</a>
+					{/snippet}
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}

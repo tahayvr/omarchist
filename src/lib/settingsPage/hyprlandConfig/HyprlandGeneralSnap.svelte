@@ -15,7 +15,7 @@
 	<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 		<div class="flex items-center justify-between gap-4">
 			<Label for="enabled" class="flex-1">
-				Enable snapping for floating windows
+				Enable snap
 				<Explainer
 					explainerText="toggle snapping support for floating windows"
 					docUrl="https://wiki.hypr.land/Configuring/General/#snap"

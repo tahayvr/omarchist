@@ -1,6 +1,7 @@
 <script>
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import ManualIcon from '@lucide/svelte/icons/square-m';
 
 	let { explainerText = '', docUrl = '', docLabel = 'Read more' } = $props();
 
@@ -9,7 +10,9 @@
 
 <HoverCard.Root>
 	<HoverCard.Trigger>
-		<Button variant="ghost" size="icon" class="h-6 w-6 p-0" aria-label="Explain setting">?</Button>
+		<Button variant="ghost" size="icon" class="h-6 w-6 p-0" aria-label="Explain setting">
+			<ManualIcon class="opacity-50" />
+		</Button>
 	</HoverCard.Trigger>
 	<HoverCard.Content class="space-y-2 text-sm leading-relaxed">
 		<p class="text-muted-foreground text-xs tracking-wide uppercase">{explainerText}</p>
