@@ -9,7 +9,12 @@ const DEFAULT_SNAP = Object.freeze({
 });
 
 const DEFAULT_FORM = Object.freeze({
+	border_size: 1,
 	no_border_on_floating: false,
+	gaps_in: '5',
+	gaps_out: '20',
+	float_gaps: '0',
+	gaps_workspaces: 0,
 	layout: 'dwindle',
 	no_focus_fallback: false,
 	resize_on_border: false,
@@ -58,6 +63,20 @@ function normalizeUnsignedInteger(value, fallback = 0) {
 	return fallback;
 }
 
+function normalizeString(value, fallback = '') {
+	if (typeof value === 'string') {
+		const trimmed = value.trim();
+		return trimmed.length ? trimmed : fallback;
+	}
+
+	if (value === null || value === undefined) {
+		return fallback;
+	}
+
+	const stringified = String(value).trim();
+	return stringified.length ? stringified : fallback;
+}
+
 function cloneSnap(snapshot = DEFAULT_SNAP) {
 	return {
 		enabled: normalizeBoolean(snapshot.enabled, DEFAULT_SNAP.enabled),
@@ -70,10 +89,15 @@ function cloneSnap(snapshot = DEFAULT_SNAP) {
 
 function cloneForm(source = DEFAULT_FORM) {
 	return {
+		border_size: normalizeUnsignedInteger(source.border_size, DEFAULT_FORM.border_size),
 		no_border_on_floating: normalizeBoolean(
 			source.no_border_on_floating,
 			DEFAULT_FORM.no_border_on_floating
 		),
+		gaps_in: normalizeString(source.gaps_in, DEFAULT_FORM.gaps_in),
+		gaps_out: normalizeString(source.gaps_out, DEFAULT_FORM.gaps_out),
+		float_gaps: normalizeString(source.float_gaps, DEFAULT_FORM.float_gaps),
+		gaps_workspaces: normalizeUnsignedInteger(source.gaps_workspaces, DEFAULT_FORM.gaps_workspaces),
 		layout: normalizeLayout(source.layout ?? DEFAULT_FORM.layout),
 		no_focus_fallback: normalizeBoolean(source.no_focus_fallback, DEFAULT_FORM.no_focus_fallback),
 		resize_on_border: normalizeBoolean(source.resize_on_border, DEFAULT_FORM.resize_on_border),
@@ -162,19 +186,38 @@ export function validateHyprlandGeneralForm(form) {
 		}
 	};
 
+	const requireNonEmptyString = (field) => {
+		if (typeof form[field] !== 'string' || form[field].trim() === '') {
+			fieldErrors[field] = 'Value is required.';
+		}
+	};
+
 	requireBoolean('no_border_on_floating');
 	requireBoolean('no_focus_fallback');
 	requireBoolean('resize_on_border');
 	requireBoolean('hover_icon_on_border');
 	requireBoolean('allow_tearing');
+	requireNonEmptyString('gaps_in');
+	requireNonEmptyString('gaps_out');
+	requireNonEmptyString('float_gaps');
 
 	if (!VALID_LAYOUTS.has(String(form.layout).toLowerCase())) {
 		fieldErrors.layout = 'Layout must be either master or dwindle.';
 	}
 
+	const borderSizeValue = Number(form.border_size);
+	if (!Number.isInteger(borderSizeValue) || borderSizeValue < 0) {
+		fieldErrors.border_size = 'Value must be a non-negative integer.';
+	}
+
 	const extendValue = Number(form.extend_border_grab_area);
 	if (!Number.isInteger(extendValue) || extendValue < 0) {
 		fieldErrors.extend_border_grab_area = 'Value must be a non-negative integer.';
+	}
+
+	const gapsWorkspacesValue = Number(form.gaps_workspaces);
+	if (!Number.isInteger(gapsWorkspacesValue) || gapsWorkspacesValue < 0) {
+		fieldErrors.gaps_workspaces = 'Value must be a non-negative integer.';
 	}
 
 	const cornerValue = Number(form.resize_corner);
@@ -248,7 +291,12 @@ export async function loadHyprlandGeneral(state) {
 function buildPayloadFromState(state) {
 	return {
 		overrides: {
+			border_size: Number(state.form.border_size),
 			no_border_on_floating: state.form.no_border_on_floating,
+			gaps_in: state.form.gaps_in?.trim() ?? DEFAULT_FORM.gaps_in,
+			gaps_out: state.form.gaps_out?.trim() ?? DEFAULT_FORM.gaps_out,
+			float_gaps: state.form.float_gaps?.trim() ?? DEFAULT_FORM.float_gaps,
+			gaps_workspaces: Number(state.form.gaps_workspaces),
 			layout: state.form.layout,
 			no_focus_fallback: state.form.no_focus_fallback,
 			resize_on_border: state.form.resize_on_border,

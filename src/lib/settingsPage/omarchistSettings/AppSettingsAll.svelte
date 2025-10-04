@@ -6,7 +6,6 @@
 	import {
 		loadSettings,
 		updateSetting,
-		clearError,
 		validateSettingsState,
 		getSettingDescription
 	} from '$lib/utils/settingsUtils.js';
@@ -61,11 +60,6 @@
 			previousValue = appSettings.autoApplyTheme;
 		}
 	});
-
-	// TODO: Clear error message
-	function handleClearError() {
-		clearError(appSettings);
-	}
 
 	// Get setting description for tooltip
 	function getTooltipText() {

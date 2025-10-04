@@ -14,21 +14,15 @@
 
 	let themeName = $state('');
 	let originalThemeName = $state('');
-	let isEditing = $state(false);
 	let isSaving = $state(false);
 	let appSchemas = $state(null);
 	let alacrittySchema = $state(null);
-	let waybarSchema = $state(null);
-	let chromiumSchema = $state(null);
 	let btopSchema = $state(null);
 	let hyprlandSchema = $state(null);
 	let hyprlockSchema = $state(null);
-	let iconsSchema = $state(null);
 	let makoSchema = $state(null);
 	let walkerSchema = $state(null);
 	let swayosdSchema = $state(null);
-	let neovimSchema = $state(null);
-	let vscodeSchema = $state(null);
 	let ghosttySchema = $state(null);
 	let kittySchema = $state(null);
 
@@ -104,20 +98,14 @@
 
 			appSchemas = schemas;
 			alacrittySchema = schemas?.alacritty || null;
-			waybarSchema = schemas?.waybar || null;
-			chromiumSchema = schemas?.chromium || null;
 			btopSchema = schemas?.btop || null;
 			hyprlandSchema = schemas?.hyprland || null;
 			hyprlockSchema = schemas?.hyprlock || null;
-			iconsSchema = schemas?.icons || null;
 			makoSchema = schemas?.mako || null;
 			walkerSchema = schemas?.walker || null;
 			swayosdSchema = schemas?.swayosd || null;
-			neovimSchema = schemas?.neovim || null;
-			vscodeSchema = schemas?.vscode || null;
 			ghosttySchema = schemas?.ghostty || null;
 			kittySchema = schemas?.kitty || null;
-			isEditing = true;
 			themeName = theme.name;
 			originalThemeName = theme.name; // Store original name for rename detection
 			alacrittyData = theme?.apps?.alacritty || {};

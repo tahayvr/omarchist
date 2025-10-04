@@ -8,9 +8,7 @@
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { invoke } from '@tauri-apps/api/core';
 	import { goto } from '$app/navigation';
-	import { themeCache } from '$lib/stores/themeCache.js';
 
-	let isOpen = $state(false);
 	let isCreating = $state(false);
 	let themeName = $state('');
 	let error = $state('');
@@ -58,7 +56,6 @@
 
 			await applyThemeIfEnabled(trimmedName);
 
-			isOpen = false;
 			resetForm();
 			goto(`/themes/${encodeURIComponent(trimmedName)}`);
 		} catch (err) {

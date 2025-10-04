@@ -20,8 +20,8 @@
 	async function applyTheme(themeDir) {
 		try {
 			await invoke('apply_theme', { dir: themeDir });
-		} catch (e) {
-			// Handle error
+		} catch (error) {
+			console.error('Failed to apply theme:', error);
 		}
 	}
 

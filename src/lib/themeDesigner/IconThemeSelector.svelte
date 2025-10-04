@@ -33,7 +33,7 @@
 				onValueChange={handleValueChange}
 				class="grid grid-cols-1 gap-3 lg:grid-cols-2"
 			>
-				{#each iconThemes as theme}
+				{#each iconThemes as theme (theme.value)}
 					<div class="hover:bg-muted/50 flex items-center space-x-3 p-2">
 						<RadioGroup.Item value={theme.value} id={theme.value} />
 						<div class="flex flex-1 items-center space-x-3">

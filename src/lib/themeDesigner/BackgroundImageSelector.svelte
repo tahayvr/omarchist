@@ -133,7 +133,7 @@
 		</Card.Root>
 	{:else}
 		<div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-			{#each backgrounds as filename}
+			{#each backgrounds as filename (filename)}
 				<Card.Root class="overflow-hidden pt-0">
 					<Card.Content class="aspect-video p-0">
 						<div class="group relative flex items-center justify-center bg-gray-100">
@@ -145,7 +145,7 @@
 							{:then imageData}
 								<!-- Image loaded -->
 								<img src={imageData} alt={filename} class="h-full w-full object-cover" />
-							{:catch error}
+							{:catch}
 								<!-- Error state -->
 								<div class="flex h-full w-full items-center justify-center bg-gray-100">
 									<ImageIcon class="h-8 w-8 opacity-50" />

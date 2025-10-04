@@ -46,7 +46,7 @@
 		await loadHyprlandGeneral(hyprlandGeneral);
 	});
 
-	const AUTO_SAVE_DELAY = 600;
+	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
 
 	function clearAutoSaveTimer() {
@@ -184,6 +184,95 @@
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-4">
+					<Label for="border_size" class="flex-1">
+						Border size
+						<Explainer explainerText="size of the border around windows" />
+					</Label>
+					<Input
+						id="border_size"
+						type="number"
+						class="w-24"
+						bind:value={hyprlandGeneral.form.border_size}
+						disabled={hyprlandGeneral.isLoading}
+						min="0"
+					></Input>
+				</div>
+			</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-4">
+					<Label for="gaps_in" class="flex-1">
+						Gaps in
+						<Explainer
+							explainerText="gaps between windows; supports CSS-style values like 5,10,15,20"
+							docUrl="https://wiki.hypr.land/Configuring/Variables/#general"
+						/>
+					</Label>
+					<Input
+						id="gaps_in"
+						type="text"
+						class="w-full max-w-[200px]"
+						bind:value={hyprlandGeneral.form.gaps_in}
+						disabled={hyprlandGeneral.isLoading}
+						spellcheck={false}
+					></Input>
+				</div>
+			</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-4">
+					<Label for="gaps_out" class="flex-1">
+						Gaps out
+						<Explainer
+							explainerText="gaps between windows and monitor edges; supports CSS-style values"
+							docUrl="https://wiki.hypr.land/Configuring/Variables/#general"
+						/>
+					</Label>
+					<Input
+						id="gaps_out"
+						type="text"
+						class="w-full max-w-[200px]"
+						bind:value={hyprlandGeneral.form.gaps_out}
+						disabled={hyprlandGeneral.isLoading}
+						spellcheck={false}
+					></Input>
+				</div>
+			</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-4">
+					<Label for="float_gaps" class="flex-1">
+						Float gaps
+						<Explainer
+							explainerText="gaps for floating windows; use -1 to revert to Hyprland defaults"
+							docUrl="https://wiki.hypr.land/Configuring/Variables/#general"
+						/>
+					</Label>
+					<Input
+						id="float_gaps"
+						type="text"
+						class="w-full max-w-[200px]"
+						bind:value={hyprlandGeneral.form.float_gaps}
+						disabled={hyprlandGeneral.isLoading}
+						spellcheck={false}
+					></Input>
+				</div>
+			</div>
+			<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-4">
+					<Label for="gaps_workspaces" class="flex-1">
+						Workspace gaps
+						<Explainer explainerText="additional gaps between workspaces. Stacks with 'gaps out'" />
+					</Label>
+					<Input
+						id="gaps_workspaces"
+						type="number"
+						class="w-24"
+						bind:value={hyprlandGeneral.form.gaps_workspaces}
+						disabled={hyprlandGeneral.isLoading}
+						min="0"
+					></Input>
+				</div>
+			</div>
 			<div class="flex items-center justify-between gap-4">
 				<Label for="no_border_on_floating" class="flex-1">
 					No border on floating windows

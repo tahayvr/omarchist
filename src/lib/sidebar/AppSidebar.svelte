@@ -1,10 +1,8 @@
 <script>
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import HouseIcon from '@lucide/svelte/icons/house';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import ThemeIcon from '@lucide/svelte/icons/palette';
 	import DocsIcon from '@lucide/svelte/icons/library';
-	import { openUrl } from '@tauri-apps/plugin-opener';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
@@ -24,10 +22,6 @@
 			icon: SquareIcon
 		}
 	];
-
-	async function openDocs() {
-		await openUrl('https://manuals.omamix.org/2/the-omarchy-manual');
-	}
 </script>
 
 <Sidebar.Root collapsible="icon">
