@@ -322,7 +322,7 @@ impl HyprlandDecorationShadowSettings {
             sharp: Some(false),
             ignore_window: Some(true),
             color: Some("0xee1a1a1a".into()),
-            color_inactive: Some("unset".into()),
+            color_inactive: Some("".into()),
             offset: Some("0 0".into()),
             scale: Some(1.0_f32),
         }
