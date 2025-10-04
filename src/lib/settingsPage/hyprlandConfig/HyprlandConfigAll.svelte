@@ -1,4 +1,5 @@
 <script>
+	import HyprlandAnimation from './HyprlandAnimation.svelte';
 	import HyprlandDecoration from './HyprlandDecoration.svelte';
 	import HyprlandGeneral from './HyprlandGeneral.svelte';
 </script>
@@ -9,5 +10,8 @@
 	</div>
 	<div class="grid-span-full">
 		<HyprlandDecoration />
+	</div>
+	<div class="grid-span-full">
+		<HyprlandAnimation />
 	</div>
 </div>

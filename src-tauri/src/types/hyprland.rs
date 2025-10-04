@@ -391,6 +391,71 @@ impl HyprlandDecorationSnapshot {
     }
 }
 
+/// Represents Hyprland "animations" settings.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandAnimationSettings {
+    pub enabled: Option<bool>,
+    pub workspace_wraparound: Option<bool>,
+}
+
+impl HyprlandAnimationSettings {
+    pub fn with_defaults() -> Self {
+        Self {
+            enabled: Some(true),
+            workspace_wraparound: Some(false),
+        }
+    }
+
+    pub fn apply_overrides(
+        &mut self,
+        overrides: &BTreeMap<String, HyprlandValue>,
+    ) -> Result<(), HyprlandConfigError> {
+        for field in animation_field_registry() {
+            if let Some(value) = overrides.get(field.key()) {
+                field.apply(value.clone(), self)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_override_map(&self) -> BTreeMap<String, HyprlandValue> {
+        let mut map = BTreeMap::new();
+        for field in animation_field_registry() {
+            if let Some(value) = field.extract(self) {
+                map.insert(field.key().to_string(), value);
+            }
+        }
+        map
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandAnimationSnapshot {
+    pub effective: HyprlandAnimationSettings,
+    pub overrides: HyprlandAnimationSettings,
+}
+
+impl Default for HyprlandAnimationSnapshot {
+    fn default() -> Self {
+        Self {
+            effective: HyprlandAnimationSettings::with_defaults(),
+            overrides: HyprlandAnimationSettings::default(),
+        }
+    }
+}
+
+impl HyprlandAnimationSnapshot {
+    pub fn new(
+        effective: HyprlandAnimationSettings,
+        overrides: HyprlandAnimationSettings,
+    ) -> Self {
+        Self {
+            effective,
+            overrides,
+        }
+    }
+}
+
 /// Hyprland layout modes supported by Omarchist.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -1819,6 +1884,87 @@ pub fn shadow_field_registry() -> &'static [ShadowField] {
     &SHADOW_FIELDS
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AnimationField {
+    Enabled,
+    WorkspaceWraparound,
+}
+
+impl AnimationField {
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key.trim() {
+            "enabled" => Some(AnimationField::Enabled),
+            "workspace_wraparound" => Some(AnimationField::WorkspaceWraparound),
+            _ => None,
+        }
+    }
+
+    pub fn key(&self) -> &'static str {
+        match self {
+            AnimationField::Enabled => "enabled",
+            AnimationField::WorkspaceWraparound => "workspace_wraparound",
+        }
+    }
+
+    pub fn apply(
+        &self,
+        value: HyprlandValue,
+        settings: &mut HyprlandAnimationSettings,
+    ) -> Result<(), HyprlandConfigError> {
+        match self {
+            AnimationField::Enabled => set_animation_bool(
+                settings,
+                |s, v| s.enabled = v,
+                "enabled",
+                value,
+            ),
+            AnimationField::WorkspaceWraparound => set_animation_bool(
+                settings,
+                |s, v| s.workspace_wraparound = v,
+                "workspace_wraparound",
+                value,
+            ),
+        }
+    }
+
+    pub fn parse_raw(&self, raw: &str) -> Result<HyprlandValue, HyprlandConfigError> {
+        match self {
+            AnimationField::Enabled | AnimationField::WorkspaceWraparound => {
+                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
+            }
+        }
+    }
+
+    pub fn validate(&self, value: &HyprlandValue) -> Result<(), HyprlandConfigError> {
+        match self {
+            AnimationField::Enabled | AnimationField::WorkspaceWraparound => {
+                if !matches!(value, HyprlandValue::Bool(_)) {
+                    return Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected boolean, received {value:?}"),
+                    });
+                }
+                Ok(())
+            }
+        }
+    }
+
+    pub fn extract(&self, settings: &HyprlandAnimationSettings) -> Option<HyprlandValue> {
+        match self {
+            AnimationField::Enabled => settings.enabled.map(HyprlandValue::Bool),
+            AnimationField::WorkspaceWraparound => settings.workspace_wraparound.map(HyprlandValue::Bool),
+        }
+    }
+}
+
+pub fn animation_field_registry() -> &'static [AnimationField] {
+    const ANIMATION_FIELDS: [AnimationField; 2] = [
+        AnimationField::Enabled,
+        AnimationField::WorkspaceWraparound,
+    ];
+    &ANIMATION_FIELDS
+}
+
 /// Canonical Hyprland configuration value representation used by the backend.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -2282,6 +2428,38 @@ fn set_shadow_string(
 
     setter(settings, Some(trimmed));
     Ok(())
+}
+
+fn set_animation_bool(
+    settings: &mut HyprlandAnimationSettings,
+    setter: impl Fn(&mut HyprlandAnimationSettings, Option<bool>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Bool(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => match v {
+            0 => {
+                setter(settings, Some(false));
+                Ok(())
+            },
+            1 => {
+                setter(settings, Some(true));
+                Ok(())
+            },
+            other => Err(HyprlandConfigError::Validation {
+                field: field.to_string(),
+                message: format!("Integer value '{other}' is not valid for boolean field"),
+            }),
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected boolean, received {other:?}"),
+        }),
+    }
 }
 
 fn set_snap_bool(

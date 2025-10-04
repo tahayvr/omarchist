@@ -178,9 +178,6 @@
 <Card.Root class="space-y-4">
 	<Card.Header>
 		<Card.Title class="uppercase">General</Card.Title>
-		<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-			Values are applied through Omarchist overrides.
-		</Card.Description>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">

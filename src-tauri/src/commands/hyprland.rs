@@ -1,7 +1,7 @@
 use crate::services::hyprland::HyprlandConfigService;
 use crate::types::{
-    HyprlandDecorationSettings, HyprlandDecorationSnapshot, HyprlandGeneralSettings,
-    HyprlandGeneralSnapshot,
+    HyprlandAnimationSettings, HyprlandAnimationSnapshot, HyprlandDecorationSettings,
+    HyprlandDecorationSnapshot, HyprlandGeneralSettings, HyprlandGeneralSnapshot,
 };
 
 /// Request payload for updating Hyprland general overrides.
@@ -14,6 +14,12 @@ pub struct UpdateHyprlandGeneralPayload {
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct UpdateHyprlandDecorationPayload {
     pub overrides: HyprlandDecorationSettings,
+}
+
+/// Request payload for updating Hyprland animation overrides.
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct UpdateHyprlandAnimationPayload {
+    pub overrides: HyprlandAnimationSettings,
 }
 
 /// Load the current Hyprland general settings snapshot (defaults merged with overrides).
@@ -59,5 +65,28 @@ pub fn update_hyprland_decoration_settings(
         .map_err(|err| err.to_string())?;
     service
         .load_decoration_snapshot()
+        .map_err(|err| err.to_string())
+}
+
+/// Load the current Hyprland animation settings snapshot (defaults merged with overrides).
+#[tauri::command]
+pub fn get_hyprland_animation_settings() -> Result<HyprlandAnimationSnapshot, String> {
+    let service = HyprlandConfigService::new().map_err(|err| err.to_string())?;
+    service
+        .load_animation_snapshot()
+        .map_err(|err| err.to_string())
+}
+
+/// Update Hyprland animation overrides and return the refreshed snapshot.
+#[tauri::command]
+pub fn update_hyprland_animation_settings(
+    payload: UpdateHyprlandAnimationPayload,
+) -> Result<HyprlandAnimationSnapshot, String> {
+    let service = HyprlandConfigService::new().map_err(|err| err.to_string())?;
+    service
+        .persist_animation_overrides(&payload.overrides)
+        .map_err(|err| err.to_string())?;
+    service
+        .load_animation_snapshot()
         .map_err(|err| err.to_string())
 }
