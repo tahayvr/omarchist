@@ -153,9 +153,9 @@
 	});
 </script>
 
-<Card.Root>
+<Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title>Animation Settings</Card.Title>
+		<Card.Title class="uppercase">Animation</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">

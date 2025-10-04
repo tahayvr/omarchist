@@ -1,13 +1,13 @@
 <script>
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import ThemeIcon from '@lucide/svelte/icons/palette';
+	import ThemeIcon from '@lucide/svelte/icons/swatch-book';
 	import DocsIcon from '@lucide/svelte/icons/library';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import DropIcon from '@lucide/svelte/icons/droplet';
-	import SquareIcon from '@lucide/svelte/icons/square';
+	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
 
 	// Menu items.
 	const items = [
@@ -19,7 +19,7 @@
 		{
 			title: 'Omarchy',
 			url: '/omarchy',
-			icon: SquareIcon
+			icon: OmarchyIcon
 		}
 	];
 </script>
