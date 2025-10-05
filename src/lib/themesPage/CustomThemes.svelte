@@ -65,7 +65,7 @@
 		{#if customThemes.length > 0}
 			<section>
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-					{#each customThemes as theme}
+					{#each customThemes as theme (theme.dir || theme.title)}
 						<ThemeCard
 							dir={theme.dir}
 							title={theme.title}
@@ -80,7 +80,7 @@
 			</section>
 		{:else if hasLoaded && !loading.value}
 			<div class="flex items-center justify-center p-8">
-				<div class="text-gray-500">No custom themes found</div>
+				<div class="tracking-wide text-gray-500 uppercase">You have no custom themes.</div>
 			</div>
 		{/if}
 	</div>

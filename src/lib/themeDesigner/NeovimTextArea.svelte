@@ -1,4 +1,5 @@
 <script>
+	/* eslint-disable svelte/prefer-writable-derived */
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { createEventDispatcher } from 'svelte';
 

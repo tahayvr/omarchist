@@ -1,0 +1,26 @@
+<script>
+	let className = '';
+	export { className as class };
+</script>
+
+<svg
+	class={className}
+	width="24"
+	height="24"
+	viewBox="0 0 300 300"
+	fill="none"
+	xmlns="http://www.w3.org/2000/svg"
+	aria-hidden="true"
+>
+	<path
+		d="M20.5167 279.483H160.714V300H0V0H300V300H183.511V279.483H279.483V20.5167H20.5167V279.483Z"
+		fill="currentColor"
+	/>
+	<path
+		d="M258.967 258.967H41.0334V41.0334H161.446V61.5502H61.5502V238.45H238.45V61.5502H215.701V41.0334H258.967V258.967Z"
+		fill="currentColor"
+	/>
+	<path d="M137.918 258.967H160.714V279.483H137.918V258.967Z" fill="currentColor" />
+	<path d="M138.602 20.5167H161.398V41.0334H138.602V20.5167Z" fill="currentColor" />
+	<path d="M0 138.602H61.5502V161.398H0V138.602Z" fill="currentColor" />
+</svg>

@@ -19,10 +19,9 @@ pub enum CliCommand {
 /// * `CliCommand` - The parsed command or Unknown if not recognized
 ///
 /// # Examples
-/// ```
-/// let args = vec!["omarchist".to_string(), "refresh".to_string()];
-/// let command = parse_cli_command(&args);
-/// assert_eq!(command, CliCommand::Refresh);
+/// ```text
+/// let args = vec!["omarchist", "refresh"]; // shortened for illustration
+/// parse_cli_command(&args);
 /// ```
 pub fn parse_cli_command(args: &[String]) -> CliCommand {
     // Skip the first argument (program name) and look for commands

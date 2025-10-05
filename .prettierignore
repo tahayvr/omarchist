@@ -7,3 +7,10 @@ bun.lockb
 
 # Miscellaneous
 /static/
+hyprland-docs/
+src/lib/components/ui/
+
+# Build artifacts
+src-tauri/target/
+target/
+src-tauri

@@ -1,31 +1,27 @@
 <script>
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
-	import HouseIcon from '@lucide/svelte/icons/house';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
-	import ThemeIcon from '@lucide/svelte/icons/palette';
+	import ThemeIcon from '@lucide/svelte/icons/swatch-book';
 	import DocsIcon from '@lucide/svelte/icons/library';
-	import { openUrl } from '@tauri-apps/plugin-opener';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
+	import DropIcon from '@lucide/svelte/icons/droplet';
+	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
 
 	// Menu items.
 	const items = [
 		{
-			title: 'Themes',
-			url: '/themes',
-			icon: ThemeIcon
+			title: 'Hyprland',
+			url: '/hyprland',
+			icon: DropIcon
 		},
 		{
-			title: 'Settings',
-			url: '/settings',
-			icon: SettingsIcon
+			title: 'Omarchy',
+			url: '/omarchy',
+			icon: OmarchyIcon
 		}
 	];
-
-	async function openDocs() {
-		await openUrl('https://manuals.omamix.org/2/the-omarchy-manual');
-	}
 </script>
 
 <Sidebar.Root collapsible="icon">
@@ -36,13 +32,30 @@
 		<Sidebar.Group>
 			<Sidebar.GroupContent>
 				<Sidebar.Menu>
+					<Sidebar.MenuItem>
+						<Sidebar.MenuButton>
+							{#snippet child({ props })}
+								<a href="/themes" {...props}>
+									<ThemeIcon />
+									<span class="font-semibold uppercase">Themes</span>
+								</a>
+							{/snippet}
+						</Sidebar.MenuButton>
+					</Sidebar.MenuItem>
+				</Sidebar.Menu>
+			</Sidebar.GroupContent>
+		</Sidebar.Group>
+		<Sidebar.Group>
+			<Sidebar.GroupLabel>Configs</Sidebar.GroupLabel>
+			<Sidebar.GroupContent>
+				<Sidebar.Menu>
 					{#each items as item (item.title)}
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton>
 								{#snippet child({ props })}
 									<a href={item.url} {...props}>
 										<item.icon />
-										<span class="uppercase">{item.title}</span>
+										<span class="font-semibold uppercase">{item.title}</span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
@@ -57,9 +70,19 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
+						<a href="/settings" {...props}>
+							<SettingsIcon />
+							<span class="font-semibold">Settings</span>
+						</a>
+					{/snippet}
+				</Sidebar.MenuButton>
+			</Sidebar.MenuItem>
+			<Sidebar.MenuItem>
+				<Sidebar.MenuButton>
+					{#snippet child({ props })}
 						<a href="/about" {...props}>
 							<InfoIcon />
-							<span>About</span>
+							<span class="font-semibold">About</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -69,12 +92,12 @@
 					{#snippet child({ props })}
 						<a href="https://manuals.omamix.org/2/the-omarchy-manual" target="_blank" {...props}>
 							<DocsIcon />
-							<span>Omarchy Docs</span>
+							<span class="font-semibold">Omarchy Docs</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
 				<Sidebar.MenuBadge>
-					<ExternalLinkIcon class="h-4 w-4" />
+					<ExternalLinkIcon class="h-3 w-3" />
 				</Sidebar.MenuBadge>
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>

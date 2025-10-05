@@ -13,9 +13,18 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         commands::settings::get_app_settings,
         commands::settings::update_app_settings,
         commands::settings::reset_app_settings,
+        // Hyprland config commands
+        commands::hyprland::get_hyprland_general_settings,
+        commands::hyprland::update_hyprland_general_settings,
+        commands::hyprland::get_hyprland_decoration_settings,
+        commands::hyprland::update_hyprland_decoration_settings,
+        commands::hyprland::get_hyprland_animation_settings,
+        commands::hyprland::update_hyprland_animation_settings,
+        // Omarchy commands
+        commands::omarchy::run_update_script,
+        commands::omarchy::get_omarchy_version,
+        commands::omarchy::check_omarchy_update,
         // Shell commands
-        commands::shell::run_update_script,
-        commands::shell::get_omarchy_version,
         commands::shell::apply_theme,
         commands::shell::refresh_theme_adjustments,
         commands::shell::execute_bash_command,

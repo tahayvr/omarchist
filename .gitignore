@@ -2,6 +2,9 @@
 dev-files/
 node_modules
 AGENTS.md
+dev-plan/
+hyprland-docs/
+src-tauri/target/
 
 # Output
 .output

@@ -2,9 +2,10 @@
 	import '../app.css';
 	import { ModeWatcher } from 'mode-watcher';
 	import { onMount, onDestroy } from 'svelte';
-	import { invoke } from '@tauri-apps/api/core';
 	import { startThemePreloading } from '../lib/services/themePreloader.js';
 	import { loadSettings } from '../lib/utils/settingsUtils.js';
+	import { themeCache } from '../lib/stores/themeCache.js';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 
 	let { children } = $props();
 	let themeRefreshUnlisten = null;
@@ -16,6 +17,22 @@
 		error: null,
 		isInitialized: false
 	});
+
+	async function loadInitialTheme() {
+		try {
+			await themeCache.refresh(true);
+		} catch (error) {
+			console.error('Failed to load initial themes:', error);
+		}
+	}
+
+	async function handleThemeRefresh() {
+		try {
+			await themeCache.refresh(true);
+		} catch (error) {
+			console.error('Error refreshing themes after event:', error);
+		}
+	}
 
 	onMount(async () => {
 		// Initialize app settings first - critical for app functionality
@@ -65,6 +82,8 @@
 		}
 	});
 </script>
+
+<Toaster position="top-right" />
 
 <ModeWatcher />
 

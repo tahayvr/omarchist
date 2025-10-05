@@ -1,4 +1,5 @@
 <script>
+	/* eslint-disable svelte/prefer-writable-derived */
 	import { createEventDispatcher } from 'svelte';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';

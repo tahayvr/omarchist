@@ -46,7 +46,7 @@
 		{#if communityThemes.length > 0}
 			<section>
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-					{#each communityThemes as theme}
+					{#each communityThemes as theme (theme.dir || theme.title)}
 						<ThemeCard
 							dir={theme.dir}
 							title={theme.title}

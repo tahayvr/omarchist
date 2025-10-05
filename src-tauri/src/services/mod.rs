@@ -1,6 +1,7 @@
 // Domain-specific service modules
 pub mod cache;
 pub mod config;
+pub mod hyprland;
 pub mod nvidia_detection;
 pub mod settings;
 pub mod themes;
@@ -17,5 +18,6 @@ pub use crate::types::{StartupCliResult, StartupCommand};
 // Re-export domain modules for easier access
 pub use cache::*;
 pub use config::*;
+pub use hyprland::*;
 pub use settings::*;
 pub use themes::*;

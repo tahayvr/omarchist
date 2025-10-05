@@ -6,7 +6,6 @@
 	import {
 		loadSettings,
 		updateSetting,
-		clearError,
 		validateSettingsState,
 		getSettingDescription
 	} from '$lib/utils/settingsUtils.js';
@@ -62,39 +61,32 @@
 		}
 	});
 
-	// TODO: Clear error message
-	function handleClearError() {
-		clearError(appSettings);
-	}
-
 	// Get setting description for tooltip
 	function getTooltipText() {
 		return getSettingDescription('autoApplyTheme');
 	}
 </script>
 
-<div class="flex w-full flex-col items-center justify-center">
-	<Card.Root>
-		<Card.Header>
-			<Card.Title class="uppercase">App Settings</Card.Title>
-		</Card.Header>
-		<Card.Content class="space-y-4">
-			<!-- Settings controls -->
-			<div class="flex items-center gap-3">
-				<Checkbox
-					id="auto-apply"
-					bind:checked={appSettings.autoApplyTheme}
-					disabled={appSettings.isLoading}
-					class={appSettings.isLoading ? 'opacity-50' : ''}
-				/>
-				<Label
-					for="auto-apply"
-					class={`${appSettings.isLoading ? 'opacity-50' : ''} cursor-pointer`}
-					title={getTooltipText()}
-				>
-					Apply theme automatically when entering Edit-Mode
-				</Label>
-			</div>
-		</Card.Content>
-	</Card.Root>
-</div>
+<Card.Root>
+	<Card.Header>
+		<Card.Title class="uppercase">Theme Designer</Card.Title>
+	</Card.Header>
+	<Card.Content class="space-y-4">
+		<!-- Settings controls -->
+		<div class="flex items-center gap-3">
+			<Checkbox
+				id="auto-apply"
+				bind:checked={appSettings.autoApplyTheme}
+				disabled={appSettings.isLoading}
+				class={appSettings.isLoading ? 'opacity-50' : ''}
+			/>
+			<Label
+				for="auto-apply"
+				class={`${appSettings.isLoading ? 'opacity-50' : ''} cursor-pointer`}
+				title={getTooltipText()}
+			>
+				Apply theme when entering Edit-Mode
+			</Label>
+		</div>
+	</Card.Content>
+</Card.Root>

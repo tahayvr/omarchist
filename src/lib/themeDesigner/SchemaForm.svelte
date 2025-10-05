@@ -5,7 +5,6 @@
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
-	import { Root } from '$lib/components/ui/button';
 	import CardContent from '$lib/components/ui/card/card-content.svelte';
 
 	let { schema = {}, data = {} } = $props();
@@ -17,51 +16,6 @@
 			field: fieldPath,
 			value: value
 		});
-	}
-
-	function renderProperty(key, property, currentData, basePath = '') {
-		const fieldPath = basePath ? `${basePath}.${key}` : key;
-		const value = currentData?.[key];
-
-		if (property.type === 'string' && property.format === 'color') {
-			return {
-				type: 'color',
-				key,
-				fieldPath,
-				value: value ?? property.default ?? '#1e1e1e',
-				title: property.title || key,
-				property
-			};
-		} else if (property.type === 'number') {
-			return {
-				type: 'number',
-				key,
-				fieldPath,
-				value: value ?? property.default ?? property.minimum ?? 0,
-				title: property.title || key,
-				property
-			};
-		} else if (property.type === 'boolean') {
-			return {
-				type: 'boolean',
-				key,
-				fieldPath,
-				value: value !== undefined ? value : (property.default ?? true),
-				title: property.title || key,
-				property
-			};
-		} else if (property.type === 'object' && property.properties) {
-			return {
-				type: 'object',
-				key,
-				fieldPath,
-				title: property.title || key,
-				properties: property.properties,
-				value: value || property.default || {},
-				property
-			};
-		}
-		return null;
 	}
 
 	// Create form fields from schema
@@ -113,7 +67,7 @@
 
 <div class="mt-4 flex flex-col gap-4 uppercase">
 	{#if schema?.properties}
-		{#each orderedEntries(schema) as [key, property]}
+		{#each orderedEntries(schema) as [key, property] (key)}
 			{@const fieldPath = key}
 			{@const value = getFieldValue(fieldPath)}
 			{#if isColorish(property)}
@@ -190,7 +144,7 @@
 				<div class="flex flex-col gap-2">
 					<h4 id="heading" class="text-muted-foreground font-bold">{property.title || key}:</h4>
 					<div class="grid h-full grid-cols-1 gap-2 lg:grid-cols-2">
-						{#each orderedEntries(property) as [nestedKey, nestedProperty]}
+						{#each orderedEntries(property) as [nestedKey, nestedProperty] (nestedKey)}
 							{@const nestedFieldPath = `${fieldPath}.${nestedKey}`}
 							{@const nestedValue = getFieldValue(nestedFieldPath)}
 							<div>
@@ -282,7 +236,7 @@
 											</Card.Header>
 											<CardContent class="flex-1">
 												<div id="subsection" class="grid grid-cols-2 gap-4">
-													{#each orderedEntries(nestedProperty) as [deepKey, deepProperty]}
+													{#each orderedEntries(nestedProperty) as [deepKey, deepProperty] (deepKey)}
 														{@const deepFieldPath = `${nestedFieldPath}.${deepKey}`}
 														{@const deepValue = getFieldValue(deepFieldPath)}
 														<div>
