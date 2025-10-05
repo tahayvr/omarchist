@@ -2,7 +2,6 @@
 	"name": "{{THEME_NAME}}",
 	"created_at": "{{CREATED_AT}}",
 	"modified_at": "{{MODIFIED_AT}}",
-	"colors": null,
 	"apps": {
 		"alacritty": {
 			"colors": {
@@ -132,6 +131,84 @@
 		},
 		"icons": {
 			"theme_name": "Yaru-red"
+		},
+		"ghostty": {
+			"colors": {
+				"primary": {
+					"background": "#121212",
+					"foreground": "#bebebe"
+				},
+				"cursor": {
+					"cursor": "#eaeaea",
+					"text": "#121212"
+				},
+				"selection": {
+					"background": "#333333",
+					"foreground": "#eaeaea"
+				},
+				"normal": {
+					"black": "#333333",
+					"red": "#D35F5F",
+					"green": "#FFC107",
+					"yellow": "#b91c1c",
+					"blue": "#e68e0d",
+					"magenta": "#D35F5F",
+					"cyan": "#bebebe",
+					"white": "#bebebe"
+				},
+				"bright": {
+					"black": "#8a8a8d",
+					"red": "#B91C1C",
+					"green": "#FFC107",
+					"yellow": "#b90a0a",
+					"blue": "#f59e0b",
+					"magenta": "#b91c1c",
+					"cyan": "#eaeaea",
+					"white": "#ffffff"
+				}
+			}
+		},
+		"kitty": {
+			"colors": {
+				"primary": {
+					"background": "#121212",
+					"foreground": "#bebebe"
+				},
+				"cursor": {
+					"cursor": "#eaeaea",
+					"text": "#121212"
+				},
+				"selection": {
+					"background": "#333333",
+					"foreground": "#121212"
+				},
+				"normal": {
+					"black": "#333333",
+					"red": "#D35F5F",
+					"green": "#FFC107",
+					"yellow": "#b91c1c",
+					"blue": "#e68e0d",
+					"magenta": "#D35F5F",
+					"cyan": "#bebebe",
+					"white": "#bebebe"
+				},
+				"bright": {
+					"black": "#8a8a8d",
+					"red": "#B91C1C",
+					"green": "#FFC107",
+					"yellow": "#b90a0a",
+					"blue": "#f59e0b",
+					"magenta": "#b91c1c",
+					"cyan": "#eaeaea",
+					"white": "#ffffff"
+				}
+			}
+		},
+		"vscode": {
+			"raw_config": "{\n  \"name\": \"Matte Black\",\n  \"extension\": \"TahaYVR.matteblack\"\n}"
+		},
+		"chromium": {
+			"theme_color": "#1e1e1e"
 		}
 	}
 }
