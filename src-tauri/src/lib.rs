@@ -23,6 +23,7 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         // Omarchy commands
         commands::omarchy::run_update_script,
         commands::omarchy::get_omarchy_version,
+        commands::omarchy::check_omarchy_update,
         // Shell commands
         commands::shell::apply_theme,
         commands::shell::refresh_theme_adjustments,
