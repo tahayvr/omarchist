@@ -37,7 +37,7 @@
 							{#snippet child({ props })}
 								<a href="/themes" {...props}>
 									<ThemeIcon />
-									<span class="uppercase">Themes</span>
+									<span class="font-semibold uppercase">Themes</span>
 								</a>
 							{/snippet}
 						</Sidebar.MenuButton>
@@ -55,7 +55,7 @@
 								{#snippet child({ props })}
 									<a href={item.url} {...props}>
 										<item.icon />
-										<span class="uppercase">{item.title}</span>
+										<span class="font-semibold uppercase">{item.title}</span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
@@ -72,7 +72,7 @@
 					{#snippet child({ props })}
 						<a href="/settings" {...props}>
 							<SettingsIcon />
-							<span>Settings</span>
+							<span class="font-semibold">Settings</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -82,7 +82,7 @@
 					{#snippet child({ props })}
 						<a href="/about" {...props}>
 							<InfoIcon />
-							<span>About</span>
+							<span class="font-semibold">About</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -92,12 +92,12 @@
 					{#snippet child({ props })}
 						<a href="https://manuals.omamix.org/2/the-omarchy-manual" target="_blank" {...props}>
 							<DocsIcon />
-							<span>Omarchy Docs</span>
+							<span class="font-semibold">Omarchy Docs</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
 				<Sidebar.MenuBadge>
-					<ExternalLinkIcon class="h-4 w-4" />
+					<ExternalLinkIcon class="h-3 w-3" />
 				</Sidebar.MenuBadge>
 			</Sidebar.MenuItem>
 		</Sidebar.Menu>
