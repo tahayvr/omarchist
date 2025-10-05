@@ -9,6 +9,7 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { goto } from '$app/navigation';
 	import { open } from '@tauri-apps/plugin-dialog';
+	import { homeDir, join } from '@tauri-apps/api/path';
 	import { refreshThemes } from '$lib/stores/themeCache.js';
 	import { toast } from 'svelte-sonner';
 
@@ -87,7 +88,7 @@
 
 	async function handleImportClick() {
 		try {
-			const file = await open({
+			const options = {
 				filters: [
 					{
 						name: 'JSON Theme',
@@ -95,7 +96,16 @@
 					}
 				],
 				multiple: false
-			});
+			};
+
+			try {
+				const downloadsDir = await join(await homeDir(), 'Downloads');
+				options.defaultPath = downloadsDir;
+			} catch (pathErr) {
+				console.warn('Falling back to dialog default location:', pathErr);
+			}
+
+			const file = await open(options);
 
 			if (!file) {
 				// User cancelled
@@ -215,7 +225,8 @@
 					variant="ghost"
 					onclick={() => {
 						showImportDialog = false;
-					}}>Close</Button
+					}}
+					class="uppercase">Close</Button
 				>
 			</Dialog.Footer>
 		</Dialog.Content>
@@ -223,9 +234,9 @@
 
 	<!-- Conflict Resolution Dialog -->
 	<Dialog.Root bind:open={showConflictDialog}>
-		<Dialog.Content class="uppercase">
+		<Dialog.Content>
 			<Dialog.Header>
-				<Dialog.Title>Theme Already Exists</Dialog.Title>
+				<Dialog.Title class="uppercase">Theme Already Exists</Dialog.Title>
 			</Dialog.Header>
 			<div class="space-y-2">
 				<p class="text-sm">
@@ -234,7 +245,7 @@
 				<p class="text-sm">Would you like to import with a new name?</p>
 				{#if conflictInfo?.suggested_name}
 					<p class="text-sm font-semibold">
-						Suggested name: {conflictInfo.suggested_name}
+						New name: {conflictInfo.suggested_name}
 					</p>
 				{/if}
 			</div>
@@ -244,6 +255,7 @@
 					variant="secondary"
 					onclick={() => handleConflictResolve(true)}
 					disabled={isImporting}
+					class="uppercase"
 				>
 					Rename and Import
 				</Button>

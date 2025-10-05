@@ -5,9 +5,9 @@
 	import { invoke } from '@tauri-apps/api/core';
 	import { refreshThemes } from '$lib/stores/themeCache.js';
 	import { save } from '@tauri-apps/plugin-dialog';
-
+	import { toast } from 'svelte-sonner';
 	import { Command } from '@tauri-apps/plugin-shell';
-	import { join, homeDir } from '@tauri-apps/api/path';
+	import { join, homeDir, documentDir } from '@tauri-apps/api/path';
 
 	export let themeDir;
 	export let onDeleted = null;
@@ -44,7 +44,7 @@
 		try {
 			// Open save dialog
 			const defaultFilename = `${themeDir}.json`;
-			const destination = await save({
+			const dialogOptions = {
 				defaultPath: defaultFilename,
 				filters: [
 					{
@@ -52,7 +52,18 @@
 						extensions: ['json']
 					}
 				]
-			});
+			};
+
+			try {
+				const documents = await documentDir();
+				if (documents) {
+					dialogOptions.defaultPath = await join(documents, defaultFilename);
+				}
+			} catch (pathErr) {
+				console.warn('Unable to determine Documents directory, using fallback path.', pathErr);
+			}
+
+			const destination = await save(dialogOptions);
 
 			if (!destination) {
 				// User cancelled
@@ -65,7 +76,10 @@
 				destination: destination
 			});
 
-			alert('Theme exported successfully!');
+			// Notify success
+			toast.success('Theme exported', {
+				description: `${themeDir} has been exported successfully.`
+			});
 		} catch (err) {
 			alert('Failed to export theme: ' + (err?.message || err));
 		}
