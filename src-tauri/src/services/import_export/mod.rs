@@ -228,17 +228,3 @@ impl ThemeImportExportService {
         unique_name
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_generate_unique_name() {
-        // This test would require setting up a mock CustomThemeService
-        // For now, we'll just test the logic conceptually
-        let base_name = "Test Theme";
-        let expected = format!("{} (1)", base_name);
-        assert_eq!(expected, "Test Theme (1)");
-    }
-}
