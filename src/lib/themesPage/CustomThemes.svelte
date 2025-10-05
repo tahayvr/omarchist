@@ -80,7 +80,7 @@
 			</section>
 		{:else if hasLoaded && !loading.value}
 			<div class="flex items-center justify-center p-8">
-				<div class="text-gray-500">No custom themes found</div>
+				<div class="tracking-wide text-gray-500 uppercase">You have no custom themes.</div>
 			</div>
 		{/if}
 	</div>

@@ -2,7 +2,7 @@
 dev-files/
 node_modules
 AGENTS.md
-implementation_plan.md
+dev-plan/
 hyprland-docs/
 src-tauri/target/
 
