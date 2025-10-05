@@ -83,6 +83,7 @@ mod tests {
             name: "test".to_string(),
             created_at: "2023-01-01T00:00:00Z".to_string(),
             modified_at: "2023-01-01T00:00:00Z".to_string(),
+            author: None,
             apps: serde_json::json!({}),
             colors: None,
         };

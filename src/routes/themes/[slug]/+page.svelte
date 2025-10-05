@@ -14,6 +14,7 @@
 
 	let themeName = $state('');
 	let originalThemeName = $state('');
+	let themeAuthor = $state('');
 	let isSaving = $state(false);
 	let appSchemas = $state(null);
 	let alacrittySchema = $state(null);
@@ -80,6 +81,12 @@
 		return result;
 	}
 
+	function getSanitizedAuthor() {
+		const trimmed = themeAuthor?.trim();
+		if (!trimmed) return null;
+		return trimmed.length ? trimmed : null;
+	}
+
 	// Load based on route slug
 	$effect(() => {
 		const slug = $page?.params?.slug;
@@ -108,6 +115,7 @@
 			kittySchema = schemas?.kitty || null;
 			themeName = theme.name;
 			originalThemeName = theme.name; // Store original name for rename detection
+			themeAuthor = theme?.author || '';
 			alacrittyData = theme?.apps?.alacritty || {};
 			waybarData = theme?.apps?.waybar || {};
 			chromiumData = theme?.apps?.chromium || {};
@@ -130,6 +138,7 @@
 
 	async function saveTheme() {
 		if (!themeName.trim()) return;
+		const sanitizedAuthor = getSanitizedAuthor();
 		isSaving = true;
 		try {
 			// Check if theme name has changed
@@ -163,6 +172,12 @@
 							kitty: kittyData
 						}
 					});
+
+					await invoke('set_theme_author', {
+						theme_name: themeName,
+						author: sanitizedAuthor
+					});
+					themeAuthor = sanitizedAuthor ?? '';
 
 					// Step 3: Update the original name reference
 					originalThemeName = themeName;
@@ -208,12 +223,19 @@
 				}
 			});
 
+			await invoke('set_theme_author', {
+				theme_name: themeName,
+				author: sanitizedAuthor
+			});
+			themeAuthor = sanitizedAuthor ?? '';
+
 			// Apply theme first, then refresh adjustments
 			await invoke('apply_theme', { dir: themeName });
 			await refreshThemeIfEnabled();
 
 			// Re-fetch theme to verify persistence and refresh data
 			const refreshed = await invoke('get_custom_theme', { name: themeName });
+			themeAuthor = refreshed?.author || '';
 			alacrittyData = refreshed?.apps?.alacritty || alacrittyData;
 			waybarData = refreshed?.apps?.waybar || waybarData;
 			chromiumData = refreshed?.apps?.chromium || chromiumData;
@@ -294,7 +316,7 @@
 				<Tabs.Trigger value="backgrounds" class="uppercase">Backgrounds</Tabs.Trigger>
 			</Tabs.List>
 			<Tabs.Content value="general" class="max-w-[1200px]">
-				<GeneralTab bind:themeName />
+				<GeneralTab bind:themeName bind:author={themeAuthor} />
 			</Tabs.Content>
 			<Tabs.Content value="terminal" class="max-w-[1200px]">
 				<Accordion.Root type="single">

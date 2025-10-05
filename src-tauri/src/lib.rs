@@ -50,6 +50,7 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         services::themes::custom_themes::create_custom_theme_advanced,
         services::themes::custom_themes::update_custom_theme,
         services::themes::custom_themes::update_custom_theme_advanced,
+    services::themes::custom_themes::set_theme_author,
         services::themes::custom_themes::get_custom_theme,
         services::themes::custom_themes::list_custom_themes,
         services::themes::custom_themes::delete_custom_theme,

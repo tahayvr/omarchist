@@ -1,10 +1,11 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { invoke } from '@tauri-apps/api/core';
 
-	let { themeName = $bindable() } = $props();
+	let { themeName = $bindable(), author = $bindable('') } = $props();
 	let isLightMode = $state(false);
 	let isLoading = $state(false);
 	let previousLightMode = $state(false);
@@ -53,6 +54,10 @@
 <div class="flex w-full flex-col">
 	<Card.Root class="w-lg max-w-4xl">
 		<Card.Content class="space-y-8">
+			<div class="flex items-center gap-3">
+				<Label class="uppercase">Author</Label>
+				<Input type="text" placeholder="Your Name" bind:value={author} />
+			</div>
 			<div class="flex items-center gap-3">
 				<Checkbox id="light-mode" bind:checked={isLightMode} disabled={isLoading} />
 				<Label for="light-mode" class="uppercase">Light Mode</Label>
