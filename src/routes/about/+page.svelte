@@ -2,6 +2,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GithubIcon from '@lucide/svelte/icons/github';
 	import TwitterIcon from '@lucide/svelte/icons/twitter';
+	import XIcon from '$lib/icons/XIcon.svelte';
 </script>
 
 <div class="flex h-full w-full flex-col items-center justify-center gap-8 px-6 py-12">
@@ -28,7 +29,7 @@
 			target="_blank"
 			rel="noopener noreferrer"
 		>
-			<TwitterIcon />
+			<XIcon />
 			<span class="sr-only">Twitter</span>
 		</Button>
 	</div>
