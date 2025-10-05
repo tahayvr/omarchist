@@ -4,10 +4,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { invoke } from '@tauri-apps/api/core';
 	import { refreshThemes } from '$lib/stores/themeCache.js';
+	import { save } from '@tauri-apps/plugin-dialog';
 
 	import { Command } from '@tauri-apps/plugin-shell';
 	import { join, homeDir } from '@tauri-apps/api/path';
-	import DropdownMenuItem from '$lib/components/ui/dropdown-menu/dropdown-menu-item.svelte';
 
 	export let themeDir;
 	export let onDeleted = null;
@@ -38,6 +38,38 @@
 			alert('Failed to open folder: ' + (err?.message || err));
 		}
 	}
+
+	async function handleShareTheme() {
+		if (!themeDir) return;
+		try {
+			// Open save dialog
+			const defaultFilename = `${themeDir}.json`;
+			const destination = await save({
+				defaultPath: defaultFilename,
+				filters: [
+					{
+						name: 'JSON Theme',
+						extensions: ['json']
+					}
+				]
+			});
+
+			if (!destination) {
+				// User cancelled
+				return;
+			}
+
+			// Export the theme
+			await invoke('export_custom_theme', {
+				themeName: themeDir,
+				destination: destination
+			});
+
+			alert('Theme exported successfully!');
+		} catch (err) {
+			alert('Failed to export theme: ' + (err?.message || err));
+		}
+	}
 </script>
 
 <DropdownMenu.Root>
@@ -51,7 +83,7 @@
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end" class="uppercase">
 		<DropdownMenu.Group>
-			<DropdownMenu.Item>Share Theme</DropdownMenu.Item>
+			<DropdownMenu.Item onclick={handleShareTheme}>Share Theme</DropdownMenu.Item>
 			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
 			<DropdownMenu.Separator />
 			<DropdownMenu.Item

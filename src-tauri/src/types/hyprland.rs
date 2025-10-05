@@ -2572,7 +2572,9 @@ mod tests {
 
         let corner = GeneralField::ResizeCorner;
         assert_eq!(corner.parse_raw("4").unwrap(), HyprlandValue::Int(4));
-        assert!(corner.parse_raw("7").is_err());
+        let invalid_corner = corner.parse_raw("7").unwrap();
+        let mut general_settings = HyprlandGeneralSettings::default();
+        assert!(corner.apply(invalid_corner, &mut general_settings).is_err());
     }
 
     #[test]

@@ -129,8 +129,8 @@ impl CustomThemeService {
             }
         }
 
-        // Save theme metadata
-        let metadata_path = theme_dir.join("custom_theme.json");
+        // Save theme metadata with theme name as filename
+        let metadata_path = theme_dir.join(format!("{}.json", sanitized_name));
         let metadata_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| format!("Failed to serialize theme metadata: {e}"))?;
         fs::write(&metadata_path, metadata_content)
@@ -210,7 +210,7 @@ impl CustomThemeService {
         }
 
         // Update the metadata file
-        let metadata_path = theme_dir.join("custom_theme.json");
+        let metadata_path = self.get_metadata_path(&theme_dir, &sanitized_name);
         let metadata_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| format!("Failed to serialize theme metadata: {e}"))?;
         fs::write(&metadata_path, metadata_content)
@@ -235,7 +235,7 @@ impl CustomThemeService {
                         (Some(t_child), _) => {
                             *t_child = v.clone();
                         },
-                        (core::option::Option::None, _) => {
+                        (None, _) => {
                             t_map.insert(k.clone(), v.clone());
                         },
                     }
@@ -301,8 +301,8 @@ impl CustomThemeService {
 
             if path.is_dir() {
                 if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-                    // Only include themes that have our custom metadata file
-                    let metadata_path = path.join("custom_theme.json");
+                    // Check for metadata file (either new or old format)
+                    let metadata_path = self.get_metadata_path(&path, dir_name);
                     if metadata_path.exists() {
                         match self.load_theme_metadata(dir_name) {
                             Ok(theme) => themes.push(theme),
@@ -458,10 +458,28 @@ impl CustomThemeService {
         Ok(())
     }
 
+    /// Get the metadata file path for a theme (with backward compatibility)
+    fn get_metadata_path(&self, theme_dir: &std::path::Path, sanitized_name: &str) -> std::path::PathBuf {
+        // New format: {theme-name}.json
+        let new_path = theme_dir.join(format!("{}.json", sanitized_name));
+        
+        // Backward compatibility: check for old custom_theme.json
+        let old_path = theme_dir.join("custom_theme.json");
+        
+        if new_path.exists() {
+            new_path
+        } else if old_path.exists() {
+            old_path
+        } else {
+            // Default to new format for new themes
+            new_path
+        }
+    }
+
     /// Load theme metadata from JSON file
     fn load_theme_metadata(&self, sanitized_name: &str) -> Result<CustomTheme, String> {
         let theme_dir = self.themes_dir.join(sanitized_name);
-        let metadata_path = theme_dir.join("custom_theme.json");
+        let metadata_path = self.get_metadata_path(&theme_dir, sanitized_name);
 
         let content = fs::read_to_string(&metadata_path)
             .map_err(|e| format!("Failed to read theme metadata: {e}"))?;
@@ -473,7 +491,7 @@ impl CustomThemeService {
         if theme.colors.is_none() {
             theme.colors = self.extract_theme_colors(&theme_dir, &theme.apps);
 
-            // Save the updated metadata with colors
+            // Save the updated metadata with colors (using the same path we read from)
             if let Ok(updated_content) = serde_json::to_string_pretty(&theme) {
                 if let Err(e) = fs::write(&metadata_path, updated_content) {
                     log::warn!("Failed to update theme metadata with colors: {e}");
@@ -694,11 +712,12 @@ pub async fn create_custom_theme(
     log::info!("Creating custom theme '{name}' with colors: bg={background}, fg={foreground}");
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.create_theme(name.clone(), background, foreground);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the created theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to include the new theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -716,11 +735,12 @@ pub async fn create_custom_theme_advanced(
     log::info!("Creating advanced custom theme '{name}'");
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.create_theme_advanced(name.clone(), theme_data);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the created theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to include the new theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -750,11 +770,12 @@ pub async fn update_custom_theme(
     };
 
     let result = service.update_theme(&name, alacritty_config);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the updated theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to update the theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -771,11 +792,12 @@ pub async fn update_custom_theme_advanced(
 ) -> Result<CustomTheme, String> {
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.update_theme_advanced(&name, theme_data);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the updated theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to update the theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -800,11 +822,12 @@ pub async fn list_custom_themes(app_handle: AppHandle) -> Result<Vec<CustomTheme
 pub async fn delete_custom_theme(app_handle: AppHandle, name: String) -> Result<(), String> {
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.delete_theme(&name);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the deleted theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to remove the theme from cache
             let _ = cache.trigger_background_refresh().await;
         }

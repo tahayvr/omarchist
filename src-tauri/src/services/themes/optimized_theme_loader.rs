@@ -77,6 +77,72 @@ impl OptimizedThemeLoader {
         }
     }
 
+    /// Locate a metadata file for the given theme directory supporting both new and legacy formats
+    fn find_metadata_file(theme_dir: &Path) -> Option<PathBuf> {
+        let dir_name = theme_dir.file_name()?.to_str()?;
+
+        let candidates = [
+            theme_dir.join(format!("{dir_name}.json")),
+            theme_dir.join("custom_theme.json"),
+        ];
+
+        for candidate in candidates.iter() {
+            if Self::is_valid_metadata_file(candidate) {
+                return Some(candidate.clone());
+            }
+        }
+
+        if let Ok(entries) = fs::read_dir(theme_dir) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                if path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.eq_ignore_ascii_case("json")).unwrap_or(false)
+                {
+                    if Self::is_valid_metadata_file(&path) {
+                        return Some(path);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Check whether the supplied path points to a metadata file that matches the custom theme schema
+    fn is_valid_metadata_file(path: &Path) -> bool {
+        if !path.is_file() {
+            return false;
+        }
+
+        match fs::read_to_string(path) {
+            Ok(content) => {
+                if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                    let has_modern_fields = json.get("name").and_then(|v| v.as_str()).is_some()
+                        && json.get("created_at").and_then(|v| v.as_str()).is_some()
+                        && json.get("modified_at").and_then(|v| v.as_str()).is_some()
+                        && json.get("apps").is_some();
+
+                    if has_modern_fields {
+                        return true;
+                    }
+
+                    return Self::is_legacy_metadata_file(path, &json);
+                }
+                false
+            },
+            Err(_) => false,
+        }
+    }
+
+    /// Legacy custom themes stored minimal metadata inside `custom_theme.json`
+    fn is_legacy_metadata_file(path: &Path, json: &serde_json::Value) -> bool {
+        if path.file_name().and_then(|f| f.to_str()) != Some("custom_theme.json") {
+            return false;
+        }
+
+        json.as_object().is_some()
+            && (json.get("apps").is_some() || json.get("alacritty").is_some())
+    }
+
     /// Optimized helper function to convert directory name to title
     fn dir_name_to_title(dir_name: &str) -> String {
         let mut title = String::with_capacity(dir_name.len() + 10);
@@ -236,7 +302,8 @@ impl OptimizedThemeLoader {
         // Convert directory name to a nice title (optimized)
         let title = Self::dir_name_to_title(dir_name);
 
-        let is_custom = theme_dir.join("custom_theme.json").is_file();
+        let metadata_path = Self::find_metadata_file(theme_dir);
+        let is_custom = metadata_path.is_some();
 
         // Check if the theme directory is a symlink (system theme)
         let is_system = if is_custom {
@@ -248,7 +315,7 @@ impl OptimizedThemeLoader {
         };
 
         // Check if theme has color configuration files
-        let has_colors = theme_dir.join("custom_theme.json").exists()
+        let has_colors = metadata_path.is_some()
             || theme_dir.join("alacritty.toml").exists();
 
         // Check if theme has image files
@@ -298,7 +365,8 @@ impl OptimizedThemeLoader {
         // Convert directory name to a nice title (optimized)
         let title = Self::dir_name_to_title(dir_name);
 
-        let is_custom = theme_dir.join("custom_theme.json").is_file();
+        let metadata_path = Self::find_metadata_file(theme_dir);
+        let is_custom = metadata_path.is_some();
 
         // Check if the theme directory is a symlink (system theme)
         let is_system = if is_custom {
@@ -310,7 +378,7 @@ impl OptimizedThemeLoader {
         };
 
         // Extract colors with caching
-        let colors = Self::extract_theme_colors_cached(theme_dir, is_custom, &color_cache).await;
+        let colors = Self::extract_theme_colors_cached(theme_dir, metadata_path.clone(), &color_cache).await;
 
         // Load image asynchronously
         let image_path = Self::load_theme_image_async(theme_dir).await;
@@ -329,7 +397,7 @@ impl OptimizedThemeLoader {
     /// Extract theme colors with caching to avoid recomputation
     async fn extract_theme_colors_cached(
         theme_dir: &Path,
-        is_custom: bool,
+        metadata_path: Option<PathBuf>,
         color_cache: &ColorCache,
     ) -> Option<ThemeColors> {
         let dir_name = theme_dir.file_name()?.to_str()?.to_string();
@@ -341,7 +409,7 @@ impl OptimizedThemeLoader {
         }
 
         // Extract colors if not cached
-        let colors = Self::extract_theme_colors_direct(theme_dir, is_custom);
+        let colors = Self::extract_theme_colors_direct(theme_dir, metadata_path.as_deref());
 
         // Cache the result (even if None)
         color_cache.set(dir_name.clone(), colors.clone()).await;
@@ -351,32 +419,38 @@ impl OptimizedThemeLoader {
     }
 
     /// Direct color extraction (moved from original implementation)
-    fn extract_theme_colors_direct(theme_dir: &Path, is_custom: bool) -> Option<ThemeColors> {
-        if is_custom {
-            // For custom themes, try to extract from custom_theme.json
-            let custom_theme_path = theme_dir.join("custom_theme.json");
-            if custom_theme_path.exists() {
-                match fs::read_to_string(&custom_theme_path) {
-                    Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
-                        Ok(theme_data) => {
-                            if let Some(colors) =
-                                ColorExtractor::extract_from_custom_theme(&theme_data)
-                            {
-                                return Some(colors);
-                            }
-                        },
-                        Err(e) => {
+    fn extract_theme_colors_direct(
+        theme_dir: &Path,
+        metadata_path: Option<&Path>,
+    ) -> Option<ThemeColors> {
+        if let Some(custom_theme_path) = metadata_path {
+            match fs::read_to_string(custom_theme_path) {
+                Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
+                    Ok(theme_data) => {
+                        if let Some(colors) =
+                            ColorExtractor::extract_from_custom_theme(&theme_data)
+                        {
+                            return Some(colors);
+                        } else {
                             log::warn!(
-                                "Failed to parse custom theme JSON at {custom_theme_path:?}: {e}"
+                                "Failed to extract colors from custom theme at {}",
+                                custom_theme_path.display()
                             );
-                        },
+                        }
                     },
                     Err(e) => {
                         log::warn!(
-                            "Failed to read custom theme file at {custom_theme_path:?}: {e}"
+                            "Failed to parse custom theme JSON at {}: {e}",
+                            custom_theme_path.display()
                         );
                     },
-                }
+                },
+                Err(e) => {
+                    log::warn!(
+                        "Failed to read custom theme file at {}: {e}",
+                        custom_theme_path.display()
+                    );
+                },
             }
         }
 
@@ -586,6 +660,43 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_generate_theme_metadata_new_format() {
+        let temp_dir = TempDir::new().unwrap();
+        let theme_dir = temp_dir.path().join("modern-theme");
+        fs::create_dir(&theme_dir).unwrap();
+
+        let metadata = serde_json::json!({
+            "name": "Modern Theme",
+            "created_at": "2025-10-05T00:00:00Z",
+            "modified_at": "2025-10-06T00:00:00Z",
+            "apps": {
+                "alacritty": {
+                    "colors": {
+                        "primary": {
+                            "background": "#111111",
+                            "foreground": "#eeeeee"
+                        }
+                    }
+                }
+            }
+        });
+
+        fs::write(
+            theme_dir.join("modern-theme.json"),
+            serde_json::to_string_pretty(&metadata).unwrap(),
+        )
+        .unwrap();
+
+        let meta = OptimizedThemeLoader::generate_theme_metadata(&theme_dir)
+            .await
+            .unwrap();
+
+        assert_eq!(meta.dir, "modern-theme");
+        assert!(meta.is_custom);
+        assert!(meta.has_colors);
+    }
+
+    #[tokio::test]
     async fn test_extract_theme_colors_cached() {
         let temp_dir = TempDir::new().unwrap();
         let theme_dir = temp_dir.path().join("cached-theme");
@@ -599,13 +710,13 @@ mod tests {
 
         // First call should extract and cache
         let colors1 =
-            OptimizedThemeLoader::extract_theme_colors_cached(&theme_dir, false, &cache).await;
+            OptimizedThemeLoader::extract_theme_colors_cached(&theme_dir, None, &cache).await;
         assert!(colors1.is_some());
         assert_eq!(cache.size().await, 1);
 
         // Second call should use cache
         let colors2 =
-            OptimizedThemeLoader::extract_theme_colors_cached(&theme_dir, false, &cache).await;
+            OptimizedThemeLoader::extract_theme_colors_cached(&theme_dir, None, &cache).await;
         assert!(colors2.is_some());
         assert_eq!(cache.size().await, 1); // Size shouldn't change
 
