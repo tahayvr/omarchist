@@ -75,6 +75,30 @@ pub enum ThemeError {
     /// Theme deletion failed
     #[error("Failed to delete theme: {0}")]
     DeletionFailed(String),
+
+    /// Theme import failed
+    #[error("Failed to import theme: {0}")]
+    ImportFailed(String),
+
+    /// Theme export failed
+    #[error("Failed to export theme: {0}")]
+    ExportFailed(String),
+
+    /// Theme validation failed
+    #[error("Theme validation failed: {0}")]
+    ValidationFailed(String),
+
+    /// Theme already exists
+    #[error("Theme '{0}' already exists")]
+    AlreadyExists(String),
+
+    /// Invalid theme schema version
+    #[error("Invalid schema version: {0}")]
+    InvalidSchemaVersion(String),
+
+    /// Theme file corrupted
+    #[error("Theme file is corrupted or incomplete")]
+    Corrupted,
 }
 
 /// Settings-specific error types

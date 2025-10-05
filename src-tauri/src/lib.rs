@@ -59,6 +59,10 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         services::themes::custom_themes::add_theme_backgrounds,
         services::themes::custom_themes::remove_theme_background,
         services::themes::custom_themes::get_background_image_data,
+        // Theme sharing commands
+        commands::theme_sharing::export_custom_theme,
+        commands::theme_sharing::import_custom_theme,
+        commands::theme_sharing::validate_theme_file,
         // Configuration commands
         commands::update_config::update_config,
         // Light mode commands

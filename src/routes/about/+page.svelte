@@ -1,7 +1,6 @@
 <script>
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GithubIcon from '@lucide/svelte/icons/github';
-	import TwitterIcon from '@lucide/svelte/icons/twitter';
 	import XIcon from '$lib/icons/XIcon.svelte';
 </script>
 
