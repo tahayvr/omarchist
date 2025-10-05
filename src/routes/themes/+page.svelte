@@ -69,6 +69,7 @@
 <div class="w-full">
 	<!-- Header with create theme button -->
 	<div class="absolute top-4 right-6">
+		<Button class="uppercase" variant="outline">Import theme</Button>
 		<Dialog.Root>
 			<Dialog.Trigger class={buttonVariants({ variant: 'outline' })}
 				>CREATE NEW THEME</Dialog.Trigger

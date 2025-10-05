@@ -7,6 +7,7 @@
 
 	import { Command } from '@tauri-apps/plugin-shell';
 	import { join, homeDir } from '@tauri-apps/api/path';
+	import DropdownMenuItem from '$lib/components/ui/dropdown-menu/dropdown-menu-item.svelte';
 
 	export let themeDir;
 	export let onDeleted = null;
@@ -48,13 +49,15 @@
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
-	<DropdownMenu.Content align="end">
+	<DropdownMenu.Content align="end" class="uppercase">
 		<DropdownMenu.Group>
+			<DropdownMenu.Item>Share Theme</DropdownMenu.Item>
+			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
+			<DropdownMenu.Separator />
 			<DropdownMenu.Item
 				onclick={handleDelete}
 				class="bg-red-500/15 text-red-500 hover:text-red-500">Delete Theme</DropdownMenu.Item
 			>
-			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>
