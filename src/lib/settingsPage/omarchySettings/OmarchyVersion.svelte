@@ -33,7 +33,9 @@
 	<Card.Root>
 		<Card.Header>
 			<Card.Title class="uppercase">Omarchy</Card.Title>
-			<Card.Description>Current Version: {versionNum}</Card.Description>
+			<Card.Description class="text-xs tracking-wide uppercase"
+				>Current Version: {versionNum}</Card.Description
+			>
 		</Card.Header>
 		<Card.Content>
 			{#if updateAvailable}
