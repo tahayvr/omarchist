@@ -2,6 +2,7 @@
 pub mod cache;
 pub mod config;
 pub mod hyprland;
+pub mod import_export;
 pub mod nvidia_detection;
 pub mod settings;
 pub mod themes;

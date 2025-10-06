@@ -96,41 +96,47 @@ impl CustomThemeService {
 
         let now = chrono::Utc::now().to_rfc3339();
 
+        // Split payload into app data and optional metadata
+    let (apps_value, author_update) = Self::split_theme_payload(&theme_data);
+    let author = author_update.unwrap_or(None);
+
         // Extract colors from theme data
-        let colors = self.extract_theme_colors(&theme_dir, &theme_data);
+        let colors = self.extract_theme_colors(&theme_dir, &apps_value);
 
         // Create theme metadata
         let theme = CustomTheme {
             name: name.clone(),
             created_at: now.clone(),
             modified_at: now,
-            apps: theme_data.clone(),
+            author,
+            apps: apps_value.clone(),
             colors,
         };
 
         // Generate config files for each app using the generator registry
         for app_name in self.generator_registry.get_all_apps() {
             if let Some(generator) = self.generator_registry.get_generator(app_name) {
-                // Extract the specific config for this app from the theme_data
-                if let Some(app_config) = theme_data.get(app_name) {
-                    match generator.generate_config(app_config) {
-                        Ok(config_content) => {
-                            let config_path = theme_dir.join(generator.get_file_name());
-                            fs::write(&config_path, config_content)
-                                .map_err(|e| format!("Failed to write {app_name} config: {e}"))?;
-                        },
-                        Err(e) => {
-                            log::warn!("Failed to generate {app_name} config for '{name}': {e}");
-                        },
-                    }
-                } else {
-                    log::warn!("No config data found for app '{app_name}' in new theme '{name}'");
+                let has_config = apps_value.get(app_name).is_some();
+                match generator.generate_config(&apps_value) {
+                    Ok(config_content) => {
+                        let config_path = theme_dir.join(generator.get_file_name());
+                        fs::write(&config_path, config_content)
+                            .map_err(|e| format!("Failed to write {app_name} config: {e}"))?;
+                        if !has_config {
+                            log::warn!(
+                                "No config data found for app '{app_name}' in new theme '{name}'"
+                            );
+                        }
+                    },
+                    Err(e) => {
+                        log::warn!("Failed to generate {app_name} config for '{name}': {e}");
+                    },
                 }
             }
         }
 
-        // Save theme metadata
-        let metadata_path = theme_dir.join("custom_theme.json");
+        // Save theme metadata with theme name as filename
+        let metadata_path = theme_dir.join(format!("{}.json", sanitized_name));
         let metadata_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| format!("Failed to serialize theme metadata: {e}"))?;
         fs::write(&metadata_path, metadata_content)
@@ -183,14 +189,36 @@ impl CustomThemeService {
         // Load existing theme metadata
         let mut theme = self.load_theme_metadata(&sanitized_name)?;
 
+        // Split payload into app updates and optional metadata updates
+        let (apps_update, author_update) = Self::split_theme_payload(&theme_data);
+
         // Deep-merge incoming app data into existing apps so we don't wipe other apps
         let mut merged_apps = theme.apps.clone();
-        Self::deep_merge(&mut merged_apps, &theme_data);
-        theme.apps = merged_apps;
-        theme.modified_at = chrono::Utc::now().to_rfc3339();
+        let mut apps_changed = false;
+        if !apps_update.is_null() {
+            Self::deep_merge(&mut merged_apps, &apps_update);
+            theme.apps = merged_apps;
+            apps_changed = true;
+        }
 
-        // Re-extract colors after update
-        theme.colors = self.extract_theme_colors(&theme_dir, &theme.apps);
+        // Update author metadata if provided
+        let mut metadata_changed = apps_changed;
+        if let Some(author_payload) = author_update {
+            if theme.author != author_payload {
+                theme.author = author_payload.clone();
+                metadata_changed = true;
+            }
+        }
+
+        // Refresh modified timestamp if anything changed
+        if metadata_changed {
+            theme.modified_at = chrono::Utc::now().to_rfc3339();
+        }
+
+        // Re-extract colors after update when apps data changed
+        if apps_changed {
+            theme.colors = self.extract_theme_colors(&theme_dir, &theme.apps);
+        }
 
         // Regenerate config files for each app
         for app_name in self.generator_registry.get_all_apps() {
@@ -210,7 +238,7 @@ impl CustomThemeService {
         }
 
         // Update the metadata file
-        let metadata_path = theme_dir.join("custom_theme.json");
+        let metadata_path = self.get_metadata_path(&theme_dir, &sanitized_name);
         let metadata_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| format!("Failed to serialize theme metadata: {e}"))?;
         fs::write(&metadata_path, metadata_content)
@@ -235,7 +263,7 @@ impl CustomThemeService {
                         (Some(t_child), _) => {
                             *t_child = v.clone();
                         },
-                        (core::option::Option::None, _) => {
+                        (None, _) => {
                             t_map.insert(k.clone(), v.clone());
                         },
                     }
@@ -244,6 +272,38 @@ impl CustomThemeService {
             (t, s) => {
                 *t = s.clone();
             },
+        }
+    }
+
+    /// Split incoming payload into app data and optional metadata updates (author)
+    fn split_theme_payload(payload: &Value) -> (Value, Option<Option<String>>) {
+        if let Some(obj) = payload.as_object() {
+            let apps_value = if let Some(apps) = obj.get("apps") {
+                apps.clone()
+            } else {
+                payload.clone()
+            };
+
+            let author_update = obj.get("metadata").and_then(|metadata| {
+                if let Some(author_value) = metadata.get("author") {
+                    if let Some(author_str) = author_value.as_str() {
+                        let trimmed = author_str.trim();
+                        if trimmed.is_empty() {
+                            Some(None)
+                        } else {
+                            Some(Some(trimmed.to_string()))
+                        }
+                    } else {
+                        Some(None)
+                    }
+                } else {
+                    None
+                }
+            });
+
+            (apps_value, author_update)
+        } else {
+            (payload.clone(), None)
         }
     }
 
@@ -301,8 +361,8 @@ impl CustomThemeService {
 
             if path.is_dir() {
                 if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
-                    // Only include themes that have our custom metadata file
-                    let metadata_path = path.join("custom_theme.json");
+                    // Check for metadata file (either new or old format)
+                    let metadata_path = self.get_metadata_path(&path, dir_name);
                     if metadata_path.exists() {
                         match self.load_theme_metadata(dir_name) {
                             Ok(theme) => themes.push(theme),
@@ -450,7 +510,8 @@ impl CustomThemeService {
         let processed_content = template_content
             .replace("{{THEME_NAME}}", name)
             .replace("{{CREATED_AT}}", &now)
-            .replace("{{MODIFIED_AT}}", &now);
+            .replace("{{MODIFIED_AT}}", &now)
+            .replace("{{AUTHOR}}", "");
 
         fs::write(dst, processed_content)
             .map_err(|e| format!("Failed to write processed metadata: {e}"))?;
@@ -458,10 +519,28 @@ impl CustomThemeService {
         Ok(())
     }
 
+    /// Get the metadata file path for a theme (with backward compatibility)
+    fn get_metadata_path(&self, theme_dir: &std::path::Path, sanitized_name: &str) -> std::path::PathBuf {
+        // New format: {theme-name}.json
+        let new_path = theme_dir.join(format!("{}.json", sanitized_name));
+        
+        // Backward compatibility: check for old custom_theme.json
+        let old_path = theme_dir.join("custom_theme.json");
+        
+        if new_path.exists() {
+            new_path
+        } else if old_path.exists() {
+            old_path
+        } else {
+            // Default to new format for new themes
+            new_path
+        }
+    }
+
     /// Load theme metadata from JSON file
     fn load_theme_metadata(&self, sanitized_name: &str) -> Result<CustomTheme, String> {
         let theme_dir = self.themes_dir.join(sanitized_name);
-        let metadata_path = theme_dir.join("custom_theme.json");
+        let metadata_path = self.get_metadata_path(&theme_dir, sanitized_name);
 
         let content = fs::read_to_string(&metadata_path)
             .map_err(|e| format!("Failed to read theme metadata: {e}"))?;
@@ -473,13 +552,54 @@ impl CustomThemeService {
         if theme.colors.is_none() {
             theme.colors = self.extract_theme_colors(&theme_dir, &theme.apps);
 
-            // Save the updated metadata with colors
+            // Save the updated metadata with colors (using the same path we read from)
             if let Ok(updated_content) = serde_json::to_string_pretty(&theme) {
                 if let Err(e) = fs::write(&metadata_path, updated_content) {
                     log::warn!("Failed to update theme metadata with colors: {e}");
                 }
             }
         }
+
+        Ok(theme)
+    }
+
+    /// Update author metadata for a theme
+    pub fn set_theme_author(
+        &self,
+        name: &str,
+        author: Option<String>,
+    ) -> Result<CustomTheme, String> {
+        let sanitized_name = Self::sanitize_name(name);
+        let theme_dir = self.themes_dir.join(&sanitized_name);
+
+        if !theme_dir.exists() {
+            return Err(format!("Theme '{name}' not found"));
+        }
+
+        let mut theme = self.load_theme_metadata(&sanitized_name)?;
+
+        let normalized_author = author
+            .and_then(|value| {
+                let trimmed = value.trim();
+                if trimmed.is_empty() {
+                    None
+                } else {
+                    Some(trimmed.to_string())
+                }
+            });
+
+        if theme.author == normalized_author {
+            return Ok(theme);
+        }
+
+        theme.author = normalized_author;
+        theme.modified_at = chrono::Utc::now().to_rfc3339();
+
+        let metadata_path = self.get_metadata_path(&theme_dir, &sanitized_name);
+        let metadata_content = serde_json::to_string_pretty(&theme)
+            .map_err(|e| format!("Failed to serialize theme metadata: {e}"))?;
+        fs::write(&metadata_path, metadata_content)
+            .map_err(|e| format!("Failed to write theme metadata: {e}"))?;
 
         Ok(theme)
     }
@@ -694,11 +814,12 @@ pub async fn create_custom_theme(
     log::info!("Creating custom theme '{name}' with colors: bg={background}, fg={foreground}");
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.create_theme(name.clone(), background, foreground);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the created theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to include the new theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -716,11 +837,12 @@ pub async fn create_custom_theme_advanced(
     log::info!("Creating advanced custom theme '{name}'");
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.create_theme_advanced(name.clone(), theme_data);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the created theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to include the new theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -750,11 +872,12 @@ pub async fn update_custom_theme(
     };
 
     let result = service.update_theme(&name, alacritty_config);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the updated theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to update the theme
             let _ = cache.trigger_background_refresh().await;
         }
@@ -771,12 +894,33 @@ pub async fn update_custom_theme_advanced(
 ) -> Result<CustomTheme, String> {
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.update_theme_advanced(&name, theme_data);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the updated theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to update the theme
+            let _ = cache.trigger_background_refresh().await;
+        }
+    }
+
+    result
+}
+
+#[tauri::command(rename_all = "snake_case")]
+pub async fn set_theme_author(
+    app_handle: AppHandle,
+    theme_name: String,
+    author: Option<String>,
+) -> Result<CustomTheme, String> {
+    let service = CustomThemeService::new(&app_handle)?;
+    let result = service.set_theme_author(&theme_name, author);
+    let sanitized_name = CustomThemeService::sanitize_name(&theme_name);
+
+    if result.is_ok() {
+        if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
+            cache.invalidate_theme(&sanitized_name).await;
             let _ = cache.trigger_background_refresh().await;
         }
     }
@@ -800,11 +944,12 @@ pub async fn list_custom_themes(app_handle: AppHandle) -> Result<Vec<CustomTheme
 pub async fn delete_custom_theme(app_handle: AppHandle, name: String) -> Result<(), String> {
     let service = CustomThemeService::new(&app_handle)?;
     let result = service.delete_theme(&name);
+    let sanitized_name = CustomThemeService::sanitize_name(&name);
 
     // Invalidate cache for the deleted theme
     if result.is_ok() {
         if let Ok(cache) = crate::services::cache::cache_manager::get_theme_cache().await {
-            cache.invalidate_theme(&name).await;
+            cache.invalidate_theme(&sanitized_name).await;
             // Trigger background refresh to remove the theme from cache
             let _ = cache.trigger_background_refresh().await;
         }

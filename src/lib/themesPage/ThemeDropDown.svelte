@@ -4,9 +4,10 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { invoke } from '@tauri-apps/api/core';
 	import { refreshThemes } from '$lib/stores/themeCache.js';
-
+	import { save } from '@tauri-apps/plugin-dialog';
+	import { toast } from 'svelte-sonner';
 	import { Command } from '@tauri-apps/plugin-shell';
-	import { join, homeDir } from '@tauri-apps/api/path';
+	import { join, homeDir, documentDir } from '@tauri-apps/api/path';
 
 	export let themeDir;
 	export let onDeleted = null;
@@ -37,6 +38,52 @@
 			alert('Failed to open folder: ' + (err?.message || err));
 		}
 	}
+
+	async function handleShareTheme() {
+		if (!themeDir) return;
+		try {
+			// Open save dialog
+			const defaultFilename = `${themeDir}.json`;
+			const dialogOptions = {
+				defaultPath: defaultFilename,
+				filters: [
+					{
+						name: 'JSON Theme',
+						extensions: ['json']
+					}
+				]
+			};
+
+			try {
+				const documents = await documentDir();
+				if (documents) {
+					dialogOptions.defaultPath = await join(documents, defaultFilename);
+				}
+			} catch (pathErr) {
+				console.warn('Unable to determine Documents directory, using fallback path.', pathErr);
+			}
+
+			const destination = await save(dialogOptions);
+
+			if (!destination) {
+				// User cancelled
+				return;
+			}
+
+			// Export the theme
+			await invoke('export_custom_theme', {
+				themeName: themeDir,
+				destination: destination
+			});
+
+			// Notify success
+			toast.success('Theme exported', {
+				description: `${themeDir} has been exported successfully.`
+			});
+		} catch (err) {
+			alert('Failed to export theme: ' + (err?.message || err));
+		}
+	}
 </script>
 
 <DropdownMenu.Root>
@@ -48,13 +95,15 @@
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
-	<DropdownMenu.Content align="end">
+	<DropdownMenu.Content align="end" class="uppercase">
 		<DropdownMenu.Group>
+			<DropdownMenu.Item onclick={handleShareTheme}>Share Theme</DropdownMenu.Item>
+			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
+			<DropdownMenu.Separator />
 			<DropdownMenu.Item
 				onclick={handleDelete}
 				class="bg-red-500/15 text-red-500 hover:text-red-500">Delete Theme</DropdownMenu.Item
 			>
-			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>

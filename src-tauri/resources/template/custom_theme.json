@@ -2,6 +2,7 @@
 	"name": "{{THEME_NAME}}",
 	"created_at": "{{CREATED_AT}}",
 	"modified_at": "{{MODIFIED_AT}}",
+	"author": "{{AUTHOR}}",
 	"apps": {
 		"alacritty": {
 			"colors": {

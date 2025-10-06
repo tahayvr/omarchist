@@ -76,13 +76,82 @@ async fn get_sys_themes_direct() -> Result<Vec<SysTheme>, String> {
     Ok(themes)
 }
 
+/// Check if a theme directory contains a custom theme metadata file
+/// Supports both old (custom_theme.json) and new ({theme-name}.json) formats
+fn is_custom_theme(theme_dir: &Path) -> bool {
+    // Check for old format first
+    if theme_dir.join("custom_theme.json").is_file() {
+        return true;
+    }
+    
+    // Check for new format: look for JSON file with custom theme structure
+    // Custom theme metadata has "name", "created_at", "modified_at", "apps" fields
+    // App config files (vscode.json, kitty.json) don't have this structure
+    if let Ok(entries) = fs::read_dir(theme_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(ext) = path.extension() {
+                    if ext == "json" {
+                        // Skip known app config files
+                        if let Some(filename) = path.file_name() {
+                            let filename_str = filename.to_string_lossy();
+                            if filename_str == "vscode.json" 
+                                || filename_str == "kitty.json"
+                                || filename_str == "ghostty.json"
+                                || filename_str == "alacritty.json"
+                                || filename_str == "chromium.json"
+                                || filename_str == "waybar.json" {
+                                continue;
+                            }
+                        }
+                        
+                        // Try to parse and check for custom theme structure
+                        if let Ok(content) = fs::read_to_string(&path) {
+                            if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
+                                // Check if it has the custom theme structure
+                                if json.get("name").is_some() 
+                                    && json.get("created_at").is_some()
+                                    && json.get("apps").is_some() {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    false
+}
+
 /// Extract colors from theme configuration files with comprehensive error handling
 /// Returns None if no extractable colors are found, allowing graceful degradation
 fn extract_theme_colors(theme_dir: &Path, is_custom: bool) -> Option<ThemeColors> {
     // Performance optimization: Check file existence before attempting to read
     if is_custom {
-        // For custom themes, try to extract from custom_theme.json
-        let custom_theme_path = theme_dir.join("custom_theme.json");
+        // For custom themes, try to extract from metadata JSON file
+        // Check old format first
+        let mut custom_theme_path = theme_dir.join("custom_theme.json");
+        
+        // If old format doesn't exist, look for new format ({theme-name}.json)
+        if !custom_theme_path.exists() {
+            if let Ok(entries) = fs::read_dir(theme_dir) {
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if path.is_file() {
+                        if let Some(ext) = path.extension() {
+                            if ext == "json" {
+                                custom_theme_path = path;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
         if custom_theme_path.exists() {
             match fs::read_to_string(&custom_theme_path) {
                 Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
@@ -114,7 +183,7 @@ fn extract_theme_colors(theme_dir: &Path, is_custom: bool) -> Option<ThemeColors
     if alacritty_config_path.exists() {
         match ColorExtractor::extract_from_alacritty_config(&alacritty_config_path) {
             Some(colors) => return Some(colors),
-            None => {
+            _none => {
                 log::warn!(
                     "Failed to extract colors from Alacritty config at {alacritty_config_path:?}"
                 );
@@ -187,7 +256,7 @@ fn generate_theme_from_directory(theme_dir: &Path) -> Result<SysTheme, String> {
         }
     }
 
-    let is_custom = theme_dir.join("custom_theme.json").is_file();
+    let is_custom = is_custom_theme(theme_dir);
 
     // Check if the theme directory is a symlink (system theme)
     let is_system = if is_custom {

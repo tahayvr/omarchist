@@ -25,6 +25,8 @@ pub struct CustomTheme {
     pub name: String,
     pub created_at: String,
     pub modified_at: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub author: Option<String>,
     pub apps: Value,                 // Dynamic structure for all app configurations
     pub colors: Option<ThemeColors>, // Extracted color palette
 }
