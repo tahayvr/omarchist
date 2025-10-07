@@ -1,4 +1,3 @@
-
 use dirs;
 use std::process::Command;
 
@@ -17,7 +16,7 @@ pub async fn check_omarchy_update() -> Result<bool, String> {
 
     // Get current version
     let current_version = get_omarchy_version()?;
-    
+
     if current_version == "unknown" {
         log::warn!("Cannot check for updates - current version is unknown");
         return Ok(false);
@@ -57,7 +56,7 @@ pub async fn check_omarchy_update() -> Result<bool, String> {
 
     // Compare versions
     let update_available = compare_versions(current_version_clean, latest_version);
-    
+
     if update_available {
         log::info!("Update available: {latest_version}");
     } else {
@@ -69,33 +68,26 @@ pub async fn check_omarchy_update() -> Result<bool, String> {
 
 // Compare two semantic versions (returns true if remote is newer)
 fn compare_versions(current: &str, latest: &str) -> bool {
-    let current_parts: Vec<u32> = current
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
-    
-    let latest_parts: Vec<u32> = latest
-        .split('.')
-        .filter_map(|s| s.parse().ok())
-        .collect();
+    let current_parts: Vec<u32> = current.split('.').filter_map(|s| s.parse().ok()).collect();
+
+    let latest_parts: Vec<u32> = latest.split('.').filter_map(|s| s.parse().ok()).collect();
 
     // Pad with zeros if needed
     let max_len = current_parts.len().max(latest_parts.len());
-    
+
     for i in 0..max_len {
         let current_part = current_parts.get(i).copied().unwrap_or(0);
         let latest_part = latest_parts.get(i).copied().unwrap_or(0);
-        
+
         if latest_part > current_part {
             return true;
         } else if latest_part < current_part {
             return false;
         }
     }
-    
+
     false
 }
-
 
 // Run Update script for Omarchy
 #[tauri::command]

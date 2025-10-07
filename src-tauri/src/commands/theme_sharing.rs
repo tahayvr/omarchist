@@ -35,7 +35,11 @@ pub async fn import_custom_theme(
         .import_theme_from_file(&path, rename_on_conflict)
         .map_err(|e| e.to_string())?;
 
-    log::info!("Import result: success={}, theme_name={}", result.success, result.theme_name);
+    log::info!(
+        "Import result: success={}, theme_name={}",
+        result.success,
+        result.theme_name
+    );
 
     // Invalidate cache for the imported theme
     if result.success {

@@ -83,7 +83,7 @@ fn is_custom_theme(theme_dir: &Path) -> bool {
     if theme_dir.join("custom_theme.json").is_file() {
         return true;
     }
-    
+
     // Check for new format: look for JSON file with custom theme structure
     // Custom theme metadata has "name", "created_at", "modified_at", "apps" fields
     // App config files (vscode.json, kitty.json) don't have this structure
@@ -96,23 +96,25 @@ fn is_custom_theme(theme_dir: &Path) -> bool {
                         // Skip known app config files
                         if let Some(filename) = path.file_name() {
                             let filename_str = filename.to_string_lossy();
-                            if filename_str == "vscode.json" 
+                            if filename_str == "vscode.json"
                                 || filename_str == "kitty.json"
                                 || filename_str == "ghostty.json"
                                 || filename_str == "alacritty.json"
                                 || filename_str == "chromium.json"
-                                || filename_str == "waybar.json" {
+                                || filename_str == "waybar.json"
+                            {
                                 continue;
                             }
                         }
-                        
+
                         // Try to parse and check for custom theme structure
                         if let Ok(content) = fs::read_to_string(&path) {
                             if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
                                 // Check if it has the custom theme structure
-                                if json.get("name").is_some() 
+                                if json.get("name").is_some()
                                     && json.get("created_at").is_some()
-                                    && json.get("apps").is_some() {
+                                    && json.get("apps").is_some()
+                                {
                                     return true;
                                 }
                             }
@@ -122,7 +124,7 @@ fn is_custom_theme(theme_dir: &Path) -> bool {
             }
         }
     }
-    
+
     false
 }
 
@@ -134,7 +136,7 @@ fn extract_theme_colors(theme_dir: &Path, is_custom: bool) -> Option<ThemeColors
         // For custom themes, try to extract from metadata JSON file
         // Check old format first
         let mut custom_theme_path = theme_dir.join("custom_theme.json");
-        
+
         // If old format doesn't exist, look for new format ({theme-name}.json)
         if !custom_theme_path.exists() {
             if let Ok(entries) = fs::read_dir(theme_dir) {
@@ -151,7 +153,7 @@ fn extract_theme_colors(theme_dir: &Path, is_custom: bool) -> Option<ThemeColors
                 }
             }
         }
-        
+
         if custom_theme_path.exists() {
             match fs::read_to_string(&custom_theme_path) {
                 Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {

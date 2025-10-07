@@ -10,6 +10,9 @@
   ],
   "permissions": [
     "cli:default",
-    "shell:default"
+    "shell:default",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
   ]
 }
