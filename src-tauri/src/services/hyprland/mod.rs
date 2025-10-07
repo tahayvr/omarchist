@@ -245,8 +245,7 @@ impl HyprlandConfigService {
 
         for line in contents.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with("source")
-                && trimmed.contains(".config/omarchist/hyprland.conf")
+            if trimmed.starts_with("source") && trimmed.contains(".config/omarchist/hyprland.conf")
             {
                 has_directive = true;
                 break;
@@ -741,9 +740,9 @@ mod tests {
         assert!(override_contents.contains("enabled = true"));
         assert!(override_contents.contains("window_gap = 18"));
         assert!(override_contents.contains("respect_gaps = true"));
-    assert!(override_contents.contains("\ndecoration {\n"));
-    assert!(override_contents.contains("    # No overrides currently managed by Omarchist"));
-    assert!(override_contents.contains("\n}\n"));
+        assert!(override_contents.contains("\ndecoration {\n"));
+        assert!(override_contents.contains("    # No overrides currently managed by Omarchist"));
+        assert!(override_contents.contains("\n}\n"));
 
         // Verify source directive appended only once
         let primary_contents =
@@ -779,7 +778,8 @@ mod tests {
 
         let override_contents =
             fs::read_to_string(service.override_path()).expect("read override file");
-        assert!(override_contents.contains("\ngeneral {\n    # No overrides currently managed by Omarchist"));
+        assert!(override_contents
+            .contains("\ngeneral {\n    # No overrides currently managed by Omarchist"));
         assert!(override_contents.contains("\ndecoration {\n"));
         assert!(override_contents.contains("rounding = 6"));
         assert!(override_contents.contains("active_opacity = 0.8"));

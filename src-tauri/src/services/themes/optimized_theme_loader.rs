@@ -95,7 +95,11 @@ impl OptimizedThemeLoader {
         if let Ok(entries) = fs::read_dir(theme_dir) {
             for entry in entries.flatten() {
                 let path = entry.path();
-                if path.extension().and_then(|ext| ext.to_str()).map(|ext| ext.eq_ignore_ascii_case("json")).unwrap_or(false)
+                if path
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+                    .map(|ext| ext.eq_ignore_ascii_case("json"))
+                    .unwrap_or(false)
                 {
                     if Self::is_valid_metadata_file(&path) {
                         return Some(path);
@@ -315,8 +319,7 @@ impl OptimizedThemeLoader {
         };
 
         // Check if theme has color configuration files
-        let has_colors = metadata_path.is_some()
-            || theme_dir.join("alacritty.toml").exists();
+        let has_colors = metadata_path.is_some() || theme_dir.join("alacritty.toml").exists();
 
         // Check if theme has image files
         let has_image = Self::has_image_files(theme_dir);
@@ -378,7 +381,8 @@ impl OptimizedThemeLoader {
         };
 
         // Extract colors with caching
-        let colors = Self::extract_theme_colors_cached(theme_dir, metadata_path.clone(), &color_cache).await;
+        let colors =
+            Self::extract_theme_colors_cached(theme_dir, metadata_path.clone(), &color_cache).await;
 
         // Load image asynchronously
         let image_path = Self::load_theme_image_async(theme_dir).await;
@@ -427,8 +431,7 @@ impl OptimizedThemeLoader {
             match fs::read_to_string(custom_theme_path) {
                 Ok(content) => match serde_json::from_str::<serde_json::Value>(&content) {
                     Ok(theme_data) => {
-                        if let Some(colors) =
-                            ColorExtractor::extract_from_custom_theme(&theme_data)
+                        if let Some(colors) = ColorExtractor::extract_from_custom_theme(&theme_data)
                         {
                             return Some(colors);
                         } else {

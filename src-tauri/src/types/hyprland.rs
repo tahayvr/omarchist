@@ -445,10 +445,7 @@ impl Default for HyprlandAnimationSnapshot {
 }
 
 impl HyprlandAnimationSnapshot {
-    pub fn new(
-        effective: HyprlandAnimationSettings,
-        overrides: HyprlandAnimationSettings,
-    ) -> Self {
+    pub fn new(effective: HyprlandAnimationSettings, overrides: HyprlandAnimationSettings) -> Self {
         Self {
             effective,
             overrides,
@@ -565,12 +562,8 @@ impl GeneralField {
                 self.key(),
                 value,
             ),
-            GeneralField::GapsIn => {
-                set_string(settings, |s, v| s.gaps_in = v, self.key(), value)
-            },
-            GeneralField::GapsOut => {
-                set_string(settings, |s, v| s.gaps_out = v, self.key(), value)
-            },
+            GeneralField::GapsIn => set_string(settings, |s, v| s.gaps_in = v, self.key(), value),
+            GeneralField::GapsOut => set_string(settings, |s, v| s.gaps_out = v, self.key(), value),
             GeneralField::FloatGaps => {
                 set_string(settings, |s, v| s.float_gaps = v, self.key(), value)
             },
@@ -592,18 +585,12 @@ impl GeneralField {
                     message: format!("Expected layout string, received {other:?}"),
                 }),
             },
-            GeneralField::NoFocusFallback => set_bool(
-                settings,
-                |s, v| s.no_focus_fallback = v,
-                self.key(),
-                value,
-            ),
-            GeneralField::ResizeOnBorder => set_bool(
-                settings,
-                |s, v| s.resize_on_border = v,
-                self.key(),
-                value,
-            ),
+            GeneralField::NoFocusFallback => {
+                set_bool(settings, |s, v| s.no_focus_fallback = v, self.key(), value)
+            },
+            GeneralField::ResizeOnBorder => {
+                set_bool(settings, |s, v| s.resize_on_border = v, self.key(), value)
+            },
             GeneralField::ExtendBorderGrabArea => set_i32(
                 settings,
                 |s, v| s.extend_border_grab_area = v,
@@ -617,12 +604,9 @@ impl GeneralField {
                 self.key(),
                 value,
             ),
-            GeneralField::AllowTearing => set_bool(
-                settings,
-                |s, v| s.allow_tearing = v,
-                self.key(),
-                value,
-            ),
+            GeneralField::AllowTearing => {
+                set_bool(settings, |s, v| s.allow_tearing = v, self.key(), value)
+            },
             GeneralField::ResizeCorner => set_i32(
                 settings,
                 |s, v| s.resize_corner = v,
@@ -642,28 +626,20 @@ impl GeneralField {
             GeneralField::GapsIn => Ok(HyprlandValue::String(raw.trim().to_string())),
             GeneralField::GapsOut => Ok(HyprlandValue::String(raw.trim().to_string())),
             GeneralField::FloatGaps => Ok(HyprlandValue::String(raw.trim().to_string())),
-            GeneralField::GapsWorkspaces => {
-                Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?))
-            },
+            GeneralField::GapsWorkspaces => Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?)),
             GeneralField::Layout => {
                 let layout_mode = LayoutMode::parse(raw)?;
                 Ok(layout_mode.into())
             },
-            GeneralField::NoFocusFallback => {
-                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
-            },
-            GeneralField::ResizeOnBorder => {
-                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
-            },
+            GeneralField::NoFocusFallback => Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?)),
+            GeneralField::ResizeOnBorder => Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?)),
             GeneralField::ExtendBorderGrabArea => {
                 Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?))
             },
             GeneralField::HoverIconOnBorder => {
                 Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
             },
-            GeneralField::AllowTearing => {
-                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
-            },
+            GeneralField::AllowTearing => Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?)),
             GeneralField::ResizeCorner => Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?)),
         }
     }
@@ -688,9 +664,7 @@ impl GeneralField {
                 .map(|v| HyprlandValue::String(v.clone())),
             GeneralField::GapsWorkspaces => settings.gaps_workspaces.map(HyprlandValue::Int),
             GeneralField::Layout => settings.layout.map(|v| v.into()),
-            GeneralField::NoFocusFallback => {
-                settings.no_focus_fallback.map(HyprlandValue::Bool)
-            },
+            GeneralField::NoFocusFallback => settings.no_focus_fallback.map(HyprlandValue::Bool),
             GeneralField::ResizeOnBorder => settings.resize_on_border.map(HyprlandValue::Bool),
             GeneralField::ExtendBorderGrabArea => {
                 settings.extend_border_grab_area.map(HyprlandValue::Int)
@@ -734,9 +708,7 @@ impl GeneralField {
                     message: format!("Expected integer, received {other:?}"),
                 }),
             },
-            GeneralField::GapsIn
-            | GeneralField::GapsOut
-            | GeneralField::FloatGaps => match value {
+            GeneralField::GapsIn | GeneralField::GapsOut | GeneralField::FloatGaps => match value {
                 HyprlandValue::String(v) if !v.trim().is_empty() => Ok(()),
                 HyprlandValue::String(_) => Err(HyprlandConfigError::Validation {
                     field: self.key().to_string(),
@@ -859,9 +831,7 @@ impl SnapField {
         settings: &mut HyprlandGeneralSnapSettings,
     ) -> Result<(), HyprlandConfigError> {
         match self {
-            SnapField::Enabled => {
-                set_snap_bool(|s, v| s.enabled = v, self.key(), value, settings)
-            },
+            SnapField::Enabled => set_snap_bool(|s, v| s.enabled = v, self.key(), value, settings),
             SnapField::WindowGap => set_snap_i32(
                 |s, v| s.window_gap = v,
                 self.key(),
@@ -1044,18 +1014,12 @@ impl DecorationField {
                 0.0_f32..=1.0_f32,
                 value,
             ),
-            DecorationField::DimModal => set_decoration_bool(
-                settings,
-                |s, v| s.dim_modal = v,
-                "dim_modal",
-                value,
-            ),
-            DecorationField::DimInactive => set_decoration_bool(
-                settings,
-                |s, v| s.dim_inactive = v,
-                "dim_inactive",
-                value,
-            ),
+            DecorationField::DimModal => {
+                set_decoration_bool(settings, |s, v| s.dim_modal = v, "dim_modal", value)
+            },
+            DecorationField::DimInactive => {
+                set_decoration_bool(settings, |s, v| s.dim_inactive = v, "dim_inactive", value)
+            },
             DecorationField::DimStrength => set_decoration_f32(
                 settings,
                 |s, v| s.dim_strength = v,
@@ -1378,10 +1342,16 @@ impl BlurField {
             BlurField::InputMethods => {
                 set_blur_bool(settings, |s, v| s.input_methods = v, self.key(), value)
             },
-            BlurField::Size => set_blur_i32(settings, |s, v| s.size = v, self.key(), 1..=i32::MAX, value),
-            BlurField::Passes => {
-                set_blur_i32(settings, |s, v| s.passes = v, self.key(), 1..=i32::MAX, value)
+            BlurField::Size => {
+                set_blur_i32(settings, |s, v| s.size = v, self.key(), 1..=i32::MAX, value)
             },
+            BlurField::Passes => set_blur_i32(
+                settings,
+                |s, v| s.passes = v,
+                self.key(),
+                1..=i32::MAX,
+                value,
+            ),
             BlurField::Noise => set_blur_f32(
                 settings,
                 |s, v| s.noise = v,
@@ -1389,15 +1359,27 @@ impl BlurField {
                 0.0_f32..=1.0_f32,
                 value,
             ),
-            BlurField::Contrast => {
-                set_blur_f32(settings, |s, v| s.contrast = v, self.key(), 0.0_f32..=2.0_f32, value)
-            },
-            BlurField::Brightness => {
-                set_blur_f32(settings, |s, v| s.brightness = v, self.key(), 0.0_f32..=2.0_f32, value)
-            },
-            BlurField::Vibrancy => {
-                set_blur_f32(settings, |s, v| s.vibrancy = v, self.key(), 0.0_f32..=1.0_f32, value)
-            },
+            BlurField::Contrast => set_blur_f32(
+                settings,
+                |s, v| s.contrast = v,
+                self.key(),
+                0.0_f32..=2.0_f32,
+                value,
+            ),
+            BlurField::Brightness => set_blur_f32(
+                settings,
+                |s, v| s.brightness = v,
+                self.key(),
+                0.0_f32..=2.0_f32,
+                value,
+            ),
+            BlurField::Vibrancy => set_blur_f32(
+                settings,
+                |s, v| s.vibrancy = v,
+                self.key(),
+                0.0_f32..=1.0_f32,
+                value,
+            ),
             BlurField::VibrancyDarkness => set_blur_f32(
                 settings,
                 |s, v| s.vibrancy_darkness = v,
@@ -1489,9 +1471,7 @@ impl BlurField {
             BlurField::VibrancyDarkness => settings.vibrancy_darkness.map(HyprlandValue::from),
             BlurField::Special => settings.special.map(HyprlandValue::from),
             BlurField::Popups => settings.popups.map(HyprlandValue::from),
-            BlurField::PopupsIgnorealpha => {
-                settings.popups_ignorealpha.map(HyprlandValue::from)
-            },
+            BlurField::PopupsIgnorealpha => settings.popups_ignorealpha.map(HyprlandValue::from),
             BlurField::InputMethods => settings.input_methods.map(HyprlandValue::from),
             BlurField::InputMethodsIgnorealpha => {
                 settings.input_methods_ignorealpha.map(HyprlandValue::from)
@@ -1684,14 +1664,20 @@ impl ShadowField {
         settings: &mut HyprlandDecorationShadowSettings,
     ) -> Result<(), HyprlandConfigError> {
         match self {
-            ShadowField::Enabled =>
-                set_shadow_bool(settings, |s, v| s.enabled = v, self.key(), value),
-            ShadowField::Sharp =>
-                set_shadow_bool(settings, |s, v| s.sharp = v, self.key(), value),
-            ShadowField::IgnoreWindow =>
-                set_shadow_bool(settings, |s, v| s.ignore_window = v, self.key(), value),
-            ShadowField::Range =>
-                set_shadow_i32(settings, |s, v| s.range = v, self.key(), 0..=i32::MAX, value),
+            ShadowField::Enabled => {
+                set_shadow_bool(settings, |s, v| s.enabled = v, self.key(), value)
+            },
+            ShadowField::Sharp => set_shadow_bool(settings, |s, v| s.sharp = v, self.key(), value),
+            ShadowField::IgnoreWindow => {
+                set_shadow_bool(settings, |s, v| s.ignore_window = v, self.key(), value)
+            },
+            ShadowField::Range => set_shadow_i32(
+                settings,
+                |s, v| s.range = v,
+                self.key(),
+                0..=i32::MAX,
+                value,
+            ),
             ShadowField::RenderPower => set_shadow_i32(
                 settings,
                 |s, v| s.render_power = v,
@@ -1699,11 +1685,15 @@ impl ShadowField {
                 1..=4,
                 value,
             ),
-            ShadowField::Color => set_shadow_string(settings, |s, v| s.color = v, self.key(), value),
+            ShadowField::Color => {
+                set_shadow_string(settings, |s, v| s.color = v, self.key(), value)
+            },
             ShadowField::ColorInactive => {
                 set_shadow_string(settings, |s, v| s.color_inactive = v, self.key(), value)
             },
-            ShadowField::Offset => set_shadow_string(settings, |s, v| s.offset = v, self.key(), value),
+            ShadowField::Offset => {
+                set_shadow_string(settings, |s, v| s.offset = v, self.key(), value)
+            },
             ShadowField::Scale => set_shadow_f32(
                 settings,
                 |s, v| s.scale = v,
@@ -1766,12 +1756,18 @@ impl ShadowField {
             ShadowField::RenderPower => settings.render_power.map(HyprlandValue::from),
             ShadowField::Sharp => settings.sharp.map(HyprlandValue::from),
             ShadowField::IgnoreWindow => settings.ignore_window.map(HyprlandValue::from),
-            ShadowField::Color => settings.color.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            ShadowField::Color => settings
+                .color
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
             ShadowField::ColorInactive => settings
                 .color_inactive
                 .as_ref()
                 .map(|v| HyprlandValue::String(v.clone())),
-            ShadowField::Offset => settings.offset.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            ShadowField::Offset => settings
+                .offset
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
             ShadowField::Scale => settings.scale.map(HyprlandValue::from),
         }
     }
@@ -1912,12 +1908,9 @@ impl AnimationField {
         settings: &mut HyprlandAnimationSettings,
     ) -> Result<(), HyprlandConfigError> {
         match self {
-            AnimationField::Enabled => set_animation_bool(
-                settings,
-                |s, v| s.enabled = v,
-                "enabled",
-                value,
-            ),
+            AnimationField::Enabled => {
+                set_animation_bool(settings, |s, v| s.enabled = v, "enabled", value)
+            },
             AnimationField::WorkspaceWraparound => set_animation_bool(
                 settings,
                 |s, v| s.workspace_wraparound = v,
@@ -1931,7 +1924,7 @@ impl AnimationField {
         match self {
             AnimationField::Enabled | AnimationField::WorkspaceWraparound => {
                 Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
-            }
+            },
         }
     }
 
@@ -1945,23 +1938,23 @@ impl AnimationField {
                     });
                 }
                 Ok(())
-            }
+            },
         }
     }
 
     pub fn extract(&self, settings: &HyprlandAnimationSettings) -> Option<HyprlandValue> {
         match self {
             AnimationField::Enabled => settings.enabled.map(HyprlandValue::Bool),
-            AnimationField::WorkspaceWraparound => settings.workspace_wraparound.map(HyprlandValue::Bool),
+            AnimationField::WorkspaceWraparound => {
+                settings.workspace_wraparound.map(HyprlandValue::Bool)
+            },
         }
     }
 }
 
 pub fn animation_field_registry() -> &'static [AnimationField] {
-    const ANIMATION_FIELDS: [AnimationField; 2] = [
-        AnimationField::Enabled,
-        AnimationField::WorkspaceWraparound,
-    ];
+    const ANIMATION_FIELDS: [AnimationField; 2] =
+        [AnimationField::Enabled, AnimationField::WorkspaceWraparound];
     &ANIMATION_FIELDS
 }
 

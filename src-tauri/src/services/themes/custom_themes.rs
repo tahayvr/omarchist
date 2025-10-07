@@ -97,8 +97,8 @@ impl CustomThemeService {
         let now = chrono::Utc::now().to_rfc3339();
 
         // Split payload into app data and optional metadata
-    let (apps_value, author_update) = Self::split_theme_payload(&theme_data);
-    let author = author_update.unwrap_or(None);
+        let (apps_value, author_update) = Self::split_theme_payload(&theme_data);
+        let author = author_update.unwrap_or(None);
 
         // Extract colors from theme data
         let colors = self.extract_theme_colors(&theme_dir, &apps_value);
@@ -520,13 +520,17 @@ impl CustomThemeService {
     }
 
     /// Get the metadata file path for a theme (with backward compatibility)
-    fn get_metadata_path(&self, theme_dir: &std::path::Path, sanitized_name: &str) -> std::path::PathBuf {
+    fn get_metadata_path(
+        &self,
+        theme_dir: &std::path::Path,
+        sanitized_name: &str,
+    ) -> std::path::PathBuf {
         // New format: {theme-name}.json
         let new_path = theme_dir.join(format!("{}.json", sanitized_name));
-        
+
         // Backward compatibility: check for old custom_theme.json
         let old_path = theme_dir.join("custom_theme.json");
-        
+
         if new_path.exists() {
             new_path
         } else if old_path.exists() {
@@ -578,15 +582,14 @@ impl CustomThemeService {
 
         let mut theme = self.load_theme_metadata(&sanitized_name)?;
 
-        let normalized_author = author
-            .and_then(|value| {
-                let trimmed = value.trim();
-                if trimmed.is_empty() {
-                    None
-                } else {
-                    Some(trimmed.to_string())
-                }
-            });
+        let normalized_author = author.and_then(|value| {
+            let trimmed = value.trim();
+            if trimmed.is_empty() {
+                None
+            } else {
+                Some(trimmed.to_string())
+            }
+        });
 
         if theme.author == normalized_author {
             return Ok(theme);

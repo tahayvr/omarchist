@@ -6,6 +6,7 @@
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import CardContent from '$lib/components/ui/card/card-content.svelte';
+	import CopyToClipboard from '$lib/components/CopyToClipboard.svelte';
 
 	let { schema = {}, data = {} } = $props();
 
@@ -71,13 +72,17 @@
 			{@const fieldPath = key}
 			{@const value = getFieldValue(fieldPath)}
 			{#if isColorish(property)}
-				<ColorPickerField
-					label={property.title || key}
-					color={value ?? property.default ?? '#1e1e1e'}
-					format={getColorFormat(property)}
-					description={property.description}
-					on:change={(e) => handleFieldChange(fieldPath, e.detail)}
-				/>
+				{@const colorValue = value ?? property.default ?? '#1e1e1e'}
+				<div class="flex items-center">
+					<CopyToClipboard value={colorValue} />
+					<ColorPickerField
+						label={property.title || key}
+						color={colorValue}
+						format={getColorFormat(property)}
+						description={property.description}
+						on:change={(e) => handleFieldChange(fieldPath, e.detail)}
+					/>
+				</div>
 			{:else if property.type === 'string'}
 				<Label>
 					{#if property.description}
@@ -149,13 +154,17 @@
 							{@const nestedValue = getFieldValue(nestedFieldPath)}
 							<div>
 								{#if isColorish(nestedProperty)}
-									<ColorPickerField
-										label={nestedProperty.title || nestedKey}
-										color={nestedValue ?? nestedProperty.default ?? '#1e1e1e'}
-										format={getColorFormat(nestedProperty)}
-										description={nestedProperty.description}
-										on:change={(e) => handleFieldChange(nestedFieldPath, e.detail)}
-									/>
+									{@const nestedColor = nestedValue ?? nestedProperty.default ?? '#1e1e1e'}
+									<div class="flex items-center">
+										<CopyToClipboard value={nestedColor} />
+										<ColorPickerField
+											label={nestedProperty.title || nestedKey}
+											color={nestedColor}
+											format={getColorFormat(nestedProperty)}
+											description={nestedProperty.description}
+											on:change={(e) => handleFieldChange(nestedFieldPath, e.detail)}
+										/>
+									</div>
 								{:else if nestedProperty.type === 'string'}
 									<div class="mb-2 flex items-center">
 										<Label>
@@ -241,13 +250,17 @@
 														{@const deepValue = getFieldValue(deepFieldPath)}
 														<div>
 															{#if isColorish(deepProperty)}
-																<ColorPickerField
-																	label={deepProperty.title || deepKey}
-																	color={deepValue ?? deepProperty.default ?? '#1e1e1e'}
-																	format={getColorFormat(deepProperty)}
-																	description={deepProperty.description}
-																	on:change={(e) => handleFieldChange(deepFieldPath, e.detail)}
-																/>
+																{@const deepColor = deepValue ?? deepProperty.default ?? '#1e1e1e'}
+																<div class="flex items-center">
+																	<CopyToClipboard value={deepColor} />
+																	<ColorPickerField
+																		label={deepProperty.title || deepKey}
+																		color={deepColor}
+																		format={getColorFormat(deepProperty)}
+																		description={deepProperty.description}
+																		on:change={(e) => handleFieldChange(deepFieldPath, e.detail)}
+																	/>
+																</div>
 															{:else if deepProperty.type === 'string'}
 																<div class="flex items-center">
 																	<Label>
