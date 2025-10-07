@@ -45,7 +45,11 @@ impl ThemeImportExportService {
     }
 
     /// Export a custom theme to a JSON file
-    pub fn export_theme(&self, theme_name: &str, destination: PathBuf) -> Result<PathBuf, ThemeError> {
+    pub fn export_theme(
+        &self,
+        theme_name: &str,
+        destination: PathBuf,
+    ) -> Result<PathBuf, ThemeError> {
         // Get the theme
         let theme = self
             .custom_theme_service
@@ -66,7 +70,11 @@ impl ThemeImportExportService {
         fs::write(&export_path, theme_json)
             .map_err(|e| ThemeError::ExportFailed(format!("Failed to write file: {}", e)))?;
 
-        log::info!("Exported theme '{}' to {}", theme_name, export_path.display());
+        log::info!(
+            "Exported theme '{}' to {}",
+            theme_name,
+            export_path.display()
+        );
 
         Ok(export_path)
     }
@@ -109,13 +117,20 @@ impl ThemeImportExportService {
             if rename_on_conflict {
                 // Generate a unique name
                 let unique_name = self.generate_unique_name(&original_name);
-                
+
                 // Update the theme name in the JSON
                 if let Some(obj) = theme_value.as_object_mut() {
-                    obj.insert("name".to_string(), serde_json::Value::String(unique_name.clone()));
+                    obj.insert(
+                        "name".to_string(),
+                        serde_json::Value::String(unique_name.clone()),
+                    );
                 }
-                
-                log::info!("Renamed theme from '{}' to '{}' due to conflict", original_name, unique_name);
+
+                log::info!(
+                    "Renamed theme from '{}' to '{}' due to conflict",
+                    original_name,
+                    unique_name
+                );
                 unique_name
             } else {
                 return Ok(ImportResult {
@@ -167,7 +182,7 @@ impl ThemeImportExportService {
                     errors,
                     theme_name: None,
                 };
-            }
+            },
         };
 
         // Try to parse JSON
@@ -180,7 +195,7 @@ impl ThemeImportExportService {
                     errors,
                     theme_name: None,
                 };
-            }
+            },
         };
 
         // Check if it's an Omarchist theme

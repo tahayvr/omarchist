@@ -15,9 +15,9 @@ impl ThemeValidator {
 
     /// Validate the basic structure of a theme
     fn validate_structure(theme: &Value) -> Result<(), ThemeError> {
-        let obj = theme
-            .as_object()
-            .ok_or_else(|| ThemeError::ValidationFailed("Theme must be a JSON object".to_string()))?;
+        let obj = theme.as_object().ok_or_else(|| {
+            ThemeError::ValidationFailed("Theme must be a JSON object".to_string())
+        })?;
 
         // Check required fields
         let required_fields = ["name", "created_at", "modified_at", "apps"];
@@ -36,10 +36,9 @@ impl ThemeValidator {
     /// Validate theme metadata fields
     fn validate_metadata(theme: &Value) -> Result<(), ThemeError> {
         // Validate name
-        let name = theme
-            .get("name")
-            .and_then(|n| n.as_str())
-            .ok_or_else(|| ThemeError::ValidationFailed("Theme name must be a string".to_string()))?;
+        let name = theme.get("name").and_then(|n| n.as_str()).ok_or_else(|| {
+            ThemeError::ValidationFailed("Theme name must be a string".to_string())
+        })?;
 
         if name.trim().is_empty() {
             return Err(ThemeError::ValidationFailed(
@@ -118,9 +117,7 @@ impl ThemeValidator {
         // Check hex color format (#RGB or #RRGGBB or #RRGGBBAA)
         if color.starts_with('#') {
             let hex = &color[1..];
-            return (hex.len() == 3
-                || hex.len() == 6
-                || hex.len() == 8)
+            return (hex.len() == 3 || hex.len() == 6 || hex.len() == 8)
                 && hex.chars().all(|c| c.is_ascii_hexdigit());
         }
 

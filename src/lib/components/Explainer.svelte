@@ -10,8 +10,13 @@
 
 <HoverCard.Root>
 	<HoverCard.Trigger>
-		<Button variant="ghost" size="icon" class="h-6 w-6 p-0" aria-label="Explain setting">
-			<ManualIcon class="opacity-50" />
+		<Button
+			variant="ghost"
+			size="icon"
+			class="text-muted-foreground/50 hover:bg-primary dark:hover:bg-primary h-6 w-6 p-0"
+			aria-label="Explain setting"
+		>
+			<ManualIcon />
 		</Button>
 	</HoverCard.Trigger>
 	<HoverCard.Content class="space-y-2 text-sm leading-relaxed">

@@ -50,7 +50,7 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         services::themes::custom_themes::create_custom_theme_advanced,
         services::themes::custom_themes::update_custom_theme,
         services::themes::custom_themes::update_custom_theme_advanced,
-    services::themes::custom_themes::set_theme_author,
+        services::themes::custom_themes::set_theme_author,
         services::themes::custom_themes::get_custom_theme,
         services::themes::custom_themes::list_custom_themes,
         services::themes::custom_themes::delete_custom_theme,
@@ -83,6 +83,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_cli::init())
         .plugin(tauri_plugin_single_instance::init(
