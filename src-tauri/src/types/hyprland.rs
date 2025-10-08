@@ -69,7 +69,9 @@ impl HyprlandGeneralSettings {
         let mut general = BTreeMap::new();
         for field in general_field_registry() {
             if let Some(value) = field.extract(self) {
-                general.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    general.insert(field.key().to_string(), value);
+                }
             }
         }
 
@@ -116,7 +118,9 @@ impl HyprlandGeneralSnapSettings {
         let mut map = BTreeMap::new();
         for field in snap_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -223,7 +227,9 @@ impl HyprlandDecorationSettings {
         let mut decoration = BTreeMap::new();
         for field in decoration_field_registry() {
             if let Some(value) = field.extract(self) {
-                decoration.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    decoration.insert(field.key().to_string(), value);
+                }
             }
         }
 
@@ -293,7 +299,9 @@ impl HyprlandDecorationBlurSettings {
         let mut map = BTreeMap::new();
         for field in blur_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -344,7 +352,9 @@ impl HyprlandDecorationShadowSettings {
         let mut map = BTreeMap::new();
         for field in shadow_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -422,7 +432,9 @@ impl HyprlandAnimationSettings {
         let mut map = BTreeMap::new();
         for field in animation_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -683,7 +695,7 @@ impl GeneralField {
             GeneralField::NoBorderOnFloating => HyprlandValue::Bool(false),
             GeneralField::GapsIn => HyprlandValue::String("5".to_string()),
             GeneralField::GapsOut => HyprlandValue::String("20".to_string()),
-            GeneralField::FloatGaps => HyprlandValue::String("5".to_string()),
+            GeneralField::FloatGaps => HyprlandValue::String("0".to_string()),
             GeneralField::GapsWorkspaces => HyprlandValue::Int(0),
             GeneralField::Layout => LayoutMode::Dwindle.into(),
             GeneralField::NoFocusFallback => HyprlandValue::Bool(false),
@@ -882,7 +894,7 @@ impl SnapField {
             SnapField::WindowGap => HyprlandValue::Int(10),
             SnapField::MonitorGap => HyprlandValue::Int(10),
             SnapField::BorderOverlap => HyprlandValue::Bool(false),
-            SnapField::RespectGaps => HyprlandValue::Bool(true),
+            SnapField::RespectGaps => HyprlandValue::Bool(false),
         }
     }
 
@@ -1948,6 +1960,13 @@ impl AnimationField {
             AnimationField::WorkspaceWraparound => {
                 settings.workspace_wraparound.map(HyprlandValue::Bool)
             },
+        }
+    }
+
+    pub fn default_value(&self) -> HyprlandValue {
+        match self {
+            AnimationField::Enabled => HyprlandValue::Bool(true),
+            AnimationField::WorkspaceWraparound => HyprlandValue::Bool(false),
         }
     }
 }
