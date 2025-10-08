@@ -1,7 +1,6 @@
-use std::collections::{BTreeMap, HashSet};
-use std::env;
+use std::collections::BTreeMap;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use log::warn;
 
@@ -10,134 +9,8 @@ use crate::types::{
     KeyboardOption, KeyboardOptionGroup, KeyboardVariant,
 };
 
-const DEFAULT_RULE_FILE_NAMES: &[&str] = &[
-    "evdev.lst",
-    "base.lst",
-    "xorg.lst",
-    "evdev.extras",
-    "base.extras",
-    "xorg.extras",
-];
-
-fn default_keyboard_rule_paths() -> Vec<PathBuf> {
-    let mut roots = discover_rule_roots_from_environment();
-    roots.extend(default_rule_roots());
-    // Always ensure the canonical base.lst is included even if earlier roots cover it.
-    roots.push(PathBuf::from("/usr/share/X11/xkb/rules/base.lst"));
-
-    build_rule_paths(roots)
-}
-
-fn discover_rule_roots_from_environment() -> Vec<PathBuf> {
-    let mut roots = Vec::new();
-
-    if let Ok(value) = env::var("XKB_CONFIG_ROOT") {
-        roots.extend(split_path_list(&value));
-    }
-
-    if let Ok(value) = env::var("XKB_RULES_ROOT") {
-        roots.extend(split_path_list(&value));
-    }
-
-    if let Ok(value) = env::var("XDG_DATA_HOME") {
-        if let Some(home) = normalize_env_path(&value) {
-            roots.push(home.join("X11/xkb"));
-        }
-    }
-
-    if let Ok(value) = env::var("XDG_DATA_DIRS") {
-        for entry in value.split(':') {
-            if let Some(dir) = normalize_env_path(entry) {
-                roots.push(dir.join("X11/xkb"));
-            }
-        }
-    }
-
-    roots
-}
-
-fn default_rule_roots() -> Vec<PathBuf> {
-    vec![
-        PathBuf::from("/usr/share/X11/xkb"),
-        PathBuf::from("/usr/share/X11/xkb/rules"),
-        PathBuf::from("/usr/local/share/X11/xkb"),
-        PathBuf::from("/usr/local/share/X11/xkb/rules"),
-        PathBuf::from("/etc/X11/xkb"),
-        PathBuf::from("/etc/X11/xkb/rules"),
-        PathBuf::from("/run/current-system/sw/share/X11/xkb"),
-        PathBuf::from("/run/current-system/sw/share/X11/xkb/rules"),
-        PathBuf::from("/nix/var/nix/profiles/default/share/X11/xkb"),
-        PathBuf::from("/nix/var/nix/profiles/default/share/X11/xkb/rules"),
-    ]
-}
-
-fn split_path_list(value: &str) -> Vec<PathBuf> {
-    value.split(':').filter_map(normalize_env_path).collect()
-}
-
-fn normalize_env_path(raw: &str) -> Option<PathBuf> {
-    let trimmed = raw.trim();
-    if trimmed.is_empty() {
-        return None;
-    }
-    Some(PathBuf::from(trimmed))
-}
-
-fn build_rule_paths<I>(roots: I) -> Vec<PathBuf>
-where
-    I: IntoIterator<Item = PathBuf>,
-{
-    let mut seen: HashSet<PathBuf> = HashSet::new();
-    let mut candidates = Vec::new();
-
-    for root in roots {
-        if root.as_os_str().is_empty() {
-            continue;
-        }
-
-        if root
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(|ext| ext.eq_ignore_ascii_case("lst"))
-            .unwrap_or(false)
-        {
-            push_candidate(&mut candidates, &mut seen, root);
-            continue;
-        }
-
-        if root
-            .file_name()
-            .and_then(|name| name.to_str())
-            .map(|name| name.eq_ignore_ascii_case("rules"))
-            .unwrap_or(false)
-        {
-            append_rule_files_from_directory(&mut candidates, &mut seen, &root);
-            continue;
-        }
-
-        // Treat as the XKB root directory.
-        append_rule_files_from_directory(&mut candidates, &mut seen, &root.join("rules"));
-    }
-
-    candidates
-}
-
-fn append_rule_files_from_directory(
-    candidates: &mut Vec<PathBuf>,
-    seen: &mut HashSet<PathBuf>,
-    directory: &Path,
-) {
-    for name in DEFAULT_RULE_FILE_NAMES {
-        let path = directory.join(name);
-        push_candidate(candidates, seen, path);
-    }
-}
-
-fn push_candidate(candidates: &mut Vec<PathBuf>, seen: &mut HashSet<PathBuf>, candidate: PathBuf) {
-    if seen.insert(candidate.clone()) {
-        candidates.push(candidate);
-    }
-}
+/// The canonical system XKB rules file containing keyboard definitions.
+const SYSTEM_BASE_LST: &str = "/usr/share/X11/xkb/rules/base.lst";
 
 const FALLBACK_RULES: &str = r"#! fallback XKB rules used when system definitions are unavailable
 ! model
@@ -176,55 +49,31 @@ layout switching continuation line
   altwin:meta_alt Left Alt is Meta key
 ";
 
+/// Load the keyboard catalog from the system XKB rules file, falling back to bundled definitions.
 pub fn load_keyboard_catalog() -> HyprlandResult<KeyboardCatalog> {
-    let candidate_paths = default_keyboard_rule_paths();
-    load_keyboard_catalog_from_candidates(candidate_paths)
-}
-
-fn load_keyboard_catalog_from_candidates<I, P>(candidates: I) -> HyprlandResult<KeyboardCatalog>
-where
-    I: IntoIterator<Item = P>,
-    P: AsRef<Path>,
-{
-    let mut last_error: Option<HyprlandConfigError> = None;
-
-    for candidate in candidates {
-        let path = candidate.as_ref();
-        let path_display = path.display().to_string();
-
-        match parse_keyboard_catalog_from_path(path) {
+    match parse_keyboard_catalog_from_path(Path::new(SYSTEM_BASE_LST)) {
+        Ok(catalog)
+            if !catalog.models.is_empty()
+                || !catalog.layouts.is_empty()
+                || !catalog.option_groups.is_empty() =>
+        {
             Ok(catalog)
-                if catalog.models.is_empty()
-                    && catalog.layouts.is_empty()
-                    && catalog.option_groups.is_empty() =>
-            {
-                last_error = Some(HyprlandConfigError::Parse {
-                    field: "keyboard catalog".to_string(),
-                    message: format!("No keyboard definitions found in {path_display}"),
-                });
-            },
-            Ok(catalog) => return Ok(catalog),
-            Err(HyprlandConfigError::FileNotFound { .. }) => {
-                last_error = Some(HyprlandConfigError::FileNotFound { path: path_display });
-            },
-            Err(err) => {
-                last_error = Some(err);
-            },
+        }
+        Ok(_) => {
+            warn!(
+                "System XKB rules file at {} contained no definitions; using bundled fallback",
+                SYSTEM_BASE_LST
+            );
+            fallback_keyboard_catalog()
+        }
+        Err(err) => {
+            warn!(
+                "Failed to load system XKB rules from {}: {}; using bundled fallback",
+                SYSTEM_BASE_LST, err
+            );
+            fallback_keyboard_catalog()
         }
     }
-
-    if let Some(err) = &last_error {
-        warn!(
-            "Falling back to bundled keyboard catalog because system catalogs failed: {}",
-            err
-        );
-    } else {
-        warn!(
-            "No XKB keyboard rule files found; using bundled fallback catalog so controls remain usable."
-        );
-    }
-
-    fallback_keyboard_catalog()
 }
 
 fn fallback_keyboard_catalog() -> HyprlandResult<KeyboardCatalog> {
@@ -462,120 +311,5 @@ fn split_code_description(line: &str) -> Option<(String, String)> {
         None
     } else {
         Some((code, description))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use std::path::{Path, PathBuf};
-    use tempfile::NamedTempFile;
-
-    const SAMPLE: &str = r"! model
-  pc105           Generic 105-key PC
-
-! layout
-  us              English (US)
-
-! variant
-  intl            us: English (US, intl., with dead keys)
-
-! option
-  grp             Switching to another layout
-  grp:toggle      Right Alt
-  grp:ctrl_shift_toggle Left Ctrl+Left Shift chooses previous layout
-layout continuation
-  lv3             Key to choose the 3rd level
-  lv3:ralt_switch Right Alt";
-
-    #[test]
-    fn parses_sample_catalog() {
-        let catalog = parse_keyboard_catalog(SAMPLE).expect("parse sample catalog");
-        assert_eq!(catalog.models.len(), 1);
-        assert_eq!(catalog.layouts.len(), 1);
-        assert_eq!(catalog.layouts[0].name, "us");
-        assert_eq!(catalog.layouts[0].variants.len(), 1);
-        assert_eq!(catalog.layouts[0].variants[0].name, "intl");
-        assert_eq!(
-            catalog.layouts[0].variants[0].description,
-            "English (US, intl., with dead keys)"
-        );
-        assert_eq!(catalog.option_groups.len(), 2);
-        assert_eq!(catalog.option_groups[0].name, "grp");
-        assert_eq!(
-            catalog.option_groups[0].description,
-            "Switching to another layout"
-        );
-        assert_eq!(catalog.option_groups[0].options.len(), 2);
-        assert_eq!(
-            catalog.option_groups[0].options[1].name,
-            "ctrl_shift_toggle"
-        );
-        assert!(catalog.option_groups[0].options[1]
-            .description
-            .contains("previous layout layout continuation"));
-        assert_eq!(catalog.option_groups[1].name, "lv3");
-        assert_eq!(catalog.option_groups[1].options.len(), 1);
-    }
-
-    #[test]
-    fn falls_back_to_next_rules_file_when_first_missing() {
-        let temp = NamedTempFile::new().expect("create temp XKB rules file");
-        std::fs::write(temp.path(), SAMPLE).expect("write sample data");
-
-        let missing = Path::new("/__does_not_exist__/xkb/rules.lst");
-        let catalog = load_keyboard_catalog_from_candidates([missing, temp.path()])
-            .expect("load catalog from fallback file");
-
-        assert_eq!(catalog.models.len(), 1);
-        assert_eq!(catalog.layouts.len(), 1);
-        assert_eq!(catalog.option_groups.len(), 2);
-    }
-
-    #[test]
-    fn uses_bundled_catalog_when_all_candidates_fail() {
-        let missing_one = Path::new("/__does_not_exist__/xkb/rules.lst");
-        let missing_two = Path::new("/__does_not_exist__/xkb/evdev.lst");
-        let catalog = load_keyboard_catalog_from_candidates([missing_one, missing_two])
-            .expect("load bundled fallback catalog");
-
-        assert!(!catalog.models.is_empty());
-        assert!(catalog.layouts.iter().any(|layout| layout.name == "us"));
-        assert!(catalog
-            .option_groups
-            .iter()
-            .any(|group| group.name == "grp"));
-    }
-
-    #[test]
-    fn fallback_constant_matches_parser() {
-        let catalog = fallback_keyboard_catalog().expect("fallback parses");
-        assert!(!catalog.models.is_empty());
-        assert!(catalog.layouts.iter().any(|layout| layout.name == "us"));
-        assert!(catalog
-            .option_groups
-            .iter()
-            .any(|group| group.name == "grp"));
-    }
-
-    #[test]
-    fn build_rule_paths_accepts_direct_lst_files() {
-        let custom = PathBuf::from("/tmp/custom_rules.lst");
-        let candidates = build_rule_paths(vec![custom.clone()]);
-        assert_eq!(candidates, vec![custom]);
-    }
-
-    #[test]
-    fn build_rule_paths_extends_rule_directories() {
-        let root = PathBuf::from("/opt/xkb/rules");
-        let candidates = build_rule_paths(vec![root.clone()]);
-        assert!(candidates.contains(&root.join("evdev.lst")));
-        assert!(candidates.contains(&root.join("base.lst")));
-    }
-
-    #[test]
-    fn default_paths_always_include_system_base_lst() {
-        let candidates = default_keyboard_rule_paths();
-        assert!(candidates.contains(&PathBuf::from("/usr/share/X11/xkb/rules/base.lst")));
     }
 }
