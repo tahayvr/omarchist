@@ -34,7 +34,7 @@
 	const selectedOptions = $derived(getSelectedOptionsSet(hyprlandInput.form));
 	const selectedModelLabel = $derived.by(() => {
 		if (!hyprlandInput.form.kb_model) {
-			return 'Use Hyprland default';
+			return 'Default';
 		}
 		const match = modelOptions.find((model) => model.name === hyprlandInput.form.kb_model);
 		return match?.description || hyprlandInput.form.kb_model;
@@ -239,7 +239,7 @@
 						{/if}
 					</Select.Trigger>
 					<Select.Content>
-						<Select.Item value="__none__">Use Hyprland default</Select.Item>
+						<Select.Item value="__none__">Default</Select.Item>
 						{#each modelOptions as model (model.name)}
 							<Select.Item value={model.name}>{model.description || model.name}</Select.Item>
 						{/each}
@@ -290,11 +290,11 @@
 							? (variantOptions.find((variant) => variant.name === hyprlandInput.form.kb_variant)
 									?.description ?? hyprlandInput.form.kb_variant)
 							: variantOptions.length
-								? 'Use layout default'
+								? 'Default'
 								: 'No variants available'}
 					</Select.Trigger>
 					<Select.Content>
-						<Select.Item value="__none__">Use layout default</Select.Item>
+						<Select.Item value="__none__">Default</Select.Item>
 						{#each variantOptions as variant (variant.name)}
 							<Select.Item value={variant.name}>{variant.description || variant.name}</Select.Item>
 						{/each}
