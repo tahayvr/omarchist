@@ -465,6 +465,125 @@ impl HyprlandAnimationSnapshot {
     }
 }
 
+/// Represents Hyprland "input" settings.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputSettings {
+    pub kb_model: Option<String>,
+    pub kb_layout: Option<String>,
+    pub kb_variant: Option<String>,
+    pub kb_options: Option<String>,
+}
+
+impl HyprlandInputSettings {
+    pub fn with_defaults() -> Self {
+        Self {
+            kb_model: Some(String::new()),
+            kb_layout: Some("us".into()),
+            kb_variant: Some(String::new()),
+            kb_options: Some(String::new()),
+        }
+    }
+
+    pub fn apply_overrides(
+        &mut self,
+        overrides: &BTreeMap<String, HyprlandValue>,
+    ) -> Result<(), HyprlandConfigError> {
+        for field in input_field_registry() {
+            if let Some(value) = overrides.get(field.key()) {
+                field.apply(value.clone(), self)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_override_map(&self) -> BTreeMap<String, HyprlandValue> {
+        let mut map = BTreeMap::new();
+        for field in input_field_registry() {
+            if let Some(value) = field.extract(self) {
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
+            }
+        }
+        map
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputOverrideMap {
+    pub settings: BTreeMap<String, HyprlandValue>,
+}
+
+impl HyprlandInputOverrideMap {
+    pub fn is_empty(&self) -> bool {
+        self.settings.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputSnapshot {
+    pub effective: HyprlandInputSettings,
+    pub overrides: HyprlandInputSettings,
+}
+
+impl Default for HyprlandInputSnapshot {
+    fn default() -> Self {
+        Self {
+            effective: HyprlandInputSettings::with_defaults(),
+            overrides: HyprlandInputSettings::default(),
+        }
+    }
+}
+
+impl HyprlandInputSnapshot {
+    pub fn new(effective: HyprlandInputSettings, overrides: HyprlandInputSettings) -> Self {
+        Self {
+            effective,
+            overrides,
+        }
+    }
+}
+
+/// Catalog of keyboard models, layouts, variants, and options sourced from `base.lst`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardCatalog {
+    pub models: Vec<KeyboardModel>,
+    pub layouts: Vec<KeyboardLayout>,
+    pub option_groups: Vec<KeyboardOptionGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardModel {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardLayout {
+    pub name: String,
+    pub description: String,
+    pub variants: Vec<KeyboardVariant>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardVariant {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOptionGroup {
+    pub name: String,
+    pub description: String,
+    pub options: Vec<KeyboardOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOption {
+    pub name: String,
+    pub description: String,
+}
+
 /// Hyprland layout modes supported by Omarchist.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -1977,6 +2096,131 @@ pub fn animation_field_registry() -> &'static [AnimationField] {
     &ANIMATION_FIELDS
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InputField {
+    KbModel,
+    KbLayout,
+    KbVariant,
+    KbOptions,
+}
+
+impl InputField {
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key.trim() {
+            "kb_model" => Some(InputField::KbModel),
+            "kb_layout" => Some(InputField::KbLayout),
+            "kb_variant" => Some(InputField::KbVariant),
+            "kb_options" => Some(InputField::KbOptions),
+            _ => None,
+        }
+    }
+
+    pub fn key(&self) -> &'static str {
+        match self {
+            InputField::KbModel => "kb_model",
+            InputField::KbLayout => "kb_layout",
+            InputField::KbVariant => "kb_variant",
+            InputField::KbOptions => "kb_options",
+        }
+    }
+
+    pub fn apply(
+        &self,
+        value: HyprlandValue,
+        settings: &mut HyprlandInputSettings,
+    ) -> Result<(), HyprlandConfigError> {
+        match self {
+            InputField::KbModel => {
+                set_input_string(settings, |s, v| s.kb_model = v, self.key(), value)
+            },
+            InputField::KbLayout => {
+                set_input_string(settings, |s, v| s.kb_layout = v, self.key(), value)
+            },
+            InputField::KbVariant => {
+                set_input_string(settings, |s, v| s.kb_variant = v, self.key(), value)
+            },
+            InputField::KbOptions => {
+                set_input_string(settings, |s, v| s.kb_options = v, self.key(), value)
+            },
+        }
+    }
+
+    pub fn parse_raw(&self, raw: &str) -> Result<HyprlandValue, HyprlandConfigError> {
+        Ok(HyprlandValue::String(raw.trim().to_string()))
+    }
+
+    pub fn extract(&self, settings: &HyprlandInputSettings) -> Option<HyprlandValue> {
+        match self {
+            InputField::KbModel => settings
+                .kb_model
+                .as_ref()
+                .map(|value| HyprlandValue::String(value.clone())),
+            InputField::KbLayout => settings
+                .kb_layout
+                .as_ref()
+                .map(|value| HyprlandValue::String(value.clone())),
+            InputField::KbVariant => settings
+                .kb_variant
+                .as_ref()
+                .map(|value| HyprlandValue::String(value.clone())),
+            InputField::KbOptions => settings
+                .kb_options
+                .as_ref()
+                .map(|value| HyprlandValue::String(value.clone())),
+        }
+    }
+
+    pub fn default_value(&self) -> HyprlandValue {
+        match self {
+            InputField::KbModel => HyprlandValue::String(String::new()),
+            InputField::KbLayout => HyprlandValue::String("us".into()),
+            InputField::KbVariant => HyprlandValue::String(String::new()),
+            InputField::KbOptions => HyprlandValue::String(String::new()),
+        }
+    }
+
+    pub fn validate(&self, value: &HyprlandValue) -> Result<(), HyprlandConfigError> {
+        match self {
+            InputField::KbModel | InputField::KbVariant | InputField::KbOptions => {
+                if matches!(value, HyprlandValue::String(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected string, received {value:?}"),
+                    })
+                }
+            },
+            InputField::KbLayout => match value {
+                HyprlandValue::String(raw) => {
+                    if raw.trim().is_empty() {
+                        Err(HyprlandConfigError::Validation {
+                            field: self.key().to_string(),
+                            message: "Layout value cannot be empty".into(),
+                        })
+                    } else {
+                        Ok(())
+                    }
+                },
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected string, received {other:?}"),
+                }),
+            },
+        }
+    }
+}
+
+pub fn input_field_registry() -> &'static [InputField] {
+    const INPUT_FIELDS: [InputField; 4] = [
+        InputField::KbModel,
+        InputField::KbLayout,
+        InputField::KbVariant,
+        InputField::KbOptions,
+    ];
+    &INPUT_FIELDS
+}
+
 /// Canonical Hyprland configuration value representation used by the backend.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -2137,6 +2381,24 @@ fn set_string(
 
     setter(settings, Some(trimmed));
     Ok(())
+}
+
+fn set_input_string(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<String>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::String(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected string, received {other:?}"),
+        }),
+    }
 }
 
 fn set_decoration_bool(
