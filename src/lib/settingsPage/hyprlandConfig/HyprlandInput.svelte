@@ -219,7 +219,7 @@
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 			<div class="flex flex-col gap-2">
-				<Label for="kb_model" class="flex items-center justify-between gap-2">
+				<Label for="kb_model" class="flex items-center gap-2">
 					<span>Keyboard model</span>
 					<Explainer explainerText="Selects a specific hardware model from XKB definitions." />
 				</Label>
@@ -229,7 +229,7 @@
 					onValueChange={handleModelChange}
 					disabled={hyprlandInput.isLoading || !modelOptions.length}
 				>
-					<Select.Trigger class="w-full max-w-[280px] normal-case">
+					<Select.Trigger class="w-full max-w-[280px] uppercase">
 						{#if hyprlandInput.isLoading}
 							Loading…
 						{:else if modelOptions.length}
@@ -252,7 +252,7 @@
 				{/if}
 			</div>
 			<div class="flex flex-col gap-2">
-				<Label for="kb_layout" class="flex items-center justify-between gap-2">
+				<Label for="kb_layout" class="flex items-center gap-2">
 					<span>Keyboard layout</span>
 					<Explainer explainerText="The primary keyboard layout Hyprland should apply." />
 				</Label>
@@ -262,7 +262,7 @@
 					onValueChange={handleLayoutChange}
 					disabled={hyprlandInput.isLoading || !layoutOptions.length}
 				>
-					<Select.Trigger class="w-full max-w-[280px]">
+					<Select.Trigger class="w-full max-w-[280px] uppercase">
 						{hyprlandInput.form.kb_layout || 'Select layout'}
 					</Select.Trigger>
 					<Select.Content>
@@ -273,7 +273,7 @@
 				</Select.Root>
 			</div>
 			<div class="flex flex-col gap-2 md:col-span-2">
-				<Label for="kb_variant" class="flex items-center justify-between gap-2">
+				<Label for="kb_variant" class="flex items-center gap-2">
 					<span>Keyboard variant</span>
 					<Explainer
 						explainerText="Optional variant applied on top of the layout. Only variants valid for the selected layout are listed."
@@ -285,7 +285,7 @@
 					onValueChange={handleVariantChange}
 					disabled={hyprlandInput.isLoading || !variantOptions.length}
 				>
-					<Select.Trigger class="w-full">
+					<Select.Trigger class="w-full uppercase">
 						{hyprlandInput.form.kb_variant
 							? (variantOptions.find((variant) => variant.name === hyprlandInput.form.kb_variant)
 									?.description ?? hyprlandInput.form.kb_variant)
@@ -302,7 +302,7 @@
 				</Select.Root>
 			</div>
 			<div class="flex flex-col gap-2 md:col-span-2">
-				<Label for="kb_options" class="flex items-center justify-between gap-2">
+				<Label for="kb_options" class="flex items-center gap-2">
 					<span>Additional options</span>
 					<Explainer
 						explainerText="Comma-separated XKB option codes (group:option). Toggle common options below to populate this field."
@@ -332,7 +332,9 @@
 				<Accordion.Root type="multiple" class="space-y-2">
 					{#each optionGroups as group (group.name)}
 						<Accordion.Item value={group.name} class="border-border/60 rounded-lg border">
-							<Accordion.Trigger class="w-full px-4 py-2 text-left text-sm font-semibold">
+							<Accordion.Trigger
+								class="w-full px-4 py-2 text-left text-sm font-semibold capitalize"
+							>
 								{group.description || group.name}
 							</Accordion.Trigger>
 							<Accordion.Content class="px-4 pb-3">

@@ -32,10 +32,10 @@ impl HyprlandGeneralSettings {
     /// Construct settings populated with Hyprland defaults.
     pub fn with_defaults() -> Self {
         Self {
-            border_size: Some(1),
+            border_size: Some(2),
             no_border_on_floating: Some(false),
             gaps_in: Some("5".into()),
-            gaps_out: Some("20".into()),
+            gaps_out: Some("10".into()),
             float_gaps: Some("0".into()),
             gaps_workspaces: Some(0),
             layout: Some(LayoutMode::Dwindle),
@@ -468,19 +468,85 @@ impl HyprlandAnimationSnapshot {
 /// Represents Hyprland "input" settings.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HyprlandInputSettings {
+    // Keyboard settings
     pub kb_model: Option<String>,
     pub kb_layout: Option<String>,
     pub kb_variant: Option<String>,
     pub kb_options: Option<String>,
+    pub kb_rules: Option<String>,
+    pub kb_file: Option<String>,
+    pub numlock_by_default: Option<bool>,
+    pub resolve_binds_by_sym: Option<bool>,
+    pub repeat_rate: Option<i32>,
+    pub repeat_delay: Option<i32>,
+    
+    // Mouse settings
+    pub sensitivity: Option<f32>,
+    pub accel_profile: Option<String>,
+    pub force_no_accel: Option<bool>,
+    pub left_handed: Option<bool>,
+    
+    // Scroll settings
+    pub scroll_points: Option<String>,
+    pub scroll_method: Option<String>,
+    pub scroll_button: Option<i32>,
+    pub scroll_button_lock: Option<bool>,
+    pub scroll_factor: Option<f32>,
+    pub natural_scroll: Option<bool>,
+    
+    // Focus settings
+    pub follow_mouse: Option<i32>,
+    pub follow_mouse_threshold: Option<f32>,
+    pub focus_on_close: Option<i32>,
+    pub mouse_refocus: Option<bool>,
+    pub float_switch_override_focus: Option<i32>,
+    pub special_fallthrough: Option<bool>,
+    
+    // Misc settings
+    pub off_window_axis_events: Option<i32>,
+    pub emulate_discrete_scroll: Option<i32>,
 }
 
 impl HyprlandInputSettings {
     pub fn with_defaults() -> Self {
         Self {
+            // Keyboard settings
             kb_model: Some(String::new()),
             kb_layout: Some("us".into()),
             kb_variant: Some(String::new()),
             kb_options: Some(String::new()),
+            kb_rules: Some(String::new()),
+            kb_file: Some(String::new()),
+            numlock_by_default: Some(false),
+            resolve_binds_by_sym: Some(false),
+            repeat_rate: Some(25),
+            repeat_delay: Some(600),
+            
+            // Mouse settings
+            sensitivity: Some(0.0),
+            accel_profile: Some(String::new()),
+            force_no_accel: Some(false),
+            left_handed: Some(false),
+            
+            // Scroll settings
+            scroll_points: Some(String::new()),
+            scroll_method: Some(String::new()),
+            scroll_button: Some(0),
+            scroll_button_lock: Some(false),
+            scroll_factor: Some(1.0),
+            natural_scroll: Some(false),
+            
+            // Focus settings
+            follow_mouse: Some(1),
+            follow_mouse_threshold: Some(0.0),
+            focus_on_close: Some(0),
+            mouse_refocus: Some(true),
+            float_switch_override_focus: Some(1),
+            special_fallthrough: Some(false),
+            
+            // Misc settings
+            off_window_axis_events: Some(1),
+            emulate_discrete_scroll: Some(1),
         }
     }
 
@@ -810,10 +876,10 @@ impl GeneralField {
 
     pub fn default_value(&self) -> HyprlandValue {
         match self {
-            GeneralField::BorderSize => HyprlandValue::Int(1),
+            GeneralField::BorderSize => HyprlandValue::Int(2),
             GeneralField::NoBorderOnFloating => HyprlandValue::Bool(false),
             GeneralField::GapsIn => HyprlandValue::String("5".to_string()),
-            GeneralField::GapsOut => HyprlandValue::String("20".to_string()),
+            GeneralField::GapsOut => HyprlandValue::String("10".to_string()),
             GeneralField::FloatGaps => HyprlandValue::String("0".to_string()),
             GeneralField::GapsWorkspaces => HyprlandValue::Int(0),
             GeneralField::Layout => LayoutMode::Dwindle.into(),
@@ -2098,10 +2164,43 @@ pub fn animation_field_registry() -> &'static [AnimationField] {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum InputField {
+    // Keyboard settings
     KbModel,
     KbLayout,
     KbVariant,
     KbOptions,
+    KbRules,
+    KbFile,
+    NumlockByDefault,
+    ResolveBindsBySym,
+    RepeatRate,
+    RepeatDelay,
+    
+    // Mouse settings
+    Sensitivity,
+    AccelProfile,
+    ForceNoAccel,
+    LeftHanded,
+    
+    // Scroll settings
+    ScrollPoints,
+    ScrollMethod,
+    ScrollButton,
+    ScrollButtonLock,
+    ScrollFactor,
+    NaturalScroll,
+    
+    // Focus settings
+    FollowMouse,
+    FollowMouseThreshold,
+    FocusOnClose,
+    MouseRefocus,
+    FloatSwitchOverrideFocus,
+    SpecialFallthrough,
+    
+    // Misc settings
+    OffWindowAxisEvents,
+    EmulateDiscreteScroll,
 }
 
 impl InputField {
@@ -2111,6 +2210,30 @@ impl InputField {
             "kb_layout" => Some(InputField::KbLayout),
             "kb_variant" => Some(InputField::KbVariant),
             "kb_options" => Some(InputField::KbOptions),
+            "kb_rules" => Some(InputField::KbRules),
+            "kb_file" => Some(InputField::KbFile),
+            "numlock_by_default" => Some(InputField::NumlockByDefault),
+            "resolve_binds_by_sym" => Some(InputField::ResolveBindsBySym),
+            "repeat_rate" => Some(InputField::RepeatRate),
+            "repeat_delay" => Some(InputField::RepeatDelay),
+            "sensitivity" => Some(InputField::Sensitivity),
+            "accel_profile" => Some(InputField::AccelProfile),
+            "force_no_accel" => Some(InputField::ForceNoAccel),
+            "left_handed" => Some(InputField::LeftHanded),
+            "scroll_points" => Some(InputField::ScrollPoints),
+            "scroll_method" => Some(InputField::ScrollMethod),
+            "scroll_button" => Some(InputField::ScrollButton),
+            "scroll_button_lock" => Some(InputField::ScrollButtonLock),
+            "scroll_factor" => Some(InputField::ScrollFactor),
+            "natural_scroll" => Some(InputField::NaturalScroll),
+            "follow_mouse" => Some(InputField::FollowMouse),
+            "follow_mouse_threshold" => Some(InputField::FollowMouseThreshold),
+            "focus_on_close" => Some(InputField::FocusOnClose),
+            "mouse_refocus" => Some(InputField::MouseRefocus),
+            "float_switch_override_focus" => Some(InputField::FloatSwitchOverrideFocus),
+            "special_fallthrough" => Some(InputField::SpecialFallthrough),
+            "off_window_axis_events" => Some(InputField::OffWindowAxisEvents),
+            "emulate_discrete_scroll" => Some(InputField::EmulateDiscreteScroll),
             _ => None,
         }
     }
@@ -2121,6 +2244,30 @@ impl InputField {
             InputField::KbLayout => "kb_layout",
             InputField::KbVariant => "kb_variant",
             InputField::KbOptions => "kb_options",
+            InputField::KbRules => "kb_rules",
+            InputField::KbFile => "kb_file",
+            InputField::NumlockByDefault => "numlock_by_default",
+            InputField::ResolveBindsBySym => "resolve_binds_by_sym",
+            InputField::RepeatRate => "repeat_rate",
+            InputField::RepeatDelay => "repeat_delay",
+            InputField::Sensitivity => "sensitivity",
+            InputField::AccelProfile => "accel_profile",
+            InputField::ForceNoAccel => "force_no_accel",
+            InputField::LeftHanded => "left_handed",
+            InputField::ScrollPoints => "scroll_points",
+            InputField::ScrollMethod => "scroll_method",
+            InputField::ScrollButton => "scroll_button",
+            InputField::ScrollButtonLock => "scroll_button_lock",
+            InputField::ScrollFactor => "scroll_factor",
+            InputField::NaturalScroll => "natural_scroll",
+            InputField::FollowMouse => "follow_mouse",
+            InputField::FollowMouseThreshold => "follow_mouse_threshold",
+            InputField::FocusOnClose => "focus_on_close",
+            InputField::MouseRefocus => "mouse_refocus",
+            InputField::FloatSwitchOverrideFocus => "float_switch_override_focus",
+            InputField::SpecialFallthrough => "special_fallthrough",
+            InputField::OffWindowAxisEvents => "off_window_axis_events",
+            InputField::EmulateDiscreteScroll => "emulate_discrete_scroll",
         }
     }
 
@@ -2130,6 +2277,7 @@ impl InputField {
         settings: &mut HyprlandInputSettings,
     ) -> Result<(), HyprlandConfigError> {
         match self {
+            // Keyboard - string fields
             InputField::KbModel => {
                 set_input_string(settings, |s, v| s.kb_model = v, self.key(), value)
             },
@@ -2142,6 +2290,104 @@ impl InputField {
             InputField::KbOptions => {
                 set_input_string(settings, |s, v| s.kb_options = v, self.key(), value)
             },
+            InputField::KbRules => {
+                set_input_string(settings, |s, v| s.kb_rules = v, self.key(), value)
+            },
+            InputField::KbFile => {
+                set_input_string(settings, |s, v| s.kb_file = v, self.key(), value)
+            },
+            
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => {
+                set_input_bool(settings, |s, v| s.numlock_by_default = v, self.key(), value)
+            },
+            InputField::ResolveBindsBySym => {
+                set_input_bool(settings, |s, v| s.resolve_binds_by_sym = v, self.key(), value)
+            },
+            
+            // Keyboard - int fields
+            InputField::RepeatRate => {
+                set_input_int(settings, |s, v| s.repeat_rate = v, self.key(), value)
+            },
+            InputField::RepeatDelay => {
+                set_input_int(settings, |s, v| s.repeat_delay = v, self.key(), value)
+            },
+            
+            // Mouse - float fields
+            InputField::Sensitivity => {
+                set_input_float(settings, |s, v| s.sensitivity = v, self.key(), value)
+            },
+            
+            // Mouse - string fields
+            InputField::AccelProfile => {
+                set_input_string(settings, |s, v| s.accel_profile = v, self.key(), value)
+            },
+            
+            // Mouse - bool fields
+            InputField::ForceNoAccel => {
+                set_input_bool(settings, |s, v| s.force_no_accel = v, self.key(), value)
+            },
+            InputField::LeftHanded => {
+                set_input_bool(settings, |s, v| s.left_handed = v, self.key(), value)
+            },
+            
+            // Scroll - string fields
+            InputField::ScrollPoints => {
+                set_input_string(settings, |s, v| s.scroll_points = v, self.key(), value)
+            },
+            InputField::ScrollMethod => {
+                set_input_string(settings, |s, v| s.scroll_method = v, self.key(), value)
+            },
+            
+            // Scroll - int fields
+            InputField::ScrollButton => {
+                set_input_int(settings, |s, v| s.scroll_button = v, self.key(), value)
+            },
+            
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => {
+                set_input_bool(settings, |s, v| s.scroll_button_lock = v, self.key(), value)
+            },
+            InputField::NaturalScroll => {
+                set_input_bool(settings, |s, v| s.natural_scroll = v, self.key(), value)
+            },
+            
+            // Scroll - float fields
+            InputField::ScrollFactor => {
+                set_input_float(settings, |s, v| s.scroll_factor = v, self.key(), value)
+            },
+            
+            // Focus - int fields
+            InputField::FollowMouse => {
+                set_input_int(settings, |s, v| s.follow_mouse = v, self.key(), value)
+            },
+            InputField::FocusOnClose => {
+                set_input_int(settings, |s, v| s.focus_on_close = v, self.key(), value)
+            },
+            InputField::FloatSwitchOverrideFocus => {
+                set_input_int(settings, |s, v| s.float_switch_override_focus = v, self.key(), value)
+            },
+            
+            // Focus - float fields
+            InputField::FollowMouseThreshold => {
+                set_input_float(settings, |s, v| s.follow_mouse_threshold = v, self.key(), value)
+            },
+            
+            // Focus - bool fields
+            InputField::MouseRefocus => {
+                set_input_bool(settings, |s, v| s.mouse_refocus = v, self.key(), value)
+            },
+            InputField::SpecialFallthrough => {
+                set_input_bool(settings, |s, v| s.special_fallthrough = v, self.key(), value)
+            },
+            
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => {
+                set_input_int(settings, |s, v| s.off_window_axis_events = v, self.key(), value)
+            },
+            InputField::EmulateDiscreteScroll => {
+                set_input_int(settings, |s, v| s.emulate_discrete_scroll = v, self.key(), value)
+            },
         }
     }
 
@@ -2151,37 +2397,130 @@ impl InputField {
 
     pub fn extract(&self, settings: &HyprlandInputSettings) -> Option<HyprlandValue> {
         match self {
-            InputField::KbModel => settings
-                .kb_model
-                .as_ref()
-                .map(|value| HyprlandValue::String(value.clone())),
-            InputField::KbLayout => settings
-                .kb_layout
-                .as_ref()
-                .map(|value| HyprlandValue::String(value.clone())),
-            InputField::KbVariant => settings
-                .kb_variant
-                .as_ref()
-                .map(|value| HyprlandValue::String(value.clone())),
-            InputField::KbOptions => settings
-                .kb_options
-                .as_ref()
-                .map(|value| HyprlandValue::String(value.clone())),
+            // Keyboard - string fields
+            InputField::KbModel => settings.kb_model.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbLayout => settings.kb_layout.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbVariant => settings.kb_variant.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbOptions => settings.kb_options.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbRules => settings.kb_rules.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbFile => settings.kb_file.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => settings.numlock_by_default.map(HyprlandValue::Bool),
+            InputField::ResolveBindsBySym => settings.resolve_binds_by_sym.map(HyprlandValue::Bool),
+            
+            // Keyboard - int fields
+            InputField::RepeatRate => settings.repeat_rate.map(HyprlandValue::Int),
+            InputField::RepeatDelay => settings.repeat_delay.map(HyprlandValue::Int),
+            
+            // Mouse - float fields
+            InputField::Sensitivity => settings.sensitivity.map(HyprlandValue::Float),
+            
+            // Mouse - string fields
+            InputField::AccelProfile => settings.accel_profile.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            
+            // Mouse - bool fields
+            InputField::ForceNoAccel => settings.force_no_accel.map(HyprlandValue::Bool),
+            InputField::LeftHanded => settings.left_handed.map(HyprlandValue::Bool),
+            
+            // Scroll - string fields
+            InputField::ScrollPoints => settings.scroll_points.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            InputField::ScrollMethod => settings.scroll_method.as_ref().map(|v| HyprlandValue::String(v.clone())),
+            
+            // Scroll - int fields
+            InputField::ScrollButton => settings.scroll_button.map(HyprlandValue::Int),
+            
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => settings.scroll_button_lock.map(HyprlandValue::Bool),
+            InputField::NaturalScroll => settings.natural_scroll.map(HyprlandValue::Bool),
+            
+            // Scroll - float fields
+            InputField::ScrollFactor => settings.scroll_factor.map(HyprlandValue::Float),
+            
+            // Focus - int fields
+            InputField::FollowMouse => settings.follow_mouse.map(HyprlandValue::Int),
+            InputField::FocusOnClose => settings.focus_on_close.map(HyprlandValue::Int),
+            InputField::FloatSwitchOverrideFocus => settings.float_switch_override_focus.map(HyprlandValue::Int),
+            
+            // Focus - float fields
+            InputField::FollowMouseThreshold => settings.follow_mouse_threshold.map(HyprlandValue::Float),
+            
+            // Focus - bool fields
+            InputField::MouseRefocus => settings.mouse_refocus.map(HyprlandValue::Bool),
+            InputField::SpecialFallthrough => settings.special_fallthrough.map(HyprlandValue::Bool),
+            
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => settings.off_window_axis_events.map(HyprlandValue::Int),
+            InputField::EmulateDiscreteScroll => settings.emulate_discrete_scroll.map(HyprlandValue::Int),
         }
     }
 
     pub fn default_value(&self) -> HyprlandValue {
         match self {
+            // Keyboard - string fields
             InputField::KbModel => HyprlandValue::String(String::new()),
             InputField::KbLayout => HyprlandValue::String("us".into()),
             InputField::KbVariant => HyprlandValue::String(String::new()),
             InputField::KbOptions => HyprlandValue::String(String::new()),
+            InputField::KbRules => HyprlandValue::String(String::new()),
+            InputField::KbFile => HyprlandValue::String(String::new()),
+            
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => HyprlandValue::Bool(false),
+            InputField::ResolveBindsBySym => HyprlandValue::Bool(false),
+            
+            // Keyboard - int fields
+            InputField::RepeatRate => HyprlandValue::Int(25),
+            InputField::RepeatDelay => HyprlandValue::Int(600),
+            
+            // Mouse - float fields
+            InputField::Sensitivity => HyprlandValue::Float(0.0),
+            
+            // Mouse - string fields
+            InputField::AccelProfile => HyprlandValue::String(String::new()),
+            
+            // Mouse - bool fields
+            InputField::ForceNoAccel => HyprlandValue::Bool(false),
+            InputField::LeftHanded => HyprlandValue::Bool(false),
+            
+            // Scroll - string fields
+            InputField::ScrollPoints => HyprlandValue::String(String::new()),
+            InputField::ScrollMethod => HyprlandValue::String(String::new()),
+            
+            // Scroll - int fields
+            InputField::ScrollButton => HyprlandValue::Int(0),
+            
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => HyprlandValue::Bool(false),
+            InputField::NaturalScroll => HyprlandValue::Bool(false),
+            
+            // Scroll - float fields
+            InputField::ScrollFactor => HyprlandValue::Float(1.0),
+            
+            // Focus - int fields
+            InputField::FollowMouse => HyprlandValue::Int(1),
+            InputField::FocusOnClose => HyprlandValue::Int(0),
+            InputField::FloatSwitchOverrideFocus => HyprlandValue::Int(1),
+            
+            // Focus - float fields
+            InputField::FollowMouseThreshold => HyprlandValue::Float(0.0),
+            
+            // Focus - bool fields
+            InputField::MouseRefocus => HyprlandValue::Bool(true),
+            InputField::SpecialFallthrough => HyprlandValue::Bool(false),
+            
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => HyprlandValue::Int(1),
+            InputField::EmulateDiscreteScroll => HyprlandValue::Int(1),
         }
     }
 
     pub fn validate(&self, value: &HyprlandValue) -> Result<(), HyprlandConfigError> {
         match self {
-            InputField::KbModel | InputField::KbVariant | InputField::KbOptions => {
+            // String fields that can be empty
+            InputField::KbModel | InputField::KbVariant | InputField::KbOptions | 
+            InputField::KbRules | InputField::KbFile | InputField::AccelProfile |
+            InputField::ScrollPoints | InputField::ScrollMethod => {
                 if matches!(value, HyprlandValue::String(_)) {
                     Ok(())
                 } else {
@@ -2191,6 +2530,8 @@ impl InputField {
                     })
                 }
             },
+            
+            // Layout cannot be empty
             InputField::KbLayout => match value {
                 HyprlandValue::String(raw) => {
                     if raw.trim().is_empty() {
@@ -2207,16 +2548,181 @@ impl InputField {
                     message: format!("Expected string, received {other:?}"),
                 }),
             },
+            
+            // Bool fields
+            InputField::NumlockByDefault | InputField::ResolveBindsBySym |
+            InputField::ForceNoAccel | InputField::LeftHanded |
+            InputField::ScrollButtonLock | InputField::NaturalScroll |
+            InputField::MouseRefocus | InputField::SpecialFallthrough => {
+                if matches!(value, HyprlandValue::Bool(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected bool, received {value:?}"),
+                    })
+                }
+            },
+            
+            // Int fields with range validation
+            InputField::RepeatRate => match value {
+                HyprlandValue::Int(v) if *v >= 1 && *v <= 100 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Repeat rate must be between 1 and 100, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::RepeatDelay => match value {
+                HyprlandValue::Int(v) if *v >= 100 && *v <= 10000 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Repeat delay must be between 100 and 10000 ms, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FollowMouse => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 3 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Follow mouse must be between 0 and 3, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FocusOnClose => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 1 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Focus on close must be 0 or 1, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FloatSwitchOverrideFocus => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 2 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Float switch override focus must be between 0 and 2, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::OffWindowAxisEvents => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 3 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Off window axis events must be between 0 and 3, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::EmulateDiscreteScroll => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 2 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Emulate discrete scroll must be between 0 and 2, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            
+            // Int fields without range validation
+            InputField::ScrollButton => {
+                if matches!(value, HyprlandValue::Int(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected int, received {value:?}"),
+                    })
+                }
+            },
+            
+            // Float fields with range validation
+            InputField::Sensitivity => match value {
+                HyprlandValue::Float(v) if *v >= -1.0 && *v <= 1.0 => Ok(()),
+                HyprlandValue::Int(v) if *v >= -1 && *v <= 1 => Ok(()),
+                HyprlandValue::Float(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Sensitivity must be between -1.0 and 1.0, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected float, received {other:?}"),
+                }),
+            },
+            
+            // Float fields without range validation
+            InputField::ScrollFactor | InputField::FollowMouseThreshold => {
+                if matches!(value, HyprlandValue::Float(_) | HyprlandValue::Int(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected float, received {value:?}"),
+                    })
+                }
+            },
         }
     }
 }
 
 pub fn input_field_registry() -> &'static [InputField] {
-    const INPUT_FIELDS: [InputField; 4] = [
+    const INPUT_FIELDS: [InputField; 28] = [
+        // Keyboard settings
         InputField::KbModel,
         InputField::KbLayout,
         InputField::KbVariant,
         InputField::KbOptions,
+        InputField::KbRules,
+        InputField::KbFile,
+        InputField::NumlockByDefault,
+        InputField::ResolveBindsBySym,
+        InputField::RepeatRate,
+        InputField::RepeatDelay,
+        
+        // Mouse settings
+        InputField::Sensitivity,
+        InputField::AccelProfile,
+        InputField::ForceNoAccel,
+        InputField::LeftHanded,
+        
+        // Scroll settings
+        InputField::ScrollPoints,
+        InputField::ScrollMethod,
+        InputField::ScrollButton,
+        InputField::ScrollButtonLock,
+        InputField::ScrollFactor,
+        InputField::NaturalScroll,
+        
+        // Focus settings
+        InputField::FollowMouse,
+        InputField::FollowMouseThreshold,
+        InputField::FocusOnClose,
+        InputField::MouseRefocus,
+        InputField::FloatSwitchOverrideFocus,
+        InputField::SpecialFallthrough,
+        
+        // Misc settings
+        InputField::OffWindowAxisEvents,
+        InputField::EmulateDiscreteScroll,
     ];
     &INPUT_FIELDS
 }
@@ -2397,6 +2903,78 @@ fn set_input_string(
         other => Err(HyprlandConfigError::Validation {
             field: field.to_string(),
             message: format!("Expected string, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_bool(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<bool>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Bool(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => match v {
+            0 => {
+                setter(settings, Some(false));
+                Ok(())
+            },
+            1 => {
+                setter(settings, Some(true));
+                Ok(())
+            },
+            other => Err(HyprlandConfigError::Validation {
+                field: field.to_string(),
+                message: format!("Expected bool or 0/1, received integer {other}"),
+            }),
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected bool, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_int(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<i32>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Int(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected integer, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_float(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<f32>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Float(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => {
+            setter(settings, Some(v as f32));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected float, received {other:?}"),
         }),
     }
 }
