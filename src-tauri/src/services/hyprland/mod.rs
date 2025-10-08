@@ -262,7 +262,7 @@ impl HyprlandConfigService {
 
         writeln!(
             file,
-            "\n# Added by Omarchist - ensure overrides are applied"
+            "\n# Added by Omarchist"
         )?;
         writeln!(file, "{SOURCE_DIRECTIVE}")?;
 
@@ -676,7 +676,9 @@ mod tests {
     use super::*;
     use std::fs;
 
-    use crate::types::{HyprlandDecorationSettings, LayoutMode};
+    use crate::types::{
+        HyprlandAnimationSettings, HyprlandDecorationSettings, HyprlandGeneralSettings, LayoutMode,
+    };
     use tempfile::TempDir;
 
     fn setup_service() -> (TempDir, HyprlandConfigService) {
@@ -767,8 +769,8 @@ mod tests {
         let mut overrides = HyprlandDecorationSettings::default();
         overrides.rounding = Some(6);
         overrides.active_opacity = Some(0.8);
-        overrides.blur.size = Some(14);
-        overrides.blur.enabled = Some(true);
+    overrides.blur.size = Some(14);
+    overrides.blur.enabled = Some(false);
         overrides.shadow.color = Some("0xffaabbcc".into());
         overrides.shadow.scale = Some(0.75);
 
@@ -785,7 +787,7 @@ mod tests {
         assert!(override_contents.contains("active_opacity = 0.8"));
         assert!(override_contents.contains("    blur {"));
         assert!(override_contents.contains("size = 14"));
-        assert!(override_contents.contains("enabled = true"));
+    assert!(override_contents.contains("enabled = false"));
         assert!(override_contents.contains("    shadow {"));
         assert!(override_contents.contains("color = 0xffaabbcc"));
         assert!(override_contents.contains("scale = 0.75"));
@@ -796,7 +798,7 @@ mod tests {
         assert_eq!(snapshot.overrides.rounding, Some(6));
         assert_eq!(snapshot.overrides.active_opacity, Some(0.8));
         assert_eq!(snapshot.overrides.blur.size, Some(14));
-        assert_eq!(snapshot.overrides.blur.enabled, Some(true));
+    assert_eq!(snapshot.overrides.blur.enabled, Some(false));
         assert_eq!(snapshot.overrides.shadow.color, Some("0xffaabbcc".into()));
         assert_eq!(snapshot.overrides.shadow.scale, Some(0.75));
     }
@@ -832,5 +834,57 @@ mod tests {
 
         // Ensure preserved section header present when unknown lines exist
         assert!(override_contents.contains("# Preserved entries not managed by Omarchist"));
+    }
+
+    #[test]
+    fn general_persist_skips_default_values() {
+        let (_temp_dir, service) = setup_service();
+
+        let mut overrides = HyprlandGeneralSettings::with_defaults();
+        overrides.border_size = Some(4);
+
+        service
+            .persist_general_overrides(&overrides)
+            .expect("persist general overrides without defaults");
+
+        let contents = fs::read_to_string(service.override_path()).expect("read override file");
+        assert!(contents.contains("border_size = 4"));
+        assert!(!contents.contains("no_border_on_floating"));
+        assert!(!contents.contains("snap {"));
+    }
+
+    #[test]
+    fn decoration_persist_skips_default_values() {
+        let (_temp_dir, service) = setup_service();
+
+        let mut overrides = HyprlandDecorationSettings::with_defaults();
+        overrides.rounding = Some(12);
+
+        service
+            .persist_decoration_overrides(&overrides)
+            .expect("persist decoration overrides without defaults");
+
+        let contents = fs::read_to_string(service.override_path()).expect("read override file");
+        assert!(contents.contains("rounding = 12"));
+        assert!(!contents.contains("active_opacity = 1"));
+        assert!(!contents.contains("    blur {"));
+        assert!(!contents.contains("    shadow {"));
+    }
+
+    #[test]
+    fn animation_persist_skips_default_values() {
+        let (_temp_dir, service) = setup_service();
+
+        let mut overrides = HyprlandAnimationSettings::with_defaults();
+        overrides.workspace_wraparound = Some(true);
+
+        service
+            .persist_animation_overrides(&overrides)
+            .expect("persist animation overrides without defaults");
+
+        let contents = fs::read_to_string(service.override_path()).expect("read override file");
+        assert!(contents.contains("animations {"));
+        assert!(contents.contains("workspace_wraparound = true"));
+        assert!(!contents.contains("enabled = true"));
     }
 }
