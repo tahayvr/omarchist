@@ -8,6 +8,7 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import DropIcon from '@lucide/svelte/icons/droplet';
 	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
+	import InputIcon from '@lucide/svelte/icons/keyboard';
 
 	// Menu items.
 	const items = [
@@ -15,6 +16,11 @@
 			title: 'Hyprland',
 			url: '/hyprland',
 			icon: DropIcon
+		},
+		{
+			title: 'Input',
+			url: '/input',
+			icon: InputIcon
 		},
 		{
 			title: 'Omarchy',
