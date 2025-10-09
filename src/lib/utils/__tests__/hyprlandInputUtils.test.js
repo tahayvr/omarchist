@@ -53,9 +53,74 @@ describe('hyprlandInputUtils', () => {
 			numlock_by_default: false,
 			resolve_binds_by_sym: false,
 			repeat_rate: 25,
-			repeat_delay: 600
+			repeat_delay: 600,
+			sensitivity: 0,
+			accel_profile: '',
+			force_no_accel: false,
+			left_handed: false,
+			scroll_points: '',
+			scroll_method: '',
+			scroll_button: 0,
+			scroll_button_lock: false,
+			scroll_factor: 1,
+			natural_scroll: false,
+			follow_mouse: 1,
+			follow_mouse_threshold: 0,
+			focus_on_close: 0,
+			mouse_refocus: true,
+			float_switch_override_focus: 1,
+			special_fallthrough: false,
+			off_window_axis_events: 1,
+			emulate_discrete_scroll: 1
 		});
 		expect(state.validation.isValid).toBe(true);
+	});
+
+	it('validates mouse and touchpad ranges', () => {
+		let result = validateHyprlandInputForm(
+			{
+				...state.form,
+				sensitivity: 2,
+				scroll_factor: -0.5,
+				scroll_button: 1.5,
+				follow_mouse: 5,
+				follow_mouse_threshold: -10,
+				focus_on_close: 3,
+				float_switch_override_focus: 9,
+				off_window_axis_events: -1,
+				emulate_discrete_scroll: 4
+			},
+			state.catalog
+		);
+
+		expect(result.isValid).toBe(false);
+		expect(result.fieldErrors.sensitivity).toBeDefined();
+		expect(result.fieldErrors.scroll_factor).toBeDefined();
+		expect(result.fieldErrors.scroll_button).toBeDefined();
+		expect(result.fieldErrors.follow_mouse).toBeDefined();
+		expect(result.fieldErrors.follow_mouse_threshold).toBeDefined();
+		expect(result.fieldErrors.focus_on_close).toBeDefined();
+		expect(result.fieldErrors.float_switch_override_focus).toBeDefined();
+		expect(result.fieldErrors.off_window_axis_events).toBeDefined();
+		expect(result.fieldErrors.emulate_discrete_scroll).toBeDefined();
+
+		result = validateHyprlandInputForm(
+			{
+				...state.form,
+				sensitivity: -0.75,
+				scroll_factor: 1.5,
+				scroll_button: 274,
+				follow_mouse: 2,
+				follow_mouse_threshold: 150,
+				focus_on_close: 1,
+				float_switch_override_focus: 2,
+				off_window_axis_events: 3,
+				emulate_discrete_scroll: 2
+			},
+			state.catalog
+		);
+
+		expect(result.isValid).toBe(true);
 	});
 
 	it('validates layout and variant selections against catalog', () => {

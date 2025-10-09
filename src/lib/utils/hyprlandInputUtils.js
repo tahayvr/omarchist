@@ -10,7 +10,33 @@ const DEFAULT_FORM = Object.freeze({
 	numlock_by_default: false,
 	resolve_binds_by_sym: false,
 	repeat_rate: 25,
-	repeat_delay: 600
+	repeat_delay: 600,
+
+	// Mouse
+	sensitivity: 0,
+	accel_profile: '',
+	force_no_accel: false,
+	left_handed: false,
+
+	// Scroll
+	scroll_points: '',
+	scroll_method: '',
+	scroll_button: 0,
+	scroll_button_lock: false,
+	scroll_factor: 1,
+	natural_scroll: false,
+
+	// Focus
+	follow_mouse: 1,
+	follow_mouse_threshold: 0,
+	focus_on_close: 0,
+	mouse_refocus: true,
+	float_switch_override_focus: 1,
+	special_fallthrough: false,
+
+	// Misc
+	off_window_axis_events: 1,
+	emulate_discrete_scroll: 1
 });
 
 function normalizeString(value, fallback = '') {
@@ -79,6 +105,27 @@ function normalizeInteger(value, fallback = 0, options = {}) {
 	return integer;
 }
 
+function normalizeFloat(value, fallback = 0, options = {}) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) {
+		return fallback;
+	}
+
+	const { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY, precision = 3 } = options;
+	let clamped = parsed;
+
+	if (clamped < min) {
+		clamped = min;
+	}
+
+	if (clamped > max) {
+		clamped = max;
+	}
+
+	const factor = 10 ** precision;
+	return Math.round(clamped * factor) / factor;
+}
+
 function cloneForm(source = DEFAULT_FORM) {
 	return {
 		kb_model: normalizeString(source.kb_model ?? DEFAULT_FORM.kb_model, ''),
@@ -104,6 +151,81 @@ function cloneForm(source = DEFAULT_FORM) {
 			source.repeat_delay ?? DEFAULT_FORM.repeat_delay,
 			DEFAULT_FORM.repeat_delay,
 			{ min: 100, max: 10000 }
+		),
+
+		sensitivity: normalizeFloat(
+			source.sensitivity ?? DEFAULT_FORM.sensitivity,
+			DEFAULT_FORM.sensitivity,
+			{ min: -1, max: 1, precision: 3 }
+		),
+		accel_profile: normalizeString(source.accel_profile ?? DEFAULT_FORM.accel_profile, ''),
+		force_no_accel: normalizeBoolean(
+			source.force_no_accel ?? DEFAULT_FORM.force_no_accel,
+			DEFAULT_FORM.force_no_accel
+		),
+		left_handed: normalizeBoolean(
+			source.left_handed ?? DEFAULT_FORM.left_handed,
+			DEFAULT_FORM.left_handed
+		),
+
+		scroll_points: normalizeString(source.scroll_points ?? DEFAULT_FORM.scroll_points, ''),
+		scroll_method: normalizeString(source.scroll_method ?? DEFAULT_FORM.scroll_method, ''),
+		scroll_button: normalizeInteger(
+			source.scroll_button ?? DEFAULT_FORM.scroll_button,
+			DEFAULT_FORM.scroll_button
+		),
+		scroll_button_lock: normalizeBoolean(
+			source.scroll_button_lock ?? DEFAULT_FORM.scroll_button_lock,
+			DEFAULT_FORM.scroll_button_lock
+		),
+		scroll_factor: normalizeFloat(
+			source.scroll_factor ?? DEFAULT_FORM.scroll_factor,
+			DEFAULT_FORM.scroll_factor,
+			{ min: 0, precision: 3 }
+		),
+		natural_scroll: normalizeBoolean(
+			source.natural_scroll ?? DEFAULT_FORM.natural_scroll,
+			DEFAULT_FORM.natural_scroll
+		),
+
+		follow_mouse: normalizeInteger(
+			source.follow_mouse ?? DEFAULT_FORM.follow_mouse,
+			DEFAULT_FORM.follow_mouse,
+			{ min: 0, max: 3 }
+		),
+		follow_mouse_threshold: normalizeFloat(
+			source.follow_mouse_threshold ?? DEFAULT_FORM.follow_mouse_threshold,
+			DEFAULT_FORM.follow_mouse_threshold,
+			{ min: 0, precision: 3 }
+		),
+		focus_on_close: normalizeInteger(
+			source.focus_on_close ?? DEFAULT_FORM.focus_on_close,
+			DEFAULT_FORM.focus_on_close,
+			{ min: 0, max: 1 }
+		),
+		mouse_refocus: normalizeBoolean(
+			source.mouse_refocus ?? DEFAULT_FORM.mouse_refocus,
+			DEFAULT_FORM.mouse_refocus
+		),
+		float_switch_override_focus: normalizeInteger(
+			source.float_switch_override_focus ?? DEFAULT_FORM.float_switch_override_focus,
+			DEFAULT_FORM.float_switch_override_focus,
+			{ min: 0, max: 2 }
+		),
+		special_fallthrough: normalizeBoolean(
+			source.special_fallthrough ?? DEFAULT_FORM.special_fallthrough,
+			DEFAULT_FORM.special_fallthrough
+		),
+
+		off_window_axis_events: normalizeInteger(
+			source.off_window_axis_events ?? DEFAULT_FORM.off_window_axis_events,
+			DEFAULT_FORM.off_window_axis_events,
+			{ min: 0, max: 3 }
+		),
+		emulate_discrete_scroll: normalizeInteger(
+			source.emulate_discrete_scroll ?? DEFAULT_FORM.emulate_discrete_scroll,
+			DEFAULT_FORM.emulate_discrete_scroll,
+			{ min: 0, max: 2 }
 		)
 	};
 }
@@ -381,6 +503,80 @@ function validateHyprlandInputFormInternal(form, catalog) {
 		fieldErrors.repeat_delay = 'Repeat delay must be between 100 and 10000 milliseconds.';
 	}
 
+	const sensitivity = Number(form.sensitivity);
+	if (!Number.isFinite(sensitivity)) {
+		fieldErrors.sensitivity = 'Pointer sensitivity must be a number between -1 and 1.';
+	} else if (sensitivity < -1 || sensitivity > 1) {
+		fieldErrors.sensitivity = 'Pointer sensitivity must stay between -1 and 1.';
+	}
+
+	if (
+		form.scroll_factor !== '' &&
+		form.scroll_factor !== null &&
+		form.scroll_factor !== undefined
+	) {
+		const scrollFactor = Number(form.scroll_factor);
+		if (!Number.isFinite(scrollFactor)) {
+			fieldErrors.scroll_factor = 'Scroll factor must be a numeric value.';
+		} else if (scrollFactor < 0) {
+			fieldErrors.scroll_factor = 'Scroll factor cannot be negative.';
+		}
+	}
+
+	if (
+		form.scroll_button !== '' &&
+		form.scroll_button !== null &&
+		form.scroll_button !== undefined
+	) {
+		const scrollButton = Number(form.scroll_button);
+		if (!Number.isFinite(scrollButton) || !Number.isInteger(scrollButton)) {
+			fieldErrors.scroll_button = 'Scroll button must be an integer value (0 to disable).';
+		}
+	}
+
+	const followMouse = Number(form.follow_mouse);
+	if (!Number.isFinite(followMouse) || !Number.isInteger(followMouse)) {
+		fieldErrors.follow_mouse = 'Follow mouse must be a whole number between 0 and 3.';
+	} else if (followMouse < 0 || followMouse > 3) {
+		fieldErrors.follow_mouse = 'Follow mouse levels range from 0 to 3.';
+	}
+
+	const followMouseThreshold = Number(form.follow_mouse_threshold);
+	if (!Number.isFinite(followMouseThreshold)) {
+		fieldErrors.follow_mouse_threshold =
+			'Follow mouse threshold must be a numeric value (milliseconds).';
+	} else if (followMouseThreshold < 0) {
+		fieldErrors.follow_mouse_threshold = 'Follow mouse threshold cannot be negative.';
+	}
+
+	const focusOnClose = Number(form.focus_on_close);
+	if (!Number.isFinite(focusOnClose) || !Number.isInteger(focusOnClose)) {
+		fieldErrors.focus_on_close = 'Focus on close accepts only 0 or 1.';
+	} else if (focusOnClose < 0 || focusOnClose > 1) {
+		fieldErrors.focus_on_close = 'Focus on close accepts only 0 or 1.';
+	}
+
+	const floatSwitchOverrideFocus = Number(form.float_switch_override_focus);
+	if (!Number.isFinite(floatSwitchOverrideFocus) || !Number.isInteger(floatSwitchOverrideFocus)) {
+		fieldErrors.float_switch_override_focus = 'Float switch override focus accepts values 0-2.';
+	} else if (floatSwitchOverrideFocus < 0 || floatSwitchOverrideFocus > 2) {
+		fieldErrors.float_switch_override_focus = 'Float switch override focus accepts values 0-2.';
+	}
+
+	const offWindowAxisEvents = Number(form.off_window_axis_events);
+	if (!Number.isFinite(offWindowAxisEvents) || !Number.isInteger(offWindowAxisEvents)) {
+		fieldErrors.off_window_axis_events = 'Off-window axis events accept values 0-3.';
+	} else if (offWindowAxisEvents < 0 || offWindowAxisEvents > 3) {
+		fieldErrors.off_window_axis_events = 'Off-window axis events accept values 0-3.';
+	}
+
+	const emulateDiscreteScroll = Number(form.emulate_discrete_scroll);
+	if (!Number.isFinite(emulateDiscreteScroll) || !Number.isInteger(emulateDiscreteScroll)) {
+		fieldErrors.emulate_discrete_scroll = 'Emulate discrete scroll accepts values 0-2.';
+	} else if (emulateDiscreteScroll < 0 || emulateDiscreteScroll > 2) {
+		fieldErrors.emulate_discrete_scroll = 'Emulate discrete scroll accepts values 0-2.';
+	}
+
 	return {
 		isValid: Object.keys(fieldErrors).length === 0,
 		fieldErrors
@@ -435,6 +631,46 @@ function buildPayloadFromState(state) {
 		? Math.trunc(repeatDelay)
 		: DEFAULT_FORM.repeat_delay;
 
+	const safeSensitivity = normalizeFloat(state.form.sensitivity, DEFAULT_FORM.sensitivity, {
+		min: -1,
+		max: 1,
+		precision: 3
+	});
+	const safeScrollFactor = normalizeFloat(state.form.scroll_factor, DEFAULT_FORM.scroll_factor, {
+		min: 0,
+		precision: 3
+	});
+	const safeFollowMouseThreshold = normalizeFloat(
+		state.form.follow_mouse_threshold,
+		DEFAULT_FORM.follow_mouse_threshold,
+		{ min: 0, precision: 3 }
+	);
+
+	const safeFollowMouse = normalizeInteger(state.form.follow_mouse, DEFAULT_FORM.follow_mouse, {
+		min: 0,
+		max: 3
+	});
+	const safeFocusOnClose = normalizeInteger(
+		state.form.focus_on_close,
+		DEFAULT_FORM.focus_on_close,
+		{ min: 0, max: 1 }
+	);
+	const safeFloatSwitchOverrideFocus = normalizeInteger(
+		state.form.float_switch_override_focus,
+		DEFAULT_FORM.float_switch_override_focus,
+		{ min: 0, max: 2 }
+	);
+	const safeOffWindowAxisEvents = normalizeInteger(
+		state.form.off_window_axis_events,
+		DEFAULT_FORM.off_window_axis_events,
+		{ min: 0, max: 3 }
+	);
+	const safeEmulateDiscreteScroll = normalizeInteger(
+		state.form.emulate_discrete_scroll,
+		DEFAULT_FORM.emulate_discrete_scroll,
+		{ min: 0, max: 2 }
+	);
+
 	return {
 		overrides: {
 			kb_model: state.form.kb_model,
@@ -446,7 +682,29 @@ function buildPayloadFromState(state) {
 			numlock_by_default: state.form.numlock_by_default,
 			resolve_binds_by_sym: state.form.resolve_binds_by_sym,
 			repeat_rate: safeRepeatRate,
-			repeat_delay: safeRepeatDelay
+			repeat_delay: safeRepeatDelay,
+
+			sensitivity: safeSensitivity,
+			accel_profile: state.form.accel_profile,
+			force_no_accel: state.form.force_no_accel,
+			left_handed: state.form.left_handed,
+
+			scroll_points: state.form.scroll_points,
+			scroll_method: state.form.scroll_method,
+			scroll_button: normalizeInteger(state.form.scroll_button, DEFAULT_FORM.scroll_button),
+			scroll_button_lock: state.form.scroll_button_lock,
+			scroll_factor: safeScrollFactor,
+			natural_scroll: state.form.natural_scroll,
+
+			follow_mouse: safeFollowMouse,
+			follow_mouse_threshold: safeFollowMouseThreshold,
+			focus_on_close: safeFocusOnClose,
+			mouse_refocus: state.form.mouse_refocus,
+			float_switch_override_focus: safeFloatSwitchOverrideFocus,
+			special_fallthrough: state.form.special_fallthrough,
+
+			off_window_axis_events: safeOffWindowAxisEvents,
+			emulate_discrete_scroll: safeEmulateDiscreteScroll
 		}
 	};
 }

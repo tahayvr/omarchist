@@ -10,7 +10,7 @@
 		<h2 class="text-4xl font-bold uppercase">Omarchist</h2>
 		<span class="text-muted-foreground">v1.0.0</span>
 	</div>
-	<div>
+	<div class="flex items-center gap-2">
 		<Button
 			variant="outline"
 			size="icon"
@@ -31,6 +31,9 @@
 			<XIcon />
 			<span class="sr-only">Twitter</span>
 		</Button>
+		<Button variant="outline" href="https://docs.omarchist.com" target="_blank"
+			>Documentation</Button
+		>
 	</div>
 	<div class="mt-12 max-w-md space-y-2 text-center">
 		<h3 class="text-muted-foreground font-semibold uppercase">hotkeys</h3>
