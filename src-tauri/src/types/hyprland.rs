@@ -2392,7 +2392,61 @@ impl InputField {
     }
 
     pub fn parse_raw(&self, raw: &str) -> Result<HyprlandValue, HyprlandConfigError> {
-        Ok(HyprlandValue::String(raw.trim().to_string()))
+        match self {
+            // Keyboard - strings (allow empty)
+            InputField::KbModel
+            | InputField::KbVariant
+            | InputField::KbOptions
+            | InputField::KbRules
+            | InputField::KbFile
+            | InputField::AccelProfile
+            | InputField::ScrollPoints
+            | InputField::ScrollMethod => Ok(HyprlandValue::String(raw.trim().to_string())),
+
+            // Keyboard layout must not be empty
+            InputField::KbLayout => {
+                let trimmed = raw.trim();
+                if trimmed.is_empty() {
+                    Err(HyprlandConfigError::Parse {
+                        field: self.key().to_string(),
+                        message: "Layout value cannot be empty".into(),
+                    })
+                } else {
+                    Ok(HyprlandValue::String(trimmed.to_string()))
+                }
+            },
+
+            // Boolean fields
+            InputField::NumlockByDefault
+            | InputField::ResolveBindsBySym
+            | InputField::ForceNoAccel
+            | InputField::LeftHanded
+            | InputField::ScrollButtonLock
+            | InputField::NaturalScroll
+            | InputField::MouseRefocus
+            | InputField::SpecialFallthrough => {
+                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
+            },
+
+            // Integer fields
+            InputField::RepeatRate
+            | InputField::RepeatDelay
+            | InputField::ScrollButton
+            | InputField::FollowMouse
+            | InputField::FocusOnClose
+            | InputField::FloatSwitchOverrideFocus
+            | InputField::OffWindowAxisEvents
+            | InputField::EmulateDiscreteScroll => {
+                Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?))
+            },
+
+            // Floating-point fields
+            InputField::Sensitivity
+            | InputField::ScrollFactor
+            | InputField::FollowMouseThreshold => {
+                Ok(HyprlandValue::Float(parse_f32(self.key(), raw)?))
+            },
+        }
     }
 
     pub fn extract(&self, settings: &HyprlandInputSettings) -> Option<HyprlandValue> {

@@ -2,11 +2,13 @@
 	import { onDestroy, onMount } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { toast } from 'svelte-sonner';
 	import Explainer from '$lib/components/Explainer.svelte';
 	import {
@@ -206,6 +208,12 @@
 		hyprlandInput.form.kb_variant = '';
 		hyprlandInput.form.kb_model = '';
 		hyprlandInput.form.kb_options = '';
+		hyprlandInput.form.kb_rules = '';
+		hyprlandInput.form.kb_file = '';
+		hyprlandInput.form.numlock_by_default = false;
+		hyprlandInput.form.resolve_binds_by_sym = false;
+		hyprlandInput.form.repeat_rate = 25;
+		hyprlandInput.form.repeat_delay = 600;
 		await saveHyprlandInput(hyprlandInput, {
 			message: 'Hyprland input settings reset to defaults.'
 		});
@@ -315,6 +323,104 @@
 					disabled={hyprlandInput.isLoading}
 					spellcheck={false}
 				></Textarea>
+			</div>
+			<div class="flex flex-col gap-2 md:col-span-2">
+				<Label for="kb_rules" class="flex items-center gap-2">
+					<span>Keyboard rules</span>
+					<Explainer explainerText="Optional XKB rules override string." />
+				</Label>
+				<Input
+					id="kb_rules"
+					type="text"
+					class="uppercase"
+					bind:value={hyprlandInput.form.kb_rules}
+					disabled={hyprlandInput.isLoading}
+					spellcheck={false}
+					placeholder="Default"
+				/>
+			</div>
+			<div class="flex flex-col gap-2 md:col-span-2">
+				<Label for="kb_file" class="flex items-center gap-2">
+					<span>Custom keymap file</span>
+					<Explainer explainerText="Path to a custom .xkb file to load instead of XKB rules." />
+				</Label>
+				<Input
+					id="kb_file"
+					type="text"
+					class="uppercase"
+					bind:value={hyprlandInput.form.kb_file}
+					disabled={hyprlandInput.isLoading}
+					spellcheck={false}
+					placeholder="/path/to/custom.xkb"
+				/>
+			</div>
+			<div class="flex items-center justify-between gap-4 md:col-span-2">
+				<Label for="numlock_by_default" class="flex items-center gap-2">
+					<span>Enable num lock</span>
+					<Explainer explainerText="Engage num lock by default when Hyprland starts." />
+				</Label>
+				<Switch
+					id="numlock_by_default"
+					bind:checked={hyprlandInput.form.numlock_by_default}
+					disabled={hyprlandInput.isLoading}
+				/>
+			</div>
+			<div class="flex items-center justify-between gap-4 md:col-span-2">
+				<Label for="resolve_binds_by_sym" class="flex items-center gap-2">
+					<span>Resolve binds by symbol</span>
+					<Explainer
+						explainerText="Make keybinds follow the currently active layout by matching symbols."
+					/>
+				</Label>
+				<Switch
+					id="resolve_binds_by_sym"
+					bind:checked={hyprlandInput.form.resolve_binds_by_sym}
+					disabled={hyprlandInput.isLoading}
+				/>
+			</div>
+			<div class="grid gap-4 md:col-span-2 md:grid-cols-2">
+				<div class="flex flex-col gap-2">
+					<Label for="repeat_rate" class="flex items-center gap-2">
+						<span>Repeat rate</span>
+						<Explainer explainerText="Number of repeats per second when holding a key." />
+					</Label>
+					<Input
+						id="repeat_rate"
+						type="number"
+						class="w-28 uppercase"
+						bind:value={hyprlandInput.form.repeat_rate}
+						disabled={hyprlandInput.isLoading}
+						min="1"
+						max="100"
+						step="1"
+					/>
+					{#if hyprlandInput.validation?.fieldErrors?.repeat_rate}
+						<p class="text-destructive text-[0.625rem] normal-case">
+							{hyprlandInput.validation.fieldErrors.repeat_rate}
+						</p>
+					{/if}
+				</div>
+				<div class="flex flex-col gap-2">
+					<Label for="repeat_delay" class="flex items-center gap-2">
+						<span>Repeat delay</span>
+						<Explainer explainerText="Delay in milliseconds before a held key begins repeating." />
+					</Label>
+					<Input
+						id="repeat_delay"
+						type="number"
+						class="w-28 uppercase"
+						bind:value={hyprlandInput.form.repeat_delay}
+						disabled={hyprlandInput.isLoading}
+						min="100"
+						max="10000"
+						step="50"
+					/>
+					{#if hyprlandInput.validation?.fieldErrors?.repeat_delay}
+						<p class="text-destructive text-[0.625rem] normal-case">
+							{hyprlandInput.validation.fieldErrors.repeat_delay}
+						</p>
+					{/if}
+				</div>
 			</div>
 		</div>
 		<div class="space-y-2">

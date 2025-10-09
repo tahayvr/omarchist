@@ -47,7 +47,13 @@ describe('hyprlandInputUtils', () => {
 			kb_model: '',
 			kb_layout: 'us',
 			kb_variant: '',
-			kb_options: ''
+			kb_options: '',
+			kb_rules: '',
+			kb_file: '',
+			numlock_by_default: false,
+			resolve_binds_by_sym: false,
+			repeat_rate: 25,
+			repeat_delay: 600
 		});
 		expect(state.validation.isValid).toBe(true);
 	});
@@ -75,6 +81,30 @@ describe('hyprlandInputUtils', () => {
 		);
 		expect(result.isValid).toBe(false);
 		expect(result.fieldErrors.kb_options).toMatch(/unknown/i);
+	});
+
+	it('validates repeat rate and delay ranges', () => {
+		let result = validateHyprlandInputForm({ ...state.form, repeat_rate: 0 }, state.catalog);
+		expect(result.isValid).toBe(false);
+		expect(result.fieldErrors.repeat_rate).toBeDefined();
+
+		result = validateHyprlandInputForm({ ...state.form, repeat_delay: 50 }, state.catalog);
+		expect(result.isValid).toBe(false);
+		expect(result.fieldErrors.repeat_delay).toBeDefined();
+
+		result = validateHyprlandInputForm(
+			{ ...state.form, repeat_rate: 60, repeat_delay: 500 },
+			state.catalog
+		);
+		expect(result.isValid).toBe(true);
+
+		result = validateHyprlandInputForm(
+			{ ...state.form, repeat_rate: 20.7, repeat_delay: 750.3 },
+			state.catalog
+		);
+		expect(result.isValid).toBe(false);
+		expect(result.fieldErrors.repeat_rate).toBeDefined();
+		expect(result.fieldErrors.repeat_delay).toBeDefined();
 	});
 
 	it('supports toggling options in the form value', () => {

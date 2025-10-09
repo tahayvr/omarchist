@@ -4,7 +4,13 @@ const DEFAULT_FORM = Object.freeze({
 	kb_model: '',
 	kb_layout: 'us',
 	kb_variant: '',
-	kb_options: ''
+	kb_options: '',
+	kb_rules: '',
+	kb_file: '',
+	numlock_by_default: false,
+	resolve_binds_by_sym: false,
+	repeat_rate: 25,
+	repeat_delay: 600
 });
 
 function normalizeString(value, fallback = '') {
@@ -31,12 +37,74 @@ function normalizeOptions(value) {
 		.join(',');
 }
 
+function normalizeBoolean(value, fallback = false) {
+	if (typeof value === 'boolean') {
+		return value;
+	}
+
+	if (typeof value === 'number') {
+		return value !== 0;
+	}
+
+	if (typeof value === 'string') {
+		const normalized = value.trim().toLowerCase();
+		if (['true', '1', 'yes', 'on'].includes(normalized)) {
+			return true;
+		}
+		if (['false', '0', 'no', 'off'].includes(normalized)) {
+			return false;
+		}
+	}
+
+	return fallback;
+}
+
+function normalizeInteger(value, fallback = 0, options = {}) {
+	const parsed = Number(value);
+	if (!Number.isFinite(parsed)) {
+		return fallback;
+	}
+
+	const integer = Math.trunc(parsed);
+	const { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = options;
+
+	if (integer < min) {
+		return min;
+	}
+
+	if (integer > max) {
+		return max;
+	}
+
+	return integer;
+}
+
 function cloneForm(source = DEFAULT_FORM) {
 	return {
 		kb_model: normalizeString(source.kb_model ?? DEFAULT_FORM.kb_model, ''),
 		kb_layout: normalizeString(source.kb_layout ?? DEFAULT_FORM.kb_layout, 'us') || 'us',
 		kb_variant: normalizeString(source.kb_variant ?? DEFAULT_FORM.kb_variant, ''),
-		kb_options: normalizeOptions(source.kb_options ?? DEFAULT_FORM.kb_options)
+		kb_options: normalizeOptions(source.kb_options ?? DEFAULT_FORM.kb_options),
+		kb_rules: normalizeString(source.kb_rules ?? DEFAULT_FORM.kb_rules, ''),
+		kb_file: normalizeString(source.kb_file ?? DEFAULT_FORM.kb_file, ''),
+		numlock_by_default: normalizeBoolean(
+			source.numlock_by_default ?? DEFAULT_FORM.numlock_by_default,
+			DEFAULT_FORM.numlock_by_default
+		),
+		resolve_binds_by_sym: normalizeBoolean(
+			source.resolve_binds_by_sym ?? DEFAULT_FORM.resolve_binds_by_sym,
+			DEFAULT_FORM.resolve_binds_by_sym
+		),
+		repeat_rate: normalizeInteger(
+			source.repeat_rate ?? DEFAULT_FORM.repeat_rate,
+			DEFAULT_FORM.repeat_rate,
+			{ min: 1, max: 100 }
+		),
+		repeat_delay: normalizeInteger(
+			source.repeat_delay ?? DEFAULT_FORM.repeat_delay,
+			DEFAULT_FORM.repeat_delay,
+			{ min: 100, max: 10000 }
+		)
 	};
 }
 
@@ -298,6 +366,21 @@ function validateHyprlandInputFormInternal(form, catalog) {
 		}
 	}
 
+	const repeatRate = Number(form.repeat_rate);
+	if (!Number.isFinite(repeatRate) || !Number.isInteger(repeatRate)) {
+		fieldErrors.repeat_rate = 'Repeat rate must be a whole number between 1 and 100 repeats/sec.';
+	} else if (repeatRate < 1 || repeatRate > 100) {
+		fieldErrors.repeat_rate = 'Repeat rate must be between 1 and 100 repeats/sec.';
+	}
+
+	const repeatDelay = Number(form.repeat_delay);
+	if (!Number.isFinite(repeatDelay) || !Number.isInteger(repeatDelay)) {
+		fieldErrors.repeat_delay =
+			'Repeat delay must be a whole number between 100 and 10000 milliseconds.';
+	} else if (repeatDelay < 100 || repeatDelay > 10000) {
+		fieldErrors.repeat_delay = 'Repeat delay must be between 100 and 10000 milliseconds.';
+	}
+
 	return {
 		isValid: Object.keys(fieldErrors).length === 0,
 		fieldErrors
@@ -343,12 +426,27 @@ export function validateHyprlandInputForm(form, catalog) {
 }
 
 function buildPayloadFromState(state) {
+	const repeatRate = Number(state.form.repeat_rate);
+	const repeatDelay = Number(state.form.repeat_delay);
+	const safeRepeatRate = Number.isFinite(repeatRate)
+		? Math.trunc(repeatRate)
+		: DEFAULT_FORM.repeat_rate;
+	const safeRepeatDelay = Number.isFinite(repeatDelay)
+		? Math.trunc(repeatDelay)
+		: DEFAULT_FORM.repeat_delay;
+
 	return {
 		overrides: {
 			kb_model: state.form.kb_model,
 			kb_layout: state.form.kb_layout,
 			kb_variant: state.form.kb_variant,
-			kb_options: state.form.kb_options
+			kb_options: state.form.kb_options,
+			kb_rules: state.form.kb_rules,
+			kb_file: state.form.kb_file,
+			numlock_by_default: state.form.numlock_by_default,
+			resolve_binds_by_sym: state.form.resolve_binds_by_sym,
+			repeat_rate: safeRepeatRate,
+			repeat_delay: safeRepeatDelay
 		}
 	};
 }
