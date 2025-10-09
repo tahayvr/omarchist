@@ -1,4 +1,5 @@
 <script>
+	import HyprlandMouse from '$lib/settingsPage/hyprlandConfig/HyprlandMouse.svelte';
 </script>
 
-<div class="px-6 py-12"></div>
+<div class="px-6 py-12"><HyprlandMouse /></div>
