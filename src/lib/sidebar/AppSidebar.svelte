@@ -8,7 +8,8 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import DropIcon from '@lucide/svelte/icons/droplet';
 	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
-	import InputIcon from '@lucide/svelte/icons/keyboard';
+	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
+	import MouseIcon from '@lucide/svelte/icons/mouse';
 
 	// Menu items.
 	const items = [
@@ -18,9 +19,14 @@
 			icon: DropIcon
 		},
 		{
-			title: 'Input',
-			url: '/input',
-			icon: InputIcon
+			title: 'Keyboard',
+			url: '/keyboard',
+			icon: KeyboardIcon
+		},
+		{
+			title: 'Mouse',
+			url: '/mouse',
+			icon: MouseIcon
 		},
 		{
 			title: 'Omarchy',
