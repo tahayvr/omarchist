@@ -214,7 +214,7 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">Input</Card.Title>
+		<Card.Title class="uppercase">Keyboard</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
