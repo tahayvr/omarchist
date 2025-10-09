@@ -194,6 +194,7 @@
 						bind:value={hyprlandGeneral.form.border_size}
 						disabled={hyprlandGeneral.isLoading}
 						min="0"
+						step="1"
 					></Input>
 				</div>
 			</div>
@@ -267,6 +268,7 @@
 						bind:value={hyprlandGeneral.form.gaps_workspaces}
 						disabled={hyprlandGeneral.isLoading}
 						min="0"
+						step="1"
 					></Input>
 				</div>
 			</div>
