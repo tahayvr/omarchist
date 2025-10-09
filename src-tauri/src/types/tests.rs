@@ -93,4 +93,34 @@ mod tests {
 
         assert_eq!(theme.name, deserialized.name);
     }
+
+    #[test]
+    fn test_input_field_parsing_for_keyboard_values() {
+        let bool_value = InputField::NumlockByDefault
+            .parse_raw("true")
+            .expect("should parse boolean");
+        assert_eq!(bool_value, HyprlandValue::Bool(true));
+
+        let int_value = InputField::RepeatRate
+            .parse_raw("42")
+            .expect("should parse integer");
+        assert_eq!(int_value, HyprlandValue::Int(42));
+
+        let float_value = InputField::Sensitivity
+            .parse_raw("0.5")
+            .expect("should parse float");
+        match float_value {
+            HyprlandValue::Float(v) => assert!((v - 0.5).abs() < f32::EPSILON),
+            other => panic!("expected float, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_input_field_rejects_empty_layout() {
+        let err = InputField::KbLayout.parse_raw("").unwrap_err();
+        match err {
+            HyprlandConfigError::Parse { field, .. } => assert_eq!(field, "kb_layout"),
+            other => panic!("expected parse error, got {other:?}"),
+        }
+    }
 }
