@@ -133,6 +133,7 @@ function applySnapshotToState(state, snapshot) {
 		}
 	};
 	state.hasHydrated = true;
+	state.autoSaveHandle = null;
 
 	state.form = cloneForm(state.effective);
 
