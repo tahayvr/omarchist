@@ -21,6 +21,7 @@
 	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandGeneral = $state(initializeHyprlandGeneralState());
+	let autoSaveHandle = null;
 	let settingsFilter = $state('basic');
 	const isBasicMode = $derived(settingsFilter === 'basic');
 
@@ -57,8 +58,9 @@
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
 
 	function clearAutoSaveTimer() {
-		if (hyprlandGeneral.autoSaveHandle) {
-			clearTimeout(hyprlandGeneral.autoSaveHandle);
+		if (autoSaveHandle) {
+			clearTimeout(autoSaveHandle);
+			autoSaveHandle = null;
 			hyprlandGeneral.autoSaveHandle = null;
 		}
 	}
@@ -132,8 +134,7 @@
 	});
 
 	$effect(() => {
-		const { autoSaveHandle, dirty, hasHydrated, isLoading, isSaving, validation } = hyprlandGeneral;
-		void autoSaveHandle;
+		const { dirty, hasHydrated, isLoading, isSaving, validation } = hyprlandGeneral;
 
 		if (!hasHydrated) {
 			clearAutoSaveTimer();
@@ -156,7 +157,8 @@
 		}
 
 		clearAutoSaveTimer();
-		hyprlandGeneral.autoSaveHandle = setTimeout(async () => {
+		autoSaveHandle = setTimeout(async () => {
+			autoSaveHandle = null;
 			hyprlandGeneral.autoSaveHandle = null;
 			const saved = await saveHyprlandGeneral(hyprlandGeneral, { silent: true });
 			if (saved) {
@@ -167,6 +169,7 @@
 				}
 			}
 		}, AUTO_SAVE_DELAY);
+		hyprlandGeneral.autoSaveHandle = autoSaveHandle;
 	});
 
 	async function handleReset() {
