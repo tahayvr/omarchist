@@ -69,7 +69,7 @@
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title class="uppercase">Theme Designer</Card.Title>
+		<Card.Title class="text-accent-foreground uppercase">Theme Designer</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-4">
 		<!-- Settings controls -->

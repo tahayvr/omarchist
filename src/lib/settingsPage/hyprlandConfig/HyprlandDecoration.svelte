@@ -166,7 +166,8 @@
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				Decoration <SettingsFilterToggle bind:value={settingsFilter} />
+				<span class="text-accent-foreground">Decoration</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>
@@ -199,7 +200,7 @@
 					<Input
 						id="rounding_power"
 						type="number"
-						class="w-full max-w-[200px]"
+						class="w-24"
 						bind:value={hyprlandDecoration.form.rounding_power}
 						disabled={hyprlandDecoration.isLoading}
 						min="1.0"
@@ -217,7 +218,7 @@
 					<Input
 						id="active_opacity"
 						type="number"
-						class="w-full max-w-[200px]"
+						class="w-24"
 						bind:value={hyprlandDecoration.form.active_opacity}
 						disabled={hyprlandDecoration.isLoading}
 						min="0.0"
@@ -235,7 +236,7 @@
 					<Input
 						id="inactive_opacity"
 						type="number"
-						class="w-full max-w-[200px]"
+						class="w-24"
 						bind:value={hyprlandDecoration.form.inactive_opacity}
 						disabled={hyprlandDecoration.isLoading}
 						min="0.0"
