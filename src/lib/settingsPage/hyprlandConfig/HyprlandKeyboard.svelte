@@ -27,6 +27,7 @@
 	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandInput = $state(initializeHyprlandInputState());
+	let settingsFilter = $state('basic');
 
 	const modelOptions = $derived(getModels(hyprlandInput));
 	const layoutOptions = $derived(getLayouts(hyprlandInput));
@@ -35,6 +36,7 @@
 	);
 	const optionGroups = $derived(getOptionGroups(hyprlandInput));
 	const selectedOptions = $derived(getSelectedOptionsSet(hyprlandInput.form));
+	const isBasicMode = $derived(settingsFilter === 'basic');
 	const selectedModelLabel = $derived.by(() => {
 		if (!hyprlandInput.form.kb_model) {
 			return 'Default';
@@ -42,6 +44,10 @@
 		const match = modelOptions.find((model) => model.name === hyprlandInput.form.kb_model);
 		return match?.description || hyprlandInput.form.kb_model;
 	});
+
+	function shouldHideInBasic(isBasic = false) {
+		return isBasicMode && !isBasic;
+	}
 
 	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
@@ -225,13 +231,13 @@
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				Keyboard <SettingsFilterToggle />
+				Keyboard <SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<Label for="kb_model" class="flex items-center gap-2">
 					<span>Keyboard model</span>
 					<Explainer explainerText="Selects a specific hardware model from XKB definitions." />
@@ -264,7 +270,7 @@
 					</p>
 				{/if}
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<Label for="kb_layout" class="flex items-center gap-2">
 					<span>Keyboard layout</span>
 					<Explainer explainerText="The primary keyboard layout Hyprland should apply." />
@@ -285,7 +291,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="flex flex-col gap-2 md:col-span-2">
+			<div class="flex flex-col gap-2 md:col-span-2" class:hidden={shouldHideInBasic(true)}>
 				<Label for="kb_variant" class="flex items-center gap-2">
 					<span>Keyboard variant</span>
 					<Explainer
@@ -314,7 +320,7 @@
 					</Select.Content>
 				</Select.Root>
 			</div>
-			<div class="flex flex-col gap-2 md:col-span-2">
+			<div class="flex flex-col gap-2 md:col-span-2" class:hidden={shouldHideInBasic(false)}>
 				<Label for="kb_options" class="flex items-center gap-2">
 					<span>Additional options</span>
 					<Explainer
@@ -329,7 +335,7 @@
 					spellcheck={false}
 				></Textarea>
 			</div>
-			<div class="flex flex-col gap-2 md:col-span-2">
+			<div class="flex flex-col gap-2 md:col-span-2" class:hidden={shouldHideInBasic(false)}>
 				<Label for="kb_rules" class="flex items-center gap-2">
 					<span>Keyboard rules</span>
 					<Explainer explainerText="Optional XKB rules override string." />
@@ -344,7 +350,7 @@
 					placeholder="Default"
 				/>
 			</div>
-			<div class="flex flex-col gap-2 md:col-span-2">
+			<div class="flex flex-col gap-2 md:col-span-2" class:hidden={shouldHideInBasic(false)}>
 				<Label for="kb_file" class="flex items-center gap-2">
 					<span>Custom keymap file</span>
 					<Explainer explainerText="Path to a custom .xkb file to load instead of XKB rules." />
@@ -359,7 +365,10 @@
 					placeholder="/path/to/custom.xkb"
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-4 md:col-span-2">
+			<div
+				class="flex items-center justify-between gap-4 md:col-span-2"
+				class:hidden={shouldHideInBasic(true)}
+			>
 				<Label for="numlock_by_default" class="flex items-center gap-2">
 					<span>Enable num lock</span>
 					<Explainer explainerText="Engage num lock by default when Hyprland starts." />
@@ -370,7 +379,10 @@
 					disabled={hyprlandInput.isLoading}
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-4 md:col-span-2">
+			<div
+				class="flex items-center justify-between gap-4 md:col-span-2"
+				class:hidden={shouldHideInBasic(false)}
+			>
 				<Label for="resolve_binds_by_sym" class="flex items-center gap-2">
 					<span>Resolve binds by symbol</span>
 					<Explainer
@@ -383,7 +395,7 @@
 					disabled={hyprlandInput.isLoading}
 				/>
 			</div>
-			<div class="grid gap-4 md:col-span-2 md:grid-cols-2">
+			<div class="grid gap-4 md:col-span-2 md:grid-cols-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex flex-col gap-2">
 					<Label for="repeat_rate" class="flex items-center gap-2">
 						<span>Repeat rate</span>
@@ -428,7 +440,7 @@
 				</div>
 			</div>
 		</div>
-		<div class="space-y-2">
+		<div class="space-y-2" class:hidden={shouldHideInBasic(false)}>
 			<div class="flex items-center justify-between">
 				<p class="text-muted-foreground text-xs">Toggle XKB options by group</p>
 				{#if selectedOptions.size}

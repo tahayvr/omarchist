@@ -16,8 +16,15 @@
 		validateHyprlandDecorationForm
 	} from '$lib/utils/hyprlandDecorationUtils.js';
 	import Explainer from '$lib/components/Explainer.svelte';
+	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandDecoration = $state(initializeHyprlandDecorationState());
+	let settingsFilter = $state('basic');
+	const isBasicMode = $derived(settingsFilter === 'basic');
+
+	function shouldHideInBasic(isBasic = false) {
+		return isBasicMode && !isBasic;
+	}
 
 	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
@@ -157,11 +164,15 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">Decoration</Card.Title>
+		<Card.Title class="uppercase">
+			<div class="flex items-center justify-between">
+				Decoration <SettingsFilterToggle bind:value={settingsFilter} />
+			</div>
+		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="rounding" class="flex-1">
 						Rounding
@@ -177,7 +188,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="rounding_power" class="flex-1">
 						Rounding power
@@ -197,7 +208,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="active_opacity" class="flex-1">
 						Active opacity
@@ -215,7 +226,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="inactive_opacity" class="flex-1">
 						Inactive opacity
@@ -233,7 +244,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="fullscreen_opacity" class="flex-1">
 						Fullscreen opacity
@@ -251,7 +262,10 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div
+				class="basic flex items-center justify-between gap-4"
+				class:hidden={shouldHideInBasic(true)}
+			>
 				<Label for="dim_modal" class="flex-1">
 					Dim modal
 					<Explainer explainerText="enables dimming of parents of modal windows" />
@@ -262,7 +276,10 @@
 					disabled={hyprlandDecoration.isLoading}
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div
+				class="basic flex items-center justify-between gap-4"
+				class:hidden={shouldHideInBasic(true)}
+			>
 				<Label for="dim_inactive" class="flex-1">
 					Dim inactive
 					<Explainer explainerText="enables dimming of inactive windows" />
@@ -273,7 +290,7 @@
 					disabled={hyprlandDecoration.isLoading}
 				/>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="dim_strength" class="flex-1">
 						Dim strength
@@ -291,7 +308,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="dim_special" class="flex-1">
 						Dim special
@@ -311,7 +328,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="dim_around" class="flex-1">
 						Dim around
@@ -331,7 +348,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="screen_shader" class="flex-1">
 						Screen shader
@@ -350,7 +367,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(false)}>
 				<Label for="border_part_of_window" class="flex-1">
 					Border part of window
 					<Explainer explainerText="whether the window border should be a part of the window" />
@@ -362,7 +379,7 @@
 				/>
 			</div>
 		</div>
-		<Accordion.Root type="single">
+		<Accordion.Root type="single" class={shouldHideInBasic(false) ? 'hidden' : ''}>
 			<Accordion.Item>
 				<Accordion.Trigger class="uppercase">Blur</Accordion.Trigger>
 				<Accordion.Content>

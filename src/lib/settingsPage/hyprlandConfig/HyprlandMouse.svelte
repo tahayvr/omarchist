@@ -7,6 +7,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import Explainer from '$lib/components/Explainer.svelte';
 	import { toast } from 'svelte-sonner';
+	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 	import {
 		initializeHyprlandInputState,
 		loadHyprlandInput,
@@ -17,6 +18,12 @@
 	} from '$lib/utils/hyprlandInputUtils.js';
 
 	const hyprlandInput = $state(initializeHyprlandInputState());
+	let settingsFilter = $state('basic');
+	const isBasicMode = $derived(settingsFilter === 'basic');
+
+	function shouldHideInBasic(isBasic = false) {
+		return isBasicMode && !isBasic;
+	}
 
 	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
@@ -189,13 +196,17 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">Mouse & Touchpad</Card.Title>
+		<Card.Title class="uppercase">
+			<div class="flex items-center justify-between">
+				Mouse & Touchpad <SettingsFilterToggle bind:value={settingsFilter} />
+			</div>
+		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-8 uppercase">
-		<section class="space-y-4">
+		<section class="basic space-y-4">
 			<h3 class="text-sm font-semibold tracking-wide">Pointer behaviour</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="sensitivity" class="flex items-center gap-2">
 						<span>Pointer sensitivity</span>
 						<Explainer
@@ -218,7 +229,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="accel_profile" class="flex items-center gap-2">
 						<span>Acceleration profile</span>
 						<Explainer
@@ -237,7 +248,10 @@
 				</div>
 			</div>
 			<div class="grid gap-4 md:grid-cols-2">
-				<div class="flex items-center justify-between gap-4">
+				<div
+					class="flex items-center justify-between gap-4"
+					class:hidden={shouldHideInBasic(false)}
+				>
 					<Label for="force_no_accel" class="flex items-center gap-2">
 						<span>Disable libinput accel</span>
 						<Explainer
@@ -250,7 +264,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="left_handed" class="flex items-center gap-2">
 						<span>Left-handed mode</span>
 						<Explainer explainerText="Swaps primary and secondary mouse buttons." />
@@ -267,7 +281,7 @@
 		<section class="space-y-4">
 			<h3 class="text-sm font-semibold tracking-wide">Touchpad controls</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_disable_while_typing" class="flex items-center gap-2">
 						<span>Disable while typing</span>
 						<Explainer
@@ -280,7 +294,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_natural_scroll" class="flex items-center gap-2">
 						<span>Natural scrolling (touchpad)</span>
 						<Explainer
@@ -293,7 +307,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_scroll_factor" class="flex items-center gap-2">
 						<span>Scroll factor (touchpad)</span>
 						<Explainer
@@ -315,7 +329,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_middle_button_emulation" class="flex items-center gap-2">
 						<span>Middle button emulation</span>
 						<Explainer
@@ -328,7 +342,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_tap_button_map" class="flex items-center gap-2">
 						<span>Tap button map</span>
 						<Explainer explainerText="Accepts lrm or lmr to map three-finger taps." />
@@ -348,7 +362,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_clickfinger_behavior" class="flex items-center gap-2">
 						<span>Clickfinger behaviour</span>
 						<Explainer
@@ -361,7 +375,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_tap_to_click" class="flex items-center gap-2">
 						<span>Tap to click</span>
 						<Explainer explainerText="Allow single-finger taps to register as clicks." />
@@ -372,7 +386,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_drag_lock" class="flex items-center gap-2">
 						<span>Drag lock</span>
 						<Explainer
@@ -395,7 +409,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_tap_and_drag" class="flex items-center gap-2">
 						<span>Tap and drag</span>
 						<Explainer explainerText="Allows dragging windows with tap-and-hold gestures." />
@@ -406,7 +420,10 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div
+					class="flex items-center justify-between gap-4"
+					class:hidden={shouldHideInBasic(false)}
+				>
 					<Label for="touchpad_flip_x" class="flex items-center gap-2">
 						<span>Flip X axis</span>
 						<Explainer explainerText="Mirrors horizontal gesture direction." />
@@ -417,7 +434,10 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div
+					class="flex items-center justify-between gap-4"
+					class:hidden={shouldHideInBasic(false)}
+				>
 					<Label for="touchpad_flip_y" class="flex items-center gap-2">
 						<span>Flip Y axis</span>
 						<Explainer explainerText="Mirrors vertical gesture direction." />
@@ -428,7 +448,10 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div
+					class="flex items-center justify-between gap-2"
+					class:hidden={shouldHideInBasic(false)}
+				>
 					<Label for="touchpad_drag_3fg" class="flex items-center gap-2">
 						<span>3-finger drag mode</span>
 						<Explainer
@@ -457,7 +480,7 @@
 		<section class="space-y-4">
 			<h3 class="text-sm font-semibold tracking-wide">Scroll settings</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-				<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 					<Label for="scroll_points" class="flex items-center gap-2">
 						<span>Scroll points</span>
 						<Explainer
@@ -474,7 +497,7 @@
 						placeholder=""
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="scroll_method" class="flex items-center gap-2">
 						<span>Scroll method</span>
 						<Explainer explainerText="Examples: two_finger, edge, no_scroll." />
@@ -489,7 +512,7 @@
 						placeholder="two_finger"
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="scroll_button" class="flex items-center gap-2">
 						<span>Scroll button</span>
 						<Explainer explainerText="Mouse button to hold for edge scrolling. Use 0 to disable." />
@@ -509,7 +532,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="scroll_factor" class="flex items-center gap-2">
 						<span>Scroll factor</span>
 						<Explainer
@@ -533,7 +556,7 @@
 				</div>
 			</div>
 			<div class="grid gap-4 md:grid-cols-2">
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="scroll_button_lock" class="flex items-center gap-2">
 						<span>Lock scroll button</span>
 						<Explainer explainerText="Keeps scrolling active until the button is pressed again." />
@@ -544,7 +567,7 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex items-center justify-between gap-4">
+				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="natural_scroll" class="flex items-center gap-2">
 						<span>Natural scrolling</span>
 						<Explainer explainerText="Reverses scroll direction to mimic touch interfaces." />
@@ -558,7 +581,7 @@
 			</div>
 		</section>
 
-		<section class="space-y-4">
+		<section class="space-y-4" class:hidden={shouldHideInBasic(false)}>
 			<h3 class="text-sm font-semibold tracking-wide">Focus & window follow</h3>
 			<div class="grid gap-4 md:grid-cols-3 md:gap-x-6 md:gap-y-4">
 				<div class="flex flex-col gap-2">
@@ -681,7 +704,7 @@
 			</div>
 		</section>
 
-		<section class="space-y-4">
+		<section class="space-y-4" class:hidden={shouldHideInBasic(false)}>
 			<h3 class="text-sm font-semibold tracking-wide">Advanced behaviour</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex flex-col gap-2">
