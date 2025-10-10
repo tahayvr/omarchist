@@ -24,6 +24,7 @@
 		getOptionGroups,
 		getSelectedOptionsSet
 	} from '$lib/utils/hyprlandInputUtils.js';
+	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandInput = $state(initializeHyprlandInputState());
 
@@ -222,7 +223,11 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">Keyboard</Card.Title>
+		<Card.Title class="uppercase">
+			<div class="flex items-center justify-between">
+				Keyboard <SettingsFilterToggle />
+			</div>
+		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
