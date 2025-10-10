@@ -185,8 +185,9 @@
 <Card.Root class="space-y-4">
 	<Card.Header>
 		<Card.Title class="uppercase">
-			<div class="flex items-center justify-between">
-				General <SettingsFilterToggle bind:value={settingsFilter} />
+			<div class=" flex items-center justify-between">
+				<span class="text-accent-foreground">General</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>
@@ -306,7 +307,7 @@
 						bind:value={hyprlandGeneral.form.layout}
 						disabled={hyprlandGeneral.isLoading}
 					>
-						<Select.Trigger class="w-[180px]">
+						<Select.Trigger class="w-32">
 							{hyprlandGeneral.form.layout?.toUpperCase() ?? 'SELECT'}
 						</Select.Trigger>
 						<Select.Content>

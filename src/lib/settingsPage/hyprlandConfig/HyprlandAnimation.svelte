@@ -164,7 +164,8 @@
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				Animation <SettingsFilterToggle bind:value={settingsFilter} />
+				<span class="text-accent-foreground">Animation</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>

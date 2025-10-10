@@ -198,13 +198,16 @@
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				Mouse & Touchpad <SettingsFilterToggle bind:value={settingsFilter} />
+				<span class="text-accent-foreground">Mouse & Touchpad</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-8 uppercase">
 		<section class="basic space-y-4">
-			<h3 class="text-sm font-semibold tracking-wide">Pointer behaviour</h3>
+			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
+				Pointer behaviour
+			</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="sensitivity" class="flex items-center gap-2">
@@ -279,7 +282,9 @@
 		</section>
 
 		<section class="space-y-4">
-			<h3 class="text-sm font-semibold tracking-wide">Touchpad controls</h3>
+			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
+				Touchpad controls
+			</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_disable_while_typing" class="flex items-center gap-2">
@@ -478,7 +483,7 @@
 		</section>
 
 		<section class="space-y-4">
-			<h3 class="text-sm font-semibold tracking-wide">Scroll settings</h3>
+			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">Scroll settings</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 					<Label for="scroll_points" class="flex items-center gap-2">
@@ -582,7 +587,9 @@
 		</section>
 
 		<section class="space-y-4" class:hidden={shouldHideInBasic(false)}>
-			<h3 class="text-sm font-semibold tracking-wide">Focus & window follow</h3>
+			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
+				Focus & window follow
+			</h3>
 			<div class="grid gap-4 md:grid-cols-3 md:gap-x-6 md:gap-y-4">
 				<div class="flex flex-col gap-2">
 					<Label for="follow_mouse" class="flex items-center gap-2">
@@ -652,7 +659,7 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex items-center justify-between gap-4 md:col-span-3">
+				<div class="flex items-center justify-between gap-4">
 					<Label for="mouse_refocus" class="flex items-center gap-2">
 						<span>Refocus on pointer return</span>
 						<Explainer
@@ -705,7 +712,9 @@
 		</section>
 
 		<section class="space-y-4" class:hidden={shouldHideInBasic(false)}>
-			<h3 class="text-sm font-semibold tracking-wide">Advanced behaviour</h3>
+			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
+				Advanced behaviour
+			</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex flex-col gap-2">
 					<Label for="off_window_axis_events" class="flex items-center gap-2">

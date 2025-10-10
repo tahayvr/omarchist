@@ -231,7 +231,8 @@
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				Keyboard <SettingsFilterToggle bind:value={settingsFilter} />
+				<span class="text-accent-foreground">Keyboard</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>

@@ -44,15 +44,12 @@
 <div>
 	<Card.Root>
 		<Card.Header>
-			<Card.Title class="uppercase">Omarchy</Card.Title>
+			<Card.Title class="text-accent-foreground uppercase">Omarchy</Card.Title>
 			<Card.Description class="text-xs tracking-wide uppercase"
 				>Current Version: {versionNum}</Card.Description
 			>
 		</Card.Header>
 		<Card.Content>
-			{#if checkingUpdate}
-				<p class="text-muted-foreground mb-4 text-sm">Checking for updates...</p>
-			{/if}
 			{#if updateAvailable}
 				<Button onclick={updateOmarchy} variant="outline">Update Omarchy</Button>
 			{:else}
@@ -60,6 +57,9 @@
 					>Omarchy is up to date</Button
 				>
 			{/if}
+			<!-- {#if checkingUpdate}
+					<p class="text-muted-foreground mb-4 text-sm">Checking for updates...</p>
+				{/if} -->
 		</Card.Content>
 	</Card.Root>
 </div>
