@@ -1,5 +1,20 @@
 import { invoke } from '@tauri-apps/api/core';
 
+const DEFAULT_TOUCHPAD = Object.freeze({
+	disable_while_typing: true,
+	natural_scroll: false,
+	scroll_factor: 1,
+	middle_button_emulation: false,
+	tap_button_map: '',
+	clickfinger_behavior: false,
+	tap_to_click: true,
+	drag_lock: 0,
+	tap_and_drag: true,
+	flip_x: false,
+	flip_y: false,
+	drag_3fg: 0
+});
+
 const DEFAULT_FORM = Object.freeze({
 	kb_model: '',
 	kb_layout: 'us',
@@ -36,7 +51,10 @@ const DEFAULT_FORM = Object.freeze({
 
 	// Misc
 	off_window_axis_events: 1,
-	emulate_discrete_scroll: 1
+	emulate_discrete_scroll: 1,
+
+	// Touchpad
+	touchpad: DEFAULT_TOUCHPAD
 });
 
 function normalizeString(value, fallback = '') {
@@ -124,6 +142,56 @@ function normalizeFloat(value, fallback = 0, options = {}) {
 
 	const factor = 10 ** precision;
 	return Math.round(clamped * factor) / factor;
+}
+
+function cloneTouchpad(source = DEFAULT_TOUCHPAD) {
+	return {
+		disable_while_typing: normalizeBoolean(
+			source.disable_while_typing ?? DEFAULT_TOUCHPAD.disable_while_typing,
+			DEFAULT_TOUCHPAD.disable_while_typing
+		),
+		natural_scroll: normalizeBoolean(
+			source.natural_scroll ?? DEFAULT_TOUCHPAD.natural_scroll,
+			DEFAULT_TOUCHPAD.natural_scroll
+		),
+		scroll_factor: normalizeFloat(
+			source.scroll_factor ?? DEFAULT_TOUCHPAD.scroll_factor,
+			DEFAULT_TOUCHPAD.scroll_factor,
+			{ min: 0, precision: 3 }
+		),
+		middle_button_emulation: normalizeBoolean(
+			source.middle_button_emulation ?? DEFAULT_TOUCHPAD.middle_button_emulation,
+			DEFAULT_TOUCHPAD.middle_button_emulation
+		),
+		tap_button_map: normalizeString(
+			source.tap_button_map ?? DEFAULT_TOUCHPAD.tap_button_map,
+			DEFAULT_TOUCHPAD.tap_button_map
+		),
+		clickfinger_behavior: normalizeBoolean(
+			source.clickfinger_behavior ?? DEFAULT_TOUCHPAD.clickfinger_behavior,
+			DEFAULT_TOUCHPAD.clickfinger_behavior
+		),
+		tap_to_click: normalizeBoolean(
+			source.tap_to_click ?? DEFAULT_TOUCHPAD.tap_to_click,
+			DEFAULT_TOUCHPAD.tap_to_click
+		),
+		drag_lock: normalizeInteger(
+			source.drag_lock ?? DEFAULT_TOUCHPAD.drag_lock,
+			DEFAULT_TOUCHPAD.drag_lock,
+			{ min: 0, max: 2 }
+		),
+		tap_and_drag: normalizeBoolean(
+			source.tap_and_drag ?? DEFAULT_TOUCHPAD.tap_and_drag,
+			DEFAULT_TOUCHPAD.tap_and_drag
+		),
+		flip_x: normalizeBoolean(source.flip_x ?? DEFAULT_TOUCHPAD.flip_x, DEFAULT_TOUCHPAD.flip_x),
+		flip_y: normalizeBoolean(source.flip_y ?? DEFAULT_TOUCHPAD.flip_y, DEFAULT_TOUCHPAD.flip_y),
+		drag_3fg: normalizeInteger(
+			source.drag_3fg ?? DEFAULT_TOUCHPAD.drag_3fg,
+			DEFAULT_TOUCHPAD.drag_3fg,
+			{ min: 0, max: 2 }
+		)
+	};
 }
 
 function cloneForm(source = DEFAULT_FORM) {
@@ -225,6 +293,58 @@ function cloneForm(source = DEFAULT_FORM) {
 		emulate_discrete_scroll: normalizeInteger(
 			source.emulate_discrete_scroll ?? DEFAULT_FORM.emulate_discrete_scroll,
 			DEFAULT_FORM.emulate_discrete_scroll,
+			{ min: 0, max: 2 }
+		),
+		touchpad: cloneTouchpad(source.touchpad ?? DEFAULT_TOUCHPAD)
+	};
+}
+
+function buildTouchpadPayload(formTouchpad) {
+	const source = formTouchpad && typeof formTouchpad === 'object' ? formTouchpad : {};
+	return {
+		disable_while_typing: normalizeBoolean(
+			source.disable_while_typing ?? DEFAULT_TOUCHPAD.disable_while_typing,
+			DEFAULT_TOUCHPAD.disable_while_typing
+		),
+		natural_scroll: normalizeBoolean(
+			source.natural_scroll ?? DEFAULT_TOUCHPAD.natural_scroll,
+			DEFAULT_TOUCHPAD.natural_scroll
+		),
+		scroll_factor: normalizeFloat(
+			source.scroll_factor ?? DEFAULT_TOUCHPAD.scroll_factor,
+			DEFAULT_TOUCHPAD.scroll_factor,
+			{ min: 0, precision: 3 }
+		),
+		middle_button_emulation: normalizeBoolean(
+			source.middle_button_emulation ?? DEFAULT_TOUCHPAD.middle_button_emulation,
+			DEFAULT_TOUCHPAD.middle_button_emulation
+		),
+		tap_button_map: normalizeString(
+			source.tap_button_map ?? DEFAULT_TOUCHPAD.tap_button_map,
+			DEFAULT_TOUCHPAD.tap_button_map
+		),
+		clickfinger_behavior: normalizeBoolean(
+			source.clickfinger_behavior ?? DEFAULT_TOUCHPAD.clickfinger_behavior,
+			DEFAULT_TOUCHPAD.clickfinger_behavior
+		),
+		tap_to_click: normalizeBoolean(
+			source.tap_to_click ?? DEFAULT_TOUCHPAD.tap_to_click,
+			DEFAULT_TOUCHPAD.tap_to_click
+		),
+		drag_lock: normalizeInteger(
+			source.drag_lock ?? DEFAULT_TOUCHPAD.drag_lock,
+			DEFAULT_TOUCHPAD.drag_lock,
+			{ min: 0, max: 2 }
+		),
+		tap_and_drag: normalizeBoolean(
+			source.tap_and_drag ?? DEFAULT_TOUCHPAD.tap_and_drag,
+			DEFAULT_TOUCHPAD.tap_and_drag
+		),
+		flip_x: normalizeBoolean(source.flip_x ?? DEFAULT_TOUCHPAD.flip_x, DEFAULT_TOUCHPAD.flip_x),
+		flip_y: normalizeBoolean(source.flip_y ?? DEFAULT_TOUCHPAD.flip_y, DEFAULT_TOUCHPAD.flip_y),
+		drag_3fg: normalizeInteger(
+			source.drag_3fg ?? DEFAULT_TOUCHPAD.drag_3fg,
+			DEFAULT_TOUCHPAD.drag_3fg,
 			{ min: 0, max: 2 }
 		)
 	};
@@ -577,6 +697,47 @@ function validateHyprlandInputFormInternal(form, catalog) {
 		fieldErrors.emulate_discrete_scroll = 'Emulate discrete scroll accepts values 0-2.';
 	}
 
+	const touchpad = form?.touchpad && typeof form.touchpad === 'object' ? form.touchpad : {};
+	const touchpadScrollFactor = Number(touchpad.scroll_factor);
+	if (
+		touchpad.scroll_factor !== '' &&
+		touchpad.scroll_factor !== null &&
+		touchpad.scroll_factor !== undefined
+	) {
+		if (!Number.isFinite(touchpadScrollFactor)) {
+			fieldErrors['touchpad.scroll_factor'] = 'Touchpad scroll factor must be a numeric value.';
+		} else if (touchpadScrollFactor < 0) {
+			fieldErrors['touchpad.scroll_factor'] = 'Touchpad scroll factor cannot be negative.';
+		}
+	}
+
+	const tapButtonMap = normalizeString(touchpad.tap_button_map ?? '', '');
+	if (tapButtonMap && !['lrm', 'lmr'].includes(tapButtonMap)) {
+		fieldErrors['touchpad.tap_button_map'] = 'Tap button map must be either lrm or lmr.';
+	}
+
+	if (
+		touchpad.drag_lock !== '' &&
+		touchpad.drag_lock !== null &&
+		touchpad.drag_lock !== undefined
+	) {
+		const dragLock = Number(touchpad.drag_lock);
+		if (!Number.isFinite(dragLock) || !Number.isInteger(dragLock)) {
+			fieldErrors['touchpad.drag_lock'] = 'Drag lock must be an integer between 0 and 2.';
+		} else if (dragLock < 0 || dragLock > 2) {
+			fieldErrors['touchpad.drag_lock'] = 'Drag lock must be an integer between 0 and 2.';
+		}
+	}
+
+	if (touchpad.drag_3fg !== '' && touchpad.drag_3fg !== null && touchpad.drag_3fg !== undefined) {
+		const drag3fg = Number(touchpad.drag_3fg);
+		if (!Number.isFinite(drag3fg) || !Number.isInteger(drag3fg)) {
+			fieldErrors['touchpad.drag_3fg'] = '3-finger drag must be an integer between 0 and 2.';
+		} else if (drag3fg < 0 || drag3fg > 2) {
+			fieldErrors['touchpad.drag_3fg'] = '3-finger drag must be an integer between 0 and 2.';
+		}
+	}
+
 	return {
 		isValid: Object.keys(fieldErrors).length === 0,
 		fieldErrors
@@ -670,6 +831,7 @@ function buildPayloadFromState(state) {
 		DEFAULT_FORM.emulate_discrete_scroll,
 		{ min: 0, max: 2 }
 	);
+	const safeTouchpad = buildTouchpadPayload(state.form.touchpad);
 
 	return {
 		overrides: {
@@ -704,7 +866,8 @@ function buildPayloadFromState(state) {
 			special_fallthrough: state.form.special_fallthrough,
 
 			off_window_axis_events: safeOffWindowAxisEvents,
-			emulate_discrete_scroll: safeEmulateDiscreteScroll
+			emulate_discrete_scroll: safeEmulateDiscreteScroll,
+			touchpad: safeTouchpad
 		}
 	};
 }
