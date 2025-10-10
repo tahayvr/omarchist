@@ -227,7 +227,7 @@
 	}
 </script>
 
-<Card.Root class="space-y-4">
+<Card.Root class="w-1/2 space-y-4">
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
