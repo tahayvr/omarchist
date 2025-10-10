@@ -14,8 +14,15 @@
 		validateHyprlandAnimationForm
 	} from '$lib/utils/hyprlandAnimationUtils.js';
 	import Explainer from '$lib/components/Explainer.svelte';
+	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandAnimation = $state(initializeHyprlandAnimationState());
+	let settingsFilter = $state('basic');
+	const isBasicMode = $derived(settingsFilter === 'basic');
+
+	function shouldHideInBasic(isBasic = false) {
+		return isBasicMode && !isBasic;
+	}
 
 	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
@@ -155,11 +162,19 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">Animation</Card.Title>
+		<Card.Title class="uppercase">
+			<div class="flex items-center justify-between">
+				<span class="text-accent-foreground">Animation</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
+			</div>
+		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-			<div class="flex items-center justify-between gap-4">
+			<div
+				class="basic flex items-center justify-between gap-4"
+				class:hidden={shouldHideInBasic(true)}
+			>
 				<Label for="enabled">Enable Animations</Label>
 				<Switch
 					id="enabled"
@@ -168,7 +183,10 @@
 				/>
 			</div>
 			<!-- Workspace Wraparound -->
-			<div class="flex items-center justify-between space-x-4">
+			<div
+				class="flex items-center justify-between space-x-4"
+				class:hidden={shouldHideInBasic(false)}
+			>
 				<div class="flex-1 space-y-1">
 					<div class="flex items-center gap-2">
 						<Label for="workspace_wraparound">Workspace Wraparound</Label>

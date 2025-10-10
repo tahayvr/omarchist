@@ -18,6 +18,9 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         commands::hyprland::update_hyprland_general_settings,
         commands::hyprland::get_hyprland_decoration_settings,
         commands::hyprland::update_hyprland_decoration_settings,
+        commands::hyprland::get_hyprland_input_settings,
+        commands::hyprland::update_hyprland_input_settings,
+        commands::hyprland::get_keyboard_catalog,
         commands::hyprland::get_hyprland_animation_settings,
         commands::hyprland::update_hyprland_animation_settings,
         // Omarchy commands
@@ -83,6 +86,7 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_cli::init())

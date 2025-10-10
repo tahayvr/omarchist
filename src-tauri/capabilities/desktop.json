@@ -13,6 +13,37 @@
     "shell:default",
     "clipboard-manager:default",
     "clipboard-manager:allow-read-text",
-    "clipboard-manager:allow-write-text"
+    "clipboard-manager:allow-write-text",
+    "fs:default",
+    {
+      "identifier": "fs:scope",
+      "allow": [
+        { "path": "/usr/share/X11/xkb/**/*" },
+        { "path": "/usr/local/share/X11/xkb/**/*" },
+        { "path": "/etc/X11/xkb/**/*" },
+        { "path": "/run/current-system/sw/share/X11/xkb/**/*" },
+        { "path": "/nix/var/nix/profiles/default/share/X11/xkb/**/*" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read",
+      "allow": [
+        { "path": "/usr/share/X11/xkb/**/*" },
+        { "path": "/usr/local/share/X11/xkb/**/*" },
+        { "path": "/etc/X11/xkb/**/*" },
+        { "path": "/run/current-system/sw/share/X11/xkb/**/*" },
+        { "path": "/nix/var/nix/profiles/default/share/X11/xkb/**/*" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-dir",
+      "allow": [
+        { "path": "/usr/share/X11/xkb/**/*" },
+        { "path": "/usr/local/share/X11/xkb/**/*" },
+        { "path": "/etc/X11/xkb/**/*" },
+        { "path": "/run/current-system/sw/share/X11/xkb/**/*" },
+        { "path": "/nix/var/nix/profiles/default/share/X11/xkb/**/*" }
+      ]
+    }
   ]
 }

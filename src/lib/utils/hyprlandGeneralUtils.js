@@ -9,10 +9,10 @@ const DEFAULT_SNAP = Object.freeze({
 });
 
 const DEFAULT_FORM = Object.freeze({
-	border_size: 1,
+	border_size: 2,
 	no_border_on_floating: false,
 	gaps_in: '5',
-	gaps_out: '20',
+	gaps_out: '10',
 	float_gaps: '0',
 	gaps_workspaces: 0,
 	layout: 'dwindle',
@@ -133,6 +133,7 @@ function applySnapshotToState(state, snapshot) {
 		}
 	};
 	state.hasHydrated = true;
+	state.autoSaveHandle = null;
 
 	state.form = cloneForm(state.effective);
 

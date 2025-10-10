@@ -18,8 +18,16 @@
 	} from '$lib/utils/hyprlandGeneralUtils.js';
 	import Explainer from '$lib/components/Explainer.svelte';
 	import HyprlandGeneralSnap from './HyprlandGeneralSnap.svelte';
+	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
 
 	const hyprlandGeneral = $state(initializeHyprlandGeneralState());
+	let autoSaveHandle = null;
+	let settingsFilter = $state('basic');
+	const isBasicMode = $derived(settingsFilter === 'basic');
+
+	function shouldHideInBasic(isBasic = false) {
+		return isBasicMode && !isBasic;
+	}
 
 	const layoutOptions = [
 		{ label: 'MASTER', value: 'master' },
@@ -50,8 +58,9 @@
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
 
 	function clearAutoSaveTimer() {
-		if (hyprlandGeneral.autoSaveHandle) {
-			clearTimeout(hyprlandGeneral.autoSaveHandle);
+		if (autoSaveHandle) {
+			clearTimeout(autoSaveHandle);
+			autoSaveHandle = null;
 			hyprlandGeneral.autoSaveHandle = null;
 		}
 	}
@@ -125,8 +134,7 @@
 	});
 
 	$effect(() => {
-		const { autoSaveHandle, dirty, hasHydrated, isLoading, isSaving, validation } = hyprlandGeneral;
-		void autoSaveHandle;
+		const { dirty, hasHydrated, isLoading, isSaving, validation } = hyprlandGeneral;
 
 		if (!hasHydrated) {
 			clearAutoSaveTimer();
@@ -149,7 +157,8 @@
 		}
 
 		clearAutoSaveTimer();
-		hyprlandGeneral.autoSaveHandle = setTimeout(async () => {
+		autoSaveHandle = setTimeout(async () => {
+			autoSaveHandle = null;
 			hyprlandGeneral.autoSaveHandle = null;
 			const saved = await saveHyprlandGeneral(hyprlandGeneral, { silent: true });
 			if (saved) {
@@ -160,6 +169,7 @@
 				}
 			}
 		}, AUTO_SAVE_DELAY);
+		hyprlandGeneral.autoSaveHandle = autoSaveHandle;
 	});
 
 	async function handleReset() {
@@ -177,11 +187,16 @@
 
 <Card.Root class="space-y-4">
 	<Card.Header>
-		<Card.Title class="uppercase">General</Card.Title>
+		<Card.Title class="uppercase">
+			<div class=" flex items-center justify-between">
+				<span class="text-accent-foreground">General</span>
+				<SettingsFilterToggle bind:value={settingsFilter} />
+			</div>
+		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-6 uppercase">
 		<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="border_size" class="flex-1">
 						Border size
@@ -194,10 +209,11 @@
 						bind:value={hyprlandGeneral.form.border_size}
 						disabled={hyprlandGeneral.isLoading}
 						min="0"
+						step="1"
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="gaps_in" class="flex-1">
 						Gaps in
@@ -216,7 +232,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="gaps_out" class="flex-1">
 						Gaps out
@@ -235,7 +251,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="float_gaps" class="flex-1">
 						Float gaps
@@ -254,7 +270,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="gaps_workspaces" class="flex-1">
 						Workspace gaps
@@ -267,10 +283,14 @@
 						bind:value={hyprlandGeneral.form.gaps_workspaces}
 						disabled={hyprlandGeneral.isLoading}
 						min="0"
+						step="1"
 					></Input>
 				</div>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div
+				class="basic flex items-center justify-between gap-4"
+				class:hidden={shouldHideInBasic(true)}
+			>
 				<Label for="no_border_on_floating" class="flex-1">
 					No border on floating windows
 					<Explainer explainerText="disable borders for floating windows" />
@@ -281,7 +301,7 @@
 					disabled={hyprlandGeneral.isLoading}
 				/>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="layout" class="flex-1">Layout</Label>
 					<Select.Root
@@ -290,7 +310,7 @@
 						bind:value={hyprlandGeneral.form.layout}
 						disabled={hyprlandGeneral.isLoading}
 					>
-						<Select.Trigger class="w-[180px]">
+						<Select.Trigger class="w-32">
 							{hyprlandGeneral.form.layout?.toUpperCase() ?? 'SELECT'}
 						</Select.Trigger>
 						<Select.Content>
@@ -301,7 +321,7 @@
 					</Select.Root>
 				</div>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(false)}>
 				<Label for="no_focus_fallback" class="flex-1">
 					No focus fallback
 					<Explainer
@@ -314,7 +334,7 @@
 					disabled={hyprlandGeneral.isLoading}
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(false)}>
 				<Label for="resize_on_border" class="flex-1">
 					Resize on border
 					<Explainer
@@ -327,7 +347,7 @@
 					disabled={hyprlandGeneral.isLoading}
 				/>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="extend_border_grab_area" class="flex-1">
 						Extend border grab area
@@ -345,7 +365,7 @@
 					></Input>
 				</div>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(false)}>
 				<Label for="hover_icon_on_border" class="flex-1">
 					Hover icon on border
 					<Explainer
@@ -358,7 +378,7 @@
 					disabled={hyprlandGeneral.isLoading}
 				/>
 			</div>
-			<div class="flex items-center justify-between gap-4">
+			<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(false)}>
 				<Label for="allow_tearing" class="flex-1">
 					Allow tearing
 					<Explainer
@@ -372,7 +392,7 @@
 					disabled={hyprlandGeneral.isLoading}
 				/>
 			</div>
-			<div class="flex flex-col gap-2">
+			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(false)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="resize_corner" class="flex-1">
 						Resize corner
@@ -401,7 +421,7 @@
 				</div>
 			</div>
 		</div>
-		<Accordion.Root type="single">
+		<Accordion.Root type="single" class={shouldHideInBasic(false) ? 'hidden' : ''}>
 			<Accordion.Item>
 				<Accordion.Trigger class="uppercase">Snap</Accordion.Trigger>
 				<Accordion.Content>

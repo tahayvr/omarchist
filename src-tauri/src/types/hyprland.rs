@@ -32,10 +32,10 @@ impl HyprlandGeneralSettings {
     /// Construct settings populated with Hyprland defaults.
     pub fn with_defaults() -> Self {
         Self {
-            border_size: Some(1),
+            border_size: Some(2),
             no_border_on_floating: Some(false),
             gaps_in: Some("5".into()),
-            gaps_out: Some("20".into()),
+            gaps_out: Some("10".into()),
             float_gaps: Some("0".into()),
             gaps_workspaces: Some(0),
             layout: Some(LayoutMode::Dwindle),
@@ -69,7 +69,9 @@ impl HyprlandGeneralSettings {
         let mut general = BTreeMap::new();
         for field in general_field_registry() {
             if let Some(value) = field.extract(self) {
-                general.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    general.insert(field.key().to_string(), value);
+                }
             }
         }
 
@@ -116,7 +118,9 @@ impl HyprlandGeneralSnapSettings {
         let mut map = BTreeMap::new();
         for field in snap_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -223,7 +227,9 @@ impl HyprlandDecorationSettings {
         let mut decoration = BTreeMap::new();
         for field in decoration_field_registry() {
             if let Some(value) = field.extract(self) {
-                decoration.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    decoration.insert(field.key().to_string(), value);
+                }
             }
         }
 
@@ -293,7 +299,9 @@ impl HyprlandDecorationBlurSettings {
         let mut map = BTreeMap::new();
         for field in blur_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -344,7 +352,9 @@ impl HyprlandDecorationShadowSettings {
         let mut map = BTreeMap::new();
         for field in shadow_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -422,7 +432,9 @@ impl HyprlandAnimationSettings {
         let mut map = BTreeMap::new();
         for field in animation_field_registry() {
             if let Some(value) = field.extract(self) {
-                map.insert(field.key().to_string(), value);
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
             }
         }
         map
@@ -451,6 +463,261 @@ impl HyprlandAnimationSnapshot {
             overrides,
         }
     }
+}
+
+/// Represents Hyprland "input" settings.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputSettings {
+    // Keyboard settings
+    pub kb_model: Option<String>,
+    pub kb_layout: Option<String>,
+    pub kb_variant: Option<String>,
+    pub kb_options: Option<String>,
+    pub kb_rules: Option<String>,
+    pub kb_file: Option<String>,
+    pub numlock_by_default: Option<bool>,
+    pub resolve_binds_by_sym: Option<bool>,
+    pub repeat_rate: Option<i32>,
+    pub repeat_delay: Option<i32>,
+
+    // Mouse settings
+    pub sensitivity: Option<f32>,
+    pub accel_profile: Option<String>,
+    pub force_no_accel: Option<bool>,
+    pub left_handed: Option<bool>,
+
+    // Scroll settings
+    pub scroll_points: Option<String>,
+    pub scroll_method: Option<String>,
+    pub scroll_button: Option<i32>,
+    pub scroll_button_lock: Option<bool>,
+    pub scroll_factor: Option<f32>,
+    pub natural_scroll: Option<bool>,
+
+    // Focus settings
+    pub follow_mouse: Option<i32>,
+    pub follow_mouse_threshold: Option<f32>,
+    pub focus_on_close: Option<i32>,
+    pub mouse_refocus: Option<bool>,
+    pub float_switch_override_focus: Option<i32>,
+    pub special_fallthrough: Option<bool>,
+
+    // Misc settings
+    pub off_window_axis_events: Option<i32>,
+    pub emulate_discrete_scroll: Option<i32>,
+
+    #[serde(default)]
+    pub touchpad: HyprlandTouchpadSettings,
+}
+
+impl HyprlandInputSettings {
+    pub fn with_defaults() -> Self {
+        Self {
+            // Keyboard settings
+            kb_model: Some(String::new()),
+            kb_layout: Some("us".into()),
+            kb_variant: Some(String::new()),
+            kb_options: Some(String::new()),
+            kb_rules: Some(String::new()),
+            kb_file: Some(String::new()),
+            numlock_by_default: Some(false),
+            resolve_binds_by_sym: Some(false),
+            repeat_rate: Some(25),
+            repeat_delay: Some(600),
+
+            // Mouse settings
+            sensitivity: Some(0.0),
+            accel_profile: Some(String::new()),
+            force_no_accel: Some(false),
+            left_handed: Some(false),
+
+            // Scroll settings
+            scroll_points: Some(String::new()),
+            scroll_method: Some(String::new()),
+            scroll_button: Some(0),
+            scroll_button_lock: Some(false),
+            scroll_factor: Some(1.0),
+            natural_scroll: Some(false),
+
+            // Focus settings
+            follow_mouse: Some(1),
+            follow_mouse_threshold: Some(0.0),
+            focus_on_close: Some(0),
+            mouse_refocus: Some(true),
+            float_switch_override_focus: Some(1),
+            special_fallthrough: Some(false),
+
+            // Misc settings
+            off_window_axis_events: Some(1),
+            emulate_discrete_scroll: Some(1),
+
+            touchpad: HyprlandTouchpadSettings::with_defaults(),
+        }
+    }
+
+    pub fn apply_overrides(
+        &mut self,
+        overrides: &BTreeMap<String, HyprlandValue>,
+        touchpad_overrides: &BTreeMap<String, HyprlandValue>,
+    ) -> Result<(), HyprlandConfigError> {
+        for field in input_field_registry() {
+            if let Some(value) = overrides.get(field.key()) {
+                field.apply(value.clone(), self)?;
+            }
+        }
+        self.touchpad.apply_overrides(touchpad_overrides)?;
+        Ok(())
+    }
+
+    pub fn to_override_maps(&self) -> HyprlandInputOverrideMap {
+        let mut map = BTreeMap::new();
+        for field in input_field_registry() {
+            if let Some(value) = field.extract(self) {
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
+            }
+        }
+        HyprlandInputOverrideMap {
+            settings: map,
+            touchpad: self.touchpad.to_override_map(),
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputOverrideMap {
+    pub settings: BTreeMap<String, HyprlandValue>,
+    pub touchpad: BTreeMap<String, HyprlandValue>,
+}
+
+impl HyprlandInputOverrideMap {
+    pub fn is_empty(&self) -> bool {
+        self.settings.is_empty() && self.touchpad.is_empty()
+    }
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandTouchpadSettings {
+    pub disable_while_typing: Option<bool>,
+    pub natural_scroll: Option<bool>,
+    pub scroll_factor: Option<f32>,
+    pub middle_button_emulation: Option<bool>,
+    pub tap_button_map: Option<String>,
+    pub clickfinger_behavior: Option<bool>,
+    pub tap_to_click: Option<bool>,
+    pub drag_lock: Option<i32>,
+    pub tap_and_drag: Option<bool>,
+    pub flip_x: Option<bool>,
+    pub flip_y: Option<bool>,
+    pub drag_3fg: Option<i32>,
+}
+
+impl HyprlandTouchpadSettings {
+    pub fn with_defaults() -> Self {
+        Self {
+            disable_while_typing: Some(true),
+            natural_scroll: Some(false),
+            scroll_factor: Some(1.0_f32),
+            middle_button_emulation: Some(false),
+            tap_button_map: Some(String::new()),
+            clickfinger_behavior: Some(false),
+            tap_to_click: Some(true),
+            drag_lock: Some(0),
+            tap_and_drag: Some(true),
+            flip_x: Some(false),
+            flip_y: Some(false),
+            drag_3fg: Some(0),
+        }
+    }
+
+    pub fn apply_overrides(
+        &mut self,
+        overrides: &BTreeMap<String, HyprlandValue>,
+    ) -> Result<(), HyprlandConfigError> {
+        for field in touchpad_field_registry() {
+            if let Some(value) = overrides.get(field.key()) {
+                field.apply(value.clone(), self)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn to_override_map(&self) -> BTreeMap<String, HyprlandValue> {
+        let mut map = BTreeMap::new();
+        for field in touchpad_field_registry() {
+            if let Some(value) = field.extract(self) {
+                if value != field.default_value() {
+                    map.insert(field.key().to_string(), value);
+                }
+            }
+        }
+        map
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HyprlandInputSnapshot {
+    pub effective: HyprlandInputSettings,
+    pub overrides: HyprlandInputSettings,
+}
+
+impl Default for HyprlandInputSnapshot {
+    fn default() -> Self {
+        Self {
+            effective: HyprlandInputSettings::with_defaults(),
+            overrides: HyprlandInputSettings::default(),
+        }
+    }
+}
+
+impl HyprlandInputSnapshot {
+    pub fn new(effective: HyprlandInputSettings, overrides: HyprlandInputSettings) -> Self {
+        Self {
+            effective,
+            overrides,
+        }
+    }
+}
+
+/// Catalog of keyboard models, layouts, variants, and options sourced from `base.lst`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardCatalog {
+    pub models: Vec<KeyboardModel>,
+    pub layouts: Vec<KeyboardLayout>,
+    pub option_groups: Vec<KeyboardOptionGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardModel {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardLayout {
+    pub name: String,
+    pub description: String,
+    pub variants: Vec<KeyboardVariant>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardVariant {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOptionGroup {
+    pub name: String,
+    pub description: String,
+    pub options: Vec<KeyboardOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOption {
+    pub name: String,
+    pub description: String,
 }
 
 /// Hyprland layout modes supported by Omarchist.
@@ -679,11 +946,11 @@ impl GeneralField {
 
     pub fn default_value(&self) -> HyprlandValue {
         match self {
-            GeneralField::BorderSize => HyprlandValue::Int(1),
+            GeneralField::BorderSize => HyprlandValue::Int(2),
             GeneralField::NoBorderOnFloating => HyprlandValue::Bool(false),
             GeneralField::GapsIn => HyprlandValue::String("5".to_string()),
-            GeneralField::GapsOut => HyprlandValue::String("20".to_string()),
-            GeneralField::FloatGaps => HyprlandValue::String("5".to_string()),
+            GeneralField::GapsOut => HyprlandValue::String("10".to_string()),
+            GeneralField::FloatGaps => HyprlandValue::String("0".to_string()),
             GeneralField::GapsWorkspaces => HyprlandValue::Int(0),
             GeneralField::Layout => LayoutMode::Dwindle.into(),
             GeneralField::NoFocusFallback => HyprlandValue::Bool(false),
@@ -882,7 +1149,7 @@ impl SnapField {
             SnapField::WindowGap => HyprlandValue::Int(10),
             SnapField::MonitorGap => HyprlandValue::Int(10),
             SnapField::BorderOverlap => HyprlandValue::Bool(false),
-            SnapField::RespectGaps => HyprlandValue::Bool(true),
+            SnapField::RespectGaps => HyprlandValue::Bool(false),
         }
     }
 
@@ -1950,12 +2217,968 @@ impl AnimationField {
             },
         }
     }
+
+    pub fn default_value(&self) -> HyprlandValue {
+        match self {
+            AnimationField::Enabled => HyprlandValue::Bool(true),
+            AnimationField::WorkspaceWraparound => HyprlandValue::Bool(false),
+        }
+    }
 }
 
 pub fn animation_field_registry() -> &'static [AnimationField] {
     const ANIMATION_FIELDS: [AnimationField; 2] =
         [AnimationField::Enabled, AnimationField::WorkspaceWraparound];
     &ANIMATION_FIELDS
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum InputField {
+    // Keyboard settings
+    KbModel,
+    KbLayout,
+    KbVariant,
+    KbOptions,
+    KbRules,
+    KbFile,
+    NumlockByDefault,
+    ResolveBindsBySym,
+    RepeatRate,
+    RepeatDelay,
+
+    // Mouse settings
+    Sensitivity,
+    AccelProfile,
+    ForceNoAccel,
+    LeftHanded,
+
+    // Scroll settings
+    ScrollPoints,
+    ScrollMethod,
+    ScrollButton,
+    ScrollButtonLock,
+    ScrollFactor,
+    NaturalScroll,
+
+    // Focus settings
+    FollowMouse,
+    FollowMouseThreshold,
+    FocusOnClose,
+    MouseRefocus,
+    FloatSwitchOverrideFocus,
+    SpecialFallthrough,
+
+    // Misc settings
+    OffWindowAxisEvents,
+    EmulateDiscreteScroll,
+}
+
+impl InputField {
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key.trim() {
+            "kb_model" => Some(InputField::KbModel),
+            "kb_layout" => Some(InputField::KbLayout),
+            "kb_variant" => Some(InputField::KbVariant),
+            "kb_options" => Some(InputField::KbOptions),
+            "kb_rules" => Some(InputField::KbRules),
+            "kb_file" => Some(InputField::KbFile),
+            "numlock_by_default" => Some(InputField::NumlockByDefault),
+            "resolve_binds_by_sym" => Some(InputField::ResolveBindsBySym),
+            "repeat_rate" => Some(InputField::RepeatRate),
+            "repeat_delay" => Some(InputField::RepeatDelay),
+            "sensitivity" => Some(InputField::Sensitivity),
+            "accel_profile" => Some(InputField::AccelProfile),
+            "force_no_accel" => Some(InputField::ForceNoAccel),
+            "left_handed" => Some(InputField::LeftHanded),
+            "scroll_points" => Some(InputField::ScrollPoints),
+            "scroll_method" => Some(InputField::ScrollMethod),
+            "scroll_button" => Some(InputField::ScrollButton),
+            "scroll_button_lock" => Some(InputField::ScrollButtonLock),
+            "scroll_factor" => Some(InputField::ScrollFactor),
+            "natural_scroll" => Some(InputField::NaturalScroll),
+            "follow_mouse" => Some(InputField::FollowMouse),
+            "follow_mouse_threshold" => Some(InputField::FollowMouseThreshold),
+            "focus_on_close" => Some(InputField::FocusOnClose),
+            "mouse_refocus" => Some(InputField::MouseRefocus),
+            "float_switch_override_focus" => Some(InputField::FloatSwitchOverrideFocus),
+            "special_fallthrough" => Some(InputField::SpecialFallthrough),
+            "off_window_axis_events" => Some(InputField::OffWindowAxisEvents),
+            "emulate_discrete_scroll" => Some(InputField::EmulateDiscreteScroll),
+            _ => None,
+        }
+    }
+
+    pub fn key(&self) -> &'static str {
+        match self {
+            InputField::KbModel => "kb_model",
+            InputField::KbLayout => "kb_layout",
+            InputField::KbVariant => "kb_variant",
+            InputField::KbOptions => "kb_options",
+            InputField::KbRules => "kb_rules",
+            InputField::KbFile => "kb_file",
+            InputField::NumlockByDefault => "numlock_by_default",
+            InputField::ResolveBindsBySym => "resolve_binds_by_sym",
+            InputField::RepeatRate => "repeat_rate",
+            InputField::RepeatDelay => "repeat_delay",
+            InputField::Sensitivity => "sensitivity",
+            InputField::AccelProfile => "accel_profile",
+            InputField::ForceNoAccel => "force_no_accel",
+            InputField::LeftHanded => "left_handed",
+            InputField::ScrollPoints => "scroll_points",
+            InputField::ScrollMethod => "scroll_method",
+            InputField::ScrollButton => "scroll_button",
+            InputField::ScrollButtonLock => "scroll_button_lock",
+            InputField::ScrollFactor => "scroll_factor",
+            InputField::NaturalScroll => "natural_scroll",
+            InputField::FollowMouse => "follow_mouse",
+            InputField::FollowMouseThreshold => "follow_mouse_threshold",
+            InputField::FocusOnClose => "focus_on_close",
+            InputField::MouseRefocus => "mouse_refocus",
+            InputField::FloatSwitchOverrideFocus => "float_switch_override_focus",
+            InputField::SpecialFallthrough => "special_fallthrough",
+            InputField::OffWindowAxisEvents => "off_window_axis_events",
+            InputField::EmulateDiscreteScroll => "emulate_discrete_scroll",
+        }
+    }
+
+    pub fn apply(
+        &self,
+        value: HyprlandValue,
+        settings: &mut HyprlandInputSettings,
+    ) -> Result<(), HyprlandConfigError> {
+        match self {
+            // Keyboard - string fields
+            InputField::KbModel => {
+                set_input_string(settings, |s, v| s.kb_model = v, self.key(), value)
+            },
+            InputField::KbLayout => {
+                set_input_string(settings, |s, v| s.kb_layout = v, self.key(), value)
+            },
+            InputField::KbVariant => {
+                set_input_string(settings, |s, v| s.kb_variant = v, self.key(), value)
+            },
+            InputField::KbOptions => {
+                set_input_string(settings, |s, v| s.kb_options = v, self.key(), value)
+            },
+            InputField::KbRules => {
+                set_input_string(settings, |s, v| s.kb_rules = v, self.key(), value)
+            },
+            InputField::KbFile => {
+                set_input_string(settings, |s, v| s.kb_file = v, self.key(), value)
+            },
+
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => {
+                set_input_bool(settings, |s, v| s.numlock_by_default = v, self.key(), value)
+            },
+            InputField::ResolveBindsBySym => set_input_bool(
+                settings,
+                |s, v| s.resolve_binds_by_sym = v,
+                self.key(),
+                value,
+            ),
+
+            // Keyboard - int fields
+            InputField::RepeatRate => {
+                set_input_int(settings, |s, v| s.repeat_rate = v, self.key(), value)
+            },
+            InputField::RepeatDelay => {
+                set_input_int(settings, |s, v| s.repeat_delay = v, self.key(), value)
+            },
+
+            // Mouse - float fields
+            InputField::Sensitivity => {
+                set_input_float(settings, |s, v| s.sensitivity = v, self.key(), value)
+            },
+
+            // Mouse - string fields
+            InputField::AccelProfile => {
+                set_input_string(settings, |s, v| s.accel_profile = v, self.key(), value)
+            },
+
+            // Mouse - bool fields
+            InputField::ForceNoAccel => {
+                set_input_bool(settings, |s, v| s.force_no_accel = v, self.key(), value)
+            },
+            InputField::LeftHanded => {
+                set_input_bool(settings, |s, v| s.left_handed = v, self.key(), value)
+            },
+
+            // Scroll - string fields
+            InputField::ScrollPoints => {
+                set_input_string(settings, |s, v| s.scroll_points = v, self.key(), value)
+            },
+            InputField::ScrollMethod => {
+                set_input_string(settings, |s, v| s.scroll_method = v, self.key(), value)
+            },
+
+            // Scroll - int fields
+            InputField::ScrollButton => {
+                set_input_int(settings, |s, v| s.scroll_button = v, self.key(), value)
+            },
+
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => {
+                set_input_bool(settings, |s, v| s.scroll_button_lock = v, self.key(), value)
+            },
+            InputField::NaturalScroll => {
+                set_input_bool(settings, |s, v| s.natural_scroll = v, self.key(), value)
+            },
+
+            // Scroll - float fields
+            InputField::ScrollFactor => {
+                set_input_float(settings, |s, v| s.scroll_factor = v, self.key(), value)
+            },
+
+            // Focus - int fields
+            InputField::FollowMouse => {
+                set_input_int(settings, |s, v| s.follow_mouse = v, self.key(), value)
+            },
+            InputField::FocusOnClose => {
+                set_input_int(settings, |s, v| s.focus_on_close = v, self.key(), value)
+            },
+            InputField::FloatSwitchOverrideFocus => set_input_int(
+                settings,
+                |s, v| s.float_switch_override_focus = v,
+                self.key(),
+                value,
+            ),
+
+            // Focus - float fields
+            InputField::FollowMouseThreshold => set_input_float(
+                settings,
+                |s, v| s.follow_mouse_threshold = v,
+                self.key(),
+                value,
+            ),
+
+            // Focus - bool fields
+            InputField::MouseRefocus => {
+                set_input_bool(settings, |s, v| s.mouse_refocus = v, self.key(), value)
+            },
+            InputField::SpecialFallthrough => set_input_bool(
+                settings,
+                |s, v| s.special_fallthrough = v,
+                self.key(),
+                value,
+            ),
+
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => set_input_int(
+                settings,
+                |s, v| s.off_window_axis_events = v,
+                self.key(),
+                value,
+            ),
+            InputField::EmulateDiscreteScroll => set_input_int(
+                settings,
+                |s, v| s.emulate_discrete_scroll = v,
+                self.key(),
+                value,
+            ),
+        }
+    }
+
+    pub fn parse_raw(&self, raw: &str) -> Result<HyprlandValue, HyprlandConfigError> {
+        match self {
+            // Keyboard - strings (allow empty)
+            InputField::KbModel
+            | InputField::KbVariant
+            | InputField::KbOptions
+            | InputField::KbRules
+            | InputField::KbFile
+            | InputField::AccelProfile
+            | InputField::ScrollPoints
+            | InputField::ScrollMethod => Ok(HyprlandValue::String(raw.trim().to_string())),
+
+            // Keyboard layout must not be empty
+            InputField::KbLayout => {
+                let trimmed = raw.trim();
+                if trimmed.is_empty() {
+                    Err(HyprlandConfigError::Parse {
+                        field: self.key().to_string(),
+                        message: "Layout value cannot be empty".into(),
+                    })
+                } else {
+                    Ok(HyprlandValue::String(trimmed.to_string()))
+                }
+            },
+
+            // Boolean fields
+            InputField::NumlockByDefault
+            | InputField::ResolveBindsBySym
+            | InputField::ForceNoAccel
+            | InputField::LeftHanded
+            | InputField::ScrollButtonLock
+            | InputField::NaturalScroll
+            | InputField::MouseRefocus
+            | InputField::SpecialFallthrough => {
+                Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?))
+            },
+
+            // Integer fields
+            InputField::RepeatRate
+            | InputField::RepeatDelay
+            | InputField::ScrollButton
+            | InputField::FollowMouse
+            | InputField::FocusOnClose
+            | InputField::FloatSwitchOverrideFocus
+            | InputField::OffWindowAxisEvents
+            | InputField::EmulateDiscreteScroll => {
+                Ok(HyprlandValue::Int(parse_i32(self.key(), raw)?))
+            },
+
+            // Floating-point fields
+            InputField::Sensitivity
+            | InputField::ScrollFactor
+            | InputField::FollowMouseThreshold => {
+                Ok(HyprlandValue::Float(parse_f32(self.key(), raw)?))
+            },
+        }
+    }
+
+    pub fn extract(&self, settings: &HyprlandInputSettings) -> Option<HyprlandValue> {
+        match self {
+            // Keyboard - string fields
+            InputField::KbModel => settings
+                .kb_model
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbLayout => settings
+                .kb_layout
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbVariant => settings
+                .kb_variant
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbOptions => settings
+                .kb_options
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbRules => settings
+                .kb_rules
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::KbFile => settings
+                .kb_file
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => settings.numlock_by_default.map(HyprlandValue::Bool),
+            InputField::ResolveBindsBySym => settings.resolve_binds_by_sym.map(HyprlandValue::Bool),
+
+            // Keyboard - int fields
+            InputField::RepeatRate => settings.repeat_rate.map(HyprlandValue::Int),
+            InputField::RepeatDelay => settings.repeat_delay.map(HyprlandValue::Int),
+
+            // Mouse - float fields
+            InputField::Sensitivity => settings.sensitivity.map(HyprlandValue::Float),
+
+            // Mouse - string fields
+            InputField::AccelProfile => settings
+                .accel_profile
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+
+            // Mouse - bool fields
+            InputField::ForceNoAccel => settings.force_no_accel.map(HyprlandValue::Bool),
+            InputField::LeftHanded => settings.left_handed.map(HyprlandValue::Bool),
+
+            // Scroll - string fields
+            InputField::ScrollPoints => settings
+                .scroll_points
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            InputField::ScrollMethod => settings
+                .scroll_method
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+
+            // Scroll - int fields
+            InputField::ScrollButton => settings.scroll_button.map(HyprlandValue::Int),
+
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => settings.scroll_button_lock.map(HyprlandValue::Bool),
+            InputField::NaturalScroll => settings.natural_scroll.map(HyprlandValue::Bool),
+
+            // Scroll - float fields
+            InputField::ScrollFactor => settings.scroll_factor.map(HyprlandValue::Float),
+
+            // Focus - int fields
+            InputField::FollowMouse => settings.follow_mouse.map(HyprlandValue::Int),
+            InputField::FocusOnClose => settings.focus_on_close.map(HyprlandValue::Int),
+            InputField::FloatSwitchOverrideFocus => {
+                settings.float_switch_override_focus.map(HyprlandValue::Int)
+            },
+
+            // Focus - float fields
+            InputField::FollowMouseThreshold => {
+                settings.follow_mouse_threshold.map(HyprlandValue::Float)
+            },
+
+            // Focus - bool fields
+            InputField::MouseRefocus => settings.mouse_refocus.map(HyprlandValue::Bool),
+            InputField::SpecialFallthrough => settings.special_fallthrough.map(HyprlandValue::Bool),
+
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => {
+                settings.off_window_axis_events.map(HyprlandValue::Int)
+            },
+            InputField::EmulateDiscreteScroll => {
+                settings.emulate_discrete_scroll.map(HyprlandValue::Int)
+            },
+        }
+    }
+
+    pub fn default_value(&self) -> HyprlandValue {
+        match self {
+            // Keyboard - string fields
+            InputField::KbModel => HyprlandValue::String(String::new()),
+            InputField::KbLayout => HyprlandValue::String("us".into()),
+            InputField::KbVariant => HyprlandValue::String(String::new()),
+            InputField::KbOptions => HyprlandValue::String(String::new()),
+            InputField::KbRules => HyprlandValue::String(String::new()),
+            InputField::KbFile => HyprlandValue::String(String::new()),
+
+            // Keyboard - bool fields
+            InputField::NumlockByDefault => HyprlandValue::Bool(false),
+            InputField::ResolveBindsBySym => HyprlandValue::Bool(false),
+
+            // Keyboard - int fields
+            InputField::RepeatRate => HyprlandValue::Int(25),
+            InputField::RepeatDelay => HyprlandValue::Int(600),
+
+            // Mouse - float fields
+            InputField::Sensitivity => HyprlandValue::Float(0.0),
+
+            // Mouse - string fields
+            InputField::AccelProfile => HyprlandValue::String(String::new()),
+
+            // Mouse - bool fields
+            InputField::ForceNoAccel => HyprlandValue::Bool(false),
+            InputField::LeftHanded => HyprlandValue::Bool(false),
+
+            // Scroll - string fields
+            InputField::ScrollPoints => HyprlandValue::String(String::new()),
+            InputField::ScrollMethod => HyprlandValue::String(String::new()),
+
+            // Scroll - int fields
+            InputField::ScrollButton => HyprlandValue::Int(0),
+
+            // Scroll - bool fields
+            InputField::ScrollButtonLock => HyprlandValue::Bool(false),
+            InputField::NaturalScroll => HyprlandValue::Bool(false),
+
+            // Scroll - float fields
+            InputField::ScrollFactor => HyprlandValue::Float(1.0),
+
+            // Focus - int fields
+            InputField::FollowMouse => HyprlandValue::Int(1),
+            InputField::FocusOnClose => HyprlandValue::Int(0),
+            InputField::FloatSwitchOverrideFocus => HyprlandValue::Int(1),
+
+            // Focus - float fields
+            InputField::FollowMouseThreshold => HyprlandValue::Float(0.0),
+
+            // Focus - bool fields
+            InputField::MouseRefocus => HyprlandValue::Bool(true),
+            InputField::SpecialFallthrough => HyprlandValue::Bool(false),
+
+            // Misc - int fields
+            InputField::OffWindowAxisEvents => HyprlandValue::Int(1),
+            InputField::EmulateDiscreteScroll => HyprlandValue::Int(1),
+        }
+    }
+
+    pub fn validate(&self, value: &HyprlandValue) -> Result<(), HyprlandConfigError> {
+        match self {
+            // String fields that can be empty
+            InputField::KbModel
+            | InputField::KbVariant
+            | InputField::KbOptions
+            | InputField::KbRules
+            | InputField::KbFile
+            | InputField::AccelProfile
+            | InputField::ScrollPoints
+            | InputField::ScrollMethod => {
+                if matches!(value, HyprlandValue::String(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected string, received {value:?}"),
+                    })
+                }
+            },
+
+            // Layout cannot be empty
+            InputField::KbLayout => match value {
+                HyprlandValue::String(raw) => {
+                    if raw.trim().is_empty() {
+                        Err(HyprlandConfigError::Validation {
+                            field: self.key().to_string(),
+                            message: "Layout value cannot be empty".into(),
+                        })
+                    } else {
+                        Ok(())
+                    }
+                },
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected string, received {other:?}"),
+                }),
+            },
+
+            // Bool fields
+            InputField::NumlockByDefault
+            | InputField::ResolveBindsBySym
+            | InputField::ForceNoAccel
+            | InputField::LeftHanded
+            | InputField::ScrollButtonLock
+            | InputField::NaturalScroll
+            | InputField::MouseRefocus
+            | InputField::SpecialFallthrough => {
+                if matches!(value, HyprlandValue::Bool(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected bool, received {value:?}"),
+                    })
+                }
+            },
+
+            // Int fields with range validation
+            InputField::RepeatRate => match value {
+                HyprlandValue::Int(v) if *v >= 1 && *v <= 100 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Repeat rate must be between 1 and 100, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::RepeatDelay => match value {
+                HyprlandValue::Int(v) if *v >= 100 && *v <= 10000 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Repeat delay must be between 100 and 10000 ms, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FollowMouse => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 3 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Follow mouse must be between 0 and 3, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FocusOnClose => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 1 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Focus on close must be 0 or 1, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::FloatSwitchOverrideFocus => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 2 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!(
+                        "Float switch override focus must be between 0 and 2, got {v}"
+                    ),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::OffWindowAxisEvents => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 3 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Off window axis events must be between 0 and 3, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+            InputField::EmulateDiscreteScroll => match value {
+                HyprlandValue::Int(v) if *v >= 0 && *v <= 2 => Ok(()),
+                HyprlandValue::Int(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Emulate discrete scroll must be between 0 and 2, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected int, received {other:?}"),
+                }),
+            },
+
+            // Int fields without range validation
+            InputField::ScrollButton => {
+                if matches!(value, HyprlandValue::Int(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected int, received {value:?}"),
+                    })
+                }
+            },
+
+            // Float fields with range validation
+            InputField::Sensitivity => match value {
+                HyprlandValue::Float(v) if *v >= -1.0 && *v <= 1.0 => Ok(()),
+                HyprlandValue::Int(v) if *v >= -1 && *v <= 1 => Ok(()),
+                HyprlandValue::Float(v) => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Sensitivity must be between -1.0 and 1.0, got {v}"),
+                }),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected float, received {other:?}"),
+                }),
+            },
+
+            // Float fields without range validation
+            InputField::ScrollFactor | InputField::FollowMouseThreshold => {
+                if matches!(value, HyprlandValue::Float(_) | HyprlandValue::Int(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected float, received {value:?}"),
+                    })
+                }
+            },
+        }
+    }
+}
+
+pub fn input_field_registry() -> &'static [InputField] {
+    const INPUT_FIELDS: [InputField; 28] = [
+        // Keyboard settings
+        InputField::KbModel,
+        InputField::KbLayout,
+        InputField::KbVariant,
+        InputField::KbOptions,
+        InputField::KbRules,
+        InputField::KbFile,
+        InputField::NumlockByDefault,
+        InputField::ResolveBindsBySym,
+        InputField::RepeatRate,
+        InputField::RepeatDelay,
+        // Mouse settings
+        InputField::Sensitivity,
+        InputField::AccelProfile,
+        InputField::ForceNoAccel,
+        InputField::LeftHanded,
+        // Scroll settings
+        InputField::ScrollPoints,
+        InputField::ScrollMethod,
+        InputField::ScrollButton,
+        InputField::ScrollButtonLock,
+        InputField::ScrollFactor,
+        InputField::NaturalScroll,
+        // Focus settings
+        InputField::FollowMouse,
+        InputField::FollowMouseThreshold,
+        InputField::FocusOnClose,
+        InputField::MouseRefocus,
+        InputField::FloatSwitchOverrideFocus,
+        InputField::SpecialFallthrough,
+        // Misc settings
+        InputField::OffWindowAxisEvents,
+        InputField::EmulateDiscreteScroll,
+    ];
+    &INPUT_FIELDS
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TouchpadField {
+    DisableWhileTyping,
+    NaturalScroll,
+    ScrollFactor,
+    MiddleButtonEmulation,
+    TapButtonMap,
+    ClickfingerBehavior,
+    TapToClick,
+    DragLock,
+    TapAndDrag,
+    FlipX,
+    FlipY,
+    Drag3fg,
+}
+
+impl TouchpadField {
+    pub fn from_key(key: &str) -> Option<Self> {
+        match key.trim() {
+            "disable_while_typing" => Some(TouchpadField::DisableWhileTyping),
+            "natural_scroll" => Some(TouchpadField::NaturalScroll),
+            "scroll_factor" => Some(TouchpadField::ScrollFactor),
+            "middle_button_emulation" => Some(TouchpadField::MiddleButtonEmulation),
+            "tap_button_map" => Some(TouchpadField::TapButtonMap),
+            "clickfinger_behavior" => Some(TouchpadField::ClickfingerBehavior),
+            "tap_to_click" => Some(TouchpadField::TapToClick),
+            "drag_lock" => Some(TouchpadField::DragLock),
+            "tap_and_drag" => Some(TouchpadField::TapAndDrag),
+            "flip_x" => Some(TouchpadField::FlipX),
+            "flip_y" => Some(TouchpadField::FlipY),
+            "drag_3fg" => Some(TouchpadField::Drag3fg),
+            _ => None,
+        }
+    }
+
+    pub fn key(&self) -> &'static str {
+        match self {
+            TouchpadField::DisableWhileTyping => "disable_while_typing",
+            TouchpadField::NaturalScroll => "natural_scroll",
+            TouchpadField::ScrollFactor => "scroll_factor",
+            TouchpadField::MiddleButtonEmulation => "middle_button_emulation",
+            TouchpadField::TapButtonMap => "tap_button_map",
+            TouchpadField::ClickfingerBehavior => "clickfinger_behavior",
+            TouchpadField::TapToClick => "tap_to_click",
+            TouchpadField::DragLock => "drag_lock",
+            TouchpadField::TapAndDrag => "tap_and_drag",
+            TouchpadField::FlipX => "flip_x",
+            TouchpadField::FlipY => "flip_y",
+            TouchpadField::Drag3fg => "drag_3fg",
+        }
+    }
+
+    pub fn apply(
+        &self,
+        value: HyprlandValue,
+        settings: &mut HyprlandTouchpadSettings,
+    ) -> Result<(), HyprlandConfigError> {
+        match self {
+            TouchpadField::DisableWhileTyping => set_touchpad_bool(
+                settings,
+                |s, v| s.disable_while_typing = v,
+                self.key(),
+                value,
+            ),
+            TouchpadField::NaturalScroll => {
+                set_touchpad_bool(settings, |s, v| s.natural_scroll = v, self.key(), value)
+            },
+            TouchpadField::ScrollFactor => set_touchpad_float(
+                settings,
+                |s, v| s.scroll_factor = v,
+                self.key(),
+                0.0..=f32::MAX,
+                value,
+            ),
+            TouchpadField::MiddleButtonEmulation => set_touchpad_bool(
+                settings,
+                |s, v| s.middle_button_emulation = v,
+                self.key(),
+                value,
+            ),
+            TouchpadField::TapButtonMap => set_touchpad_tap_button_map(settings, value),
+            TouchpadField::ClickfingerBehavior => set_touchpad_bool(
+                settings,
+                |s, v| s.clickfinger_behavior = v,
+                self.key(),
+                value,
+            ),
+            TouchpadField::TapToClick => {
+                set_touchpad_bool(settings, |s, v| s.tap_to_click = v, self.key(), value)
+            },
+            TouchpadField::DragLock => {
+                set_touchpad_int(settings, |s, v| s.drag_lock = v, self.key(), 0..=2, value)
+            },
+            TouchpadField::TapAndDrag => {
+                set_touchpad_bool(settings, |s, v| s.tap_and_drag = v, self.key(), value)
+            },
+            TouchpadField::FlipX => {
+                set_touchpad_bool(settings, |s, v| s.flip_x = v, self.key(), value)
+            },
+            TouchpadField::FlipY => {
+                set_touchpad_bool(settings, |s, v| s.flip_y = v, self.key(), value)
+            },
+            TouchpadField::Drag3fg => {
+                set_touchpad_int(settings, |s, v| s.drag_3fg = v, self.key(), 0..=2, value)
+            },
+        }
+    }
+
+    pub fn parse_raw(&self, raw: &str) -> Result<HyprlandValue, HyprlandConfigError> {
+        match self {
+            TouchpadField::DisableWhileTyping
+            | TouchpadField::NaturalScroll
+            | TouchpadField::MiddleButtonEmulation
+            | TouchpadField::ClickfingerBehavior
+            | TouchpadField::TapToClick
+            | TouchpadField::TapAndDrag
+            | TouchpadField::FlipX
+            | TouchpadField::FlipY => Ok(HyprlandValue::Bool(parse_bool(self.key(), raw)?)),
+            TouchpadField::ScrollFactor => {
+                let value = parse_f32(self.key(), raw)?;
+                if value < 0.0 {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: "Value must be >= 0".into(),
+                    })
+                } else {
+                    Ok(HyprlandValue::Float(value))
+                }
+            },
+            TouchpadField::TapButtonMap => {
+                let normalized = raw.trim().to_lowercase();
+                if normalized.is_empty() || normalized == "lrm" || normalized == "lmr" {
+                    Ok(HyprlandValue::String(normalized))
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: "Allowed values are empty, lrm, or lmr".into(),
+                    })
+                }
+            },
+            TouchpadField::DragLock | TouchpadField::Drag3fg => {
+                let value = parse_i32(self.key(), raw)?;
+                if !(0..=2).contains(&value) {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: "Value must be between 0 and 2".into(),
+                    })
+                } else {
+                    Ok(HyprlandValue::Int(value))
+                }
+            },
+        }
+    }
+
+    pub fn extract(&self, settings: &HyprlandTouchpadSettings) -> Option<HyprlandValue> {
+        match self {
+            TouchpadField::DisableWhileTyping => {
+                settings.disable_while_typing.map(HyprlandValue::from)
+            },
+            TouchpadField::NaturalScroll => settings.natural_scroll.map(HyprlandValue::from),
+            TouchpadField::ScrollFactor => settings.scroll_factor.map(HyprlandValue::from),
+            TouchpadField::MiddleButtonEmulation => {
+                settings.middle_button_emulation.map(HyprlandValue::from)
+            },
+            TouchpadField::TapButtonMap => settings
+                .tap_button_map
+                .as_ref()
+                .map(|v| HyprlandValue::String(v.clone())),
+            TouchpadField::ClickfingerBehavior => {
+                settings.clickfinger_behavior.map(HyprlandValue::from)
+            },
+            TouchpadField::TapToClick => settings.tap_to_click.map(HyprlandValue::from),
+            TouchpadField::DragLock => settings.drag_lock.map(HyprlandValue::from),
+            TouchpadField::TapAndDrag => settings.tap_and_drag.map(HyprlandValue::from),
+            TouchpadField::FlipX => settings.flip_x.map(HyprlandValue::from),
+            TouchpadField::FlipY => settings.flip_y.map(HyprlandValue::from),
+            TouchpadField::Drag3fg => settings.drag_3fg.map(HyprlandValue::from),
+        }
+    }
+
+    pub fn default_value(&self) -> HyprlandValue {
+        match self {
+            TouchpadField::DisableWhileTyping => HyprlandValue::Bool(true),
+            TouchpadField::NaturalScroll => HyprlandValue::Bool(false),
+            TouchpadField::ScrollFactor => HyprlandValue::Float(1.0_f32),
+            TouchpadField::MiddleButtonEmulation => HyprlandValue::Bool(false),
+            TouchpadField::TapButtonMap => HyprlandValue::String(String::new()),
+            TouchpadField::ClickfingerBehavior => HyprlandValue::Bool(false),
+            TouchpadField::TapToClick => HyprlandValue::Bool(true),
+            TouchpadField::DragLock => HyprlandValue::Int(0),
+            TouchpadField::TapAndDrag => HyprlandValue::Bool(true),
+            TouchpadField::FlipX => HyprlandValue::Bool(false),
+            TouchpadField::FlipY => HyprlandValue::Bool(false),
+            TouchpadField::Drag3fg => HyprlandValue::Int(0),
+        }
+    }
+
+    pub fn validate(&self, value: &HyprlandValue) -> Result<(), HyprlandConfigError> {
+        match self {
+            TouchpadField::DisableWhileTyping
+            | TouchpadField::NaturalScroll
+            | TouchpadField::MiddleButtonEmulation
+            | TouchpadField::ClickfingerBehavior
+            | TouchpadField::TapToClick
+            | TouchpadField::TapAndDrag
+            | TouchpadField::FlipX
+            | TouchpadField::FlipY => {
+                if matches!(value, HyprlandValue::Bool(_)) {
+                    Ok(())
+                } else {
+                    Err(HyprlandConfigError::Validation {
+                        field: self.key().to_string(),
+                        message: format!("Expected boolean, received {value:?}"),
+                    })
+                }
+            },
+            TouchpadField::ScrollFactor => match value {
+                HyprlandValue::Float(v) if *v >= 0.0 => Ok(()),
+                HyprlandValue::Int(v) if *v >= 0 => Ok(()),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Scroll factor must be >= 0, received {other:?}"),
+                }),
+            },
+            TouchpadField::TapButtonMap => match value {
+                HyprlandValue::String(v) => {
+                    let normalized = v.trim().to_lowercase();
+                    if normalized.is_empty() || normalized == "lrm" || normalized == "lmr" {
+                        Ok(())
+                    } else {
+                        Err(HyprlandConfigError::Validation {
+                            field: self.key().to_string(),
+                            message: "Tap button map must be empty, lrm, or lmr".into(),
+                        })
+                    }
+                },
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Expected string, received {other:?}"),
+                }),
+            },
+            TouchpadField::DragLock | TouchpadField::Drag3fg => match value {
+                HyprlandValue::Int(v) if (0..=2).contains(v) => Ok(()),
+                other => Err(HyprlandConfigError::Validation {
+                    field: self.key().to_string(),
+                    message: format!("Value must be between 0 and 2, received {other:?}"),
+                }),
+            },
+        }
+    }
+}
+
+pub fn touchpad_field_registry() -> &'static [TouchpadField] {
+    const TOUCHPAD_FIELDS: [TouchpadField; 12] = [
+        TouchpadField::DisableWhileTyping,
+        TouchpadField::NaturalScroll,
+        TouchpadField::ScrollFactor,
+        TouchpadField::MiddleButtonEmulation,
+        TouchpadField::TapButtonMap,
+        TouchpadField::ClickfingerBehavior,
+        TouchpadField::TapToClick,
+        TouchpadField::DragLock,
+        TouchpadField::TapAndDrag,
+        TouchpadField::FlipX,
+        TouchpadField::FlipY,
+        TouchpadField::Drag3fg,
+    ];
+    &TOUCHPAD_FIELDS
 }
 
 /// Canonical Hyprland configuration value representation used by the backend.
@@ -2118,6 +3341,213 @@ fn set_string(
 
     setter(settings, Some(trimmed));
     Ok(())
+}
+
+fn set_input_string(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<String>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::String(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected string, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_bool(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<bool>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Bool(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => match v {
+            0 => {
+                setter(settings, Some(false));
+                Ok(())
+            },
+            1 => {
+                setter(settings, Some(true));
+                Ok(())
+            },
+            other => Err(HyprlandConfigError::Validation {
+                field: field.to_string(),
+                message: format!("Expected bool or 0/1, received integer {other}"),
+            }),
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected bool, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_int(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<i32>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Int(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected integer, received {other:?}"),
+        }),
+    }
+}
+
+fn set_input_float(
+    settings: &mut HyprlandInputSettings,
+    setter: impl Fn(&mut HyprlandInputSettings, Option<f32>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Float(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => {
+            setter(settings, Some(v as f32));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected float, received {other:?}"),
+        }),
+    }
+}
+
+fn set_touchpad_bool(
+    settings: &mut HyprlandTouchpadSettings,
+    setter: impl Fn(&mut HyprlandTouchpadSettings, Option<bool>),
+    field: &str,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Bool(v) => {
+            setter(settings, Some(v));
+            Ok(())
+        },
+        HyprlandValue::Int(v) => match v {
+            0 => {
+                setter(settings, Some(false));
+                Ok(())
+            },
+            1 => {
+                setter(settings, Some(true));
+                Ok(())
+            },
+            other => Err(HyprlandConfigError::Validation {
+                field: field.to_string(),
+                message: format!("Integer value '{other}' is not valid for boolean field"),
+            }),
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected boolean, received {other:?}"),
+        }),
+    }
+}
+
+fn set_touchpad_int(
+    settings: &mut HyprlandTouchpadSettings,
+    setter: impl Fn(&mut HyprlandTouchpadSettings, Option<i32>),
+    field: &str,
+    range: RangeInclusive<i32>,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::Int(v) => {
+            if !range.contains(&v) {
+                return Err(HyprlandConfigError::Validation {
+                    field: field.to_string(),
+                    message: format!("Value '{v}' is outside of allowed range"),
+                });
+            }
+            setter(settings, Some(v));
+            Ok(())
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Expected integer, received {other:?}"),
+        }),
+    }
+}
+
+fn set_touchpad_float(
+    settings: &mut HyprlandTouchpadSettings,
+    setter: impl Fn(&mut HyprlandTouchpadSettings, Option<f32>),
+    field: &str,
+    range: RangeInclusive<f32>,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    let numeric = match value {
+        HyprlandValue::Float(v) => v,
+        HyprlandValue::Int(v) => v as f32,
+        other => {
+            return Err(HyprlandConfigError::Validation {
+                field: field.to_string(),
+                message: format!("Expected float, received {other:?}"),
+            });
+        },
+    };
+
+    if !range.contains(&numeric) {
+        return Err(HyprlandConfigError::Validation {
+            field: field.to_string(),
+            message: format!("Value '{numeric}' is outside of allowed range"),
+        });
+    }
+
+    setter(settings, Some(numeric));
+    Ok(())
+}
+
+fn set_touchpad_tap_button_map(
+    settings: &mut HyprlandTouchpadSettings,
+    value: HyprlandValue,
+) -> Result<(), HyprlandConfigError> {
+    match value {
+        HyprlandValue::String(v) => {
+            let normalized = v.trim().to_lowercase();
+            if normalized.is_empty() || normalized == "lrm" || normalized == "lmr" {
+                settings.tap_button_map = Some(normalized);
+                Ok(())
+            } else {
+                Err(HyprlandConfigError::Validation {
+                    field: "tap_button_map".into(),
+                    message: "Tap button map must be empty, lrm, or lmr".into(),
+                })
+            }
+        },
+        HyprlandValue::Int(v) => {
+            let normalized = v.to_string();
+            Err(HyprlandConfigError::Validation {
+                field: "tap_button_map".into(),
+                message: format!("Expected string, received integer {normalized}"),
+            })
+        },
+        other => Err(HyprlandConfigError::Validation {
+            field: "tap_button_map".into(),
+            message: format!("Expected string, received {other:?}"),
+        }),
+    }
 }
 
 fn set_decoration_bool(

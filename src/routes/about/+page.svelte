@@ -2,6 +2,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import GithubIcon from '@lucide/svelte/icons/github';
 	import XIcon from '$lib/icons/XIcon.svelte';
+	import * as Kbd from '$lib/components/ui/kbd/index.js';
 </script>
 
 <div class="flex h-full w-full flex-col items-center justify-center gap-8 px-6 py-12">
@@ -10,7 +11,7 @@
 		<h2 class="text-4xl font-bold uppercase">Omarchist</h2>
 		<span class="text-muted-foreground">v1.0.0</span>
 	</div>
-	<div>
+	<div class="flex items-center gap-2">
 		<Button
 			variant="outline"
 			size="icon"
@@ -31,12 +32,27 @@
 			<XIcon />
 			<span class="sr-only">Twitter</span>
 		</Button>
+		<Button variant="outline" href="https://docs.omarchist.com" target="_blank"
+			>Documentation</Button
+		>
 	</div>
 	<div class="mt-12 max-w-md space-y-2 text-center">
 		<h3 class="text-muted-foreground font-semibold uppercase">hotkeys</h3>
-		<ul class="list-inside list-disc space-y-1 text-start text-sm leading-6">
-			<li><kbd>CTRL</kbd> + <kbd>S</kbd>: Save Theme/Settings</li>
-			<li><kbd>CTRL</kbd> + <kbd>B</kbd>: Toggle Sidebar</li>
+		<ul class="list-inside space-y-1 text-start text-sm leading-6">
+			<li>
+				<Kbd.Group>
+					<Kbd.Root>Ctrl</Kbd.Root>
+					<span>+</span>
+					<Kbd.Root>S</Kbd.Root>
+				</Kbd.Group>: Save Theme/Settings
+			</li>
+			<li>
+				<Kbd.Group>
+					<Kbd.Root>Ctrl</Kbd.Root>
+					<span>+</span>
+					<Kbd.Root>B</Kbd.Root>
+				</Kbd.Group>: Toggle Sidebar
+			</li>
 		</ul>
 	</div>
 </div>

@@ -1,20 +1,43 @@
 <script>
 	import * as Sidebar from '$lib/components/ui/sidebar/index.js';
+	import { page } from '$app/stores';
 	import SettingsIcon from '@lucide/svelte/icons/settings';
 	import ThemeIcon from '@lucide/svelte/icons/swatch-book';
 	import DocsIcon from '@lucide/svelte/icons/library';
 	import ExternalLinkIcon from '@lucide/svelte/icons/external-link';
 	import SidebarToggle from './SidebarToggle.svelte';
 	import InfoIcon from '@lucide/svelte/icons/info';
-	import DropIcon from '@lucide/svelte/icons/droplet';
 	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
+	import BoltIcon from '@lucide/svelte/icons/bolt';
+	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
+	import MouseIcon from '@lucide/svelte/icons/mouse';
 
-	// Menu items.
+	$: currentPath = $page.url.pathname;
+
+	const isActive = (href) => {
+		if (!href) return false;
+		if (href === '/') {
+			return currentPath === '/';
+		}
+
+		return currentPath === href || currentPath.startsWith(`${href}/`);
+	};
+
 	const items = [
 		{
-			title: 'Hyprland',
-			url: '/hyprland',
-			icon: DropIcon
+			title: 'General',
+			url: '/general',
+			icon: BoltIcon
+		},
+		{
+			title: 'Keyboard',
+			url: '/keyboard',
+			icon: KeyboardIcon
+		},
+		{
+			title: 'Mouse & Touchpad',
+			url: '/mouse',
+			icon: MouseIcon
 		},
 		{
 			title: 'Omarchy',
@@ -35,9 +58,14 @@
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton>
 							{#snippet child({ props })}
-								<a href="/themes" {...props}>
-									<ThemeIcon />
-									<span class="font-semibold uppercase">Themes</span>
+								<a {...props} href="/themes">
+									<ThemeIcon class={isActive('/themes') ? 'text-accent-foreground' : ''} />
+									<span
+										class="font-semibold uppercase"
+										class:text-accent-foreground={isActive('/themes')}
+									>
+										Themes
+									</span>
 								</a>
 							{/snippet}
 						</Sidebar.MenuButton>
@@ -53,9 +81,14 @@
 						<Sidebar.MenuItem>
 							<Sidebar.MenuButton>
 								{#snippet child({ props })}
-									<a href={item.url} {...props}>
-										<item.icon />
-										<span class="font-semibold uppercase">{item.title}</span>
+									<a {...props} href={item.url}>
+										<item.icon class={isActive(item.url) ? 'text-accent-foreground' : ''} />
+										<span
+											class="font-semibold uppercase"
+											class:text-accent-foreground={isActive(item.url)}
+										>
+											{item.title}
+										</span>
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
@@ -70,9 +103,11 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
-						<a href="/settings" {...props}>
-							<SettingsIcon />
-							<span class="font-semibold">Settings</span>
+						<a {...props} href="/settings">
+							<SettingsIcon class={isActive('/settings') ? 'text-accent-foreground' : ''} />
+							<span class="font-semibold" class:text-accent-foreground={isActive('/settings')}>
+								Settings
+							</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
@@ -80,9 +115,11 @@
 			<Sidebar.MenuItem>
 				<Sidebar.MenuButton>
 					{#snippet child({ props })}
-						<a href="/about" {...props}>
-							<InfoIcon />
-							<span class="font-semibold">About</span>
+						<a {...props} href="/about">
+							<InfoIcon class={isActive('/about') ? 'text-accent-foreground' : ''} />
+							<span class="font-semibold" class:text-accent-foreground={isActive('/about')}>
+								About
+							</span>
 						</a>
 					{/snippet}
 				</Sidebar.MenuButton>
