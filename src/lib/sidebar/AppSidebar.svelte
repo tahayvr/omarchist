@@ -24,7 +24,7 @@
 			icon: KeyboardIcon
 		},
 		{
-			title: 'Mouse',
+			title: 'Mouse & Touchpad',
 			url: '/mouse',
 			icon: MouseIcon
 		},

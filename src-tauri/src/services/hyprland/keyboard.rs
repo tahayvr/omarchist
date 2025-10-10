@@ -58,21 +58,21 @@ pub fn load_keyboard_catalog() -> HyprlandResult<KeyboardCatalog> {
                 || !catalog.option_groups.is_empty() =>
         {
             Ok(catalog)
-        }
+        },
         Ok(_) => {
             warn!(
                 "System XKB rules file at {} contained no definitions; using bundled fallback",
                 SYSTEM_BASE_LST
             );
             fallback_keyboard_catalog()
-        }
+        },
         Err(err) => {
             warn!(
                 "Failed to load system XKB rules from {}: {}; using bundled fallback",
                 SYSTEM_BASE_LST, err
             );
             fallback_keyboard_catalog()
-        }
+        },
     }
 }
 

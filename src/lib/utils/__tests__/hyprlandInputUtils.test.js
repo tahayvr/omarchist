@@ -71,7 +71,21 @@ describe('hyprlandInputUtils', () => {
 			float_switch_override_focus: 1,
 			special_fallthrough: false,
 			off_window_axis_events: 1,
-			emulate_discrete_scroll: 1
+			emulate_discrete_scroll: 1,
+			touchpad: {
+				disable_while_typing: true,
+				natural_scroll: false,
+				scroll_factor: 1,
+				middle_button_emulation: false,
+				tap_button_map: '',
+				clickfinger_behavior: false,
+				tap_to_click: true,
+				drag_lock: 0,
+				tap_and_drag: true,
+				flip_x: false,
+				flip_y: false,
+				drag_3fg: 0
+			}
 		});
 		expect(state.validation.isValid).toBe(true);
 	});
@@ -88,7 +102,14 @@ describe('hyprlandInputUtils', () => {
 				focus_on_close: 3,
 				float_switch_override_focus: 9,
 				off_window_axis_events: -1,
-				emulate_discrete_scroll: 4
+				emulate_discrete_scroll: 4,
+				touchpad: {
+					...state.form.touchpad,
+					scroll_factor: -0.1,
+					tap_button_map: 'abc',
+					drag_lock: 4,
+					drag_3fg: 'two'
+				}
 			},
 			state.catalog
 		);
@@ -103,6 +124,10 @@ describe('hyprlandInputUtils', () => {
 		expect(result.fieldErrors.float_switch_override_focus).toBeDefined();
 		expect(result.fieldErrors.off_window_axis_events).toBeDefined();
 		expect(result.fieldErrors.emulate_discrete_scroll).toBeDefined();
+		expect(result.fieldErrors['touchpad.scroll_factor']).toBeDefined();
+		expect(result.fieldErrors['touchpad.tap_button_map']).toBeDefined();
+		expect(result.fieldErrors['touchpad.drag_lock']).toBeDefined();
+		expect(result.fieldErrors['touchpad.drag_3fg']).toBeDefined();
 
 		result = validateHyprlandInputForm(
 			{
@@ -115,7 +140,14 @@ describe('hyprlandInputUtils', () => {
 				focus_on_close: 1,
 				float_switch_override_focus: 2,
 				off_window_axis_events: 3,
-				emulate_discrete_scroll: 2
+				emulate_discrete_scroll: 2,
+				touchpad: {
+					...state.form.touchpad,
+					scroll_factor: 1.2,
+					tap_button_map: 'lrm',
+					drag_lock: 2,
+					drag_3fg: 1
+				}
 			},
 			state.catalog
 		);
