@@ -8,15 +8,17 @@
 	import InfoIcon from '@lucide/svelte/icons/info';
 	import DropIcon from '@lucide/svelte/icons/droplet';
 	import OmarchyIcon from '$lib/icons/OmarchyIcon.svelte';
+	import BoltIcon from '@lucide/svelte/icons/bolt';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
 	import MouseIcon from '@lucide/svelte/icons/mouse';
+	import Bolt from '@lucide/svelte/icons/bolt';
 
 	// Menu items.
 	const items = [
 		{
-			title: 'Hyprland',
-			url: '/hyprland',
-			icon: DropIcon
+			title: 'General',
+			url: '/general',
+			icon: BoltIcon
 		},
 		{
 			title: 'Keyboard',
