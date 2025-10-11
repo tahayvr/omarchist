@@ -5,6 +5,7 @@
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Switch } from '$lib/components/ui/switch/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import Explainer from '$lib/components/Explainer.svelte';
 	import { toast } from 'svelte-sonner';
 	import SettingsFilterToggle from '../SettingsFilterToggle.svelte';
@@ -23,6 +24,84 @@
 
 	function shouldHideInBasic(isBasic = false) {
 		return isBasicMode && !isBasic;
+	}
+
+	const emulateDiscreteScrollOptions = [
+		{ value: 0, label: 'Disabled' },
+		{ value: 1, label: 'Smart events only' },
+		{ value: 2, label: 'Force all scroll events' }
+	];
+
+	function getEmulateDiscreteScrollLabel(value) {
+		const option = emulateDiscreteScrollOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const followMouseOptions = [
+		{ value: 0, label: 'Disabled' },
+		{ value: 1, label: 'Focus window under cursor' },
+		{ value: 2, label: 'Detach cursor focus' },
+		{ value: 3, label: 'Separate cursor focus' }
+	];
+
+	function getFollowMouseLabel(value) {
+		const option = followMouseOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const floatSwitchOverrideFocusOptions = [
+		{ value: 0, label: 'Disabled' },
+		{ value: 1, label: 'Refocus when toggling tile/float' },
+		{ value: 2, label: 'Refocus all float switches' }
+	];
+
+	function getFloatSwitchOverrideFocusLabel(value) {
+		const option = floatSwitchOverrideFocusOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const focusOnCloseOptions = [
+		{ value: 0, label: 'Next window candidate' },
+		{ value: 1, label: 'Window under cursor' }
+	];
+
+	function getFocusOnCloseLabel(value) {
+		const option = focusOnCloseOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const offWindowAxisEventsOptions = [
+		{ value: 0, label: 'Ignore off-window events' },
+		{ value: 1, label: 'Send out-of-bound coordinates' },
+		{ value: 2, label: 'Clamp to window edge' },
+		{ value: 3, label: 'Warp cursor inside' }
+	];
+
+	function getOffWindowAxisEventsLabel(value) {
+		const option = offWindowAxisEventsOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const touchpadDragLockOptions = [
+		{ value: 0, label: 'Disabled' },
+		{ value: 1, label: 'Enabled with timeout' },
+		{ value: 2, label: 'Enabled sticky' }
+	];
+
+	function getTouchpadDragLockLabel(value) {
+		const option = touchpadDragLockOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
+	}
+
+	const touchpadDrag3fgOptions = [
+		{ value: 0, label: 'Disabled' },
+		{ value: 1, label: 'Three-finger drag' },
+		{ value: 2, label: 'Four-finger drag' }
+	];
+
+	function getTouchpadDrag3fgLabel(value) {
+		const option = touchpadDrag3fgOptions.find((entry) => entry.value === value);
+		return option ? option.label : 'Select';
 	}
 
 	const AUTO_SAVE_DELAY = 800;
@@ -385,31 +464,39 @@
 			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
 				Focus & window follow
 			</h3>
-			<div class="grid gap-4 md:grid-cols-3 md:gap-x-6 md:gap-y-4">
-				<div class="flex flex-col gap-2">
+			<div class="grid gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4">
+				<div class="flex items-center justify-between gap-2">
 					<Label for="follow_mouse" class="flex items-center gap-2">
 						<span>Follow mouse level</span>
 						<Explainer
 							explainerText="0 disables focus follows mouse. Refer to Hyprland docs for mode meanings."
 						/>
 					</Label>
-					<Input
-						id="follow_mouse"
-						type="number"
-						class="w-24 uppercase"
-						bind:value={hyprlandInput.form.follow_mouse}
+					<Select.Root
+						type="single"
+						name="follow_mouse"
+						value={String(hyprlandInput.form.follow_mouse ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.follow_mouse = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="3"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[280px] uppercase">
+							{getFollowMouseLabel(hyprlandInput.form.follow_mouse)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each followMouseOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.follow_mouse}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors.follow_mouse}
 						</p>
 					{/if}
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2">
 					<Label for="follow_mouse_threshold" class="flex items-center gap-2">
 						<span>Follow threshold (ms)</span>
 						<Explainer
@@ -431,23 +518,31 @@
 						</p>
 					{/if}
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2">
 					<Label for="focus_on_close" class="flex items-center gap-2">
 						<span>Focus on close</span>
 						<Explainer
 							explainerText="0 keeps current behaviour, 1 focuses newly available window."
 						/>
 					</Label>
-					<Input
-						id="focus_on_close"
-						type="number"
-						class="w-24 uppercase"
-						bind:value={hyprlandInput.form.focus_on_close}
+					<Select.Root
+						type="single"
+						name="focus_on_close"
+						value={String(hyprlandInput.form.focus_on_close ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.focus_on_close = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="1"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[220px] uppercase">
+							{getFocusOnCloseLabel(hyprlandInput.form.focus_on_close)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each focusOnCloseOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.focus_on_close}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors.focus_on_close}
@@ -467,23 +562,31 @@
 						disabled={hyprlandInput.isLoading}
 					/>
 				</div>
-				<div class="flex flex-col gap-2">
+				<div class="flex items-center justify-between gap-2">
 					<Label for="float_switch_override_focus" class="flex items-center gap-2">
-						<span>Float switch override focus</span>
+						<span>Float switch focus</span>
 						<Explainer
 							explainerText="Controls how floating windows override focus when toggled. Allowed values: 0-2."
 						/>
 					</Label>
-					<Input
-						id="float_switch_override_focus"
-						type="number"
-						class="w-28 uppercase"
-						bind:value={hyprlandInput.form.float_switch_override_focus}
+					<Select.Root
+						type="single"
+						name="float_switch_override_focus"
+						value={String(hyprlandInput.form.float_switch_override_focus ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.float_switch_override_focus = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="2"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[320px] uppercase">
+							{getFloatSwitchOverrideFocusLabel(hyprlandInput.form.float_switch_override_focus)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each floatSwitchOverrideFocusOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.float_switch_override_focus}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors.float_switch_override_focus}
@@ -518,16 +621,24 @@
 							explainerText="Controls delivery of scroll events outside window bounds. Valid range: 0-3."
 						/>
 					</Label>
-					<Input
-						id="off_window_axis_events"
-						type="number"
-						class="w-28 uppercase"
-						bind:value={hyprlandInput.form.off_window_axis_events}
+					<Select.Root
+						type="single"
+						name="off_window_axis_events"
+						value={String(hyprlandInput.form.off_window_axis_events ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.off_window_axis_events = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="3"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[320px] uppercase">
+							{getOffWindowAxisEventsLabel(hyprlandInput.form.off_window_axis_events)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each offWindowAxisEventsOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.off_window_axis_events}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors.off_window_axis_events}
@@ -541,16 +652,24 @@
 							explainerText="Useful on touchpads for generating wheel-style scroll events. Values: 0-2."
 						/>
 					</Label>
-					<Input
-						id="emulate_discrete_scroll"
-						type="number"
-						class="w-28 uppercase"
-						bind:value={hyprlandInput.form.emulate_discrete_scroll}
+					<Select.Root
+						type="single"
+						name="emulate_discrete_scroll"
+						value={String(hyprlandInput.form.emulate_discrete_scroll ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.emulate_discrete_scroll = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="2"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[320px] uppercase">
+							{getEmulateDiscreteScrollLabel(hyprlandInput.form.emulate_discrete_scroll)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each emulateDiscreteScrollOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.emulate_discrete_scroll}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors.emulate_discrete_scroll}
@@ -681,16 +800,24 @@
 							explainerText="Controls lock behaviour for tap-and-hold gestures. Accepts 0-2."
 						/>
 					</Label>
-					<Input
-						id="touchpad_drag_lock"
-						type="number"
-						class="w-24 uppercase"
-						bind:value={hyprlandInput.form.touchpad.drag_lock}
+					<Select.Root
+						type="single"
+						name="touchpad_drag_lock"
+						value={String(hyprlandInput.form.touchpad.drag_lock ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.touchpad.drag_lock = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="2"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[240px] uppercase">
+							{getTouchpadDragLockLabel(hyprlandInput.form.touchpad.drag_lock)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each touchpadDragLockOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.['touchpad.drag_lock']}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors['touchpad.drag_lock']}
@@ -746,16 +873,24 @@
 							explainerText="Configure how three-finger drags behave. Accepts 0-2 per Hyprland docs."
 						/>
 					</Label>
-					<Input
-						id="touchpad_drag_3fg"
-						type="number"
-						class="w-24 uppercase"
-						bind:value={hyprlandInput.form.touchpad.drag_3fg}
+					<Select.Root
+						type="single"
+						name="touchpad_drag_3fg"
+						value={String(hyprlandInput.form.touchpad.drag_3fg ?? 0)}
+						onValueChange={(value) => {
+							hyprlandInput.form.touchpad.drag_3fg = Number(value);
+						}}
 						disabled={hyprlandInput.isLoading}
-						min="0"
-						max="2"
-						step="1"
-					/>
+					>
+						<Select.Trigger class="w-full max-w-[240px] uppercase">
+							{getTouchpadDrag3fgLabel(hyprlandInput.form.touchpad.drag_3fg)}
+						</Select.Trigger>
+						<Select.Content>
+							{#each touchpadDrag3fgOptions as option (option.value)}
+								<Select.Item value={String(option.value)}>{option.label}</Select.Item>
+							{/each}
+						</Select.Content>
+					</Select.Root>
 					{#if hyprlandInput.validation?.fieldErrors?.['touchpad.drag_3fg']}
 						<p class="text-destructive text-[0.625rem] normal-case">
 							{hyprlandInput.validation.fieldErrors['touchpad.drag_3fg']}
