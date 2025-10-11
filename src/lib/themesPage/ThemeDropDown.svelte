@@ -43,12 +43,16 @@
 		if (!themeDir) return;
 		try {
 			// Open save dialog
-			const defaultFilename = `${themeDir}.json`;
+			const defaultFilename = `${themeDir}.omarchy`;
 			const dialogOptions = {
 				defaultPath: defaultFilename,
 				filters: [
 					{
-						name: 'JSON Theme',
+						name: 'Omarchist File',
+						extensions: ['omarchy']
+					},
+					{
+						name: 'Legacy JSON Theme',
 						extensions: ['json']
 					}
 				]

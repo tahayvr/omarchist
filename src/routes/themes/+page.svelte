@@ -91,7 +91,11 @@
 			const options = {
 				filters: [
 					{
-						name: 'JSON Theme',
+						name: 'Omarchist File',
+						extensions: ['omarchy']
+					},
+					{
+						name: 'Legacy JSON Theme',
 						extensions: ['json']
 					}
 				],
@@ -268,7 +272,7 @@
 		<Tabs.Root value="all" class="w-full">
 			<Tabs.List class="mt-4 mb-4">
 				<Tabs.Trigger value="all" class="text-sm uppercase">System</Tabs.Trigger>
-				<Tabs.Trigger value="custom" class="text-sm uppercase">Custom</Tabs.Trigger>
+				<Tabs.Trigger value="custom" class="text-sm uppercase">Omarchist</Tabs.Trigger>
 			</Tabs.List>
 			<Tabs.Content value="all"><SystemThemes /></Tabs.Content>
 			<Tabs.Content value="custom"><CustomThemes /></Tabs.Content>

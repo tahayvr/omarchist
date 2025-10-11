@@ -227,7 +227,7 @@
 	}
 </script>
 
-<Card.Root class="w-1/2 space-y-4">
+<Card.Root class="space-y-4 xl:w-1/2">
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
@@ -274,7 +274,7 @@
 			<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<Label for="kb_layout" class="flex items-center gap-2">
 					<span>Keyboard layout</span>
-					<Explainer explainerText="The primary keyboard layout Hyprland should apply." />
+					<Explainer explainerText="The primary keyboard layout." />
 				</Label>
 				<Select.Root
 					type="single"
@@ -339,7 +339,7 @@
 			<div class="flex flex-col gap-2 md:col-span-2" class:hidden={shouldHideInBasic(false)}>
 				<Label for="kb_rules" class="flex items-center gap-2">
 					<span>Keyboard rules</span>
-					<Explainer explainerText="Optional XKB rules override string." />
+					<Explainer explainerText="Optional XKB rules override." />
 				</Label>
 				<Input
 					id="kb_rules"
@@ -372,7 +372,7 @@
 			>
 				<Label for="numlock_by_default" class="flex items-center gap-2">
 					<span>Enable num lock</span>
-					<Explainer explainerText="Engage num lock by default when Hyprland starts." />
+					<Explainer explainerText="Enable num lock by default." />
 				</Label>
 				<Switch
 					id="numlock_by_default"

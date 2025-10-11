@@ -1,7 +1,7 @@
 {
 	"$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
 	"productName": "Omarchist",
-	"version": "1.0.0",
+	"version": "0.7.0",
 	"identifier": "com.omarchist.tahayvr",
 	"build": {
 		"frontendDist": "../build",

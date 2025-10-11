@@ -9,7 +9,7 @@
 	<div class="flex flex-col items-center">
 		<img src="/icon.png" alt="App Icon" class="mb-4 h-24 w-24" />
 		<h2 class="text-4xl font-bold uppercase">Omarchist</h2>
-		<span class="text-muted-foreground">v1.0.0</span>
+		<span class="text-muted-foreground">v0.7.0</span>
 	</div>
 	<div class="flex items-center gap-2">
 		<Button
@@ -32,9 +32,7 @@
 			<XIcon />
 			<span class="sr-only">Twitter</span>
 		</Button>
-		<Button variant="outline" href="https://docs.omarchist.com" target="_blank"
-			>Documentation</Button
-		>
+		<!-- <Button variant="outline" href="https://docs.omarchist.com" target="_blank">Docs</Button> -->
 	</div>
 	<div class="mt-12 max-w-md space-y-2 text-center">
 		<h3 class="text-muted-foreground font-semibold uppercase">hotkeys</h3>
