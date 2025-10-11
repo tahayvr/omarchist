@@ -194,20 +194,17 @@
 	}
 </script>
 
-<Card.Root class="w-1/2 space-y-4">
+<Card.Root class="space-y-4 xl:w-1/2">
 	<Card.Header>
 		<Card.Title class="uppercase">
 			<div class="flex items-center justify-between">
-				<span class="text-accent-foreground">Mouse & Touchpad</span>
+				<span class="text-accent-foreground">Mouse</span>
 				<SettingsFilterToggle bind:value={settingsFilter} />
 			</div>
 		</Card.Title>
 	</Card.Header>
 	<Card.Content class="space-y-8 uppercase">
 		<section class="basic space-y-4">
-			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
-				Pointer behaviour
-			</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="sensitivity" class="flex items-center gap-2">
@@ -280,11 +277,15 @@
 				</div>
 			</div>
 		</section>
+	</Card.Content>
+</Card.Root>
 
+<Card.Root class="space-y-4 xl:w-1/2">
+	<Card.Header>
+		<Card.Title class="text-accent-foreground uppercase">Touchpad</Card.Title>
+	</Card.Header>
+	<Card.Content class="space-y-4">
 		<section class="space-y-4">
-			<h3 class="text-accent-foreground/70 text-sm font-semibold tracking-wide">
-				Touchpad controls
-			</h3>
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_disable_while_typing" class="flex items-center gap-2">
