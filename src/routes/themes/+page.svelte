@@ -91,7 +91,11 @@
 			const options = {
 				filters: [
 					{
-						name: 'JSON Theme',
+						name: 'Omarchist File',
+						extensions: ['omarchy']
+					},
+					{
+						name: 'Legacy JSON Theme',
 						extensions: ['json']
 					}
 				],
