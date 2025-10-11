@@ -312,7 +312,7 @@
 					<Label for="accel_profile" class="flex items-center gap-2">
 						<span>Acceleration profile</span>
 						<Explainer
-							explainerText="Typical values: adaptive, flat, custom. Leave blank for Hyprland defaults."
+							explainerText="Typical values: adaptive, flat, custom. Leave blank for defaults."
 						/>
 					</Label>
 					<Input
@@ -363,7 +363,7 @@
 					<Label for="scroll_points" class="flex items-center gap-2">
 						<span>Scroll points</span>
 						<Explainer
-							explainerText="Override scroll points configuration. Leave blank to inherit Hyprland defaults."
+							explainerText="Override scroll points configuration. Leave blank to inherit defaults."
 						/>
 					</Label>
 					<Input
@@ -379,16 +379,20 @@
 				<div class="flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="scroll_method" class="flex items-center gap-2">
 						<span>Scroll method</span>
-						<Explainer explainerText="Examples: two_finger, edge, no_scroll." />
+						<Explainer
+							explainerText="Examples: 2fg, edge, on_button_down, no_scroll."
+							docUrl="https://wayland.freedesktop.org/libinput/doc/latest/scrolling.html"
+							docLabel="libinput#scrolling"
+						/>
 					</Label>
 					<Input
 						id="scroll_method"
 						type="text"
-						class="uppercase"
+						class="normal-case"
 						bind:value={hyprlandInput.form.scroll_method}
 						disabled={hyprlandInput.isLoading}
 						spellcheck={false}
-						placeholder="two_finger"
+						placeholder="2fg"
 					/>
 				</div>
 				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
@@ -415,7 +419,7 @@
 					<Label for="scroll_factor" class="flex items-center gap-2">
 						<span>Scroll factor</span>
 						<Explainer
-							explainerText="Scales scroll distance. Values greater than 1 speed up scrolling."
+							explainerText="Multiplier added to scroll movement for external mice. Values greater than 1 speed up scrolling."
 						/>
 					</Label>
 					<Input
@@ -467,9 +471,10 @@
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4">
 				<div class="flex items-center justify-between gap-2">
 					<Label for="follow_mouse" class="flex items-center gap-2">
-						<span>Follow mouse level</span>
+						<span>Follow mouse</span>
 						<Explainer
-							explainerText="0 disables focus follows mouse. Refer to Hyprland docs for mode meanings."
+							explainerText="Specify if and how cursor movement should affect window focus."
+							docUrl="https://wiki.hypr.land/Configuring/Variables/#input"
 						/>
 					</Label>
 					<Select.Root
@@ -522,7 +527,7 @@
 					<Label for="focus_on_close" class="flex items-center gap-2">
 						<span>Focus on close</span>
 						<Explainer
-							explainerText="0 keeps current behaviour, 1 focuses newly available window."
+							explainerText="Controls the window focus behavior when a window is closed."
 						/>
 					</Label>
 					<Select.Root
@@ -565,9 +570,7 @@
 				<div class="flex items-center justify-between gap-2">
 					<Label for="float_switch_override_focus" class="flex items-center gap-2">
 						<span>Float switch focus</span>
-						<Explainer
-							explainerText="Controls how floating windows override focus when toggled. Allowed values: 0-2."
-						/>
+						<Explainer explainerText="Controls how floating windows override focus when toggled." />
 					</Label>
 					<Select.Root
 						type="single"
@@ -617,9 +620,7 @@
 				<div class="flex flex-col gap-2">
 					<Label for="off_window_axis_events" class="flex items-center gap-2">
 						<span>Off-window axis events</span>
-						<Explainer
-							explainerText="Controls delivery of scroll events outside window bounds. Valid range: 0-3."
-						/>
+						<Explainer explainerText="Controls delivery of scroll events outside window bounds." />
 					</Label>
 					<Select.Root
 						type="single"
@@ -649,7 +650,7 @@
 					<Label for="emulate_discrete_scroll" class="flex items-center gap-2">
 						<span>Emulate discrete scroll</span>
 						<Explainer
-							explainerText="Useful on touchpads for generating wheel-style scroll events. Values: 0-2."
+							explainerText="Useful on touchpads for generating wheel-style scroll events."
 						/>
 					</Label>
 					<Select.Root
@@ -796,9 +797,7 @@
 				<div class="flex items-center justify-between gap-2" class:hidden={shouldHideInBasic(true)}>
 					<Label for="touchpad_drag_lock" class="flex items-center gap-2">
 						<span>Drag lock</span>
-						<Explainer
-							explainerText="Controls lock behaviour for tap-and-hold gestures. Accepts 0-2."
-						/>
+						<Explainer explainerText="Controls lock behaviour for tap-and-hold gestures." />
 					</Label>
 					<Select.Root
 						type="single"
@@ -869,9 +868,7 @@
 				>
 					<Label for="touchpad_drag_3fg" class="flex items-center gap-2">
 						<span>3-finger drag mode</span>
-						<Explainer
-							explainerText="Configure how three-finger drags behave. Accepts 0-2 per Hyprland docs."
-						/>
+						<Explainer explainerText="Configure how three-finger drags behave." />
 					</Label>
 					<Select.Root
 						type="single"
