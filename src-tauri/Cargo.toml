@@ -1,6 +1,6 @@
 [package]
 name = "omarchist"
-version = "1.0.0"
+version = "0.7.0"
 description = "A GUI app for Omarchy."
 authors = ["tahayvr <taha@noiserandom.com>"]
 license = "MIT"

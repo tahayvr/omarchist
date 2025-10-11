@@ -2901,7 +2901,7 @@ dependencies = [
 
 [[package]]
 name = "omarchist"
-version = "1.0.0"
+version = "0.7.0"
 dependencies = [
  "base64 0.22.1",
  "chrono",
