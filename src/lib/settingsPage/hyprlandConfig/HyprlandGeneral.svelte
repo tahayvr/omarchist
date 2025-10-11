@@ -216,7 +216,7 @@
 			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="gaps_in" class="flex-1">
-						Gaps in
+						Inner Gaps
 						<Explainer
 							explainerText="gaps between windows; supports CSS-style values like 5,10,15,20"
 							docUrl="https://wiki.hypr.land/Configuring/Variables/#general"
@@ -235,7 +235,7 @@
 			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
 					<Label for="gaps_out" class="flex-1">
-						Gaps out
+						Outer Gaps
 						<Explainer
 							explainerText="gaps between windows and monitor edges; supports CSS-style values"
 							docUrl="https://wiki.hypr.land/Configuring/Variables/#general"
@@ -303,7 +303,7 @@
 			</div>
 			<div class="basic flex flex-col gap-2" class:hidden={shouldHideInBasic(true)}>
 				<div class="flex items-center justify-between gap-4">
-					<Label for="layout" class="flex-1">Layout</Label>
+					<Label for="layout" class="flex-1">Layout Style</Label>
 					<Select.Root
 						type="single"
 						name="layout"
