@@ -685,7 +685,7 @@
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Touchpad</Card.Title>
 	</Card.Header>
-	<Card.Content class="space-y-4">
+	<Card.Content class="space-y-8 uppercase">
 		<section class="space-y-4">
 			<div class="grid gap-4 md:grid-cols-2 md:gap-x-8 md:gap-y-4">
 				<div class="flex items-center justify-between gap-4" class:hidden={shouldHideInBasic(true)}>
