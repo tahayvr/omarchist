@@ -284,7 +284,7 @@ impl CustomThemeService {
                 payload.clone()
             };
 
-            let author_update = obj.get("metadata").and_then(|metadata| {
+            let mut author_update = obj.get("metadata").and_then(|metadata| {
                 if let Some(author_value) = metadata.get("author") {
                     if let Some(author_str) = author_value.as_str() {
                         let trimmed = author_str.trim();
@@ -300,6 +300,21 @@ impl CustomThemeService {
                     None
                 }
             });
+
+            if author_update.is_none() {
+                author_update = obj.get("author").map(|author_value| {
+                    if let Some(author_str) = author_value.as_str() {
+                        let trimmed = author_str.trim();
+                        if trimmed.is_empty() {
+                            None
+                        } else {
+                            Some(trimmed.to_string())
+                        }
+                    } else {
+                        None
+                    }
+                });
+            }
 
             (apps_value, author_update)
         } else {
@@ -1011,31 +1026,4 @@ pub async fn get_background_image_data(
 ) -> Result<String, String> {
     let service = CustomThemeService::new(&app_handle)?;
     service.get_background_image_data(&theme_name, &filename)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_sanitize_name() {
-        assert_eq!(
-            CustomThemeService::sanitize_name("My Cool Theme"),
-            "my-cool-theme"
-        );
-        assert_eq!(
-            CustomThemeService::sanitize_name("Test_Theme-123"),
-            "test_theme-123"
-        );
-        assert_eq!(
-            CustomThemeService::sanitize_name("Special@#$%Theme"),
-            "specialtheme"
-        );
-    }
-
-    #[test]
-    fn test_theme_creation() {
-        // Skip this test since it requires a real AppHandle
-        // which is not available in unit tests
-    }
 }

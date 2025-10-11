@@ -37,6 +37,8 @@ tauri-plugin-shell = "2"
 reqwest = { version = "0.12", features = ["json"] }
 tauri-plugin-clipboard-manager = "2"
 tauri-plugin-fs = "2"
+zip = "6.0.0"
+sha2 = "0.10"
 
 [features]
 default = []
