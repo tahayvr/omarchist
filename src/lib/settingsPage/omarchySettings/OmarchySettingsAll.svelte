@@ -8,7 +8,7 @@
 		<OmarchyVersion />
 	</div>
 	<div class="grid-span-full">
-		<OmarchyScreensaver />
+		<!-- <OmarchyScreensaver /> -->
 	</div>
 	<div class="grid-span-full"></div>
 </div>

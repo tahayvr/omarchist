@@ -21,7 +21,7 @@
 		</div>
 		<Accordion.Root type="single">
 			<Accordion.Item>
-				<Accordion.Trigger class="uppercase">Customize the screensaver text</Accordion.Trigger>
+				<Accordion.Trigger class="uppercase">Customize the screen saver text</Accordion.Trigger>
 				<Accordion.Content class=" flex flex-col gap-4">
 					<div class="flex flex-col gap-1.5">
 						<Textarea />
