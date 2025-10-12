@@ -1,4 +1,5 @@
 <script>
+	import OmarchyScreensaver from './OmarchyScreensaver.svelte';
 	import OmarchyVersion from './OmarchyVersion.svelte';
 </script>
 
@@ -6,6 +7,8 @@
 	<div class="grid-span-full">
 		<OmarchyVersion />
 	</div>
-	<div class="grid-span-full"></div>
+	<div class="grid-span-full">
+		<OmarchyScreensaver />
+	</div>
 	<div class="grid-span-full"></div>
 </div>
