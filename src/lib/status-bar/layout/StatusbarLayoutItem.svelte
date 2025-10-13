@@ -89,30 +89,30 @@
 		onconsider={handleDndConsider}
 		onfinalize={handleDndFinalize}
 	>
-			{#each orderedItems as item (item.id)}
-				{#if item.id === SHADOW_PLACEHOLDER_ITEM_ID || item[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
-					<div
-						class="border-muted-foreground/40 bg-accent/10 text-muted-foreground/80 flex min-w-[3rem] items-center justify-center border border-dashed px-3 py-1.5 text-xs uppercase"
-						aria-hidden="true"
-					>
-						Drop here
-					</div>
-				{:else}
-					<div
-						class="border-muted-foreground/60 hover:ring-accent-foreground/70 border transition-all hover:ring-1"
-						role="listitem"
-						aria-label={getLabel(item.moduleId ?? item.id)}
-						data-module-id={item.moduleId ?? item.id}
-					>
-						<Item.Root class="bg-foreground text-background">
-							<Item.Content class="px-3 py-1.5">
-								<Item.Title class="text-xs font-semibold tracking-wide uppercase">
-									{getLabel(item.moduleId ?? item.id)}
-								</Item.Title>
-							</Item.Content>
-						</Item.Root>
-					</div>
-				{/if}
+		{#each orderedItems as item (item.id)}
+			{#if item.id === SHADOW_PLACEHOLDER_ITEM_ID || item[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
+				<div
+					class="border-muted-foreground/40 bg-accent/10 text-muted-foreground/80 flex min-w-[3rem] items-center justify-center border border-dashed px-3 py-1.5 text-xs uppercase"
+					aria-hidden="true"
+				>
+					Drop here
+				</div>
+			{:else}
+				<div
+					class="border-muted-foreground/60 hover:ring-accent-foreground/70 border transition-all hover:ring-1"
+					role="listitem"
+					aria-label={getLabel(item.moduleId ?? item.id)}
+					data-module-id={item.moduleId ?? item.id}
+				>
+					<Item.Root class="bg-foreground text-background">
+						<Item.Content class="px-3 py-1.5">
+							<Item.Title class="text-xs font-semibold tracking-wide uppercase">
+								{getLabel(item.moduleId ?? item.id)}
+							</Item.Title>
+						</Item.Content>
+					</Item.Root>
+				</div>
+			{/if}
 		{/each}
 	</div>
 {:else}
