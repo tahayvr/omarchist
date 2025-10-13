@@ -1,5 +1,4 @@
 <script>
-	import OmarchyScreensaver from './OmarchyScreensaver.svelte';
 	import OmarchyVersion from './OmarchyVersion.svelte';
 </script>
 

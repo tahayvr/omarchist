@@ -1,0 +1,52 @@
+<script module>
+	import { tv } from "tailwind-variants";
+
+	const itemVariants = tv({
+		base: "group/item [a]:hover:bg-accent/50 [a]:transition-colors focus-visible:border-ring focus-visible:ring-ring/50 flex flex-wrap items-center rounded-md border border-transparent text-sm outline-none transition-colors duration-100 focus-visible:ring-[3px]",
+		variants: {
+			variant: {
+				default: "bg-transparent",
+				outline: "border-border",
+				muted: "bg-muted/50",
+			},
+			size: {
+				default: "gap-4 p-4",
+				sm: "gap-2.5 px-4 py-3",
+			},
+		},
+		defaultVariants: {
+			variant: "default",
+			size: "default",
+		},
+	});
+
+</script>
+
+<script>
+	import { cn } from "$lib/utils.js";
+	let {
+		class: className,
+		child,
+		variant,
+		size,
+		...restProps
+	} = $props();
+
+	const classes = $derived(cn(itemVariants({ variant, size }), className));
+
+	const mergedProps = $derived({
+		class: classes,
+		"data-slot": "item",
+		"data-variant": variant,
+		"data-size": size,
+		...restProps,
+	});
+</script>
+
+{#if child}
+	{@render child({ props: mergedProps })}
+{:else}
+	<div {...mergedProps}>
+		{@render mergedProps.children?.()}
+	</div>
+{/if}
