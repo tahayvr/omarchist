@@ -688,9 +688,9 @@ export async function createWaybarProfile(name) {
 }
 
 export async function selectWaybarProfile(profileId) {
-	return invoke('select_waybar_profile', { profile_id: profileId });
+	return invoke('select_waybar_profile', { profileId });
 }
 
 export async function deleteWaybarProfile(profileId) {
-	return invoke('delete_waybar_profile', { profile_id: profileId });
+	return invoke('delete_waybar_profile', { profileId });
 }

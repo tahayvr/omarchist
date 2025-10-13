@@ -155,7 +155,7 @@
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
 		<div class="flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
-			<div class="flex items-center gap-2">
+			<div class="flex items-center gap-3">
 				<Select.Root
 					type="single"
 					value={selectedProfileId ?? undefined}
@@ -192,7 +192,7 @@
 								{...props}
 								variant="ghost"
 								size="icon"
-								class="h-8 w-8 p-0"
+								class="h-9.5 w-8 p-0"
 								disabled={profileInteractionLocked || profileBusy}
 							>
 								<MoreIcon class="h-4 w-4" />
@@ -228,15 +228,12 @@
 						</DropdownMenu.Group>
 					</DropdownMenu.Content>
 				</DropdownMenu.Root>
+				<span class={`text-xs font-semibold tracking-wide uppercase ${status.className}`}>
+					{status.label}
+				</span>
 			</div>
-			<span class="text-muted-foreground text-[0.65rem] font-medium tracking-wide uppercase">
-				Manage saved layouts and instantly switch between them.
-			</span>
 		</div>
 		<div class="flex items-center gap-3">
-			<span class={`text-xs font-semibold tracking-wide uppercase ${status.className}`}>
-				{status.label}
-			</span>
 			<Button
 				class="uppercase"
 				variant="ghost"
