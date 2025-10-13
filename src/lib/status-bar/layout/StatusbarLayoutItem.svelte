@@ -1,109 +1,78 @@
 <script>
 	import { createEventDispatcher } from 'svelte';
+	import {
+		dndzone,
+		SHADOW_ITEM_MARKER_PROPERTY_NAME,
+		SHADOW_PLACEHOLDER_ITEM_ID
+	} from 'svelte-dnd-action';
 	import * as Item from '$lib/components/ui/item/index.js';
 
 	let { modules = [], moduleLookup = new Map(), disabled = false } = $props();
-	const hasModules = $derived(Array.isArray(modules) && modules.length > 0);
 	const dispatch = createEventDispatcher();
 
-	let draggingId = $state(null);
-	let dragImageEl = null;
+	let orderedItems = $state([]);
 
-	function cleanupDragImage() {
-		if (dragImageEl) {
-			document.body.removeChild(dragImageEl);
-			dragImageEl = null;
-		}
-	}
+	$effect(() => {
+		orderedItems = Array.isArray(modules)
+			? modules.map((moduleId) => ({ id: moduleId, moduleId }))
+			: [];
+	});
 
-	function setDragImage(event, target) {
-		cleanupDragImage();
-		if (!target || !event.dataTransfer) {
-			return;
-		}
-		const clone = target.cloneNode(true);
-		const rect = target.getBoundingClientRect();
-		clone.style.width = `${rect.width}px`;
-		clone.style.height = `${rect.height}px`;
-		clone.style.position = 'fixed';
-		clone.style.top = '-9999px';
-		clone.style.left = '-9999px';
-		clone.style.pointerEvents = 'none';
-		document.body.appendChild(clone);
-		dragImageEl = clone;
-		event.dataTransfer.setDragImage(clone, rect.width / 2, rect.height / 2);
-	}
+	const hasModules = $derived(Array.isArray(modules) && modules.length > 0);
 
 	function getLabel(moduleId) {
 		return moduleLookup.get(moduleId)?.title ?? moduleId;
 	}
 
-	function handleDragStart(event, moduleId) {
-		if (disabled) {
-			event.preventDefault();
+	function mapItemsToModules(items) {
+		return items
+			.filter((item) => {
+				if (!item) {
+					return false;
+				}
+				if (item.id === SHADOW_PLACEHOLDER_ITEM_ID) {
+					return false;
+				}
+				if (item[SHADOW_ITEM_MARKER_PROPERTY_NAME]) {
+					return false;
+				}
+				return true;
+			})
+			.map((item) => item.moduleId ?? item.id)
+			.filter((id) => typeof id === 'string' || typeof id === 'number');
+	}
+
+	function maybeDispatchReorder(nextOrder) {
+		if (!Array.isArray(nextOrder) || nextOrder.length !== modules.length) {
 			return;
 		}
-		draggingId = moduleId;
-		if (event.dataTransfer) {
-			event.dataTransfer.effectAllowed = 'move';
-			event.dataTransfer.setData('application/x-omarchist-waybar', moduleId);
-			event.dataTransfer.setData('text/plain', moduleId);
-			setDragImage(event, event.currentTarget);
+		const unchanged = nextOrder.every((moduleId, index) => modules[index] === moduleId);
+		if (!unchanged) {
+			dispatch('reorder', { modules: nextOrder });
 		}
 	}
 
-	function handleDragOver(event) {
-		event.preventDefault();
+	function handleDndConsider(event) {
 		if (disabled) {
 			return;
 		}
-		if (event.dataTransfer) {
-			event.dataTransfer.dropEffect = 'move';
+		const items = event.detail?.items;
+		if (!Array.isArray(items)) {
+			return;
 		}
+		orderedItems = items.map((item) => ({ ...item }));
 	}
 
-	function handleDrop(event, index) {
-		event.preventDefault();
-		event.stopPropagation();
-		if (disabled) {
+	function handleDndFinalize(event) {
+		const items = event.detail?.items;
+		if (!Array.isArray(items)) {
 			return;
 		}
-		const moduleId =
-			event.dataTransfer?.getData('application/x-omarchist-waybar') ||
-			event.dataTransfer?.getData('text/plain') ||
-			draggingId;
-		draggingId = null;
-		if (!moduleId) {
-			return;
+		orderedItems = items.map((item) => ({ ...item }));
+		const nextOrder = mapItemsToModules(items);
+		if (!disabled) {
+			maybeDispatchReorder(nextOrder);
 		}
-		const currentIndex = modules.indexOf(moduleId);
-		if (currentIndex === -1) {
-			return;
-		}
-
-		let targetIndex = index;
-		if (currentIndex < targetIndex) {
-			targetIndex -= 1;
-		}
-		if (targetIndex < 0) {
-			targetIndex = 0;
-		}
-		if (targetIndex > modules.length) {
-			targetIndex = modules.length;
-		}
-		if (currentIndex === targetIndex) {
-			return;
-		}
-
-		const next = [...modules];
-		next.splice(currentIndex, 1);
-		next.splice(targetIndex, 0, moduleId);
-		dispatch('reorder', { modules: next });
-	}
-
-	function handleDragEnd() {
-		draggingId = null;
-		cleanupDragImage();
 	}
 </script>
 
@@ -111,32 +80,39 @@
 	<div
 		class="flex flex-wrap gap-2"
 		role="list"
-		ondragover={handleDragOver}
-		ondrop={(event) => handleDrop(event, modules.length)}
+		use:dndzone={{
+			items: orderedItems,
+			flipDurationMs: 150,
+			dragDisabled: disabled,
+			dropFromOthersDisabled: true
+		}}
+		onconsider={handleDndConsider}
+		onfinalize={handleDndFinalize}
 	>
-		{#each modules as moduleId, index (moduleId)}
-			<div
-				class={`border-muted-foreground/60 border transition-all ${
-					draggingId === moduleId
-						? 'ring-accent-foreground/70 bg-accent/10 cursor-grabbing opacity-70 ring-2'
-						: 'hover:ring-accent-foreground/70 cursor-grab hover:ring-1'
-				}`}
-				draggable={!disabled}
-				role="listitem"
-				aria-grabbed={draggingId === moduleId}
-				ondragstart={(event) => handleDragStart(event, moduleId)}
-				ondragover={handleDragOver}
-				ondrop={(event) => handleDrop(event, index)}
-				ondragend={handleDragEnd}
-			>
-				<Item.Root class="bg-foreground text-background">
-					<Item.Content class="px-3 py-1.5">
-						<Item.Title class="text-xs font-semibold tracking-wide uppercase">
-							{getLabel(moduleId)}
-						</Item.Title>
-					</Item.Content>
-				</Item.Root>
-			</div>
+			{#each orderedItems as item (item.id)}
+				{#if item.id === SHADOW_PLACEHOLDER_ITEM_ID || item[SHADOW_ITEM_MARKER_PROPERTY_NAME]}
+					<div
+						class="border-muted-foreground/40 bg-accent/10 text-muted-foreground/80 flex min-w-[3rem] items-center justify-center border border-dashed px-3 py-1.5 text-xs uppercase"
+						aria-hidden="true"
+					>
+						Drop here
+					</div>
+				{:else}
+					<div
+						class="border-muted-foreground/60 hover:ring-accent-foreground/70 border transition-all hover:ring-1"
+						role="listitem"
+						aria-label={getLabel(item.moduleId ?? item.id)}
+						data-module-id={item.moduleId ?? item.id}
+					>
+						<Item.Root class="bg-foreground text-background">
+							<Item.Content class="px-3 py-1.5">
+								<Item.Title class="text-xs font-semibold tracking-wide uppercase">
+									{getLabel(item.moduleId ?? item.id)}
+								</Item.Title>
+							</Item.Content>
+						</Item.Root>
+					</div>
+				{/if}
 		{/each}
 	</div>
 {:else}
