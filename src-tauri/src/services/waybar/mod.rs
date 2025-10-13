@@ -52,9 +52,6 @@ pub struct WaybarGlobals {
     pub position: String,
     pub height: f64,
     pub spacing: f64,
-    pub margin: String,
-    pub padding: String,
-    pub border_radius: f64,
     pub background: String,
     pub foreground: String,
 }
@@ -66,9 +63,6 @@ impl Default for WaybarGlobals {
             position: "top".to_string(),
             height: 26.0,
             spacing: 0.0,
-            margin: "0px".to_string(),
-            padding: "0px".to_string(),
-            border_radius: 0.0,
             background: "#1e1e1e".to_string(),
             foreground: "#d4d4d8".to_string(),
         }
@@ -205,27 +199,6 @@ impl WaybarConfigService {
         };
         let mut globals_map = Map::new();
 
-        if payload.globals.margin != global_defaults.margin {
-            globals_map.insert(
-                "margin".to_string(),
-                Value::String(payload.globals.margin.clone()),
-            );
-        }
-        if payload.globals.padding != global_defaults.padding {
-            globals_map.insert(
-                "padding".to_string(),
-                Value::String(payload.globals.padding.clone()),
-            );
-        }
-        if (payload.globals.border_radius - global_defaults.border_radius).abs() > f64::EPSILON {
-            globals_map.insert(
-                "border_radius".to_string(),
-                Value::Number(number_from_f64(
-                    payload.globals.border_radius,
-                    global_defaults.border_radius,
-                )),
-            );
-        }
         if payload.globals.background != global_defaults.background {
             globals_map.insert(
                 "background".to_string(),
@@ -324,17 +297,6 @@ impl WaybarConfigService {
             if let Some(Value::Object(globals_obj)) = omarchist.remove("globals") {
                 if let Some(height) = globals_obj.get("height").and_then(|v| v.as_f64()) {
                     globals.height = height;
-                }
-                if let Some(margin) = globals_obj.get("margin").and_then(|v| v.as_str()) {
-                    globals.margin = margin.to_string();
-                }
-                if let Some(padding) = globals_obj.get("padding").and_then(|v| v.as_str()) {
-                    globals.padding = padding.to_string();
-                }
-                if let Some(border_radius) =
-                    globals_obj.get("border_radius").and_then(|v| v.as_f64())
-                {
-                    globals.border_radius = border_radius;
                 }
                 if let Some(background) = globals_obj.get("background").and_then(|v| v.as_str()) {
                     globals.background = background.to_string();

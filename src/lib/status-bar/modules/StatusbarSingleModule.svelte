@@ -70,7 +70,7 @@
 
 <Card.Root data-disabled={disabled ? '' : undefined} class={disabled ? 'opacity-75' : ''}>
 	<Card.Header>
-		<Card.Title class="text-accent-foreground uppercase">{module.title}</Card.Title>
+		<Card.Title class="text-accent-foreground/70 uppercase">{module.title}</Card.Title>
 		<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
 			{module.description}
 		</Card.Description>

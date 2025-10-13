@@ -25,9 +25,6 @@ const DEFAULT_GLOBALS = Object.freeze({
 	layer: 'top',
 	position: 'top',
 	height: 26,
-	margin: '0px',
-	padding: '0px',
-	border_radius: 0,
 	background: '#1e1e1e',
 	foreground: '#d4d4d8',
 	spacing: 0
@@ -251,10 +248,7 @@ export const GLOBAL_FIELD_DEFINITIONS = Object.freeze([
 		]
 	},
 	{ key: 'height', label: 'Height (px)', type: 'number', min: 16, max: 128, step: 1 },
-	{ key: 'spacing', label: 'Spacing (px)', type: 'number', min: 0, max: 64, step: 1 },
-	{ key: 'margin', label: 'Margin', type: 'text', placeholder: '0px' },
-	{ key: 'padding', label: 'Padding', type: 'text', placeholder: '0px' },
-	{ key: 'border_radius', label: 'Border Radius', type: 'number', min: 0, max: 64, step: 1 }
+	{ key: 'spacing', label: 'Spacing (px)', type: 'number', min: 0, max: 64, step: 1 }
 ]);
 
 const MODULE_FIELD_DEFINITIONS = Object.freeze({
@@ -343,11 +337,6 @@ function cloneGlobals(source = DEFAULT_GLOBALS) {
 		position: source.position ?? DEFAULT_GLOBALS.position,
 		height: Number.isFinite(source.height) ? source.height : DEFAULT_GLOBALS.height,
 		spacing: Number.isFinite(source.spacing) ? source.spacing : DEFAULT_GLOBALS.spacing,
-		margin: typeof source.margin === 'string' ? source.margin : DEFAULT_GLOBALS.margin,
-		padding: typeof source.padding === 'string' ? source.padding : DEFAULT_GLOBALS.padding,
-		border_radius: Number.isFinite(source.border_radius)
-			? source.border_radius
-			: DEFAULT_GLOBALS.border_radius,
 		background:
 			typeof source.background === 'string' ? source.background : DEFAULT_GLOBALS.background,
 		foreground:
@@ -480,20 +469,8 @@ export function validateWaybarConfig(state) {
 		fieldErrors['globals.height'] = 'Height must be a positive number.';
 	}
 
-	if (!Number.isFinite(state.globals.border_radius) || state.globals.border_radius < 0) {
-		fieldErrors['globals.border_radius'] = 'Border radius must be zero or greater.';
-	}
-
 	if (!Number.isFinite(state.globals.spacing) || state.globals.spacing < 0) {
 		fieldErrors['globals.spacing'] = 'Spacing must be zero or greater.';
-	}
-
-	if (typeof state.globals.margin !== 'string') {
-		fieldErrors['globals.margin'] = 'Margin must be a string.';
-	}
-
-	if (typeof state.globals.padding !== 'string') {
-		fieldErrors['globals.padding'] = 'Padding must be a string.';
 	}
 
 	return {
@@ -693,7 +670,6 @@ export function getGlobalFieldDefinitions() {
 export function sanitizeGlobalInput(key, value) {
 	switch (key) {
 		case 'height':
-		case 'border_radius':
 		case 'spacing':
 			return coerceNumber(value, DEFAULT_GLOBALS[key]);
 		default:
