@@ -351,6 +351,7 @@ export function initializeWaybarConfigState() {
 		globals: cloneGlobals(),
 		passthrough: clone(DEFAULT_PASSTHROUGH),
 		raw: null,
+		profileId: null,
 		dirty: false,
 		isLoading: false,
 		isSaving: false,
@@ -423,6 +424,7 @@ export function applySnapshotToState(state, snapshot) {
 		state.passthrough = clone(DEFAULT_PASSTHROUGH);
 	}
 	state.raw = snapshot?.raw_json ?? null;
+	state.profileId = snapshot?.profile_id ?? state.profileId ?? null;
 	state.dirty = false;
 	state.hasHydrated = true;
 	state.validation = validateWaybarConfig(state);
@@ -675,4 +677,20 @@ export function sanitizeGlobalInput(key, value) {
 		default:
 			return value;
 	}
+}
+
+export async function listWaybarProfiles() {
+	return invoke('list_waybar_profiles');
+}
+
+export async function createWaybarProfile(name) {
+	return invoke('create_waybar_profile', { name });
+}
+
+export async function selectWaybarProfile(profileId) {
+	return invoke('select_waybar_profile', { profile_id: profileId });
+}
+
+export async function deleteWaybarProfile(profileId) {
+	return invoke('delete_waybar_profile', { profile_id: profileId });
 }

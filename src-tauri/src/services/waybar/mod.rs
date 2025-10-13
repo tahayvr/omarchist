@@ -5,7 +5,14 @@ use serde_json::{json, Map, Value};
 use std::collections::{BTreeMap, HashSet};
 use std::fs;
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+
+const OMARCHIST_WAYBAR_SUBDIR: &str = ".config/omarchist/waybar";
+const WAYBAR_PROFILES_DIR_NAME: &str = "profiles";
+const WAYBAR_MANIFEST_FILE_NAME: &str = "manifest.json";
+const PROFILE_CONFIG_FILE_NAME: &str = "config.jsonc";
+const DEFAULT_PROFILE_ID: &str = "omarchy-default";
+const DEFAULT_PROFILE_NAME: &str = "Omarchy Default";
 
 const KNOWN_MODULE_KEYS: &[&str] = &[
     "custom/omarchy",
@@ -36,6 +43,14 @@ pub enum WaybarConfigError {
     Parse(String),
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
+    #[error("Waybar profile already exists: {0}")]
+    ProfileExists(String),
+    #[error("Waybar profile not found: {0}")]
+    ProfileNotFound(String),
+    #[error("Waybar profile name is invalid")]
+    InvalidProfileName,
+    #[error("The default Waybar profile cannot be deleted")]
+    CannotDeleteDefaultProfile,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -70,12 +85,50 @@ impl Default for WaybarGlobals {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+struct WaybarProfileRecord {
+    id: String,
+    name: String,
+    is_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct WaybarProfileManifest {
+    version: u32,
+    active_profile_id: Option<String>,
+    profiles: Vec<WaybarProfileRecord>,
+}
+
+impl Default for WaybarProfileManifest {
+    fn default() -> Self {
+        Self {
+            version: 1,
+            active_profile_id: Some(DEFAULT_PROFILE_ID.to_string()),
+            profiles: vec![WaybarProfileRecord {
+                id: DEFAULT_PROFILE_ID.to_string(),
+                name: DEFAULT_PROFILE_NAME.to_string(),
+                is_default: true,
+            }],
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaybarProfileSummary {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+    pub is_active: bool,
+    pub is_protected: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaybarConfigSnapshot {
     pub layout: WaybarLayout,
     pub globals: WaybarGlobals,
     pub modules: BTreeMap<String, Value>,
     pub passthrough: Value,
     pub raw_json: String,
+    pub profile_id: Option<String>,
 }
 
 impl Default for WaybarConfigSnapshot {
@@ -88,8 +141,20 @@ impl Default for WaybarConfigSnapshot {
                 "reload_style_on_change": true
             }),
             raw_json: String::new(),
+            profile_id: None,
         }
     }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaybarProfileListResponse {
+    pub profiles: Vec<WaybarProfileSummary>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaybarProfileChangeResponse {
+    pub snapshot: WaybarConfigSnapshot,
+    pub profiles: Vec<WaybarProfileSummary>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -102,34 +167,77 @@ pub struct SaveWaybarConfigPayload {
 
 pub struct WaybarConfigService {
     config_path: PathBuf,
+    profiles_dir: PathBuf,
+    manifest_path: PathBuf,
+    manifest: WaybarProfileManifest,
 }
 
 impl WaybarConfigService {
     pub fn new() -> Result<Self, WaybarConfigError> {
-        let mut path = home_dir().ok_or(WaybarConfigError::HomeDirNotFound)?;
-        path.push(".config/waybar/config.jsonc");
-        Ok(Self { config_path: path })
-    }
+        let home = home_dir().ok_or(WaybarConfigError::HomeDirNotFound)?;
 
-    pub fn load_snapshot(&self) -> Result<WaybarConfigSnapshot, WaybarConfigError> {
-        self.ensure_parent_exists()?;
+        let mut config_path = home.clone();
+        config_path.push(".config/waybar/config.jsonc");
 
-        if !self.config_path.exists() {
-            let value = default_root_value();
-            self.write_value(&value)?;
-            let raw_json = serde_json::to_string_pretty(&value)?;
-            return Ok(self.build_snapshot(value, raw_json));
+        let mut omarchist_dir = home.clone();
+        omarchist_dir.push(OMARCHIST_WAYBAR_SUBDIR);
+
+        let mut profiles_dir = omarchist_dir.clone();
+        profiles_dir.push(WAYBAR_PROFILES_DIR_NAME);
+
+        let mut manifest_path = omarchist_dir.clone();
+        manifest_path.push(WAYBAR_MANIFEST_FILE_NAME);
+
+        if !profiles_dir.exists() {
+            fs::create_dir_all(&profiles_dir)?;
         }
 
-        let (value, raw_json) = self.read_value()?;
-        Ok(self.build_snapshot(value, raw_json))
+        let manifest = if manifest_path.exists() {
+            let contents = fs::read_to_string(&manifest_path)?;
+            serde_json::from_str::<WaybarProfileManifest>(&contents).unwrap_or_default()
+        } else {
+            WaybarProfileManifest::default()
+        };
+
+        let mut service = Self {
+            config_path,
+            profiles_dir,
+            manifest_path,
+            manifest,
+        };
+
+        service.ensure_manifest_integrity()?;
+        Ok(service)
+    }
+
+    pub fn load_snapshot(&mut self) -> Result<WaybarConfigSnapshot, WaybarConfigError> {
+        self.ensure_manifest_integrity()?;
+
+        let active_id = self
+            .manifest
+            .active_profile_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROFILE_ID.to_string());
+
+        let (value, raw_json) = self.load_profile_value(&active_id)?;
+        self.sync_profile_to_live(&active_id)?;
+
+        let snapshot = self.build_snapshot(value, raw_json, Some(active_id));
+        Ok(snapshot)
     }
 
     pub fn save_snapshot(
-        &self,
+        &mut self,
         payload: &SaveWaybarConfigPayload,
     ) -> Result<WaybarConfigSnapshot, WaybarConfigError> {
-        self.ensure_parent_exists()?;
+        self.ensure_manifest_integrity()?;
+
+        let active_id = self
+            .manifest
+            .active_profile_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROFILE_ID.to_string());
+
         let global_defaults = WaybarGlobals::default();
 
         let mut seen = HashSet::new();
@@ -220,45 +328,295 @@ impl WaybarConfigService {
         }
 
         let config_value = Value::Object(root_map);
-        self.write_value(&config_value)?;
+        let profile_path = self.profile_config_path(&active_id);
+        write_value_to_path(&profile_path, &config_value)?;
+        write_value_to_path(&self.config_path, &config_value)?;
         let raw_json = serde_json::to_string_pretty(&config_value)?;
-        Ok(self.build_snapshot(config_value, raw_json))
+        Ok(self.build_snapshot(config_value, raw_json, Some(active_id)))
     }
 
-    fn ensure_parent_exists(&self) -> Result<(), WaybarConfigError> {
-        if let Some(parent) = self.config_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent)?;
+    pub fn list_profiles(&mut self) -> Result<WaybarProfileListResponse, WaybarConfigError> {
+        self.ensure_manifest_integrity()?;
+        let profiles = self.collect_profile_summaries();
+        Ok(WaybarProfileListResponse { profiles })
+    }
+
+    pub fn create_profile(
+        &mut self,
+        name: &str,
+    ) -> Result<WaybarProfileChangeResponse, WaybarConfigError> {
+        self.ensure_manifest_integrity()?;
+
+        let trimmed = name.trim();
+        if trimmed.is_empty() {
+            return Err(WaybarConfigError::InvalidProfileName);
+        }
+
+        if self
+            .manifest
+            .profiles
+            .iter()
+            .any(|profile| profile.name.eq_ignore_ascii_case(trimmed))
+        {
+            return Err(WaybarConfigError::ProfileExists(trimmed.to_string()));
+        }
+
+        let base_slug = slugify_name(trimmed).ok_or(WaybarConfigError::InvalidProfileName)?;
+        let mut candidate = base_slug.clone();
+        let mut counter = 2u32;
+        while self
+            .manifest
+            .profiles
+            .iter()
+            .any(|profile| profile.id == candidate)
+        {
+            candidate = format!("{base_slug}-{counter}");
+            counter += 1;
+        }
+
+        let record = WaybarProfileRecord {
+            id: candidate.clone(),
+            name: trimmed.to_string(),
+            is_default: false,
+        };
+        self.manifest.profiles.push(record);
+        self.manifest.active_profile_id = Some(candidate.clone());
+
+        let value = default_root_value();
+        let profile_path = self.profile_config_path(&candidate);
+        write_value_to_path(&profile_path, &value)?;
+        write_value_to_path(&self.config_path, &value)?;
+        let raw_json = serde_json::to_string_pretty(&value)?;
+
+        self.persist_manifest()?;
+
+        let snapshot = self.build_snapshot(value, raw_json, Some(candidate.clone()));
+        let profiles = self.collect_profile_summaries();
+
+        Ok(WaybarProfileChangeResponse { snapshot, profiles })
+    }
+
+    pub fn select_profile(
+        &mut self,
+        profile_id: &str,
+    ) -> Result<WaybarProfileChangeResponse, WaybarConfigError> {
+        self.ensure_manifest_integrity()?;
+
+        if !self
+            .manifest
+            .profiles
+            .iter()
+            .any(|profile| profile.id == profile_id)
+        {
+            return Err(WaybarConfigError::ProfileNotFound(profile_id.to_string()));
+        }
+
+        let (value, raw_json) = self.load_profile_value(profile_id)?;
+        write_value_to_path(&self.config_path, &value)?;
+        self.manifest.active_profile_id = Some(profile_id.to_string());
+        self.persist_manifest()?;
+
+        let snapshot = self.build_snapshot(value, raw_json, Some(profile_id.to_string()));
+        let profiles = self.collect_profile_summaries();
+
+        Ok(WaybarProfileChangeResponse { snapshot, profiles })
+    }
+
+    pub fn delete_profile(
+        &mut self,
+        profile_id: &str,
+    ) -> Result<WaybarProfileChangeResponse, WaybarConfigError> {
+        self.ensure_manifest_integrity()?;
+
+        let position = self
+            .manifest
+            .profiles
+            .iter()
+            .position(|profile| profile.id == profile_id);
+
+        let index =
+            position.ok_or_else(|| WaybarConfigError::ProfileNotFound(profile_id.to_string()))?;
+        if self.manifest.profiles[index].is_default {
+            return Err(WaybarConfigError::CannotDeleteDefaultProfile);
+        }
+
+        let removed = self.manifest.profiles.remove(index);
+        let profile_dir = self.profile_dir(&removed.id);
+        if profile_dir.exists() {
+            fs::remove_dir_all(&profile_dir)?;
+        }
+
+        let new_active = if self
+            .manifest
+            .active_profile_id
+            .as_deref()
+            .map(|id| id == removed.id)
+            .unwrap_or(false)
+        {
+            self.manifest
+                .profiles
+                .iter()
+                .find(|profile| profile.is_default)
+                .or_else(|| self.manifest.profiles.first())
+                .map(|profile| profile.id.clone())
+        } else {
+            self.manifest.active_profile_id.clone()
+        };
+
+        self.manifest.active_profile_id = new_active.clone();
+        self.persist_manifest()?;
+
+        let active_id = self
+            .manifest
+            .active_profile_id
+            .clone()
+            .unwrap_or_else(|| DEFAULT_PROFILE_ID.to_string());
+
+        let (value, raw_json) = self.load_profile_value(&active_id)?;
+        write_value_to_path(&self.config_path, &value)?;
+
+        let snapshot = self.build_snapshot(value, raw_json, Some(active_id));
+        let profiles = self.collect_profile_summaries();
+
+        Ok(WaybarProfileChangeResponse { snapshot, profiles })
+    }
+
+    fn ensure_manifest_integrity(&mut self) -> Result<(), WaybarConfigError> {
+        let mut changed = false;
+
+        if self.manifest.version == 0 {
+            self.manifest.version = 1;
+            changed = true;
+        }
+
+        if self.manifest.profiles.is_empty() {
+            self.manifest = WaybarProfileManifest::default();
+            changed = true;
+        }
+
+        if !self
+            .manifest
+            .profiles
+            .iter()
+            .any(|profile| profile.is_default)
+        {
+            self.manifest.profiles.insert(
+                0,
+                WaybarProfileRecord {
+                    id: DEFAULT_PROFILE_ID.to_string(),
+                    name: DEFAULT_PROFILE_NAME.to_string(),
+                    is_default: true,
+                },
+            );
+            changed = true;
+        }
+
+        if self.manifest.active_profile_id.is_none() {
+            if let Some(default_profile) = self
+                .manifest
+                .profiles
+                .iter()
+                .find(|profile| profile.is_default)
+            {
+                self.manifest.active_profile_id = Some(default_profile.id.clone());
+            } else if let Some(first_profile) = self.manifest.profiles.first() {
+                self.manifest.active_profile_id = Some(first_profile.id.clone());
             }
-            return Ok(());
+            changed = true;
+        }
+
+        for profile in &self.manifest.profiles {
+            self.ensure_profile_dir(&profile.id)?;
+            let profile_path = self.profile_config_path(&profile.id);
+            if !profile_path.exists() {
+                let value = default_root_value();
+                write_value_to_path(&profile_path, &value)?;
+                changed = true;
+            }
+        }
+
+        if !self.manifest_path.exists() || changed {
+            self.persist_manifest()?;
+        }
+
+        if let Some(active_id) = self.manifest.active_profile_id.clone() {
+            self.sync_profile_to_live(&active_id)?;
+        }
+
+        Ok(())
+    }
+
+    fn collect_profile_summaries(&self) -> Vec<WaybarProfileSummary> {
+        let active_id = self.manifest.active_profile_id.as_deref();
+        self.manifest
+            .profiles
+            .iter()
+            .map(|profile| WaybarProfileSummary {
+                id: profile.id.clone(),
+                name: profile.name.clone(),
+                is_default: profile.is_default,
+                is_active: active_id == Some(profile.id.as_str()),
+                is_protected: profile.is_default,
+            })
+            .collect()
+    }
+
+    fn profile_dir(&self, profile_id: &str) -> PathBuf {
+        let mut dir = self.profiles_dir.clone();
+        dir.push(profile_id);
+        dir
+    }
+
+    fn profile_config_path(&self, profile_id: &str) -> PathBuf {
+        let mut path = self.profile_dir(profile_id);
+        path.push(PROFILE_CONFIG_FILE_NAME);
+        path
+    }
+
+    fn ensure_profile_dir(&self, profile_id: &str) -> Result<(), WaybarConfigError> {
+        let dir = self.profile_dir(profile_id);
+        if !dir.exists() {
+            fs::create_dir_all(&dir)?;
         }
         Ok(())
     }
 
-    fn write_value(&self, value: &Value) -> Result<(), WaybarConfigError> {
-        let prettified = serde_json::to_string_pretty(value)?;
-        let mut buffer = String::new();
-        buffer.push_str(CONFIG_HEADER);
-        buffer.push('\n');
-        buffer.push_str(&prettified);
-        buffer.push('\n');
-
-        let mut file = fs::File::create(&self.config_path)?;
-        file.write_all(buffer.as_bytes())?;
-        file.flush()?;
+    fn persist_manifest(&self) -> Result<(), WaybarConfigError> {
+        if let Some(parent) = self.manifest_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)?;
+            }
+        }
+        let data = serde_json::to_vec_pretty(&self.manifest)?;
+        fs::write(&self.manifest_path, data)?;
         Ok(())
     }
 
-    fn read_value(&self) -> Result<(Value, String), WaybarConfigError> {
-        let contents = fs::read_to_string(&self.config_path)?;
-        let mut reader = StripComments::new(contents.as_bytes());
-        let value: Value = serde_json::from_reader(&mut reader)
-            .map_err(|err| WaybarConfigError::Parse(err.to_string()))?;
-        let raw_json = serde_json::to_string_pretty(&value)?;
-        Ok((value, raw_json))
+    fn load_profile_value(&self, profile_id: &str) -> Result<(Value, String), WaybarConfigError> {
+        let path = self.profile_config_path(profile_id);
+        if !path.exists() {
+            let value = default_root_value();
+            write_value_to_path(&path, &value)?;
+        }
+        read_value_from_path(&path)
     }
 
-    fn build_snapshot(&self, value: Value, raw_json: String) -> WaybarConfigSnapshot {
+    fn sync_profile_to_live(&self, profile_id: &str) -> Result<(), WaybarConfigError> {
+        let path = self.profile_config_path(profile_id);
+        if !path.exists() {
+            let value = default_root_value();
+            write_value_to_path(&path, &value)?;
+        }
+        let (value, _) = read_value_from_path(&path)?;
+        write_value_to_path(&self.config_path, &value)
+    }
+
+    fn build_snapshot(
+        &self,
+        value: Value,
+        raw_json: String,
+        profile_id: Option<String>,
+    ) -> WaybarConfigSnapshot {
         let mut root_map = match value {
             Value::Object(map) => map,
             _ => Map::new(),
@@ -342,7 +700,59 @@ impl WaybarConfigService {
             modules,
             passthrough: Value::Object(root_map),
             raw_json,
+            profile_id,
         }
+    }
+}
+
+fn write_value_to_path(path: &Path, value: &Value) -> Result<(), WaybarConfigError> {
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)?;
+        }
+    }
+
+    let prettified = serde_json::to_string_pretty(value)?;
+    let mut buffer = String::new();
+    buffer.push_str(CONFIG_HEADER);
+    buffer.push('\n');
+    buffer.push_str(&prettified);
+    buffer.push('\n');
+
+    let mut file = fs::File::create(path)?;
+    file.write_all(buffer.as_bytes())?;
+    file.flush()?;
+    Ok(())
+}
+
+fn read_value_from_path(path: &Path) -> Result<(Value, String), WaybarConfigError> {
+    let contents = fs::read_to_string(path)?;
+    let mut reader = StripComments::new(contents.as_bytes());
+    let value: Value = serde_json::from_reader(&mut reader)
+        .map_err(|err| WaybarConfigError::Parse(err.to_string()))?;
+    let raw_json = serde_json::to_string_pretty(&value)?;
+    Ok((value, raw_json))
+}
+
+fn slugify_name(name: &str) -> Option<String> {
+    let mut output = String::new();
+    let mut last_was_dash = false;
+
+    for ch in name.chars() {
+        if ch.is_ascii_alphanumeric() {
+            output.push(ch.to_ascii_lowercase());
+            last_was_dash = false;
+        } else if !output.is_empty() && !last_was_dash {
+            output.push('-');
+            last_was_dash = true;
+        }
+    }
+
+    let slug = output.trim_matches('-').to_string();
+    if slug.is_empty() {
+        None
+    } else {
+        Some(slug)
     }
 }
 
@@ -650,10 +1060,17 @@ mod tests {
     #[test]
     fn default_config_contains_known_modules() {
         let value = default_root_value();
-        let snapshot = WaybarConfigService {
+        let service = WaybarConfigService {
             config_path: PathBuf::from("/tmp/waybar.jsonc"),
-        }
-        .build_snapshot(value.clone(), serde_json::to_string_pretty(&value).unwrap());
+            profiles_dir: PathBuf::from("/tmp"),
+            manifest_path: PathBuf::from("/tmp/manifest.json"),
+            manifest: WaybarProfileManifest::default(),
+        };
+        let snapshot = service.build_snapshot(
+            value.clone(),
+            serde_json::to_string_pretty(&value).unwrap(),
+            Some(DEFAULT_PROFILE_ID.to_string()),
+        );
         assert_eq!(snapshot.layout.left.len(), 2);
         assert_eq!(snapshot.layout.center.len(), 3);
         assert_eq!(snapshot.layout.right.len(), 6);
