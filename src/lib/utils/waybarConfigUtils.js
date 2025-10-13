@@ -88,6 +88,9 @@ export const KNOWN_MODULES = [
 	}
 ];
 
+const MODULE_LOOKUP = new Map(KNOWN_MODULES.map((entry) => [entry.id, entry]));
+const LAYOUT_SECTIONS = ['left', 'center', 'right', 'hidden'];
+
 function cloneModules(source = DEFAULT_MODULE_SETTINGS) {
 	return Object.entries(source).reduce((acc, [key, value]) => {
 		acc[key] = clone(value);
@@ -364,5 +367,56 @@ export function updateWaybarModule(state, moduleId, updater) {
 		return;
 	}
 	state.modules[moduleId] = nextValue;
+	markWaybarDirty(state);
+}
+
+function normalizeRegion(region) {
+	if (LAYOUT_SECTIONS.includes(region)) {
+		return region;
+	}
+	return 'hidden';
+}
+
+function removeModuleFromSections(layout, moduleId) {
+	for (const section of LAYOUT_SECTIONS) {
+		layout[section] = layout[section].filter((id) => id !== moduleId);
+	}
+}
+
+function determineRegion(layout, moduleId) {
+	if (layout.left.includes(moduleId)) {
+		return 'left';
+	}
+	if (layout.center.includes(moduleId)) {
+		return 'center';
+	}
+	if (layout.right.includes(moduleId)) {
+		return 'right';
+	}
+	return 'hidden';
+}
+
+export function getModuleMeta(moduleId) {
+	return MODULE_LOOKUP.get(moduleId) ?? null;
+}
+
+export function getModuleRegion(state, moduleId) {
+	return determineRegion(state.layout, moduleId);
+}
+
+export function setModuleRegion(state, moduleId, region) {
+	if (!MODULE_LOOKUP.has(moduleId)) {
+		return;
+	}
+
+	const target = normalizeRegion(region);
+	removeModuleFromSections(state.layout, moduleId);
+
+	if (target !== 'hidden') {
+		state.layout[target] = [...state.layout[target], moduleId];
+	}
+
+	state.layout.hidden = computeHidden(state.layout);
+	state.validation = validateWaybarConfig(state);
 	markWaybarDirty(state);
 }

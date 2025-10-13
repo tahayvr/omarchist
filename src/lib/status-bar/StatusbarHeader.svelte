@@ -1,50 +1,60 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
-	import * as Select from '$lib/components/ui/select/index.js';
-	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
-	import MoreIcon from '@lucide/svelte/icons/ellipsis-vertical';
+
+	let {
+		isLoading = false,
+		isSaving = false,
+		dirty = false,
+		isValid = true,
+		onSave = () => {},
+		onReset = () => {}
+	} = $props();
+
+	const busyLabel = $derived(isSaving ? 'Saving…' : isLoading ? 'Loading…' : '');
+
+	function handleSave() {
+		onSave?.();
+	}
+
+	function handleReset() {
+		onReset?.();
+	}
 </script>
 
 <Card.Root>
 	<Card.Header>
-		<Card.Title class="text-accent-foreground uppercase">Status Bar</Card.Title>
-		<Card.Description class="text-xs tracking-wide uppercase"
-			>Configure your waybar</Card.Description
-		>
+		<Card.Title class="text-accent-foreground uppercase">Waybar Configuration</Card.Title>
+		<Card.Description class="text-xs tracking-wide uppercase">
+			Edit the active Waybar layout and save to <span class="font-semibold"
+				>~/.config/waybar/config.jsonc</span
+			>.
+		</Card.Description>
 	</Card.Header>
-	<Card.Content class="flex items-center justify-between uppercase">
-		<div class="flex items-center gap-2 uppercase">
-			<Select.Root type="single" value="daily" aria-label="Waybar Profile">
-				<Select.Trigger class="w-[180px]"></Select.Trigger>
-				<Select.Content>
-					<Select.Item value="daily">Daily Driver</Select.Item>
-					<Select.Item value="fun">Fun</Select.Item>
-					<Select.Item value="work">Work</Select.Item>
-					<Select.Item value="vertical">Vertical</Select.Item>
-				</Select.Content>
-			</Select.Root>
-			<Button variant="outline" class="ml-4 uppercase">New Configuration</Button>
-			<DropdownMenu.Root>
-				<DropdownMenu.Trigger>
-					{#snippet child({ props })}
-						<Button {...props} variant="ghost" size="icon" class="h-8 w-8 p-0 ">
-							<MoreIcon class="h-4 w-4" />
-							<span class="sr-only">Open options</span>
-						</Button>
-					{/snippet}
-				</DropdownMenu.Trigger>
-				<DropdownMenu.Content align="end" class="uppercase">
-					<DropdownMenu.Group>
-						<DropdownMenu.Item>Share configuration</DropdownMenu.Item>
-						<DropdownMenu.Separator />
-						<DropdownMenu.Item class="bg-red-500/15 text-red-500 hover:text-red-500"
-							>Delete configuration</DropdownMenu.Item
-						>
-					</DropdownMenu.Group>
-				</DropdownMenu.Content>
-			</DropdownMenu.Root>
+	<Card.Content
+		class="flex flex-col gap-3 uppercase md:flex-row md:items-center md:justify-between md:gap-4"
+	>
+		<div class="text-muted-foreground flex flex-col gap-1 text-xs tracking-wide md:text-sm">
+			{#if busyLabel}
+				<span>{busyLabel}</span>
+			{:else}
+				<span>{dirty ? 'Unsaved changes' : 'All changes saved'}</span>
+			{/if}
+			{#if !isValid}
+				<span class="text-destructive">Validation required before saving.</span>
+			{/if}
 		</div>
-		<Button variant="outline">Update Status Bar</Button>
+		<div class="flex items-center gap-2">
+			<Button variant="ghost" size="sm" disabled={isLoading || isSaving} onClick={handleReset}>
+				Reset to defaults
+			</Button>
+			<Button
+				variant="outline"
+				disabled={isLoading || isSaving || !dirty || !isValid}
+				onClick={handleSave}
+			>
+				Save configuration
+			</Button>
+		</div>
 	</Card.Content>
 </Card.Root>

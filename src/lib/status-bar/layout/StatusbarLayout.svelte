@@ -1,42 +1,43 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import StatusbarLayoutItem from './StatusbarLayoutItem.svelte';
+	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
+
+	let { layout = { left: [], center: [], right: [] }, modules = KNOWN_MODULES } = $props();
+
+	const moduleLookup = $derived(new Map(modules.map((entry) => [entry.id, entry])));
+
+	const sections = [
+		{ key: 'left', title: 'Left Panel', description: 'Typically workspace and window info.' },
+		{ key: 'center', title: 'Center Panel', description: 'Commonly used for time or status.' },
+		{
+			key: 'right',
+			title: 'Right Panel',
+			description: 'Good spot for battery, network, or tray modules.'
+		}
+	];
 </script>
 
 <Card.Root>
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Layout</Card.Title>
-		<Card.Description class="text-xs tracking-wide uppercase"
-			>Configure the layout of your waybar. You can drag modules to change their order inside the
-			panel.
+		<Card.Description class="text-xs tracking-wide uppercase">
+			Module placement updates automatically as you change positions below.
 		</Card.Description>
 	</Card.Header>
-	<Card.Content class="flex flex-col items-center justify-between gap-4">
-		<Card.Root class="h-full w-full">
-			<Card.Header>
-				<Card.Title class="text-accent-foreground uppercase">Left Panel</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex items-center justify-between gap-6 p-6">
-				<StatusbarLayoutItem />
-			</Card.Content>
-		</Card.Root>
-
-		<Card.Root class="h-full w-full">
-			<Card.Header>
-				<Card.Title class="text-accent-foreground uppercase">Center Panel</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex items-center justify-between gap-6 p-6"
-				><StatusbarLayoutItem />
-			</Card.Content>
-		</Card.Root>
-
-		<Card.Root class="h-full w-full">
-			<Card.Header>
-				<Card.Title class="text-accent-foreground uppercase">Right Panel</Card.Title>
-			</Card.Header>
-			<Card.Content class="flex items-center justify-between gap-6 p-6">
-				<StatusbarLayoutItem />
-			</Card.Content>
-		</Card.Root>
+	<Card.Content class="flex flex-col gap-4">
+		{#each sections as section (section.key)}
+			<Card.Root class="h-full w-full">
+				<Card.Header>
+					<Card.Title class="text-accent-foreground uppercase">{section.title}</Card.Title>
+					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
+						{section.description}
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="p-6">
+					<StatusbarLayoutItem modules={layout[section.key] ?? []} {moduleLookup} />
+				</Card.Content>
+			</Card.Root>
+		{/each}
 	</Card.Content>
 </Card.Root>
