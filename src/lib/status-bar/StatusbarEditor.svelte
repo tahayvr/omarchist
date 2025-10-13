@@ -21,12 +21,27 @@
 		updateWaybarLayoutSection,
 		getGlobalFieldDefinitions,
 		updateWaybarGlobals,
-		sanitizeGlobalInput
+		sanitizeGlobalInput,
+		applySnapshotToState,
+		listWaybarProfiles,
+		createWaybarProfile,
+		selectWaybarProfile,
+		deleteWaybarProfile
 	} from '$lib/utils/waybarConfigUtils.js';
 
 	const config = $state(initializeWaybarConfigState());
 	const moduleDefinitions = KNOWN_MODULES;
 	const globalFields = getGlobalFieldDefinitions();
+
+	const profileState = $state({
+		items: [],
+		isLoading: false,
+		isBusy: false
+	});
+
+	const isProfileInteractionLocked = $derived(
+		config.isLoading || config.isSaving || profileState.isLoading || profileState.isBusy
+	);
 
 	const AUTO_SAVE_DELAY = 800;
 	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
@@ -42,8 +57,122 @@
 		}
 	}
 
+	async function refreshProfiles() {
+		profileState.isLoading = true;
+		try {
+			const response = await listWaybarProfiles();
+			const items = Array.isArray(response?.profiles) ? response.profiles : [];
+			profileState.items = items;
+		} catch (error) {
+			console.error('Failed to load Waybar profiles:', error);
+			toast.error('Unable to load Waybar configurations.', {
+				description:
+					error?.message ?? 'Please ensure the Waybar configuration directory is accessible.'
+			});
+		} finally {
+			profileState.isLoading = false;
+		}
+	}
+
+	async function handleProfileSelect(profileId) {
+		if (!profileId) {
+			return false;
+		}
+		if (profileState.isBusy) {
+			return false;
+		}
+		profileState.isBusy = true;
+		try {
+			const response = await selectWaybarProfile(profileId);
+			if (response?.snapshot) {
+				applySnapshotToState(config, response.snapshot);
+			}
+			if (Array.isArray(response?.profiles)) {
+				profileState.items = response.profiles;
+			}
+			return true;
+		} catch (error) {
+			console.error('Failed to switch Waybar configuration:', error);
+			toast.error('Unable to switch Waybar configuration.', {
+				description: error?.message ?? 'Please try again.'
+			});
+			return false;
+		} finally {
+			profileState.isBusy = false;
+		}
+	}
+
+	async function handleProfileCreate(name) {
+		const trimmed = name?.trim();
+		if (!trimmed) {
+			toast.error('Please provide a configuration name.');
+			return false;
+		}
+		if (profileState.isBusy) {
+			return false;
+		}
+		profileState.isBusy = true;
+		try {
+			const response = await createWaybarProfile(trimmed);
+			if (response?.snapshot) {
+				applySnapshotToState(config, response.snapshot);
+			}
+			if (Array.isArray(response?.profiles)) {
+				profileState.items = response.profiles;
+			}
+			toast.success('Waybar configuration created.');
+			return true;
+		} catch (error) {
+			console.error('Failed to create Waybar configuration:', error);
+			toast.error('Unable to create Waybar configuration.', {
+				description: error?.message ?? 'Please try again.'
+			});
+			return false;
+		} finally {
+			profileState.isBusy = false;
+		}
+	}
+
+	async function handleProfileDelete(profileId) {
+		if (!profileId) {
+			return false;
+		}
+		if (profileState.isBusy) {
+			return false;
+		}
+		profileState.isBusy = true;
+		try {
+			const response = await deleteWaybarProfile(profileId);
+			if (response?.snapshot) {
+				applySnapshotToState(config, response.snapshot);
+			}
+			if (Array.isArray(response?.profiles)) {
+				profileState.items = response.profiles;
+			}
+			toast.success('Waybar configuration deleted.');
+			return true;
+		} catch (error) {
+			console.error('Failed to delete Waybar configuration:', error);
+			toast.error('Unable to delete Waybar configuration.', {
+				description: error?.message ?? 'Please try again.'
+			});
+			return false;
+		} finally {
+			profileState.isBusy = false;
+		}
+	}
+
+	function handleProfileShare(profileId) {
+		if (!profileId) {
+			toast.info('Select a configuration to share first.');
+			return;
+		}
+		toast.info('Waybar configuration sharing is coming soon.');
+	}
+
 	onMount(async () => {
 		await loadWaybarConfig(config);
+		await refreshProfiles();
 	});
 
 	$effect(() => {
@@ -188,6 +317,15 @@
 		isSaving={config.isSaving}
 		dirty={config.dirty}
 		{isValid}
+		profiles={profileState.items}
+		selectedProfileId={config.profileId}
+		profilesLoading={profileState.isLoading}
+		profileBusy={profileState.isBusy}
+		profileInteractionLocked={isProfileInteractionLocked}
+		onProfileSelect={handleProfileSelect}
+		onProfileCreate={handleProfileCreate}
+		onProfileDelete={handleProfileDelete}
+		onProfileShare={handleProfileShare}
 		onReset={handleReset}
 	/>
 
