@@ -48,7 +48,8 @@
 		{
 			title: 'Status Bar',
 			url: '/status-bar',
-			icon: StatusbarIcon
+			icon: StatusbarIcon,
+			badge: 'Beta'
 		}
 	];
 </script>
@@ -98,6 +99,11 @@
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
+							<Sidebar.MenuBadge>
+								{#if item.badge}
+									{item.badge}
+								{/if}
+							</Sidebar.MenuBadge>
 						</Sidebar.MenuItem>
 					{/each}
 				</Sidebar.Menu>
