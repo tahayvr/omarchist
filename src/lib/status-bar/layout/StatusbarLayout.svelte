@@ -21,15 +21,13 @@
 <Card.Root>
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Layout</Card.Title>
-		<Card.Description class="text-xs tracking-wide uppercase">
-			Module placement updates automatically as you change positions below.
-		</Card.Description>
+		<Card.Description class="text-xs tracking-wide uppercase"></Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-4">
 		{#each sections as section (section.key)}
 			<Card.Root class="h-full w-full">
 				<Card.Header>
-					<Card.Title class="text-accent-foreground uppercase">{section.title}</Card.Title>
+					<Card.Title class="text-accent-foreground/70 uppercase">{section.title}</Card.Title>
 					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
 						{section.description}
 					</Card.Description>

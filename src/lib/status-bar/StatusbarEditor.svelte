@@ -191,7 +191,7 @@
 				<Card.Header>
 					<Card.Title class="text-accent-foreground uppercase">Bar Appearance</Card.Title>
 					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-						Adjust global bar settings. These apply to every module.
+						General bar settings. These apply to the whole status bar.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="grid gap-4 md:grid-cols-2">
@@ -262,18 +262,4 @@
 			/>
 		</div>
 	</div>
-
-	<Card.Root>
-		<Card.Header>
-			<Card.Title class="text-accent-foreground uppercase">Generated JSON Preview</Card.Title>
-			<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-				Live preview of the generated <code>config.jsonc</code> after the latest save.
-			</Card.Description>
-		</Card.Header>
-		<Card.Content>
-			<pre class="bg-muted max-h-72 overflow-auto rounded px-4 py-3 text-xs">
-{config.raw ?? '// Save to populate preview'}
-			</pre>
-		</Card.Content>
-	</Card.Root>
 </div>
