@@ -1,7 +1,10 @@
 <script>
-	import { onMount } from 'svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { toast } from 'svelte-sonner';
 	import * as Card from '$lib/components/ui/card/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
 	import StatusbarHeader from './StatusbarHeader.svelte';
 	import StatusbarLayout from './layout/StatusbarLayout.svelte';
 	import StatusbarModules from './modules/StatusbarModules.svelte';
@@ -12,11 +15,31 @@
 		saveWaybarConfig,
 		resetWaybarConfigToDefaults,
 		getModuleRegion,
-		setModuleRegion
+		setModuleRegion,
+		getModuleFields,
+		setModuleField,
+		getGlobalFieldDefinitions,
+		updateWaybarGlobals,
+		sanitizeGlobalInput
 	} from '$lib/utils/waybarConfigUtils.js';
 
 	const config = $state(initializeWaybarConfigState());
 	const moduleDefinitions = KNOWN_MODULES;
+	const globalFields = getGlobalFieldDefinitions();
+
+	const AUTO_SAVE_DELAY = 800;
+	const AUTO_SAVE_SUCCESS_TOAST_COOLDOWN = 2000;
+
+	let autoSaveHandle = null;
+	let lastValidationToastSignature = null;
+	let lastAutoSaveSuccessToastAt = 0;
+
+	function clearAutoSaveTimer() {
+		if (autoSaveHandle) {
+			clearTimeout(autoSaveHandle);
+			autoSaveHandle = null;
+		}
+	}
 
 	onMount(async () => {
 		await loadWaybarConfig(config);
@@ -38,24 +61,116 @@
 		}
 	});
 
+	$effect(() => {
+		const { validation, dirty, hasHydrated, isLoading, isSaving } = config;
+
+		if (!hasHydrated) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (isLoading || isSaving) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (!dirty) {
+			clearAutoSaveTimer();
+			return;
+		}
+
+		if (!validation?.isValid) {
+			clearAutoSaveTimer();
+			const signature = JSON.stringify(validation?.fieldErrors ?? {});
+			if (signature && signature !== lastValidationToastSignature) {
+				lastValidationToastSignature = signature;
+				const messages = Object.values(validation?.fieldErrors ?? {});
+				const description = messages.length
+					? messages.join(' ')
+					: 'Please resolve highlighted Waybar settings.';
+				toast.error('Waybar configuration needs attention.', { description });
+			}
+			return;
+		}
+
+		lastValidationToastSignature = null;
+		clearAutoSaveTimer();
+		autoSaveHandle = setTimeout(async () => {
+			autoSaveHandle = null;
+			const saved = await saveWaybarConfig(config, { silent: true });
+			if (saved) {
+				const now = Date.now();
+				if (now - lastAutoSaveSuccessToastAt >= AUTO_SAVE_SUCCESS_TOAST_COOLDOWN) {
+					lastAutoSaveSuccessToastAt = now;
+					toast.success('Waybar configuration saved.');
+				}
+			}
+		}, AUTO_SAVE_DELAY);
+	});
+
 	function getRegion(moduleId) {
 		return getModuleRegion(config, moduleId);
+	}
+
+	function getModuleConfig(moduleId) {
+		return config.modules?.[moduleId] ?? {};
+	}
+
+	function getModuleFieldsFor(moduleId) {
+		return getModuleFields(moduleId);
 	}
 
 	function handleRegionChange(moduleId, region) {
 		setModuleRegion(config, moduleId, region);
 	}
 
-	async function handleSave() {
-		await saveWaybarConfig(config);
+	function handleModuleFieldChange(moduleId, fieldKey, value) {
+		setModuleField(config, moduleId, fieldKey, value);
 	}
 
-	function handleReset() {
+	function handleGlobalValueChange(fieldKey, rawValue) {
+		const sanitized = sanitizeGlobalInput(fieldKey, rawValue);
+		if (config.globals?.[fieldKey] === sanitized) {
+			return;
+		}
+		updateWaybarGlobals(config, fieldKey, sanitized);
+	}
+
+	function handleGlobalInput(field, event) {
+		const target = event.currentTarget ?? event.target;
+		const value = target?.value ?? '';
+		handleGlobalValueChange(field.key, value);
+	}
+
+	function handleGlobalNumber(field, event) {
+		const target = event.currentTarget ?? event.target;
+		const value = target?.value ?? '';
+		handleGlobalValueChange(field.key, value);
+	}
+
+	async function handleReset() {
+		clearAutoSaveTimer();
 		resetWaybarConfigToDefaults(config);
+		await saveWaybarConfig(config, {
+			message: 'Waybar configuration reset to defaults.'
+		});
+	}
+
+	function getGlobalError(key) {
+		return config.validation?.fieldErrors?.[`globals.${key}`];
+	}
+
+	function getSelectLabel(field, value) {
+		const label = field.options?.find((option) => option.value === value)?.label;
+		return label ?? field.placeholder ?? 'Select an option';
 	}
 
 	const isBusy = $derived(config.isLoading || config.isSaving);
 	const isValid = $derived(config.validation?.isValid ?? true);
+
+	onDestroy(() => {
+		clearAutoSaveTimer();
+	});
 </script>
 
 <div class="space-y-6">
@@ -64,7 +179,6 @@
 		isSaving={config.isSaving}
 		dirty={config.dirty}
 		{isValid}
-		onSave={handleSave}
 		onReset={handleReset}
 	/>
 
@@ -73,10 +187,77 @@
 			<StatusbarLayout layout={config.layout} modules={moduleDefinitions} />
 		</div>
 		<div class="flex w-full flex-col gap-6 xl:w-1/2">
+			<Card.Root>
+				<Card.Header>
+					<Card.Title class="text-accent-foreground uppercase">Bar Appearance</Card.Title>
+					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
+						Adjust global bar settings. These apply to every module.
+					</Card.Description>
+				</Card.Header>
+				<Card.Content class="grid gap-4 md:grid-cols-2">
+					{#each globalFields as field (field.key)}
+						<div class="space-y-2">
+							<Label for={`global-${field.key}`} class="text-[0.65rem] font-semibold uppercase">
+								{field.label}
+							</Label>
+							{#if field.type === 'select'}
+								<Select.Root
+									value={config.globals?.[field.key] ?? ''}
+									onValueChange={(value) => handleGlobalValueChange(field.key, value)}
+									disabled={isBusy}
+									type="single"
+								>
+									<Select.Trigger id={`global-${field.key}`} class="w-32 uppercase">
+										{getSelectLabel(field, config.globals?.[field.key] ?? '')}
+									</Select.Trigger>
+									<Select.Content>
+										{#each field.options ?? [] as option (option.value)}
+											<Select.Item value={option.value}>
+												{option.label}
+											</Select.Item>
+										{/each}
+									</Select.Content>
+								</Select.Root>
+							{:else if field.type === 'number'}
+								<Input
+									id={`global-${field.key}`}
+									type="number"
+									class="uppercase"
+									value={config.globals?.[field.key] ?? ''}
+									min={field.min}
+									max={field.max}
+									step={field.step}
+									placeholder={field.placeholder}
+									disabled={isBusy}
+									oninput={(event) => handleGlobalNumber(field, event)}
+								/>
+							{:else}
+								<Input
+									id={`global-${field.key}`}
+									type="text"
+									class="uppercase"
+									value={config.globals?.[field.key] ?? ''}
+									placeholder={field.placeholder}
+									disabled={isBusy}
+									oninput={(event) => handleGlobalInput(field, event)}
+								/>
+							{/if}
+							{#if getGlobalError(field.key)}
+								<p class="text-destructive text-[0.65rem] tracking-wide uppercase">
+									{getGlobalError(field.key)}
+								</p>
+							{/if}
+						</div>
+					{/each}
+				</Card.Content>
+			</Card.Root>
 			<StatusbarModules
 				modules={moduleDefinitions}
 				{getRegion}
+				getFields={getModuleFieldsFor}
+				getConfig={getModuleConfig}
 				onRegionChange={handleRegionChange}
+				onFieldChange={handleModuleFieldChange}
 				disabled={isBusy}
 			/>
 		</div>
@@ -86,7 +267,7 @@
 		<Card.Header>
 			<Card.Title class="text-accent-foreground uppercase">Generated JSON Preview</Card.Title>
 			<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-				This is what will be written to <code>config.jsonc</code> when you save.
+				Live preview of the generated <code>config.jsonc</code> after the latest save.
 			</Card.Description>
 		</Card.Header>
 		<Card.Content>

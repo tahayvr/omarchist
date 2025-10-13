@@ -6,7 +6,10 @@
 	let {
 		modules = KNOWN_MODULES,
 		getRegion = () => 'hidden',
+		getFields = () => [],
+		getConfig = () => ({}),
 		onRegionChange = () => {},
+		onFieldChange = () => {},
 		disabled = false
 	} = $props();
 
@@ -16,6 +19,14 @@
 			return;
 		}
 		onRegionChange?.(moduleId, position);
+	}
+
+	function handleFieldChange(event) {
+		const { moduleId, fieldKey, value } = event.detail ?? {};
+		if (!moduleId || !fieldKey) {
+			return;
+		}
+		onFieldChange?.(moduleId, fieldKey, value);
 	}
 </script>
 
@@ -31,8 +42,11 @@
 			<StatusbarSingleModule
 				{module}
 				position={getRegion(module.id)}
+				fields={getFields(module.id)}
+				config={getConfig(module.id)}
 				{disabled}
 				on:change={handleChange}
+				on:fieldChange={handleFieldChange}
 			/>
 		{/each}
 	</Card.Content>
