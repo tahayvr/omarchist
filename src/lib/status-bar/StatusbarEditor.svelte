@@ -18,6 +18,7 @@
 		setModuleRegion,
 		getModuleFields,
 		setModuleField,
+		updateWaybarLayoutSection,
 		getGlobalFieldDefinitions,
 		updateWaybarGlobals,
 		sanitizeGlobalInput
@@ -128,6 +129,14 @@
 		setModuleField(config, moduleId, fieldKey, value);
 	}
 
+	function handleLayoutReorder(event) {
+		const { section, modules } = event.detail ?? {};
+		if (!section || !Array.isArray(modules)) {
+			return;
+		}
+		updateWaybarLayoutSection(config, section, modules);
+	}
+
 	function handleGlobalValueChange(fieldKey, rawValue) {
 		const sanitized = sanitizeGlobalInput(fieldKey, rawValue);
 		if (config.globals?.[fieldKey] === sanitized) {
@@ -184,7 +193,12 @@
 
 	<div class="flex w-full flex-col gap-6 xl:flex-row">
 		<div class="flex w-full flex-col gap-6 xl:w-1/2">
-			<StatusbarLayout layout={config.layout} modules={moduleDefinitions} />
+			<StatusbarLayout
+				layout={config.layout}
+				modules={moduleDefinitions}
+				disabled={isBusy}
+				on:reorder={handleLayoutReorder}
+			/>
 		</div>
 		<div class="flex w-full flex-col gap-6 xl:w-1/2">
 			<Card.Root>
