@@ -6,6 +6,7 @@ pub mod import_export;
 pub mod nvidia_detection;
 pub mod settings;
 pub mod themes;
+pub mod waybar;
 
 // Utility services that don't fit into specific domains
 pub mod cli_handler;
@@ -22,3 +23,4 @@ pub use config::*;
 pub use hyprland::*;
 pub use settings::*;
 pub use themes::*;
+pub use waybar::*;

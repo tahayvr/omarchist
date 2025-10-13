@@ -12,7 +12,7 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col items-center justify-between gap-4">
-		<Card.Root class="h-full  w-full">
+		<Card.Root class="h-full w-full">
 			<Card.Header>
 				<Card.Title class="text-accent-foreground uppercase">Left Panel</Card.Title>
 			</Card.Header>

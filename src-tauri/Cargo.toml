@@ -39,6 +39,7 @@ tauri-plugin-clipboard-manager = "2"
 tauri-plugin-fs = "2"
 zip = "6.0.0"
 sha2 = "0.10"
+json_comments = "0.2"
 
 [features]
 default = []

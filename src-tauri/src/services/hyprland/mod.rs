@@ -318,8 +318,7 @@ impl HyprlandConfigService {
 
         for line in contents.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with("source") && trimmed.contains(".config/omarchist/hyprland/*")
-            {
+            if trimmed.starts_with("source") && trimmed.contains(".config/omarchist/hyprland/*") {
                 has_directive = true;
                 break;
             }
