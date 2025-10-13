@@ -2383,6 +2383,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "json_comments"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dbbfed4e59ba9750e15ba154fdfd9329cee16ff3df539c2666b70f58cc32105"
+
+[[package]]
 name = "jsonptr"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3040,6 +3046,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dirs",
+ "json_comments",
  "log",
  "regex",
  "reqwest",
