@@ -236,7 +236,7 @@
 								<Input
 									id={`global-${field.key}`}
 									type="number"
-									class="uppercase"
+									class="w-24 uppercase"
 									value={config.globals?.[field.key] ?? ''}
 									min={field.min}
 									max={field.max}
