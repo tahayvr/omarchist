@@ -1,10 +1,16 @@
 <script>
+	import { createEventDispatcher } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import StatusbarLayoutItem from './StatusbarLayoutItem.svelte';
 	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
 
-	let { layout = { left: [], center: [], right: [] }, modules = KNOWN_MODULES } = $props();
+	let {
+		layout = { left: [], center: [], right: [] },
+		modules = KNOWN_MODULES,
+		disabled = false
+	} = $props();
 
+	const dispatch = createEventDispatcher();
 	const moduleLookup = $derived(new Map(modules.map((entry) => [entry.id, entry])));
 
 	const sections = [
@@ -16,6 +22,18 @@
 			description: 'Good spot for battery, network, or tray modules.'
 		}
 	];
+
+	function handleReorder(sectionKey, event) {
+		if (disabled) {
+			return;
+		}
+
+		const modules = event.detail?.modules;
+		if (!Array.isArray(modules)) {
+			return;
+		}
+		dispatch('reorder', { section: sectionKey, modules });
+	}
 </script>
 
 <Card.Root>
@@ -33,7 +51,12 @@
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="p-6">
-					<StatusbarLayoutItem modules={layout[section.key] ?? []} {moduleLookup} />
+					<StatusbarLayoutItem
+						modules={layout[section.key] ?? []}
+						{moduleLookup}
+						{disabled}
+						on:reorder={(event) => handleReorder(section.key, event)}
+					/>
 				</Card.Content>
 			</Card.Root>
 		{/each}
