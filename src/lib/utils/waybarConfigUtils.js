@@ -600,6 +600,100 @@ function removeModuleFromSections(layout, moduleId) {
 	}
 }
 
+function isPlainObject(value) {
+	return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function splitFieldPath(fieldKey) {
+	return fieldKey
+		.split('.')
+		.map((segment) => segment.trim())
+		.filter(Boolean);
+}
+
+function pruneEmptyAncestors(target, segments) {
+	const stack = [];
+	let cursor = target;
+	for (const segment of segments) {
+		if (!isPlainObject(cursor)) {
+			return;
+		}
+		stack.push({ parent: cursor, key: segment });
+		cursor = cursor[segment];
+	}
+
+	for (let index = stack.length - 1; index >= 0; index -= 1) {
+		const { parent, key } = stack[index];
+		const value = parent[key];
+		if (isPlainObject(value) && Object.keys(value).length === 0) {
+			delete parent[key];
+			continue;
+		}
+		break;
+	}
+}
+
+function setNestedModuleValue(target, fieldKey, value) {
+	if (typeof fieldKey !== 'string' || !fieldKey.includes('.')) {
+		if (value === null) {
+			delete target[fieldKey];
+			return;
+		}
+		target[fieldKey] = value;
+		return;
+	}
+
+	const segments = splitFieldPath(fieldKey);
+	if (!segments.length) {
+		return;
+	}
+
+	const lastIndex = segments.length - 1;
+	let cursor = target;
+
+	for (let index = 0; index < lastIndex; index += 1) {
+		const key = segments[index];
+		if (!isPlainObject(cursor[key])) {
+			cursor[key] = {};
+		}
+		cursor = cursor[key];
+	}
+
+	const lastKey = segments[lastIndex];
+	if (value === null) {
+		if (isPlainObject(cursor)) {
+			delete cursor[lastKey];
+			pruneEmptyAncestors(target, segments.slice(0, -1));
+		}
+		return;
+	}
+
+	if (isPlainObject(cursor)) {
+		cursor[lastKey] = value;
+	}
+}
+
+function getNestedModuleValue(source, fieldKey) {
+	if (typeof fieldKey !== 'string') {
+		return undefined;
+	}
+	if (!fieldKey.includes('.')) {
+		return source?.[fieldKey];
+	}
+	const segments = splitFieldPath(fieldKey);
+	let cursor = source;
+	for (const segment of segments) {
+		if (!isPlainObject(cursor) && !Array.isArray(cursor)) {
+			return undefined;
+		}
+		cursor = cursor?.[segment];
+		if (cursor === undefined) {
+			return undefined;
+		}
+	}
+	return cursor;
+}
+
 function determineRegion(layout, moduleId) {
 	if (layout.left.includes(moduleId)) {
 		return 'left';
@@ -648,13 +742,13 @@ export function setModuleField(state, moduleId, fieldKey, value) {
 	}
 	updateWaybarModule(state, moduleId, (current) => {
 		const next = current && typeof current === 'object' ? current : {};
-		next[fieldKey] = value;
+		setNestedModuleValue(next, fieldKey, value);
 		return next;
 	});
 }
 
 export function getModuleFieldValue(state, moduleId, fieldKey) {
-	return state.modules?.[moduleId]?.[fieldKey];
+	return getNestedModuleValue(state.modules?.[moduleId], fieldKey);
 }
 
 export function getGlobalFieldDefinitions() {
