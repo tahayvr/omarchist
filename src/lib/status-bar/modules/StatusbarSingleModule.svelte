@@ -19,16 +19,12 @@
 		dispatch('change', { moduleId: module.id, position });
 	}
 
-	function emitFieldChange(fieldKey, value) {
-		dispatch('fieldChange', { moduleId: module.id, fieldKey, value });
-	}
-
-	function handleDialogFieldChange(event) {
-		const { fieldKey, value } = event.detail ?? {};
-		if (!fieldKey) {
+	function handleDialogConfigChange(event) {
+		const { config: nextConfig } = event.detail ?? {};
+		if (!nextConfig || typeof nextConfig !== 'object') {
 			return;
 		}
-		emitFieldChange(fieldKey, value);
+		dispatch('configChange', { moduleId: module.id, config: nextConfig });
 	}
 </script>
 
@@ -60,7 +56,7 @@
 				{config}
 				{disabled}
 				{fields}
-				on:fieldChange={handleDialogFieldChange}
+				on:configChange={handleDialogConfigChange}
 			/>
 		</div>
 	</Card.Content>

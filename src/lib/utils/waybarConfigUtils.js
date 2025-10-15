@@ -2,9 +2,26 @@ import { invoke } from '@tauri-apps/api/core';
 
 const clone = (value) => {
 	if (typeof structuredClone === 'function') {
-		return structuredClone(value);
+		try {
+			return structuredClone(value);
+		} catch {
+			/* no-op */
+		}
 	}
-	return JSON.parse(JSON.stringify(value ?? null));
+	if (value === undefined) {
+		return undefined;
+	}
+	try {
+		return JSON.parse(JSON.stringify(value));
+	} catch {
+		if (Array.isArray(value)) {
+			return [...value];
+		}
+		if (value && typeof value === 'object') {
+			return { ...value };
+		}
+		return value;
+	}
 };
 
 const DEFAULT_LAYOUT = Object.freeze({
@@ -570,15 +587,17 @@ export function updateWaybarGlobals(state, key, value) {
 }
 
 export function updateWaybarModule(state, moduleId, updater) {
-	if (!state.modules[moduleId]) {
+	const currentValue = state.modules?.[moduleId];
+	const base = isPlainObject(currentValue) ? currentValue : {};
+	const nextValue = typeof updater === 'function' ? updater(clone(base)) : updater;
+	if (!isPlainObject(nextValue)) {
 		return;
 	}
-	const nextValue =
-		typeof updater === 'function' ? updater(clone(state.modules[moduleId])) : updater;
-	if (!nextValue || typeof nextValue !== 'object') {
-		return;
-	}
-	state.modules[moduleId] = nextValue;
+	state.modules = {
+		...state.modules,
+		[moduleId]: nextValue
+	};
+	state.validation = validateWaybarConfig(state);
 	markWaybarDirty(state);
 }
 
@@ -734,6 +753,14 @@ export function setModuleRegion(state, moduleId, region) {
 
 export function getModuleFields(moduleId) {
 	return MODULE_FIELD_DEFINITIONS[moduleId] ?? [];
+}
+
+export function setModuleConfig(state, moduleId, moduleConfig) {
+	if (!MODULE_LOOKUP.has(moduleId)) {
+		return;
+	}
+	const nextValue = isPlainObject(moduleConfig) ? clone(moduleConfig) : {};
+	updateWaybarModule(state, moduleId, () => nextValue);
 }
 
 export function setModuleField(state, moduleId, fieldKey, value) {

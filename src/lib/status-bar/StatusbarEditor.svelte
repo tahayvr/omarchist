@@ -18,6 +18,7 @@
 		setModuleRegion,
 		getModuleFields,
 		setModuleField,
+		setModuleConfig,
 		updateWaybarLayoutSection,
 		getGlobalFieldDefinitions,
 		updateWaybarGlobals,
@@ -255,7 +256,17 @@
 	}
 
 	function handleModuleFieldChange(moduleId, fieldKey, value) {
+		if (!moduleId || !fieldKey) {
+			return;
+		}
 		setModuleField(config, moduleId, fieldKey, value);
+	}
+
+	function handleModuleConfigChange(moduleId, moduleConfig) {
+		if (!moduleId || !moduleConfig || typeof moduleConfig !== 'object') {
+			return;
+		}
+		setModuleConfig(config, moduleId, moduleConfig);
 	}
 
 	function handleLayoutReorder(event) {
@@ -410,6 +421,7 @@
 				getConfig={getModuleConfig}
 				onRegionChange={handleRegionChange}
 				onFieldChange={handleModuleFieldChange}
+				onConfigChange={handleModuleConfigChange}
 				disabled={isBusy}
 			/>
 		</div>

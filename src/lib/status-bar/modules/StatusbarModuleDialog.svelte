@@ -15,95 +15,10 @@
 	const dispatch = createEventDispatcher();
 	let open = $state(false);
 	let activeTab = $state('general');
-
-	function emitFieldChange(fieldKey, value) {
-		dispatch('fieldChange', { fieldKey, value });
-	}
-
-	function getNestedValue(target, path) {
-		if (!target || typeof path !== 'string') {
-			return undefined;
-		}
-		if (!path.includes('.')) {
-			return target[path];
-		}
-		const segments = path.split('.');
-		let cursor = target;
-		for (const segment of segments) {
-			if (!cursor || typeof cursor !== 'object') {
-				return undefined;
-			}
-			cursor = cursor[segment];
-		}
-		return cursor;
-	}
-
-	function getString(path) {
-		const value = getNestedValue(config, path);
-		return typeof value === 'string' ? value : '';
-	}
-
-	function getNumber(path) {
-		const value = getNestedValue(config, path);
-		const parsed = Number(value);
-		return Number.isFinite(parsed) ? parsed : '';
-	}
-
-	function getBoolean(path, fallback = false) {
-		const value = getNestedValue(config, path);
-		if (typeof value === 'boolean') {
-			return value;
-		}
-		return fallback;
-	}
-
-	function getTimezonesText() {
-		const value = getNestedValue(config, 'timezones');
-		if (Array.isArray(value)) {
-			return value.join('\n');
-		}
-		return '';
-	}
-
-	function updateStringField(path, event) {
-		const raw = event?.target?.value ?? '';
-		emitFieldChange(path, raw.length ? raw : null);
-	}
-
-	function updateNumberField(path, event, { allowFloat = false } = {}) {
-		const raw = event?.target?.value ?? '';
-		if (raw === '') {
-			emitFieldChange(path, null);
-			return;
-		}
-		const parsed = allowFloat ? Number.parseFloat(raw) : Number.parseInt(raw, 10);
-		if (Number.isFinite(parsed)) {
-			emitFieldChange(path, parsed);
-		} else {
-			emitFieldChange(path, null);
-		}
-	}
-
-	function updateSelectField(path, value) {
-		if (!value || value === '__default') {
-			emitFieldChange(path, null);
-			return;
-		}
-		emitFieldChange(path, value);
-	}
-
-	function updateBooleanField(path, checked) {
-		emitFieldChange(path, Boolean(checked));
-	}
-
-	function updateTimezones(event) {
-		const raw = event?.target?.value ?? '';
-		const values = raw
-			.split(/\r?\n/)
-			.map((entry) => entry.trim())
-			.filter((entry) => entry.length > 0);
-		emitFieldChange('timezones', values.length ? values : null);
-	}
+	let fieldState = $state({});
+	let lastConfigSignature = '';
+	let lastEmittedSignature = '';
+	let wasOpen = false;
 
 	const legacyFieldDefinitions = $derived(
 		fields.length
@@ -118,54 +33,34 @@
 				}))
 			: null
 	);
+
 	const hasClockDialog = module?.id === 'clock';
 	const moduleTitle = module?.title ?? 'Waybar Module';
 	const moduleDescription = module?.description ?? '';
 
-	function handleLegacyInput(field, event) {
-		if (field.type === 'number') {
-			updateNumberField(field.key, event, { allowFloat: false });
-			return;
-		}
-		updateStringField(field.key, event);
-	}
+	const CLOCK_NUMBER_FIELDS = [
+		['interval', { allowFloat: false }],
+		['max-length', { allowFloat: false }],
+		['rotate', { allowFloat: false }],
+		['smooth-scrolling-threshold', { allowFloat: true }],
+		['calendar.mode-mon-col', { allowFloat: false }],
+		['calendar.on-scroll', { allowFloat: false }]
+	];
 
-	function getCalendarModeValue() {
-		const value = getString('calendar.mode');
-		return value || '__default';
-	}
+	const CLOCK_STRING_FIELDS = [
+		'format',
+		'format-alt',
+		'timezone',
+		'locale',
+		'on-click',
+		'on-click-middle',
+		'on-click-right',
+		'on-scroll-up',
+		'on-scroll-down',
+		'tooltip-format'
+	];
 
-	function getCalendarModeLabel() {
-		const value = getCalendarModeValue();
-		if (value === 'year') {
-			return 'Year';
-		}
-		if (value === 'month') {
-			return 'Month';
-		}
-		return 'Default (Month)';
-	}
-
-	function getWeeksPositionValue() {
-		const value = getString('calendar.weeks-pos');
-		return value || '__default';
-	}
-
-	function getWeeksPositionLabel() {
-		const value = getWeeksPositionValue();
-		if (value === 'left') {
-			return 'Left';
-		}
-		if (value === 'right') {
-			return 'Right';
-		}
-		return 'Hidden';
-	}
-
-	function getActionValue(actionKey) {
-		const value = getString(`actions.${actionKey}`);
-		return value || '__default';
-	}
+	const CLOCK_CALENDAR_FORMAT_FIELDS = ['months', 'days', 'weeks', 'weekdays', 'today'];
 
 	const actionOptions = [
 		{ label: 'Default', value: '__default' },
@@ -190,6 +85,374 @@
 		const option = actionOptions.find((entry) => entry.value === value);
 		return option ? option.label : 'Default';
 	}
+
+	function getNestedValue(target, path) {
+		if (!target || typeof path !== 'string') {
+			return undefined;
+		}
+		if (!path.includes('.')) {
+			return target[path];
+		}
+		const segments = path.split('.');
+		let cursor = target;
+		for (const segment of segments) {
+			if (!cursor || typeof cursor !== 'object') {
+				return undefined;
+			}
+			cursor = cursor[segment];
+		}
+		return cursor;
+	}
+
+	function readString(path) {
+		const value = getNestedValue(config, path);
+		return typeof value === 'string' ? value : '';
+	}
+
+	function readNumber(path) {
+		const value = getNestedValue(config, path);
+		const parsed = Number(value);
+		return Number.isFinite(parsed) ? parsed : '';
+	}
+
+	function numberToInput(value) {
+		if (value === '' || value === null || value === undefined) {
+			return '';
+		}
+		return String(value);
+	}
+
+	function readBoolean(path, fallback = false) {
+		const value = getNestedValue(config, path);
+		if (typeof value === 'boolean') {
+			return value;
+		}
+		return fallback;
+	}
+
+	function readTimezonesText() {
+		const value = getNestedValue(config, 'timezones');
+		if (Array.isArray(value)) {
+			return value.join('\n');
+		}
+		return '';
+	}
+
+	function readCalendarModeFromConfig() {
+		const value = readString('calendar.mode');
+		return value || '__default';
+	}
+
+	function readWeeksPositionFromConfig() {
+		const value = readString('calendar.weeks-pos');
+		return value || '__default';
+	}
+
+	function readActionValueFromConfig(actionKey) {
+		const value = readString(`actions.${actionKey}`);
+		return value || '__default';
+	}
+
+	function computeConfigSignature() {
+		try {
+			return JSON.stringify(config ?? {});
+		} catch (error) {
+			console.warn('Unable to compute module config signature', error);
+			return '';
+		}
+	}
+
+	function cloneConfigSource() {
+		const source = config && typeof config === 'object' ? config : {};
+		if (typeof structuredClone === 'function') {
+			try {
+				return structuredClone(source);
+			} catch {
+				/* no-op */
+			}
+		}
+		try {
+			return JSON.parse(JSON.stringify(source));
+		} catch {
+			if (Array.isArray(source)) {
+				return [...source];
+			}
+			if (source && typeof source === 'object') {
+				return { ...source };
+			}
+			return source;
+		}
+	}
+
+	function pruneEmptyBranches(target, segments) {
+		let cursor = target;
+		const stack = [];
+		for (const segment of segments) {
+			if (!cursor || typeof cursor !== 'object' || Array.isArray(cursor)) {
+				return;
+			}
+			stack.push({ parent: cursor, key: segment });
+			cursor = cursor[segment];
+		}
+		for (let index = stack.length - 1; index >= 0; index -= 1) {
+			const { parent, key } = stack[index];
+			const value = parent[key];
+			if (
+				value &&
+				typeof value === 'object' &&
+				!Array.isArray(value) &&
+				Object.keys(value).length === 0
+			) {
+				delete parent[key];
+				continue;
+			}
+			break;
+		}
+	}
+
+	function removeFieldValue(target, path) {
+		if (!target || typeof target !== 'object' || !path) {
+			return;
+		}
+		if (!path.includes('.')) {
+			delete target[path];
+			return;
+		}
+		const segments = path.split('.');
+		let cursor = target;
+		for (let index = 0; index < segments.length - 1; index += 1) {
+			const segment = segments[index];
+			if (!cursor || typeof cursor !== 'object') {
+				return;
+			}
+			cursor = cursor[segment];
+		}
+		if (!cursor || typeof cursor !== 'object') {
+			return;
+		}
+		delete cursor[segments[segments.length - 1]];
+		pruneEmptyBranches(target, segments.slice(0, -1));
+	}
+
+	function setFieldValue(target, path, value) {
+		if (!path || typeof path !== 'string') {
+			return;
+		}
+		if (value === null || value === undefined) {
+			removeFieldValue(target, path);
+			return;
+		}
+		if (!path.includes('.')) {
+			target[path] = value;
+			return;
+		}
+		const segments = path.split('.');
+		let cursor = target;
+		for (let index = 0; index < segments.length - 1; index += 1) {
+			const segment = segments[index];
+			const current = cursor[segment];
+			if (!current || typeof current !== 'object' || Array.isArray(current)) {
+				cursor[segment] = {};
+			}
+			cursor = cursor[segment];
+		}
+		cursor[segments[segments.length - 1]] = value;
+	}
+
+	function parseNumber(raw, { allowFloat = false } = {}) {
+		if (raw === null || raw === undefined || raw === '') {
+			return null;
+		}
+		const parsed = allowFloat ? Number.parseFloat(raw) : Number.parseInt(raw, 10);
+		return Number.isFinite(parsed) ? parsed : null;
+	}
+
+	function setNumberField(target, path, options = {}, source = fieldState) {
+		const parsed = parseNumber(source[path], options);
+		setFieldValue(target, path, parsed);
+	}
+
+	function setStringField(target, path, source = fieldState) {
+		const value = source[path];
+		if (typeof value === 'string' && value.length > 0) {
+			setFieldValue(target, path, value);
+		} else {
+			setFieldValue(target, path, null);
+		}
+	}
+
+	function setSelectField(target, path, source = fieldState) {
+		const value = source[path];
+		if (typeof value === 'string' && value.length && value !== '__default') {
+			setFieldValue(target, path, value);
+		} else {
+			setFieldValue(target, path, null);
+		}
+	}
+
+	function setBooleanField(target, path, source = fieldState) {
+		const value = source[path];
+		if (typeof value === 'boolean') {
+			setFieldValue(target, path, value);
+		} else {
+			setFieldValue(target, path, readBoolean(path, false));
+		}
+	}
+
+	function setTimezonesField(target, source = fieldState) {
+		const raw = source.timezonesText ?? '';
+		const values = raw
+			.split(/\r?\n/)
+			.map((entry) => entry.trim())
+			.filter((entry) => entry.length > 0);
+		setFieldValue(target, 'timezones', values.length ? values : null);
+	}
+
+	function buildModuleConfigFromFieldState(source = fieldState) {
+		const base = cloneConfigSource();
+		if (hasClockDialog) {
+			for (const [path, options] of CLOCK_NUMBER_FIELDS) {
+				setNumberField(base, path, options, source);
+			}
+			for (const path of CLOCK_STRING_FIELDS) {
+				setStringField(base, path, source);
+			}
+			for (const key of CLOCK_CALENDAR_FORMAT_FIELDS) {
+				setStringField(base, `calendar.format.${key}`, source);
+			}
+			setBooleanField(base, 'tooltip', source);
+			setTimezonesField(base, source);
+			setSelectField(base, 'calendar.mode', source);
+			setSelectField(base, 'calendar.weeks-pos', source);
+			for (const actionField of actionEventFields) {
+				setSelectField(base, `actions.${actionField.key}`, source);
+			}
+		} else if (legacyFieldDefinitions) {
+			for (const field of legacyFieldDefinitions) {
+				if (field.type === 'number') {
+					const allowFloat = typeof field.step === 'number' ? !Number.isInteger(field.step) : false;
+					setNumberField(base, field.key, { allowFloat }, source);
+				} else if (field.type === 'boolean') {
+					setBooleanField(base, field.key, source);
+				} else {
+					setStringField(base, field.key, source);
+				}
+			}
+		}
+		return base;
+	}
+
+	function getCalendarModeValue() {
+		const value = fieldState['calendar.mode'];
+		return typeof value === 'string' && value.length ? value : '__default';
+	}
+
+	function getCalendarModeLabel() {
+		const value = getCalendarModeValue();
+		if (value === 'year') {
+			return 'Year';
+		}
+		if (value === 'month') {
+			return 'Month';
+		}
+		return 'Default (Month)';
+	}
+
+	function getWeeksPositionValue() {
+		const value = fieldState['calendar.weeks-pos'];
+		return typeof value === 'string' && value.length ? value : '__default';
+	}
+
+	function getWeeksPositionLabel() {
+		const value = getWeeksPositionValue();
+		if (value === 'left') {
+			return 'Left';
+		}
+		if (value === 'right') {
+			return 'Right';
+		}
+		return 'Hidden';
+	}
+
+	function getActionValue(actionKey) {
+		const value = fieldState[`actions.${actionKey}`];
+		return typeof value === 'string' && value.length ? value : '__default';
+	}
+
+	function hydrateFieldStateFromConfig(force = false) {
+		const signature = computeConfigSignature();
+		if (!force && signature === lastConfigSignature) {
+			return;
+		}
+		const next = {};
+		if (hasClockDialog) {
+			next.interval = numberToInput(readNumber('interval'));
+			next.format = readString('format');
+			next['format-alt'] = readString('format-alt');
+			next.timezone = readString('timezone');
+			next.timezonesText = readTimezonesText();
+			next.locale = readString('locale');
+			next['max-length'] = numberToInput(readNumber('max-length'));
+			next.rotate = numberToInput(readNumber('rotate'));
+			next['smooth-scrolling-threshold'] = numberToInput(readNumber('smooth-scrolling-threshold'));
+			next['on-click'] = readString('on-click');
+			next['on-click-middle'] = readString('on-click-middle');
+			next['on-click-right'] = readString('on-click-right');
+			next['on-scroll-up'] = readString('on-scroll-up');
+			next['on-scroll-down'] = readString('on-scroll-down');
+			next.tooltip = readBoolean('tooltip', false);
+			next['tooltip-format'] = readString('tooltip-format');
+			next['calendar.mode'] = readCalendarModeFromConfig();
+			next['calendar.mode-mon-col'] = numberToInput(readNumber('calendar.mode-mon-col'));
+			next['calendar.weeks-pos'] = readWeeksPositionFromConfig();
+			next['calendar.on-scroll'] = numberToInput(readNumber('calendar.on-scroll'));
+			for (const key of CLOCK_CALENDAR_FORMAT_FIELDS) {
+				next[`calendar.format.${key}`] = readString(`calendar.format.${key}`);
+			}
+			for (const actionField of actionEventFields) {
+				next[`actions.${actionField.key}`] = readActionValueFromConfig(actionField.key);
+			}
+		} else if (legacyFieldDefinitions) {
+			for (const field of legacyFieldDefinitions) {
+				if (field.type === 'number') {
+					next[field.key] = numberToInput(readNumber(field.key));
+				} else if (field.type === 'boolean') {
+					next[field.key] = readBoolean(field.key, false);
+				} else {
+					next[field.key] = readString(field.key);
+				}
+			}
+		}
+		fieldState = next;
+		lastConfigSignature = signature;
+		lastEmittedSignature = JSON.stringify(buildModuleConfigFromFieldState(next));
+	}
+
+	hydrateFieldStateFromConfig(true);
+
+	$effect(() => {
+		const signature = computeConfigSignature();
+		if (!wasOpen && open) {
+			hydrateFieldStateFromConfig(true);
+		} else if (!open && signature !== lastConfigSignature) {
+			hydrateFieldStateFromConfig(true);
+		}
+		wasOpen = open;
+	});
+
+	$effect(() => {
+		if (!open) {
+			lastEmittedSignature = JSON.stringify(buildModuleConfigFromFieldState());
+			return;
+		}
+		const payload = buildModuleConfigFromFieldState();
+		const signature = JSON.stringify(payload);
+		if (signature === lastEmittedSignature) {
+			return;
+		}
+		lastEmittedSignature = signature;
+		dispatch('configChange', { config: payload });
+	});
 </script>
 
 <Dialog.Root bind:open>
@@ -233,9 +496,8 @@
 									type="number"
 									min={1}
 									step={1}
-									value={getNumber('interval')}
+									bind:value={fieldState.interval}
 									{disabled}
-									on:change={(event) => updateNumberField('interval', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -245,10 +507,9 @@
 								<Input
 									id="clock-format"
 									type="text"
-									value={getString('format')}
+									bind:value={fieldState.format}
 									placeholder={'{:%H:%M}'}
 									{disabled}
-									on:change={(event) => updateStringField('format', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -258,10 +519,9 @@
 								<Input
 									id="clock-format-alt"
 									type="text"
-									value={getString('format-alt')}
+									bind:value={fieldState['format-alt']}
 									placeholder={'{:%A, %B %d, %Y (%R)}'}
 									{disabled}
-									on:change={(event) => updateStringField('format-alt', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -271,10 +531,9 @@
 								<Input
 									id="clock-timezone"
 									type="text"
-									value={getString('timezone')}
+									bind:value={fieldState.timezone}
 									placeholder="America/New_York"
 									{disabled}
-									on:change={(event) => updateStringField('timezone', event)}
 								/>
 							</div>
 							<div class="space-y-2 md:col-span-2">
@@ -284,10 +543,9 @@
 								<Textarea
 									id="clock-timezones"
 									rows={4}
-									value={getTimezonesText()}
+									bind:value={fieldState.timezonesText}
 									placeholder="Etc/UTC\nAsia/Tokyo"
 									{disabled}
-									on:change={updateTimezones}
 								/>
 								<p class="text-muted-foreground text-[0.6rem] uppercase">
 									Leave blank to inherit the primary timezone.
@@ -300,10 +558,9 @@
 								<Input
 									id="clock-locale"
 									type="text"
-									value={getString('locale')}
+									bind:value={fieldState.locale}
 									placeholder="en_US.UTF-8"
 									{disabled}
-									on:change={(event) => updateStringField('locale', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -315,9 +572,8 @@
 									type="number"
 									min={1}
 									step={1}
-									value={getNumber('max-length')}
+									bind:value={fieldState['max-length']}
 									{disabled}
-									on:change={(event) => updateNumberField('max-length', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -328,9 +584,8 @@
 									id="clock-rotate"
 									type="number"
 									step={1}
-									value={getNumber('rotate')}
+									bind:value={fieldState.rotate}
 									{disabled}
-									on:change={(event) => updateNumberField('rotate', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -341,10 +596,8 @@
 									id="clock-smooth-threshold"
 									type="number"
 									step="0.1"
-									value={getNumber('smooth-scrolling-threshold')}
+									bind:value={fieldState['smooth-scrolling-threshold']}
 									{disabled}
-									on:change={(event) =>
-										updateNumberField('smooth-scrolling-threshold', event, { allowFloat: true })}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -354,10 +607,9 @@
 								<Input
 									id="clock-on-click"
 									type="text"
-									value={getString('on-click')}
+									bind:value={fieldState['on-click']}
 									placeholder="command"
 									{disabled}
-									on:change={(event) => updateStringField('on-click', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -367,10 +619,9 @@
 								<Input
 									id="clock-on-click-middle"
 									type="text"
-									value={getString('on-click-middle')}
+									bind:value={fieldState['on-click-middle']}
 									placeholder="command"
 									{disabled}
-									on:change={(event) => updateStringField('on-click-middle', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -380,10 +631,9 @@
 								<Input
 									id="clock-on-click-right"
 									type="text"
-									value={getString('on-click-right')}
+									bind:value={fieldState['on-click-right']}
 									placeholder="command"
 									{disabled}
-									on:change={(event) => updateStringField('on-click-right', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -393,10 +643,9 @@
 								<Input
 									id="clock-scroll-up"
 									type="text"
-									value={getString('on-scroll-up')}
+									bind:value={fieldState['on-scroll-up']}
 									placeholder="command"
 									{disabled}
-									on:change={(event) => updateStringField('on-scroll-up', event)}
 								/>
 							</div>
 							<div class="space-y-2">
@@ -406,10 +655,9 @@
 								<Input
 									id="clock-scroll-down"
 									type="text"
-									value={getString('on-scroll-down')}
+									bind:value={fieldState['on-scroll-down']}
 									placeholder="command"
 									{disabled}
-									on:change={(event) => updateStringField('on-scroll-down', event)}
 								/>
 							</div>
 						</div>
@@ -428,11 +676,7 @@
 										Toggle hover tooltip visibility.
 									</p>
 								</div>
-								<Switch
-									checked={getBoolean('tooltip', false)}
-									onCheckedChange={(checked) => updateBooleanField('tooltip', checked)}
-									{disabled}
-								/>
+								<Switch bind:checked={fieldState.tooltip} {disabled} />
 							</div>
 							<div class="space-y-2">
 								<Label class="text-[0.65rem] font-semibold uppercase" for="clock-tooltip-format">
@@ -441,10 +685,9 @@
 								<Textarea
 									id="clock-tooltip-format"
 									rows={4}
-									value={getString('tooltip-format')}
+									bind:value={fieldState['tooltip-format']}
 									placeholder={'{:%Y-%m-%d}'}
 									{disabled}
-									on:change={(event) => updateStringField('tooltip-format', event)}
 								/>
 								<p class="text-muted-foreground text-[0.6rem] uppercase">
 									Supports calendar placeholders such as {'{calendar}'} and {'{tz_list}'}.
@@ -463,7 +706,7 @@
 									<Select.Root
 										type="single"
 										value={getCalendarModeValue()}
-										onValueChange={(value) => updateSelectField('calendar.mode', value)}
+										onValueChange={(value) => (fieldState['calendar.mode'] = value)}
 										{disabled}
 									>
 										<Select.Trigger class="uppercase">
@@ -488,9 +731,8 @@
 										type="number"
 										min={1}
 										step={1}
-										value={getNumber('calendar.mode-mon-col')}
+										bind:value={fieldState['calendar.mode-mon-col']}
 										{disabled}
-										on:change={(event) => updateNumberField('calendar.mode-mon-col', event)}
 									/>
 								</div>
 								<div class="space-y-2">
@@ -498,7 +740,7 @@
 									<Select.Root
 										type="single"
 										value={getWeeksPositionValue()}
-										onValueChange={(value) => updateSelectField('calendar.weeks-pos', value)}
+										onValueChange={(value) => (fieldState['calendar.weeks-pos'] = value)}
 										{disabled}
 									>
 										<Select.Trigger class="uppercase">
@@ -522,9 +764,8 @@
 										id="clock-calendar-on-scroll"
 										type="number"
 										step={1}
-										value={getNumber('calendar.on-scroll')}
+										bind:value={fieldState['calendar.on-scroll']}
 										{disabled}
-										on:change={(event) => updateNumberField('calendar.on-scroll', event)}
 									/>
 								</div>
 							</div>
@@ -547,10 +788,8 @@
 											<Input
 												id={`clock-calendar-format-${formatField.key}`}
 												type="text"
-												value={getString(`calendar.format.${formatField.key}`)}
+												bind:value={fieldState[`calendar.format.${formatField.key}`]}
 												{disabled}
-												on:change={(event) =>
-													updateStringField(`calendar.format.${formatField.key}`, event)}
 											/>
 										</div>
 									{/each}
@@ -574,8 +813,7 @@
 										<Select.Root
 											type="single"
 											value={getActionValue(actionField.key)}
-											onValueChange={(value) =>
-												updateSelectField(`actions.${actionField.key}`, value)}
+											onValueChange={(value) => (fieldState[`actions.${actionField.key}`] = value)}
 											{disabled}
 										>
 											<Select.Trigger class="uppercase">
@@ -614,24 +852,18 @@
 									min={field.min}
 									max={field.max}
 									step={field.step}
-									value={getNumber(field.key)}
+									bind:value={fieldState[field.key]}
 									{disabled}
-									on:change={(event) => handleLegacyInput(field, event)}
 								/>
 							{:else if field.type === 'boolean'}
-								<Switch
-									checked={getBoolean(field.key, false)}
-									onCheckedChange={(checked) => updateBooleanField(field.key, checked)}
-									{disabled}
-								/>
+								<Switch bind:checked={fieldState[field.key]} {disabled} />
 							{:else}
 								<Input
 									id={`${module.id}-${field.key}-dialog`}
 									type="text"
-									value={getString(field.key)}
+									bind:value={fieldState[field.key]}
 									placeholder={field.placeholder}
 									{disabled}
-									on:change={(event) => handleLegacyInput(field, event)}
 								/>
 							{/if}
 						</div>
