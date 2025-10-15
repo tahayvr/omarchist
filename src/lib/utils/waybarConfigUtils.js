@@ -293,14 +293,6 @@ const MODULE_FIELD_DEFINITIONS = Object.freeze({
 		},
 		{ key: 'signal', label: 'Signal ID', type: 'number', min: 1, max: 64, step: 1 }
 	],
-	'custom/omarchy': [
-		{
-			key: 'tooltip-format',
-			label: 'Tooltip',
-			type: 'text',
-			placeholder: 'Omarchy Menu\\n\\nSuper + Alt + Space'
-		}
-	],
 	'custom/screenrecording-indicator': [
 		{ key: 'signal', label: 'Signal ID', type: 'number', min: 1, max: 64, step: 1 }
 	],
