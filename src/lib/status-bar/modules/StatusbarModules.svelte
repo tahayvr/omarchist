@@ -10,6 +10,7 @@
 		getConfig = () => ({}),
 		onRegionChange = () => {},
 		onFieldChange = () => {},
+		onConfigChange = () => {},
 		disabled = false
 	} = $props();
 
@@ -27,6 +28,14 @@
 			return;
 		}
 		onFieldChange?.(moduleId, fieldKey, value);
+	}
+
+	function handleConfigChange(event) {
+		const { moduleId, config: moduleConfig } = event.detail ?? {};
+		if (!moduleId || !moduleConfig) {
+			return;
+		}
+		onConfigChange?.(moduleId, moduleConfig);
 	}
 </script>
 
@@ -47,6 +56,7 @@
 				{disabled}
 				on:change={handleChange}
 				on:fieldChange={handleFieldChange}
+				on:configChange={handleConfigChange}
 			/>
 		{/each}
 	</Card.Content>
