@@ -150,7 +150,7 @@
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Status Bar</Card.Title>
 		<Card.Description class="text-xs tracking-wide uppercase">
-			Active profile syncs to <span class="font-semibold">~/.config/waybar/config.jsonc</span>.
+			Waybar configuration
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">

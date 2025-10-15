@@ -46,11 +46,11 @@
 			<Card.Root class="h-full w-full">
 				<Card.Header>
 					<Card.Title class="text-accent-foreground/70 uppercase">{section.title}</Card.Title>
-					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
+					<!-- <Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
 						{section.description}
-					</Card.Description>
+					</Card.Description> -->
 				</Card.Header>
-				<Card.Content class="p-6">
+				<Card.Content>
 					<StatusbarLayoutItem
 						modules={layout[section.key] ?? []}
 						{moduleLookup}
