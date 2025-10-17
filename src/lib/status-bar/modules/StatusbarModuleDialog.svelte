@@ -33,9 +33,13 @@
 		dispatch('configChange', { config: newConfig });
 	}
 
-	// Reset signature when dialog closes to allow re-opening with same config
+	// Initialize/reset signature when dialog opens/closes
 	$effect(() => {
-		if (!open) {
+		if (open) {
+			// When opening, set the signature to prevent initial spurious events
+			lastEmittedSignature = JSON.stringify(config ?? {});
+		} else {
+			// When closing, reset to allow re-opening with same config
 			lastEmittedSignature = JSON.stringify(config ?? {});
 		}
 	});
@@ -68,7 +72,6 @@
 				<SchemaBasedModuleForm
 					schema={moduleDefinition.schema}
 					{config}
-					{module}
 					{disabled}
 					on:configChange={handleConfigChange}
 				/>
