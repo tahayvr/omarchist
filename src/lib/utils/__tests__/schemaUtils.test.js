@@ -192,6 +192,56 @@ describe('schemaUtils', () => {
 			const state = hydrateFieldState(config, schema);
 			expect(state.timezones).toBe('America/New_York\nAsia/Tokyo');
 		});
+
+		it('should preserve custom format values not in enum', () => {
+			const config = {
+				'format-wifi': ' ' // WiFi icon - valid custom format
+			};
+
+			const schema = {
+				properties: {
+					'format-wifi': {
+						type: 'select',
+						enum: ['__default', '  {essid}', ' {ipaddr}', '__custom'],
+						default: '__default'
+					},
+					'format-wifi-custom': {
+						type: 'string',
+						visibleWhen: { field: 'format-wifi', value: '__custom' }
+					}
+				}
+			};
+
+			const state = hydrateFieldState(config, schema);
+			// Should preserve as custom since it's not in the enum
+			expect(state['format-wifi']).toBe('__custom');
+			expect(state['format-wifi-custom']).toBe(' ');
+		});
+
+		it('should preserve any custom format regardless of placeholders', () => {
+			const config = {
+				'format-wifi': '{essid} {signalStrength}%' // Custom format
+			};
+
+			const schema = {
+				properties: {
+					'format-wifi': {
+						type: 'select',
+						enum: ['__default', '  {essid}', ' {ipaddr}', '__custom'],
+						default: '__default'
+					},
+					'format-wifi-custom': {
+						type: 'string',
+						visibleWhen: { field: 'format-wifi', value: '__custom' }
+					}
+				}
+			};
+
+			const state = hydrateFieldState(config, schema);
+			// Should preserve as custom
+			expect(state['format-wifi']).toBe('__custom');
+			expect(state['format-wifi-custom']).toBe('{essid} {signalStrength}%');
+		});
 	});
 
 	describe('buildConfigFromFieldState', () => {
