@@ -13,22 +13,45 @@ import { networkSchema } from './schemas/networkSchema.js';
  * - schema: JSON schema definition for the module
  * - component: Optional custom Svelte component (null = use generic renderer)
  * - validator: Optional custom validation function
+ * - configurable: Whether the module has user-facing configuration (default: true if schema exists)
  */
 export const moduleRegistry = {
 	clock: {
 		schema: clockSchema,
 		component: null,
-		validator: null
+		validator: null,
+		configurable: true
 	},
 	battery: {
 		schema: batterySchema,
 		component: null,
-		validator: null
+		validator: null,
+		configurable: true
 	},
 	network: {
 		schema: networkSchema,
 		component: null,
-		validator: null
+		validator: null,
+		configurable: true
+	},
+	// Non-configurable modules (no user settings)
+	'custom/omarchy-menu': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false
+	},
+	'custom/updates': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false
+	},
+	'custom/screen-recorder': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false
 	}
 	// Add more modules as needed
 };
@@ -83,4 +106,21 @@ export function getModuleComponent(moduleId) {
 export function getModuleValidator(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	return def?.validator || null;
+}
+
+/**
+ * Check if a module is user-configurable
+ * @param {string} moduleId - The Waybar module identifier
+ * @returns {boolean} True if the module can be configured by users
+ */
+export function isModuleConfigurable(moduleId) {
+	const def = getModuleDefinition(moduleId);
+	if (!def) {
+		return false;
+	}
+	// Explicitly set configurable flag, or default to true if schema exists
+	if (def.configurable !== undefined) {
+		return def.configurable;
+	}
+	return def.schema ? true : false;
 }

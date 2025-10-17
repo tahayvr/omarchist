@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import StatusbarModuleDialog from './StatusbarModuleDialog.svelte';
+	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
 	let {
 		module = { id: 'module', title: 'Module', description: 'Module description goes here.' },
@@ -13,6 +14,8 @@
 	} = $props();
 
 	const dispatch = createEventDispatcher();
+
+	const showConfigButton = $derived(isModuleConfigurable(module.id));
 
 	function handleValueChange(nextPosition) {
 		position = nextPosition || 'hidden';
@@ -50,14 +53,16 @@
 			<ToggleGroup.Item value="hidden" class="uppercase">Hidden</ToggleGroup.Item>
 		</ToggleGroup.Root>
 
-		<div class="mt-4 flex items-center justify-end">
-			<StatusbarModuleDialog
-				{module}
-				{config}
-				{disabled}
-				{fields}
-				on:configChange={handleDialogConfigChange}
-			/>
-		</div>
+		{#if showConfigButton}
+			<div class="mt-4 flex items-center justify-end">
+				<StatusbarModuleDialog
+					{module}
+					{config}
+					{disabled}
+					{fields}
+					on:configChange={handleDialogConfigChange}
+				/>
+			</div>
+		{/if}
 	</Card.Content>
 </Card.Root>
