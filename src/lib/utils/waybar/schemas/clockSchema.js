@@ -10,44 +10,218 @@ export const clockSchema = {
 	properties: {
 		// General settings
 		format: {
-			type: 'string',
+			type: 'select',
 			title: 'Time Format',
 			description: 'Primary format string for the clock display',
+			enum: [
+				'{:%H:%M}',
+				'{:%I:%M %p}',
+				'{:%H:%M:%S}',
+				'{:%I:%M:%S %p}',
+				'{:%R}',
+				'{:%T}',
+				'__custom'
+			],
+			enumLabels: [
+				'24-hour (14:30)',
+				'12-hour with AM/PM (02:30 PM)',
+				'24-hour with seconds (14:30:45)',
+				'12-hour with seconds (02:30:45 PM)',
+				'Short 24-hour (%R)',
+				'Short with seconds (%T)',
+				'Custom format...'
+			],
 			default: '{:%H:%M}',
 			tab: 'general'
 		},
-		'format-alt': {
+		'format-custom': {
 			type: 'string',
+			title: 'Custom Time Format',
+			description: 'Enter custom format when "Custom format..." is selected above',
+			placeholder: '{:%H:%M}',
+			tab: 'general',
+			visibleWhen: {
+				field: 'format',
+				value: '__custom'
+			}
+		},
+		'format-alt': {
+			type: 'select',
 			title: 'Alternate Format',
 			description: 'Format displayed when clicking the clock',
+			enum: [
+				'{:%a %d %b}',
+				'{:%A, %B %d, %Y}',
+				'{:%x}',
+				'{:%d/%m/%Y}',
+				'{:%m/%d/%Y}',
+				'{:%Y-%m-%d}',
+				'{:%B %d}',
+				'__custom'
+			],
+			enumLabels: [
+				'Short date (Mon 17 Oct)',
+				'Full date (Monday, October 17, 2025)',
+				'Locale date (%x)',
+				'DD/MM/YYYY (17/10/2025)',
+				'MM/DD/YYYY (10/17/2025)',
+				'ISO date (2025-10-17)',
+				'Month day (October 17)',
+				'Custom format...'
+			],
 			default: '{:%a %d %b}',
 			tab: 'general'
 		},
-		timezone: {
+		'format-alt-custom': {
 			type: 'string',
+			title: 'Custom Alternate Format',
+			description: 'Enter custom format when "Custom format..." is selected above',
+			placeholder: '{:%a %d %b}',
+			tab: 'general',
+			visibleWhen: {
+				field: 'format-alt',
+				value: '__custom'
+			}
+		},
+		timezone: {
+			type: 'select',
 			title: 'Timezone',
-			description: 'Timezone identifier (e.g., America/New_York)',
-			default: '',
-			placeholder: 'Local timezone',
+			description: 'Timezone identifier for time display',
+			enum: [
+				'__local',
+				'UTC',
+				'America/New_York',
+				'America/Chicago',
+				'America/Denver',
+				'America/Los_Angeles',
+				'America/Anchorage',
+				'America/Toronto',
+				'America/Mexico_City',
+				'America/Sao_Paulo',
+				'Europe/London',
+				'Europe/Paris',
+				'Europe/Berlin',
+				'Europe/Rome',
+				'Europe/Madrid',
+				'Europe/Moscow',
+				'Europe/Istanbul',
+				'Asia/Dubai',
+				'Asia/Kolkata',
+				'Asia/Bangkok',
+				'Asia/Shanghai',
+				'Asia/Tokyo',
+				'Asia/Seoul',
+				'Australia/Sydney',
+				'Australia/Melbourne',
+				'Pacific/Auckland',
+				'__custom'
+			],
+			enumLabels: [
+				'Local timezone',
+				'UTC',
+				'New York (EST/EDT)',
+				'Chicago (CST/CDT)',
+				'Denver (MST/MDT)',
+				'Los Angeles (PST/PDT)',
+				'Anchorage (AKST/AKDT)',
+				'Toronto (EST/EDT)',
+				'Mexico City (CST/CDT)',
+				'São Paulo (BRT)',
+				'London (GMT/BST)',
+				'Paris (CET/CEST)',
+				'Berlin (CET/CEST)',
+				'Rome (CET/CEST)',
+				'Madrid (CET/CEST)',
+				'Moscow (MSK)',
+				'Istanbul (TRT)',
+				'Dubai (GST)',
+				'India (IST)',
+				'Bangkok (ICT)',
+				'Shanghai (CST)',
+				'Tokyo (JST)',
+				'Seoul (KST)',
+				'Sydney (AEDT/AEST)',
+				'Melbourne (AEDT/AEST)',
+				'Auckland (NZDT/NZST)',
+				'Custom timezone...'
+			],
+			default: '__local',
 			tab: 'general'
+		},
+		'timezone-custom': {
+			type: 'string',
+			title: 'Custom Timezone',
+			description: 'Enter custom timezone identifier (e.g., America/Argentina/Buenos_Aires)',
+			placeholder: 'America/New_York',
+			tab: 'general',
+			visibleWhen: {
+				field: 'timezone',
+				value: '__custom'
+			}
 		},
 		timezones: {
 			type: 'array',
 			title: 'Additional Timezones',
-			description: 'List of timezones to cycle through (one per line)',
+			description:
+				'List of timezones to cycle through (one per line). Do not use with single timezone option.',
 			items: {
 				type: 'string'
 			},
 			format: 'textarea',
+			placeholder: 'Etc/UTC\nAmerica/New_York\nAsia/Tokyo',
 			tab: 'general'
 		},
 		locale: {
-			type: 'string',
+			type: 'select',
 			title: 'Locale',
-			description: 'Locale for date formatting (e.g., en_US.UTF-8)',
-			default: '',
-			placeholder: 'System locale',
+			description: 'Locale for date formatting',
+			enum: [
+				'__system',
+				'C',
+				'en_US.UTF-8',
+				'en_GB.UTF-8',
+				'de_DE.UTF-8',
+				'fr_FR.UTF-8',
+				'es_ES.UTF-8',
+				'it_IT.UTF-8',
+				'pt_BR.UTF-8',
+				'ru_RU.UTF-8',
+				'ja_JP.UTF-8',
+				'zh_CN.UTF-8',
+				'ko_KR.UTF-8',
+				'ar_SA.UTF-8',
+				'__custom'
+			],
+			enumLabels: [
+				'System locale',
+				'C (default)',
+				'English (US)',
+				'English (UK)',
+				'German',
+				'French',
+				'Spanish',
+				'Italian',
+				'Portuguese (Brazil)',
+				'Russian',
+				'Japanese',
+				'Chinese (Simplified)',
+				'Korean',
+				'Arabic (Saudi Arabia)',
+				'Custom locale...'
+			],
+			default: '__system',
 			tab: 'general'
+		},
+		'locale-custom': {
+			type: 'string',
+			title: 'Custom Locale',
+			description: 'Enter custom locale identifier (e.g., en_AU.UTF-8)',
+			placeholder: 'en_US.UTF-8',
+			tab: 'general',
+			visibleWhen: {
+				field: 'locale',
+				value: '__custom'
+			}
 		},
 		interval: {
 			type: 'integer',
@@ -81,11 +255,40 @@ export const clockSchema = {
 			tab: 'general'
 		},
 		'tooltip-format': {
-			type: 'string',
+			type: 'select',
 			title: 'Tooltip Format',
-			description: 'Custom format for tooltip text',
-			default: '',
+			description: 'Format for tooltip text',
+			enum: [
+				'__default',
+				'{:%Y-%m-%d}',
+				'{:%A, %B %d, %Y}',
+				'{:%c}',
+				'<tt><small>{calendar}</small></tt>',
+				'{tz_list}',
+				'__custom'
+			],
+			enumLabels: [
+				'Default (same as format)',
+				'ISO date (2025-10-17)',
+				'Full date (Monday, October 17, 2025)',
+				'Locale date and time',
+				'Calendar popup',
+				'Timezone list',
+				'Custom format...'
+			],
+			default: '__default',
 			tab: 'general'
+		},
+		'tooltip-format-custom': {
+			type: 'string',
+			title: 'Custom Tooltip Format',
+			description: 'Enter custom tooltip format',
+			placeholder: '{:%Y-%m-%d}',
+			tab: 'general',
+			visibleWhen: {
+				field: 'tooltip-format',
+				value: '__custom'
+			}
 		},
 		'smooth-scrolling-threshold': {
 			type: 'number',
@@ -98,101 +301,103 @@ export const clockSchema = {
 		// Actions
 		'on-click': {
 			type: 'string',
-			title: 'Click Action',
-			description: 'Command to run on left click',
+			title: 'Left Click Command',
+			description: 'Command to execute when left-clicking the clock',
+			placeholder: 'gnome-calendar',
 			default: '',
 			tab: 'actions'
 		},
 		'on-click-middle': {
 			type: 'string',
-			title: 'Middle Click',
-			description: 'Command to run on middle click',
+			title: 'Middle Click Command',
+			description: 'Command to execute when middle-clicking (scroll button)',
+			placeholder: 'gnome-clocks',
 			default: '',
 			tab: 'actions'
 		},
 		'on-click-right': {
 			type: 'select',
-			title: 'Right Click',
-			description: 'Action for right click',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Right Click Action',
+			description: 'Built-in action for right-click',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Calendar Forward (next month/year)',
+				'Calendar Back (previous month/year)',
+				'Calendar Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'actions'
 		},
 		'on-scroll-up': {
 			type: 'select',
-			title: 'Scroll Up',
-			description: 'Action for scroll up',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Scroll Up Action',
+			description: 'Built-in action when scrolling up',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Calendar Forward (next month/year)',
+				'Calendar Back (previous month/year)',
+				'Calendar Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'actions'
 		},
 		'on-scroll-down': {
 			type: 'select',
-			title: 'Scroll Down',
-			description: 'Action for scroll down',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Scroll Down Action',
+			description: 'Built-in action when scrolling down',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Calendar Forward (next month/year)',
+				'Calendar Back (previous month/year)',
+				'Calendar Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'actions'
 		},
 		'on-click-forward': {
 			type: 'select',
 			title: 'Mouse Forward Button',
-			description: 'Action for mouse forward button',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Built-in action for forward mouse button',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Calendar Forward (next month/year)',
+				'Calendar Back (previous month/year)',
+				'Calendar Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'actions'
 		},
 		'on-click-backward': {
 			type: 'select',
 			title: 'Mouse Back Button',
-			description: 'Action for mouse back button',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Built-in action for back mouse button',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Calendar Forward (next month/year)',
+				'Calendar Back (previous month/year)',
+				'Calendar Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'actions'
 		},
 
@@ -201,35 +406,35 @@ export const clockSchema = {
 			type: 'select',
 			title: 'Calendar Mode',
 			description: 'Initial calendar display mode',
-			enum: ['__default', 'year', 'month'],
-			enumLabels: ['Default (Month)', 'Year', 'Month'],
-			default: '__default',
+			enum: ['month', 'year'],
+			enumLabels: ['Month View', 'Year View'],
+			default: 'month',
 			tab: 'calendar'
 		},
 		'calendar.mode-mon-col': {
-			type: 'integer',
+			type: 'select',
 			title: 'Months Per Column',
 			description: 'Number of months per column in year view',
-			minimum: 1,
-			maximum: 12,
+			enum: [1, 2, 3, 4, 6, 12],
+			enumLabels: ['1', '2', '3 (default)', '4', '6', '12'],
 			default: 3,
 			tab: 'calendar'
 		},
 		'calendar.weeks-pos': {
 			type: 'select',
 			title: 'Week Numbers Position',
-			description: 'Where to show week numbers',
-			enum: ['__default', 'left', 'right'],
-			enumLabels: ['Default (Hidden)', 'Left', 'Right'],
-			default: '__default',
+			description: 'Where to show week numbers in calendar',
+			enum: ['__none', 'left', 'right'],
+			enumLabels: ['Hidden', 'Left Side', 'Right Side'],
+			default: '__none',
 			tab: 'calendar'
 		},
 		'calendar.on-scroll': {
-			type: 'integer',
-			title: 'Calendar Scroll',
+			type: 'select',
+			title: 'Calendar Scroll Amount',
 			description: 'Number of months to scroll per action',
-			minimum: 1,
-			maximum: 12,
+			enum: [1, 2, 3, 6, 12],
+			enumLabels: ['1 month', '2 months', '3 months', '6 months', '1 year'],
 			default: 1,
 			tab: 'calendar'
 		},
@@ -275,70 +480,70 @@ export const clockSchema = {
 		},
 		'actions.on-click-right': {
 			type: 'select',
-			title: 'Right Click Calendar',
-			description: 'Calendar action on right click',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Calendar Right Click',
+			description: 'Calendar popup action on right-click',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Forward (next month/year)',
+				'Back (previous month/year)',
+				'Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'calendar'
 		},
 		'actions.on-click-middle': {
 			type: 'select',
-			title: 'Middle Click Calendar',
-			description: 'Calendar action on middle click',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Calendar Middle Click',
+			description: 'Calendar popup action on middle-click',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Forward (next month/year)',
+				'Back (previous month/year)',
+				'Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'calendar'
 		},
 		'actions.on-scroll-up': {
 			type: 'select',
-			title: 'Scroll Up Calendar',
-			description: 'Calendar action on scroll up',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Calendar Scroll Up',
+			description: 'Calendar popup action on scroll up',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Forward (next month/year)',
+				'Back (previous month/year)',
+				'Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'calendar'
 		},
 		'actions.on-scroll-down': {
 			type: 'select',
-			title: 'Scroll Down Calendar',
-			description: 'Calendar action on scroll down',
-			enum: ['__default', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			title: 'Calendar Scroll Down',
+			description: 'Calendar popup action on scroll down',
+			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
-				'Default',
-				'Switch Calendar Mode',
-				'Time Zone Next',
-				'Time Zone Previous',
-				'Calendar Forward',
-				'Calendar Back',
-				'Calendar Reset'
+				'None',
+				'Switch Calendar Mode (year/month)',
+				'Next Timezone',
+				'Previous Timezone',
+				'Forward (next month/year)',
+				'Back (previous month/year)',
+				'Reset (today)'
 			],
-			default: '__default',
+			default: '__none',
 			tab: 'calendar'
 		}
 	},
