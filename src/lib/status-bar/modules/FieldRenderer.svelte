@@ -7,15 +7,6 @@
 
 	let { field, value = $bindable(), disabled = false, fieldKey } = $props();
 
-	// Derived values for select components
-	const selectValue = $derived.by(() => {
-		if (field.type === 'select' || (field.enum && Array.isArray(field.enum))) {
-			const val = value ?? '__default';
-			return { value: val, label: getEnumLabel(val) };
-		}
-		return null;
-	});
-
 	function getEnumLabel(val) {
 		if (!field.enum) return val;
 		const index = field.enum.indexOf(val);
@@ -25,11 +16,13 @@
 		return val;
 	}
 
-	function handleSelectChange(selected) {
-		if (selected && selected.value !== undefined) {
-			value = selected.value;
+	// Get the currently selected label for display in trigger
+	const triggerContent = $derived.by(() => {
+		if (!value || value === '__default') {
+			return 'Select an option';
 		}
-	}
+		return getEnumLabel(value);
+	});
 
 	function handleNumberInput(event) {
 		const raw = event.target.value;
@@ -77,12 +70,12 @@
 				</Label>
 			</div>
 		{:else if field.type === 'select' || (field.enum && Array.isArray(field.enum))}
-			<Select.Root selected={selectValue} onSelectedChange={handleSelectChange} {disabled}>
+			<Select.Root type="single" bind:value {disabled}>
 				<Select.Trigger id={fieldKey} class="w-full">
-					<Select.Value placeholder="Select an option" />
+					{triggerContent}
 				</Select.Trigger>
 				<Select.Content>
-					{#each field.enum as enumValue, index}
+					{#each field.enum as enumValue, index (enumValue)}
 						{@const label = field.enumLabels?.[index] || enumValue}
 						<Select.Item value={enumValue} {label}>
 							{label}
@@ -95,7 +88,7 @@
 				id={fieldKey}
 				type="number"
 				value={numberToInput(value)}
-				on:input={handleNumberInput}
+				oninput={handleNumberInput}
 				min={field.minimum}
 				max={field.maximum}
 				step={field.type === 'integer' ? 1 : 'any'}

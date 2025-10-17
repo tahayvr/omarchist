@@ -5,7 +5,7 @@
 	import FieldRenderer from './FieldRenderer.svelte';
 	import { hydrateFieldState, buildConfigFromFieldState } from '$lib/utils/waybar/schemaUtils.js';
 
-	let { schema, config = {}, module, disabled = false } = $props();
+	let { schema, config = {}, disabled = false } = $props();
 
 	const dispatch = createEventDispatcher();
 
@@ -68,6 +68,11 @@
 		}
 		lastConfigSignature = signature;
 		fieldState = hydrateFieldState(config, schema);
+
+		// Initialize the emitted signature to prevent spurious change events
+		const initialConfig = buildConfigFromFieldState(fieldState, schema);
+		lastEmittedSignature = JSON.stringify(initialConfig);
+
 		wasInitialized = true;
 	}
 
@@ -103,7 +108,7 @@
 {#if tabIds.length > 0}
 	<Tabs.Root value={defaultTab} class="w-full">
 		<Tabs.List class="grid w-full" style="grid-template-columns: repeat({tabIds.length}, 1fr);">
-			{#each tabIds as tabId}
+			{#each tabIds as tabId (tabId)}
 				{@const tab = fieldsByTab[tabId]}
 				<Tabs.Trigger value={tabId} class="text-xs tracking-wide uppercase">
 					{tab.label}
@@ -111,7 +116,7 @@
 			{/each}
 		</Tabs.List>
 
-		{#each tabIds as tabId}
+		{#each tabIds as tabId (tabId)}
 			{@const tab = fieldsByTab[tabId]}
 			<Tabs.Content value={tabId}>
 				<ScrollArea.Root class="h-[400px] pr-4">
@@ -122,7 +127,7 @@
 							</p>
 						{/if}
 
-						{#each tab.fields as field}
+						{#each tab.fields as field (field.key)}
 							<FieldRenderer
 								{field}
 								bind:value={fieldState[field.key]}
