@@ -244,6 +244,11 @@ export function hydrateFieldState(config, schema) {
 	}
 
 	for (const [key, field] of Object.entries(schema.properties)) {
+		// Skip conditional custom fields initially - we'll handle them after their parent
+		if (field.visibleWhen) {
+			continue;
+		}
+
 		const value = getNestedValue(config, key);
 
 		// Handle special textarea format for arrays
@@ -261,11 +266,24 @@ export function hydrateFieldState(config, schema) {
 		// Handle select types with __default sentinel
 		if (field.type === 'select' || (field.enum && Array.isArray(field.enum))) {
 			if (value === null || value === undefined || value === '') {
-				state[key] = '__default';
+				state[key] = field.default || '__default';
 			} else if (typeof value === 'string') {
-				state[key] = value;
+				// Check if the value is in the enum list
+				if (field.enum && field.enum.includes(value)) {
+					state[key] = value;
+				} else {
+					// Value is not in the enum - check if there's a custom field
+					const customKey = `${key}-custom`;
+					if (schema.properties[customKey]) {
+						// Put the value in the custom field and set parent to __custom
+						state[key] = '__custom';
+						state[customKey] = value;
+					} else {
+						state[key] = field.default || '__default';
+					}
+				}
 			} else {
-				state[key] = '__default';
+				state[key] = field.default || '__default';
 			}
 			continue;
 		}
@@ -297,6 +315,16 @@ export function hydrateFieldState(config, schema) {
 		}
 	}
 
+	// Now handle conditional custom fields
+	for (const [key, field] of Object.entries(schema.properties)) {
+		if (field.visibleWhen && !(key in state)) {
+			// Set default empty value for custom fields
+			if (field.type === 'string') {
+				state[key] = '';
+			}
+		}
+	}
+
 	return state;
 }
 
@@ -317,7 +345,37 @@ export function buildConfigFromFieldState(fieldState, schema) {
 	const config = {};
 
 	for (const [key, field] of Object.entries(schema.properties)) {
+		// Skip conditional custom fields - they'll be handled by their parent
+		if (field.visibleWhen) {
+			continue;
+		}
+
 		const value = fieldState[key];
+
+		// Handle __custom sentinel - use the custom field value instead
+		if (value === '__custom') {
+			const customKey = `${key}-custom`;
+			const customField = schema.properties[customKey];
+			if (customField && fieldState[customKey]) {
+				const customValue = validateFieldValue(fieldState[customKey], customField);
+				if (customValue !== null) {
+					setNestedValue(config, key, customValue);
+				}
+			}
+			continue;
+		}
+
+		// Handle __local, __system, and other sentinel values
+		if (
+			value === '__local' ||
+			value === '__system' ||
+			value === '__default' ||
+			value === '__none'
+		) {
+			// Don't add these sentinel values to config - they represent "use default"
+			continue;
+		}
+
 		const validatedValue = validateFieldValue(value, field);
 
 		if (validatedValue !== null) {

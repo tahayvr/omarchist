@@ -87,6 +87,44 @@
 		}
 	});
 
+	// Track previous values to handle switching to __custom
+	let previousFieldValues = $state({});
+
+	// Handle switching to __custom - populate custom field with previous value
+	$effect(() => {
+		if (!wasInitialized || !schema || !schema.properties) {
+			return;
+		}
+
+		for (const [key, field] of Object.entries(schema.properties)) {
+			// Check if this is a select field
+			if (field.type === 'select' || field.enum) {
+				const currentValue = fieldState[key];
+				const previousValue = previousFieldValues[key];
+
+				// If just switched to __custom
+				if (currentValue === '__custom' && previousValue !== '__custom') {
+					const customKey = `${key}-custom`;
+					const customField = schema.properties[customKey];
+
+					// If custom field exists and previous value was a real value (not a sentinel)
+					if (
+						customField &&
+						previousValue &&
+						!previousValue.startsWith('__') &&
+						previousValue !== '__custom'
+					) {
+						// Populate custom field with the previous selected value
+						fieldState[customKey] = previousValue;
+					}
+				}
+
+				// Update previous value tracker
+				previousFieldValues[key] = currentValue;
+			}
+		}
+	});
+
 	// Emit config changes when field state changes
 	$effect(() => {
 		if (!wasInitialized) {
@@ -128,12 +166,17 @@
 						{/if}
 
 						{#each tab.fields as field (field.key)}
-							<FieldRenderer
-								{field}
-								bind:value={fieldState[field.key]}
-								fieldKey={field.key}
-								{disabled}
-							/>
+							{@const isVisible =
+								!field.visibleWhen ||
+								fieldState[field.visibleWhen.field] === field.visibleWhen.value}
+							{#if isVisible}
+								<FieldRenderer
+									{field}
+									bind:value={fieldState[field.key]}
+									fieldKey={field.key}
+									{disabled}
+								/>
+							{/if}
 						{/each}
 					</div>
 				</ScrollArea.Root>
