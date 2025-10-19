@@ -8,7 +8,7 @@ use super::errors::HyprlandConfigError;
 /// Represents the set of Hyprland "general" settings managed by Omarchist.
 ///
 /// Each field is optional to distinguish between unset values (inherit Hyprland default)
-/// and explicit overrides written to `~/.config/omarchist/hyprland.conf`.
+/// and explicit overrides written to `~/.config/omarchist/hyprland/hyprland.conf`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct HyprlandGeneralSettings {
     pub border_size: Option<i32>,

@@ -11,6 +11,7 @@
 	import BoltIcon from '@lucide/svelte/icons/bolt';
 	import KeyboardIcon from '@lucide/svelte/icons/keyboard';
 	import MouseIcon from '@lucide/svelte/icons/mouse';
+	import StatusbarIcon from '@lucide/svelte/icons/rectangle-ellipsis';
 
 	$: currentPath = $page.url.pathname;
 
@@ -43,6 +44,12 @@
 			title: 'Omarchy',
 			url: '/omarchy',
 			icon: OmarchyIcon
+		},
+		{
+			title: 'Status Bar',
+			url: '/status-bar',
+			icon: StatusbarIcon,
+			badge: 'Beta'
 		}
 	];
 </script>
@@ -92,6 +99,11 @@
 									</a>
 								{/snippet}
 							</Sidebar.MenuButton>
+							<Sidebar.MenuBadge>
+								{#if item.badge}
+									{item.badge}
+								{/if}
+							</Sidebar.MenuBadge>
 						</Sidebar.MenuItem>
 					{/each}
 				</Sidebar.Menu>

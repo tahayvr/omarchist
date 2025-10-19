@@ -3,7 +3,7 @@ dev-files/
 node_modules
 AGENTS.md
 dev-plan/
-hyprland-docs/
+docs/
 src-tauri/target/
 
 # Output

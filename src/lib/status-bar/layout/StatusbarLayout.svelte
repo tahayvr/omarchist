@@ -1,0 +1,64 @@
+<script>
+	import { createEventDispatcher } from 'svelte';
+	import * as Card from '$lib/components/ui/card/index.js';
+	import StatusbarLayoutItem from './StatusbarLayoutItem.svelte';
+	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
+
+	let {
+		layout = { left: [], center: [], right: [] },
+		modules = KNOWN_MODULES,
+		disabled = false
+	} = $props();
+
+	const dispatch = createEventDispatcher();
+	const moduleLookup = $derived(new Map(modules.map((entry) => [entry.id, entry])));
+
+	const sections = [
+		{ key: 'left', title: 'Left Panel', description: 'Typically workspace and window info.' },
+		{ key: 'center', title: 'Center Panel', description: 'Commonly used for time or status.' },
+		{
+			key: 'right',
+			title: 'Right Panel',
+			description: 'Good spot for battery, network, or tray modules.'
+		}
+	];
+
+	function handleReorder(sectionKey, event) {
+		if (disabled) {
+			return;
+		}
+
+		const modules = event.detail?.modules;
+		if (!Array.isArray(modules)) {
+			return;
+		}
+		dispatch('reorder', { section: sectionKey, modules });
+	}
+</script>
+
+<Card.Root>
+	<Card.Header>
+		<Card.Title class="text-accent-foreground uppercase">Layout</Card.Title>
+		<Card.Description class="text-xs tracking-wide uppercase"></Card.Description>
+	</Card.Header>
+	<Card.Content class="flex flex-col gap-4">
+		{#each sections as section (section.key)}
+			<Card.Root class="h-full w-full">
+				<Card.Header>
+					<Card.Title class="text-accent-foreground/70 uppercase">{section.title}</Card.Title>
+					<!-- <Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
+						{section.description}
+					</Card.Description> -->
+				</Card.Header>
+				<Card.Content>
+					<StatusbarLayoutItem
+						modules={layout[section.key] ?? []}
+						{moduleLookup}
+						{disabled}
+						on:reorder={(event) => handleReorder(section.key, event)}
+					/>
+				</Card.Content>
+			</Card.Root>
+		{/each}
+	</Card.Content>
+</Card.Root>
