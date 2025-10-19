@@ -26,7 +26,7 @@ export const moduleRegistry = {
 		schema: batterySchema,
 		component: null,
 		validator: null,
-		configurable: true
+		configurable: false
 	},
 	network: {
 		schema: networkSchema,
