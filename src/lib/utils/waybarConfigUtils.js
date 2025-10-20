@@ -195,6 +195,11 @@ export const KNOWN_MODULES = [
 		description: 'Localized time display with alternate format.'
 	},
 	{
+		id: 'network',
+		title: 'Network',
+		description: 'Wi-Fi and wired connectivity indicators.'
+	},
+	{
 		id: 'custom/update',
 		title: 'Update Indicator',
 		description: 'Shows when Omarchy updates are available.'
@@ -213,11 +218,6 @@ export const KNOWN_MODULES = [
 		id: 'bluetooth',
 		title: 'Bluetooth',
 		description: 'Status and quick access to Bluetooth tools.'
-	},
-	{
-		id: 'network',
-		title: 'Network',
-		description: 'Wi-Fi and wired connectivity indicators.'
 	},
 	{
 		id: 'pulseaudio',
