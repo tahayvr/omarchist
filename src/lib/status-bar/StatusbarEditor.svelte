@@ -29,6 +29,7 @@
 		selectWaybarProfile,
 		deleteWaybarProfile
 	} from '$lib/utils/waybarConfigUtils.js';
+	import ColorPickerField from '$lib/themeDesigner/ColorPickerField.svelte';
 
 	const config = $state(initializeWaybarConfigState());
 	const moduleDefinitions = KNOWN_MODULES;
@@ -412,6 +413,8 @@
 							{/if}
 						</div>
 					{/each}
+					<ColorPickerField label="Background Color" />
+					<ColorPickerField label="Foreground Color" />
 				</Card.Content>
 			</Card.Root>
 			<StatusbarModules

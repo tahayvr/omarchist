@@ -359,6 +359,7 @@ export function initializeWaybarConfigState() {
 		modules: cloneModules(),
 		globals: cloneGlobals(),
 		passthrough: clone(DEFAULT_PASSTHROUGH),
+		styleCss: '',
 		raw: null,
 		profileId: null,
 		dirty: false,
@@ -432,6 +433,7 @@ export function applySnapshotToState(state, snapshot) {
 	} else {
 		state.passthrough = clone(DEFAULT_PASSTHROUGH);
 	}
+	state.styleCss = typeof snapshot?.style_css === 'string' ? snapshot.style_css : '';
 	state.raw = snapshot?.raw_json ?? null;
 	state.profileId = snapshot?.profile_id ?? state.profileId ?? null;
 	state.dirty = false;
@@ -500,7 +502,8 @@ function buildSavePayload(state) {
 		},
 		modules: state.modules,
 		globals: state.globals,
-		passthrough: state.passthrough ?? {}
+		passthrough: state.passthrough ?? {},
+		style_css: state.styleCss || null
 	};
 }
 
@@ -564,6 +567,7 @@ export function resetWaybarConfigToDefaults(state) {
 	state.modules = cloneModules();
 	state.globals = cloneGlobals();
 	state.passthrough = clone(DEFAULT_PASSTHROUGH);
+	state.styleCss = '';
 	state.validation = validateWaybarConfig(state);
 	markWaybarDirty(state);
 }
@@ -583,6 +587,11 @@ export function updateWaybarGlobals(state, key, value) {
 	}
 	state.globals[key] = value;
 	state.validation = validateWaybarConfig(state);
+	markWaybarDirty(state);
+}
+
+export function updateWaybarStyleCss(state, styleCss) {
+	state.styleCss = typeof styleCss === 'string' ? styleCss : '';
 	markWaybarDirty(state);
 }
 
@@ -806,4 +815,13 @@ export async function selectWaybarProfile(profileId) {
 
 export async function deleteWaybarProfile(profileId) {
 	return invoke('delete_waybar_profile', { profileId });
+}
+
+// CSS Styling functions
+export async function getWaybarStyleCss() {
+	return invoke('get_waybar_style_css');
+}
+
+export async function saveWaybarStyleCss(styleCss) {
+	return invoke('save_waybar_style_css', { styleCss });
 }

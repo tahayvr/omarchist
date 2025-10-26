@@ -52,3 +52,32 @@ pub fn delete_waybar_profile(profile_id: String) -> Result<WaybarProfileChangeRe
         .delete_profile(&profile_id)
         .map_err(|err| err.to_string())
 }
+
+/// Get the current Waybar style CSS content.
+#[tauri::command]
+pub fn get_waybar_style_css() -> Result<String, String> {
+    let mut service = WaybarConfigService::new().map_err(|err| err.to_string())?;
+    let snapshot = service.load_snapshot().map_err(|err| err.to_string())?;
+    Ok(snapshot.style_css)
+}
+
+/// Save Waybar style CSS content to the active profile.
+#[tauri::command]
+pub fn save_waybar_style_css(style_css: String) -> Result<String, String> {
+    let mut service = WaybarConfigService::new().map_err(|err| err.to_string())?;
+    let snapshot = service.load_snapshot().map_err(|err| err.to_string())?;
+
+    // Create a payload with the current config but updated CSS
+    let payload = SaveWaybarConfigPayload {
+        layout: snapshot.layout,
+        globals: snapshot.globals,
+        modules: snapshot.modules,
+        passthrough: snapshot.passthrough,
+        style_css: Some(style_css),
+    };
+
+    let updated_snapshot = service
+        .save_snapshot(&payload)
+        .map_err(|err| err.to_string())?;
+    Ok(updated_snapshot.style_css)
+}

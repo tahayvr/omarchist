@@ -30,6 +30,8 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         commands::waybar::create_waybar_profile,
         commands::waybar::select_waybar_profile,
         commands::waybar::delete_waybar_profile,
+        commands::waybar::get_waybar_style_css,
+        commands::waybar::save_waybar_style_css,
         // Omarchy commands
         commands::omarchy::run_update_script,
         commands::omarchy::get_omarchy_version,
