@@ -444,115 +444,153 @@
 						</h3>
 					</div>
 
-					<!-- Left Section Styling -->
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Left Margin (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.leftMargin ?? 8}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('leftMargin', event.target.value)}
-						/>
+					<!-- Left Section -->
+					<div class="col-span-2">
+						<Card.Root class="border-muted/50">
+							<Card.Header class="pb-3">
+								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
+									Left Section
+								</Card.Title>
+							</Card.Header>
+							<Card.Content class="space-y-3">
+								<div class="flex items-center gap-4">
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Margin (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.leftMargin ?? 8}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) => handleGlobalValueChange('leftMargin', event.target.value)}
+										/>
+									</div>
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Padding (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.leftPadding ?? 0}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) =>
+												handleGlobalValueChange('leftPadding', event.target.value)}
+										/>
+									</div>
+								</div>
+								<div>
+									<ColorPickerWaybar
+										label="Background"
+										bind:color={config.globals.leftBackground}
+										on:change={(e) => handleGlobalValueChange('leftBackground', e.detail)}
+									/>
+								</div>
+							</Card.Content>
+						</Card.Root>
 					</div>
 
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Left Padding (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.leftPadding ?? 0}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('leftPadding', event.target.value)}
-						/>
+					<!-- Center Section -->
+					<div class="col-span-2">
+						<Card.Root class="border-muted/50">
+							<Card.Header class="pb-3">
+								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
+									Center Section
+								</Card.Title>
+							</Card.Header>
+							<Card.Content class="space-y-3">
+								<div class="flex items-center gap-4">
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Margin (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.centerMargin ?? 0}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) =>
+												handleGlobalValueChange('centerMargin', event.target.value)}
+										/>
+									</div>
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Padding (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.centerPadding ?? 0}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) =>
+												handleGlobalValueChange('centerPadding', event.target.value)}
+										/>
+									</div>
+								</div>
+								<div>
+									<ColorPickerWaybar
+										label="Background"
+										bind:color={config.globals.centerBackground}
+										on:change={(e) => handleGlobalValueChange('centerBackground', e.detail)}
+									/>
+								</div>
+							</Card.Content>
+						</Card.Root>
 					</div>
 
-					<div class="space-y-2">
-						<ColorPickerWaybar
-							label="Left Background"
-							bind:color={config.globals.leftBackground}
-							on:change={(e) => handleGlobalValueChange('leftBackground', e.detail)}
-						/>
-					</div>
-
-					<!-- Center Section Styling -->
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Center Margin (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.centerMargin ?? 0}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('centerMargin', event.target.value)}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Center Padding (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.centerPadding ?? 0}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('centerPadding', event.target.value)}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<ColorPickerWaybar
-							label="Center Background"
-							bind:color={config.globals.centerBackground}
-							on:change={(e) => handleGlobalValueChange('centerBackground', e.detail)}
-						/>
-					</div>
-
-					<!-- Right Section Styling -->
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Right Margin (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.rightMargin ?? 8}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('rightMargin', event.target.value)}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<Label class="text-[0.65rem] font-semibold uppercase">Right Padding (px)</Label>
-						<Input
-							type="number"
-							class="w-24 uppercase"
-							value={config.globals.rightPadding ?? 0}
-							min={0}
-							max={64}
-							step={1}
-							disabled={isBusy}
-							oninput={(event) => handleGlobalValueChange('rightPadding', event.target.value)}
-						/>
-					</div>
-
-					<div class="space-y-2">
-						<ColorPickerWaybar
-							label="Right Background"
-							bind:color={config.globals.rightBackground}
-							on:change={(e) => handleGlobalValueChange('rightBackground', e.detail)}
-						/>
+					<!-- Right Section -->
+					<div class="col-span-2">
+						<Card.Root class="border-muted/50">
+							<Card.Header class="pb-3">
+								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
+									Right Section
+								</Card.Title>
+							</Card.Header>
+							<Card.Content class="space-y-3">
+								<div class="flex items-center gap-4">
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Margin (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.rightMargin ?? 8}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) =>
+												handleGlobalValueChange('rightMargin', event.target.value)}
+										/>
+									</div>
+									<div class="flex-1 space-y-2">
+										<Label class="text-[0.65rem] font-semibold uppercase">Padding (px)</Label>
+										<Input
+											type="number"
+											class="w-24 uppercase"
+											value={config.globals.rightPadding ?? 0}
+											min={0}
+											max={64}
+											step={1}
+											disabled={isBusy}
+											oninput={(event) =>
+												handleGlobalValueChange('rightPadding', event.target.value)}
+										/>
+									</div>
+								</div>
+								<div>
+									<ColorPickerWaybar
+										label="Background"
+										bind:color={config.globals.rightBackground}
+										on:change={(e) => handleGlobalValueChange('rightBackground', e.detail)}
+									/>
+								</div>
+							</Card.Content>
+						</Card.Root>
 					</div>
 				</Card.Content>
 			</Card.Root>
