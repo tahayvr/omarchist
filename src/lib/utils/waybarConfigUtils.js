@@ -394,6 +394,7 @@ export function initializeWaybarConfigState() {
 	return {
 		layout: cloneLayout(),
 		modules: cloneModules(),
+		moduleStyles: {}, // Per-module CSS styles
 		globals: cloneGlobals(),
 		passthrough: clone(DEFAULT_PASSTHROUGH),
 		styleCss: '',
@@ -470,6 +471,15 @@ export function applySnapshotToState(state, snapshot) {
 	} else {
 		state.passthrough = clone(DEFAULT_PASSTHROUGH);
 	}
+
+	// Load module styles from _omarchist section if present
+	const omarchist = snapshot?.passthrough?._omarchist;
+	if (omarchist && typeof omarchist === 'object' && omarchist.moduleStyles) {
+		state.moduleStyles = clone(omarchist.moduleStyles);
+	} else {
+		state.moduleStyles = {};
+	}
+
 	state.styleCss = typeof snapshot?.style_css === 'string' ? snapshot.style_css : '';
 	state.raw = snapshot?.raw_json ?? null;
 	state.profileId = snapshot?.profile_id ?? state.profileId ?? null;
@@ -540,7 +550,8 @@ function buildSavePayload(state) {
 		modules: state.modules,
 		globals: state.globals,
 		passthrough: state.passthrough ?? {},
-		style_css: state.styleCss || null
+		style_css: state.styleCss || null,
+		module_styles: state.moduleStyles || {}
 	};
 }
 
@@ -630,6 +641,21 @@ export function updateWaybarGlobals(state, key, value) {
 export function updateWaybarStyleCss(state, styleCss) {
 	state.styleCss = typeof styleCss === 'string' ? styleCss : '';
 	markWaybarDirty(state);
+}
+
+export function updateModuleStyle(state, moduleId, style) {
+	if (!moduleId) {
+		return;
+	}
+	state.moduleStyles = {
+		...state.moduleStyles,
+		[moduleId]: style || {}
+	};
+	markWaybarDirty(state);
+}
+
+export function getModuleStyle(state, moduleId) {
+	return state.moduleStyles?.[moduleId] || {};
 }
 
 export function updateWaybarModule(state, moduleId, updater) {

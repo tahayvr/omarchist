@@ -74,6 +74,7 @@ pub fn save_waybar_style_css(style_css: String) -> Result<String, String> {
         modules: snapshot.modules,
         passthrough: snapshot.passthrough,
         style_css: Some(style_css),
+        module_styles: Default::default(), // Keep existing module styles
     };
 
     let updated_snapshot = service

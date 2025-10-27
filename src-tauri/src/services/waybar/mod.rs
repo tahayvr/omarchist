@@ -197,6 +197,8 @@ pub struct SaveWaybarConfigPayload {
     pub modules: BTreeMap<String, Value>,
     pub passthrough: Value,
     pub style_css: Option<String>,
+    #[serde(default)]
+    pub module_styles: BTreeMap<String, Value>,
 }
 
 pub struct WaybarConfigService {
@@ -341,16 +343,31 @@ impl WaybarConfigService {
             root_map.insert((*key).to_string(), value);
         }
 
-        // Remove any existing _omarchist section since we're storing styling in CSS now
-        root_map.remove("_omarchist");
+        // Store module styles in _omarchist section if present
+        if !payload.module_styles.is_empty() {
+            let mut omarchist = Map::new();
+            omarchist.insert(
+                "moduleStyles".to_string(),
+                Value::Object(
+                    payload
+                        .module_styles
+                        .iter()
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect(),
+                ),
+            );
+            root_map.insert("_omarchist".to_string(), Value::Object(omarchist));
+        } else {
+            root_map.remove("_omarchist");
+        }
 
         let config_value = Value::Object(root_map);
         let profile_path = self.profile_config_path(&active_id);
         write_value_to_path(&profile_path, &config_value)?;
         write_value_to_path(&self.config_path, &config_value)?;
 
-        // Handle CSS styling - generate from globals
-        let style_css = generate_style_css(&payload.globals);
+        // Handle CSS styling - generate from globals and module styles
+        let style_css = generate_style_css(&payload.globals, &payload.module_styles);
         let profile_style_path = self.profile_style_path(&active_id);
         write_style_to_path(&profile_style_path, &style_css)?;
         write_style_to_path(&self.style_path, &style_css)?;
@@ -408,7 +425,7 @@ impl WaybarConfigService {
 
         let value = default_root_value();
         let globals = WaybarGlobals::default();
-        let style_css = generate_style_css(&globals);
+        let style_css = generate_style_css(&globals, &BTreeMap::new());
         let profile_path = self.profile_config_path(&candidate);
         let profile_style_path = self.profile_style_path(&candidate);
         write_value_to_path(&profile_path, &value)?;
@@ -1128,7 +1145,7 @@ fn default_root_value() -> Value {
 }
 
 fn default_style_css() -> String {
-    generate_style_css(&WaybarGlobals::default())
+    generate_style_css(&WaybarGlobals::default(), &BTreeMap::new())
 }
 
 fn parse_globals_from_css(css: &str, mut globals: WaybarGlobals) -> WaybarGlobals {
@@ -1248,7 +1265,61 @@ fn parse_globals_from_css(css: &str, mut globals: WaybarGlobals) -> WaybarGlobal
     globals
 }
 
-fn generate_style_css(globals: &WaybarGlobals) -> String {
+fn generate_module_styles_css(module_styles: &BTreeMap<String, Value>) -> String {
+    let mut css = String::new();
+
+    for (module_id, style_obj) in module_styles {
+        if let Some(style_map) = style_obj.as_object() {
+            if style_map.is_empty() {
+                continue;
+            }
+
+            // Generate proper CSS selector based on Waybar conventions
+            let css_id = if module_id.starts_with("hyprland/") {
+                // hyprland/workspaces -> workspaces
+                module_id
+                    .strip_prefix("hyprland/")
+                    .unwrap_or(module_id)
+                    .to_string()
+            } else if module_id.starts_with("sway/") {
+                // sway/workspaces -> workspaces
+                module_id
+                    .strip_prefix("sway/")
+                    .unwrap_or(module_id)
+                    .to_string()
+            } else {
+                // custom/omarchy -> custom-omarchy, others stay the same
+                module_id.replace('/', "-")
+            };
+            css.push_str(&format!("#{} {{\n", css_id));
+
+            // Add each style property
+            for (prop, value) in style_map {
+                if let Some(val_str) = value.as_str() {
+                    if !val_str.is_empty() {
+                        // Convert camelCase to kebab-case
+                        let kebab_prop = prop.chars().fold(String::new(), |mut acc, c| {
+                            if c.is_uppercase() {
+                                acc.push('-');
+                                acc.push(c.to_lowercase().next().unwrap());
+                            } else {
+                                acc.push(c);
+                            }
+                            acc
+                        });
+                        css.push_str(&format!("  {}: {};\n", kebab_prop, val_str));
+                    }
+                }
+            }
+
+            css.push_str("}\n\n");
+        }
+    }
+
+    css
+}
+
+fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, Value>) -> String {
     let mut css = String::new();
 
     // Import theme variables
@@ -1350,7 +1421,10 @@ fn generate_style_css(globals: &WaybarGlobals) -> String {
 
     css.push_str("#custom-screenrecording-indicator.active {\n");
     css.push_str("  color: #a55555;\n");
-    css.push_str("}\n");
+    css.push_str("}\n\n");
+
+    // Add module-specific styles
+    css.push_str(&generate_module_styles_css(module_styles));
 
     css
 }
@@ -1442,7 +1516,7 @@ mod tests {
         globals.left_margin = 15.0;
         globals.left_background = "#fedcba".to_string();
 
-        let css = generate_style_css(&globals);
+        let css = generate_style_css(&globals, &BTreeMap::new());
         let parsed = parse_globals_from_css(&css, WaybarGlobals::default());
 
         assert_eq!(parsed.background, globals.background);
@@ -1458,7 +1532,7 @@ mod tests {
         globals.center_padding = 5.0;
         globals.right_padding = 8.0;
 
-        let css = generate_style_css(&globals);
+        let css = generate_style_css(&globals, &BTreeMap::new());
 
         // Verify padding is in CSS
         assert!(css.contains("padding: 10px;"));
@@ -1475,9 +1549,66 @@ mod tests {
     #[test]
     fn zero_padding_is_not_generated() {
         let globals = WaybarGlobals::default(); // All padding is 0.0
-        let css = generate_style_css(&globals);
+        let css = generate_style_css(&globals, &BTreeMap::new());
 
         // Verify no padding in CSS when it's 0
         assert!(!css.contains("padding:"));
+    }
+
+    #[test]
+    fn module_styles_generate_correct_css_selectors() {
+        let mut module_styles = BTreeMap::new();
+
+        // Test custom module
+        let mut custom_style = Map::new();
+        custom_style.insert("color".to_string(), Value::String("#ff0000".to_string()));
+        module_styles.insert("custom/omarchy".to_string(), Value::Object(custom_style));
+
+        // Test hyprland module
+        let mut hyprland_style = Map::new();
+        hyprland_style.insert(
+            "background".to_string(),
+            Value::String("#00ff00".to_string()),
+        );
+        module_styles.insert(
+            "hyprland/workspaces".to_string(),
+            Value::Object(hyprland_style),
+        );
+
+        // Test regular module
+        let mut regular_style = Map::new();
+        regular_style.insert("fontSize".to_string(), Value::String("14px".to_string()));
+        module_styles.insert("clock".to_string(), Value::Object(regular_style));
+
+        let css = generate_module_styles_css(&module_styles);
+
+        // Custom modules: custom/omarchy -> #custom-omarchy
+        assert!(css.contains("#custom-omarchy {"));
+        assert!(!css.contains("#custom/omarchy"));
+        assert!(css.contains("color: #ff0000;"));
+
+        // Hyprland modules: hyprland/workspaces -> #workspaces
+        assert!(css.contains("#workspaces {"));
+        assert!(!css.contains("#hyprland-workspaces"));
+        assert!(css.contains("background: #00ff00;"));
+
+        // Regular modules: clock -> #clock
+        assert!(css.contains("#clock {"));
+        assert!(css.contains("font-size: 14px;"));
+    }
+
+    #[test]
+    fn module_styles_converts_camel_case() {
+        let mut module_styles = BTreeMap::new();
+        let mut style = Map::new();
+        style.insert("fontSize".to_string(), Value::String("14px".to_string()));
+        style.insert("fontWeight".to_string(), Value::String("bold".to_string()));
+        module_styles.insert("clock".to_string(), Value::Object(style));
+
+        let css = generate_module_styles_css(&module_styles);
+
+        assert!(css.contains("#clock {"));
+        assert!(css.contains("font-size: 14px;"));
+        assert!(css.contains("font-weight: bold;"));
     }
 }

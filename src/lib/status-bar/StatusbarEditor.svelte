@@ -27,7 +27,9 @@
 		listWaybarProfiles,
 		createWaybarProfile,
 		selectWaybarProfile,
-		deleteWaybarProfile
+		deleteWaybarProfile,
+		updateModuleStyle,
+		getModuleStyle
 	} from '$lib/utils/waybarConfigUtils.js';
 	import ColorPickerField from '$lib/themeDesigner/ColorPickerField.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -270,6 +272,13 @@
 			return;
 		}
 		setModuleConfig(config, moduleId, moduleConfig);
+	}
+
+	function handleModuleStyleChange(moduleId, moduleStyle) {
+		if (!moduleId || !moduleStyle || typeof moduleStyle !== 'object') {
+			return;
+		}
+		updateModuleStyle(config, moduleId, moduleStyle);
 	}
 
 	function handleLayoutReorder(event) {
@@ -599,9 +608,11 @@
 				{getRegion}
 				getFields={getModuleFieldsFor}
 				getConfig={getModuleConfig}
+				getStyle={getModuleStyle}
 				onRegionChange={handleRegionChange}
 				onFieldChange={handleModuleFieldChange}
 				onConfigChange={handleModuleConfigChange}
+				onStyleChange={handleModuleStyleChange}
 				disabled={isBusy}
 			/>
 		</div>

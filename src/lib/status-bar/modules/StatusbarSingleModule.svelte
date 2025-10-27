@@ -3,6 +3,7 @@
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
 	import StatusbarModuleDialog from './StatusbarModuleDialog.svelte';
+	import StatusbarModuleStyleDialog from './StatusbarModuleStyleDialog.svelte';
 	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
 	let {
@@ -10,6 +11,7 @@
 		position = $bindable('hidden'),
 		fields = [],
 		config = {},
+		style = {},
 		disabled = false
 	} = $props();
 
@@ -28,6 +30,14 @@
 			return;
 		}
 		dispatch('configChange', { moduleId: module.id, config: nextConfig });
+	}
+
+	function handleStyleChange(event) {
+		const { style: nextStyle } = event.detail ?? {};
+		if (!nextStyle || typeof nextStyle !== 'object') {
+			return;
+		}
+		dispatch('styleChange', { moduleId: module.id, style: nextStyle });
 	}
 </script>
 
@@ -53,8 +63,9 @@
 			<ToggleGroup.Item value="hidden" class="uppercase">Hidden</ToggleGroup.Item>
 		</ToggleGroup.Root>
 
-		{#if showConfigButton}
-			<div class="mt-4 flex items-center justify-end">
+		<div class="mt-4 flex items-center justify-end gap-2">
+			<StatusbarModuleStyleDialog {module} {style} {disabled} on:styleChange={handleStyleChange} />
+			{#if showConfigButton}
 				<StatusbarModuleDialog
 					{module}
 					{config}
@@ -62,7 +73,7 @@
 					{fields}
 					on:configChange={handleDialogConfigChange}
 				/>
-			</div>
-		{/if}
+			{/if}
+		</div>
 	</Card.Content>
 </Card.Root>
