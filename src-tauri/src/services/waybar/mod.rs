@@ -1291,9 +1291,18 @@ fn generate_module_styles_css(module_styles: &BTreeMap<String, Value>) -> String
                 // custom/omarchy -> custom-omarchy, others stay the same
                 module_id.replace('/', "-")
             };
-            css.push_str(&format!("#{} {{\n", css_id));
 
-            // Add each style property
+            // Some modules need specific sub-selectors for certain properties
+            // workspaces: font properties go on button, others on the container
+            let is_workspaces = css_id == "workspaces";
+
+            // Properties that should go on #workspaces button for workspaces module
+            let button_props = ["font-size", "font-weight", "font-family", "color"];
+
+            // Separate properties into container and button styles
+            let mut container_styles = Vec::new();
+            let mut button_styles = Vec::new();
+
             for (prop, value) in style_map {
                 if let Some(val_str) = value.as_str() {
                     if !val_str.is_empty() {
@@ -1307,12 +1316,33 @@ fn generate_module_styles_css(module_styles: &BTreeMap<String, Value>) -> String
                             }
                             acc
                         });
-                        css.push_str(&format!("  {}: {};\n", kebab_prop, val_str));
+
+                        if is_workspaces && button_props.contains(&kebab_prop.as_str()) {
+                            button_styles.push((kebab_prop, val_str.to_string()));
+                        } else {
+                            container_styles.push((kebab_prop, val_str.to_string()));
+                        }
                     }
                 }
             }
 
-            css.push_str("}\n\n");
+            // Generate container styles if any
+            if !container_styles.is_empty() {
+                css.push_str(&format!("#{} {{\n", css_id));
+                for (prop, val) in container_styles {
+                    css.push_str(&format!("  {}: {};\n", prop, val));
+                }
+                css.push_str("}\n\n");
+            }
+
+            // Generate button styles for workspaces if any
+            if is_workspaces && !button_styles.is_empty() {
+                css.push_str(&format!("#{} button {{\n", css_id));
+                for (prop, val) in button_styles {
+                    css.push_str(&format!("  {}: {};\n", prop, val));
+                }
+                css.push_str("}\n\n");
+            }
         }
     }
 
@@ -1564,12 +1594,14 @@ mod tests {
         custom_style.insert("color".to_string(), Value::String("#ff0000".to_string()));
         module_styles.insert("custom/omarchy".to_string(), Value::Object(custom_style));
 
-        // Test hyprland module
+        // Test hyprland workspaces with mixed properties
         let mut hyprland_style = Map::new();
         hyprland_style.insert(
             "background".to_string(),
             Value::String("#00ff00".to_string()),
         );
+        hyprland_style.insert("fontSize".to_string(), Value::String("16px".to_string()));
+        hyprland_style.insert("fontWeight".to_string(), Value::String("bold".to_string()));
         module_styles.insert(
             "hyprland/workspaces".to_string(),
             Value::Object(hyprland_style),
@@ -1587,14 +1619,20 @@ mod tests {
         assert!(!css.contains("#custom/omarchy"));
         assert!(css.contains("color: #ff0000;"));
 
-        // Hyprland modules: hyprland/workspaces -> #workspaces
+        // Hyprland workspaces: hyprland/workspaces -> #workspaces
+        // Background goes on container
         assert!(css.contains("#workspaces {"));
-        assert!(!css.contains("#hyprland-workspaces"));
         assert!(css.contains("background: #00ff00;"));
+        // Font properties go on button
+        assert!(css.contains("#workspaces button {"));
+        assert!(css.contains("font-size: 16px;"));
+        assert!(css.contains("font-weight: bold;"));
+        assert!(!css.contains("#hyprland-workspaces"));
 
-        // Regular modules: clock -> #clock
+        // Regular modules: clock -> #clock (font-size on container)
         assert!(css.contains("#clock {"));
         assert!(css.contains("font-size: 14px;"));
+        assert!(!css.contains("#clock button"));
     }
 
     #[test]
@@ -1610,5 +1648,38 @@ mod tests {
         assert!(css.contains("#clock {"));
         assert!(css.contains("font-size: 14px;"));
         assert!(css.contains("font-weight: bold;"));
+    }
+
+    #[test]
+    fn workspaces_button_selector_for_font_properties() {
+        let mut module_styles = BTreeMap::new();
+        let mut style = Map::new();
+
+        // Font properties should go on button
+        style.insert("fontSize".to_string(), Value::String("16px".to_string()));
+        style.insert("fontWeight".to_string(), Value::String("bold".to_string()));
+        style.insert("color".to_string(), Value::String("#ffffff".to_string()));
+
+        // Non-font properties should go on container
+        style.insert(
+            "background".to_string(),
+            Value::String("#000000".to_string()),
+        );
+        style.insert("padding".to_string(), Value::String("5px".to_string()));
+
+        module_styles.insert("hyprland/workspaces".to_string(), Value::Object(style));
+
+        let css = generate_module_styles_css(&module_styles);
+
+        // Container styles
+        assert!(css.contains("#workspaces {"));
+        assert!(css.contains("background: #000000;"));
+        assert!(css.contains("padding: 5px;"));
+
+        // Button styles
+        assert!(css.contains("#workspaces button {"));
+        assert!(css.contains("font-size: 16px;"));
+        assert!(css.contains("font-weight: bold;"));
+        assert!(css.contains("color: #ffffff;"));
     }
 }
