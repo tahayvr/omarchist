@@ -30,6 +30,8 @@
 		deleteWaybarProfile
 	} from '$lib/utils/waybarConfigUtils.js';
 	import ColorPickerField from '$lib/themeDesigner/ColorPickerField.svelte';
+	import { Separator } from '$lib/components/ui/separator/index.js';
+	import ColorPickerWaybar from './ColorPickerWaybar.svelte';
 
 	const config = $state(initializeWaybarConfigState());
 	const moduleDefinitions = KNOWN_MODULES;
@@ -413,8 +415,145 @@
 							{/if}
 						</div>
 					{/each}
-					<ColorPickerField label="Background Color" />
-					<ColorPickerField label="Foreground Color" />
+
+					<div class="col-span-2">
+						<Separator class="my-4" />
+					</div>
+
+					<!-- Bar Colors -->
+					<div class="space-y-2">
+						<ColorPickerWaybar
+							label="Bar Background"
+							bind:color={config.globals.background}
+							on:change={(e) => handleGlobalValueChange('background', e.detail)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<ColorPickerField
+							label="Bar Foreground"
+							bind:color={config.globals.foreground}
+							on:change={(e) => handleGlobalValueChange('foreground', e.detail)}
+						/>
+					</div>
+
+					<div class="col-span-2">
+						<Separator class="my-4" />
+						<h3 class="text-accent-foreground mb-3 text-sm font-semibold uppercase">
+							Module Section Styling
+						</h3>
+					</div>
+
+					<!-- Left Section Styling -->
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Left Margin (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.leftMargin ?? 8}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('leftMargin', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Left Padding (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.leftPadding ?? 0}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('leftPadding', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<ColorPickerWaybar
+							label="Left Background"
+							bind:color={config.globals.leftBackground}
+							on:change={(e) => handleGlobalValueChange('leftBackground', e.detail)}
+						/>
+					</div>
+
+					<!-- Center Section Styling -->
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Center Margin (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.centerMargin ?? 0}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('centerMargin', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Center Padding (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.centerPadding ?? 0}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('centerPadding', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<ColorPickerWaybar
+							label="Center Background"
+							bind:color={config.globals.centerBackground}
+							on:change={(e) => handleGlobalValueChange('centerBackground', e.detail)}
+						/>
+					</div>
+
+					<!-- Right Section Styling -->
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Right Margin (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.rightMargin ?? 8}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('rightMargin', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<Label class="text-[0.65rem] font-semibold uppercase">Right Padding (px)</Label>
+						<Input
+							type="number"
+							class="w-24 uppercase"
+							value={config.globals.rightPadding ?? 0}
+							min={0}
+							max={64}
+							step={1}
+							disabled={isBusy}
+							oninput={(event) => handleGlobalValueChange('rightPadding', event.target.value)}
+						/>
+					</div>
+
+					<div class="space-y-2">
+						<ColorPickerWaybar
+							label="Right Background"
+							bind:color={config.globals.rightBackground}
+							on:change={(e) => handleGlobalValueChange('rightBackground', e.detail)}
+						/>
+					</div>
 				</Card.Content>
 			</Card.Root>
 			<StatusbarModules

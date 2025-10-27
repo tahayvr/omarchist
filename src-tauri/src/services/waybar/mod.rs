@@ -65,6 +65,7 @@ pub struct WaybarLayout {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct WaybarGlobals {
     pub layer: String,
     pub position: String,
@@ -72,6 +73,24 @@ pub struct WaybarGlobals {
     pub spacing: f64,
     pub background: String,
     pub foreground: String,
+    #[serde(default)]
+    pub left_margin: f64,
+    #[serde(default)]
+    pub left_padding: f64,
+    #[serde(default)]
+    pub left_background: String,
+    #[serde(default)]
+    pub center_margin: f64,
+    #[serde(default)]
+    pub center_padding: f64,
+    #[serde(default)]
+    pub center_background: String,
+    #[serde(default)]
+    pub right_margin: f64,
+    #[serde(default)]
+    pub right_padding: f64,
+    #[serde(default)]
+    pub right_background: String,
 }
 
 impl Default for WaybarGlobals {
@@ -83,6 +102,15 @@ impl Default for WaybarGlobals {
             spacing: 0.0,
             background: "#1e1e1e".to_string(),
             foreground: "#d4d4d8".to_string(),
+            left_margin: 8.0,
+            left_padding: 0.0,
+            left_background: String::new(),
+            center_margin: 0.0,
+            center_padding: 0.0,
+            center_background: String::new(),
+            right_margin: 8.0,
+            right_padding: 0.0,
+            right_background: String::new(),
         }
     }
 }
@@ -313,42 +341,16 @@ impl WaybarConfigService {
             root_map.insert((*key).to_string(), value);
         }
 
-        let mut omarchist = match root_map.remove("_omarchist") {
-            Some(Value::Object(map)) => map,
-            _ => Map::new(),
-        };
-        let mut globals_map = Map::new();
-
-        if payload.globals.background != global_defaults.background {
-            globals_map.insert(
-                "background".to_string(),
-                Value::String(payload.globals.background.clone()),
-            );
-        }
-        if payload.globals.foreground != global_defaults.foreground {
-            globals_map.insert(
-                "foreground".to_string(),
-                Value::String(payload.globals.foreground.clone()),
-            );
-        }
-
-        if !globals_map.is_empty() {
-            omarchist.insert("globals".to_string(), Value::Object(globals_map));
-        }
-        if !omarchist.is_empty() {
-            root_map.insert("_omarchist".to_string(), Value::Object(omarchist));
-        }
+        // Remove any existing _omarchist section since we're storing styling in CSS now
+        root_map.remove("_omarchist");
 
         let config_value = Value::Object(root_map);
         let profile_path = self.profile_config_path(&active_id);
         write_value_to_path(&profile_path, &config_value)?;
         write_value_to_path(&self.config_path, &config_value)?;
 
-        // Handle CSS styling
-        let style_css = payload
-            .style_css
-            .clone()
-            .unwrap_or_else(|| default_style_css());
+        // Handle CSS styling - generate from globals
+        let style_css = generate_style_css(&payload.globals);
         let profile_style_path = self.profile_style_path(&active_id);
         write_style_to_path(&profile_style_path, &style_css)?;
         write_style_to_path(&self.style_path, &style_css)?;
@@ -405,7 +407,8 @@ impl WaybarConfigService {
         self.manifest.active_profile_id = Some(candidate.clone());
 
         let value = default_root_value();
-        let style_css = default_style_css();
+        let globals = WaybarGlobals::default();
+        let style_css = generate_style_css(&globals);
         let profile_path = self.profile_config_path(&candidate);
         let profile_style_path = self.profile_style_path(&candidate);
         write_value_to_path(&profile_path, &value)?;
@@ -715,22 +718,8 @@ impl WaybarConfigService {
             globals.spacing = spacing;
         }
 
-        if let Some(Value::Object(omarchist)) = root_map.get_mut("_omarchist") {
-            if let Some(Value::Object(globals_obj)) = omarchist.remove("globals") {
-                if let Some(height) = globals_obj.get("height").and_then(|v| v.as_f64()) {
-                    globals.height = height;
-                }
-                if let Some(background) = globals_obj.get("background").and_then(|v| v.as_str()) {
-                    globals.background = background.to_string();
-                }
-                if let Some(foreground) = globals_obj.get("foreground").and_then(|v| v.as_str()) {
-                    globals.foreground = foreground.to_string();
-                }
-            }
-            if omarchist.is_empty() {
-                root_map.remove("_omarchist");
-            }
-        }
+        // Parse CSS to extract styling values
+        globals = parse_globals_from_css(&style_css, globals);
 
         let mut modules = default_modules_map();
         for key in KNOWN_MODULE_KEYS {
@@ -1139,82 +1128,231 @@ fn default_root_value() -> Value {
 }
 
 fn default_style_css() -> String {
-    r#"@import "../omarchy/current/theme/waybar.css";
-
-* {
-  background-color: @background;
-  color: @foreground;
-
-  border: none;
-  border-radius: 0;
-  min-height: 0;
-  font-family: CaskaydiaMono Nerd Font;
-  font-size: 12px;
+    generate_style_css(&WaybarGlobals::default())
 }
 
-.modules-left {
-  margin-left: 8px;
+fn parse_globals_from_css(css: &str, mut globals: WaybarGlobals) -> WaybarGlobals {
+    use regex::Regex;
+
+    // Parse background-color from * selector
+    if let Ok(re) = Regex::new(r"\*\s*\{[^}]*background-color:\s*([^;]+);") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(color) = caps.get(1) {
+                globals.background = color.as_str().trim().to_string();
+            }
+        }
+    }
+
+    // Parse color (foreground) from * selector
+    if let Ok(re) = Regex::new(r"\*\s*\{[^}]*color:\s*([^;]+);") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(color) = caps.get(1) {
+                globals.foreground = color.as_str().trim().to_string();
+            }
+        }
+    }
+
+    // Parse .modules-left margin-left
+    if let Ok(re) = Regex::new(r"\.modules-left\s*\{[^}]*margin-left:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(margin) = caps.get(1) {
+                if let Ok(value) = margin.as_str().parse::<f64>() {
+                    globals.left_margin = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-left padding
+    if let Ok(re) = Regex::new(r"\.modules-left\s*\{[^}]*padding:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(padding) = caps.get(1) {
+                if let Ok(value) = padding.as_str().parse::<f64>() {
+                    globals.left_padding = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-left background
+    if let Ok(re) = Regex::new(r"\.modules-left\s*\{[^}]*background:\s*([^;]+);") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(color) = caps.get(1) {
+                globals.left_background = color.as_str().trim().to_string();
+            }
+        }
+    }
+
+    // Parse .modules-center margins
+    if let Ok(re) = Regex::new(r"\.modules-center\s*\{[^}]*margin-left:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(margin) = caps.get(1) {
+                if let Ok(value) = margin.as_str().parse::<f64>() {
+                    globals.center_margin = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-center padding
+    if let Ok(re) = Regex::new(r"\.modules-center\s*\{[^}]*padding:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(padding) = caps.get(1) {
+                if let Ok(value) = padding.as_str().parse::<f64>() {
+                    globals.center_padding = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-center background
+    if let Ok(re) = Regex::new(r"\.modules-center\s*\{[^}]*background:\s*([^;]+);") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(color) = caps.get(1) {
+                globals.center_background = color.as_str().trim().to_string();
+            }
+        }
+    }
+
+    // Parse .modules-right margin-right
+    if let Ok(re) = Regex::new(r"\.modules-right\s*\{[^}]*margin-right:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(margin) = caps.get(1) {
+                if let Ok(value) = margin.as_str().parse::<f64>() {
+                    globals.right_margin = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-right padding
+    if let Ok(re) = Regex::new(r"\.modules-right\s*\{[^}]*padding:\s*([0-9.]+)px") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(padding) = caps.get(1) {
+                if let Ok(value) = padding.as_str().parse::<f64>() {
+                    globals.right_padding = value;
+                }
+            }
+        }
+    }
+
+    // Parse .modules-right background
+    if let Ok(re) = Regex::new(r"\.modules-right\s*\{[^}]*background:\s*([^;]+);") {
+        if let Some(caps) = re.captures(css) {
+            if let Some(color) = caps.get(1) {
+                globals.right_background = color.as_str().trim().to_string();
+            }
+        }
+    }
+
+    globals
 }
 
-.modules-right {
-  margin-right: 8px;
-}
+fn generate_style_css(globals: &WaybarGlobals) -> String {
+    let mut css = String::new();
 
-#workspaces button {
-  all: initial;
-  padding: 0 6px;
-  margin: 0 1.5px;
-  min-width: 9px;
-}
+    // Import theme variables
+    css.push_str("@import \"../omarchy/current/theme/waybar.css\";\n\n");
 
-#workspaces button.empty {
-  opacity: 0.5;
-}
+    // Base styles with custom or theme colors
+    css.push_str("* {\n");
+    css.push_str(&format!("  background-color: {};\n", globals.background));
+    css.push_str(&format!("  color: {};\n", globals.foreground));
+    css.push_str("  border: none;\n");
+    css.push_str("  border-radius: 0;\n");
+    css.push_str("  min-height: 0;\n");
+    css.push_str("  font-family: CaskaydiaMono Nerd Font;\n");
+    css.push_str("  font-size: 12px;\n");
+    css.push_str("}\n\n");
 
-#tray,
-#cpu,
-#battery,
-#network,
-#bluetooth,
-#pulseaudio,
-#custom-omarchy,
-#custom-screenrecording-indicator,
-#custom-update {
-  min-width: 12px;
-  margin: 0 7.5px;
-}
+    // Module section styles with custom backgrounds, margins, and padding
+    css.push_str(".modules-left {\n");
+    css.push_str(&format!("  margin-left: {}px;\n", globals.left_margin));
+    if globals.left_padding > 0.0 {
+        css.push_str(&format!("  padding: {}px;\n", globals.left_padding));
+    }
+    if !globals.left_background.is_empty() {
+        css.push_str(&format!("  background: {};\n", globals.left_background));
+    }
+    css.push_str("}\n\n");
 
-#custom-expand-icon {
-  margin-right: 7px;
-}
+    css.push_str(".modules-center {\n");
+    css.push_str(&format!("  margin-left: {}px;\n", globals.center_margin));
+    css.push_str(&format!("  margin-right: {}px;\n", globals.center_margin));
+    if globals.center_padding > 0.0 {
+        css.push_str(&format!("  padding: {}px;\n", globals.center_padding));
+    }
+    if !globals.center_background.is_empty() {
+        css.push_str(&format!("  background: {};\n", globals.center_background));
+    }
+    css.push_str("}\n\n");
 
-tooltip {
-  padding: 2px;
-}
+    css.push_str(".modules-right {\n");
+    css.push_str(&format!("  margin-right: {}px;\n", globals.right_margin));
+    if globals.right_padding > 0.0 {
+        css.push_str(&format!("  padding: {}px;\n", globals.right_padding));
+    }
+    if !globals.right_background.is_empty() {
+        css.push_str(&format!("  background: {};\n", globals.right_background));
+    }
+    css.push_str("}\n\n");
 
-#custom-update {
-  font-size: 10px;
-}
+    // Module-specific styles
+    css.push_str("#workspaces button {\n");
+    css.push_str("  all: initial;\n");
+    css.push_str("  padding: 0 6px;\n");
+    css.push_str("  margin: 0 1.5px;\n");
+    css.push_str("  min-width: 9px;\n");
+    css.push_str("}\n\n");
 
-#clock {
-  margin-left: 8.75px;
-}
+    css.push_str("#workspaces button.empty {\n");
+    css.push_str("  opacity: 0.5;\n");
+    css.push_str("}\n\n");
 
-.hidden {
-  opacity: 0;
-}
+    css.push_str("#tray,\n");
+    css.push_str("#cpu,\n");
+    css.push_str("#battery,\n");
+    css.push_str("#network,\n");
+    css.push_str("#bluetooth,\n");
+    css.push_str("#pulseaudio,\n");
+    css.push_str("#custom-omarchy,\n");
+    css.push_str("#custom-screenrecording-indicator,\n");
+    css.push_str("#custom-update {\n");
+    css.push_str("  min-width: 12px;\n");
+    css.push_str("  margin: 0 7.5px;\n");
+    css.push_str("}\n\n");
 
-#custom-screenrecording-indicator {
-  min-width: 12px;
-  margin-left: 8.75px;
-  font-size: 10px;
-}
+    css.push_str("#custom-expand-icon {\n");
+    css.push_str("  margin-right: 7px;\n");
+    css.push_str("}\n\n");
 
-#custom-screenrecording-indicator.active {
-  color: #a55555;
-}
-"#
-    .to_string()
+    css.push_str("tooltip {\n");
+    css.push_str("  padding: 2px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#custom-update {\n");
+    css.push_str("  font-size: 10px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#clock {\n");
+    css.push_str("  margin-left: 8.75px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str(".hidden {\n");
+    css.push_str("  opacity: 0;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#custom-screenrecording-indicator {\n");
+    css.push_str("  min-width: 12px;\n");
+    css.push_str("  margin-left: 8.75px;\n");
+    css.push_str("  font-size: 10px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#custom-screenrecording-indicator.active {\n");
+    css.push_str("  color: #a55555;\n");
+    css.push_str("}\n");
+
+    css
 }
 
 #[cfg(test)]
@@ -1273,5 +1411,73 @@ mod tests {
             Some(DEFAULT_PROFILE_ID.to_string()),
         );
         assert_eq!(snapshot.style_css, css);
+    }
+
+    #[test]
+    fn parse_globals_from_css_extracts_colors() {
+        let css = r#"
+* {
+  background-color: #ff0000;
+  color: #00ff00;
+}
+.modules-left {
+  margin-left: 10px;
+  background: #0000ff;
+}
+"#;
+        let globals = WaybarGlobals::default();
+        let parsed = parse_globals_from_css(css, globals);
+
+        assert_eq!(parsed.background, "#ff0000");
+        assert_eq!(parsed.foreground, "#00ff00");
+        assert_eq!(parsed.left_margin, 10.0);
+        assert_eq!(parsed.left_background, "#0000ff");
+    }
+
+    #[test]
+    fn generate_and_parse_css_roundtrip() {
+        let mut globals = WaybarGlobals::default();
+        globals.background = "#123456".to_string();
+        globals.foreground = "#abcdef".to_string();
+        globals.left_margin = 15.0;
+        globals.left_background = "#fedcba".to_string();
+
+        let css = generate_style_css(&globals);
+        let parsed = parse_globals_from_css(&css, WaybarGlobals::default());
+
+        assert_eq!(parsed.background, globals.background);
+        assert_eq!(parsed.foreground, globals.foreground);
+        assert_eq!(parsed.left_margin, globals.left_margin);
+        assert_eq!(parsed.left_background, globals.left_background);
+    }
+
+    #[test]
+    fn padding_is_generated_and_parsed() {
+        let mut globals = WaybarGlobals::default();
+        globals.left_padding = 10.0;
+        globals.center_padding = 5.0;
+        globals.right_padding = 8.0;
+
+        let css = generate_style_css(&globals);
+
+        // Verify padding is in CSS
+        assert!(css.contains("padding: 10px;"));
+        assert!(css.contains("padding: 5px;"));
+        assert!(css.contains("padding: 8px;"));
+
+        // Verify round-trip
+        let parsed = parse_globals_from_css(&css, WaybarGlobals::default());
+        assert_eq!(parsed.left_padding, 10.0);
+        assert_eq!(parsed.center_padding, 5.0);
+        assert_eq!(parsed.right_padding, 8.0);
+    }
+
+    #[test]
+    fn zero_padding_is_not_generated() {
+        let globals = WaybarGlobals::default(); // All padding is 0.0
+        let css = generate_style_css(&globals);
+
+        // Verify no padding in CSS when it's 0
+        assert!(!css.contains("padding:"));
     }
 }

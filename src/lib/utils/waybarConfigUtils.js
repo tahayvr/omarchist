@@ -44,7 +44,16 @@ const DEFAULT_GLOBALS = Object.freeze({
 	height: 26,
 	background: '#1e1e1e',
 	foreground: '#d4d4d8',
-	spacing: 0
+	spacing: 0,
+	leftMargin: 8,
+	leftPadding: 0,
+	leftBackground: '',
+	centerMargin: 0,
+	centerPadding: 0,
+	centerBackground: '',
+	rightMargin: 8,
+	rightPadding: 0,
+	rightBackground: ''
 });
 
 const DEFAULT_PASSTHROUGH = Object.freeze({
@@ -349,7 +358,35 @@ function cloneGlobals(source = DEFAULT_GLOBALS) {
 		background:
 			typeof source.background === 'string' ? source.background : DEFAULT_GLOBALS.background,
 		foreground:
-			typeof source.foreground === 'string' ? source.foreground : DEFAULT_GLOBALS.foreground
+			typeof source.foreground === 'string' ? source.foreground : DEFAULT_GLOBALS.foreground,
+		leftMargin: Number.isFinite(source.leftMargin) ? source.leftMargin : DEFAULT_GLOBALS.leftMargin,
+		leftPadding: Number.isFinite(source.leftPadding)
+			? source.leftPadding
+			: DEFAULT_GLOBALS.leftPadding,
+		leftBackground:
+			typeof source.leftBackground === 'string'
+				? source.leftBackground
+				: DEFAULT_GLOBALS.leftBackground,
+		centerMargin: Number.isFinite(source.centerMargin)
+			? source.centerMargin
+			: DEFAULT_GLOBALS.centerMargin,
+		centerPadding: Number.isFinite(source.centerPadding)
+			? source.centerPadding
+			: DEFAULT_GLOBALS.centerPadding,
+		centerBackground:
+			typeof source.centerBackground === 'string'
+				? source.centerBackground
+				: DEFAULT_GLOBALS.centerBackground,
+		rightMargin: Number.isFinite(source.rightMargin)
+			? source.rightMargin
+			: DEFAULT_GLOBALS.rightMargin,
+		rightPadding: Number.isFinite(source.rightPadding)
+			? source.rightPadding
+			: DEFAULT_GLOBALS.rightPadding,
+		rightBackground:
+			typeof source.rightBackground === 'string'
+				? source.rightBackground
+				: DEFAULT_GLOBALS.rightBackground
 	};
 }
 
@@ -795,6 +832,12 @@ export function sanitizeGlobalInput(key, value) {
 	switch (key) {
 		case 'height':
 		case 'spacing':
+		case 'leftMargin':
+		case 'leftPadding':
+		case 'centerMargin':
+		case 'centerPadding':
+		case 'rightMargin':
+		case 'rightPadding':
 			return coerceNumber(value, DEFAULT_GLOBALS[key]);
 		default:
 			return value;
