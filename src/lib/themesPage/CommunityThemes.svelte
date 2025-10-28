@@ -1,64 +1,110 @@
 <script>
-	import ThemeCard from '$lib/themesPage/ThemeCard.svelte';
-	import { themeCache } from '$lib/stores/themeCache.js';
+	import CommunityThemeCard from '$lib/themesPage/CommunityThemeCard.svelte';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Skeleton } from '$lib/components/ui/skeleton/index.js';
+	import { invoke } from '@tauri-apps/api/core';
 	import { onMount } from 'svelte';
 
-	let communityThemes = $state([]);
-	let localError = $state(null);
-	let hasLoaded = $state(false);
+	let themeData = $state({
+		items: [],
+		error: null,
+		isLoading: false,
+		isRefreshing: false
+	});
 
-	// Use the global loading state from theme cache
-	const { loading, error } = themeCache;
+	function transformTheme(theme) {
+		if (!theme) return null;
+		const detailUrl = theme.detail_url ?? theme.detailUrl ?? '';
+		const imageUrl = theme.image_url ?? theme.imageUrl ?? '';
+		const author = theme.author ?? '';
+		const slug = theme.slug ?? detailUrl;
+		const githubUrl = theme.github_url ?? theme.githubUrl ?? '';
+		const installCommand = theme.install_command ?? theme.installCommand ?? '';
+		const installUrl = theme.install_url ?? theme.installUrl ?? '';
 
-	async function loadCommunityThemes() {
+		return {
+			title: theme.title ?? slug ?? 'Community Theme',
+			author,
+			imageUrl,
+			detailUrl,
+			slug,
+			githubUrl,
+			installCommand,
+			installUrl
+		};
+	}
+
+	function formatErrorDetails(err) {
+		if (!err) return 'Unknown error';
+		if (typeof err === 'string') return err;
+		if (err.message) return err.message;
 		try {
-			// Use optimistic loading - don't show loading immediately for cache hits
-			const allThemes = await themeCache.get(false, true);
-			// Community themes are neither system nor custom
-			communityThemes = (allThemes || []).filter((t) => !t?.is_system && !t?.is_custom);
-			localError = null;
-		} catch (err) {
-			console.error('Failed to load community themes:', err);
-			localError = err?.message ?? String(err);
-		} finally {
-			hasLoaded = true;
+			return JSON.stringify(err);
+		} catch {
+			return String(err);
 		}
 	}
 
-	onMount(() => {
-		loadCommunityThemes();
-	});
+	async function loadCommunityThemes(forceRefresh = false) {
+		if (themeData.isLoading || themeData.isRefreshing) return;
 
-	// Use either global error or local error
-	const displayError = $derived(error.value || localError);
+	themeData.isLoading = !forceRefresh;
+	themeData.isRefreshing = forceRefresh;
+	themeData.error = null;
+
+	try {
+		const themes = await invoke('get_community_themes', { forceRefresh });
+		const mapped = (themes || []).map(transformTheme).filter(Boolean);
+		console.info('Community themes loaded', { count: mapped.length });
+		themeData.items = mapped;
+	} catch (err) {
+		console.error('Failed to load community themes:', err);
+		themeData.error = formatErrorDetails(err);
+	} finally {
+		themeData.isLoading = false;
+		themeData.isRefreshing = false;
+	}
+}
+
+	onMount(() => {
+		loadCommunityThemes(false);
+	});
 </script>
 
-{#if loading.value}
+{#if themeData.isLoading}
 	<div class="flex items-center justify-center p-8">
-		<div class="text-lg">Loading community themes...</div>
+		<Skeleton class="h-32 w-full max-w-xl" />
 	</div>
-{:else if displayError}
-	<div class="flex items-center justify-center p-8">
-		<div class="text-red-500">Error loading community themes: {displayError}</div>
+{:else if themeData.error}
+	<div class="flex flex-col items-center justify-center gap-4 p-8 text-center">
+		<div class="text-red-500">Error loading community themes: {themeData.error}</div>
+		<Button variant="outline" disabled={themeData.isRefreshing} onclick={() => loadCommunityThemes(true)}>
+			{#if themeData.isRefreshing}
+				Refreshing...
+			{:else}
+				Try Again
+			{/if}
+		</Button>
 	</div>
 {:else}
 	<div class="flex flex-col gap-6">
-		{#if communityThemes.length > 0}
+		{#if themeData.items.length > 0}
 			<section>
 				<div class="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-					{#each communityThemes as theme}
-						<ThemeCard
-							dir={theme.dir}
+					{#each themeData.items as theme (theme.slug)}
+						<CommunityThemeCard
 							title={theme.title}
-							imageUrl={theme.image}
-							is_system={theme.is_system}
-							is_custom={theme.is_custom}
-							colors={theme.colors}
+							author={theme.author}
+							imageUrl={theme.imageUrl}
+							detailUrl={theme.detailUrl}
+							githubUrl={theme.githubUrl}
+							installCommand={theme.installCommand}
+							installUrl={theme.installUrl}
 						/>
 					{/each}
 				</div>
 			</section>
-		{:else if hasLoaded && !loading.value}
+		{:else}
 			<div class="flex items-center justify-center p-8">
 				<div class="text-gray-500">No community themes found</div>
 			</div>

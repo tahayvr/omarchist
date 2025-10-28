@@ -1,6 +1,7 @@
 <script>
 	import SystemThemes from '$lib/themesPage/SystemThemes.svelte';
 	import CustomThemes from '$lib/themesPage/CustomThemes.svelte';
+	import CommunityThemes from '$lib/themesPage/CommunityThemes.svelte';
 	import { Button, buttonVariants } from '$lib/components/ui/button/index.js';
 	import { Input } from '$lib/components/ui/input/index.js';
 	import { Label } from '$lib/components/ui/label/index.js';
@@ -100,9 +101,11 @@
 			<Tabs.List class="mt-4 mb-4">
 				<Tabs.Trigger value="all" class="text-sm uppercase">System</Tabs.Trigger>
 				<Tabs.Trigger value="custom" class="text-sm uppercase">Custom</Tabs.Trigger>
+				<Tabs.Trigger value="community" class="text-sm uppercase">Community</Tabs.Trigger>
 			</Tabs.List>
 			<Tabs.Content value="all"><SystemThemes /></Tabs.Content>
 			<Tabs.Content value="custom"><CustomThemes /></Tabs.Content>
+			<Tabs.Content value="community"><CommunityThemes /></Tabs.Content>
 		</Tabs.Root>
 	</div>
 </div>
