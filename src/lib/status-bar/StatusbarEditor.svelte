@@ -256,6 +256,10 @@
 		return getModuleFields(moduleId);
 	}
 
+	function getModuleStyleFor(moduleId) {
+		return getModuleStyle(config, moduleId);
+	}
+
 	function handleRegionChange(moduleId, region) {
 		setModuleRegion(config, moduleId, region);
 	}
@@ -608,7 +612,7 @@
 				{getRegion}
 				getFields={getModuleFieldsFor}
 				getConfig={getModuleConfig}
-				getStyle={getModuleStyle}
+				getStyle={getModuleStyleFor}
 				onRegionChange={handleRegionChange}
 				onFieldChange={handleModuleFieldChange}
 				onConfigChange={handleModuleConfigChange}

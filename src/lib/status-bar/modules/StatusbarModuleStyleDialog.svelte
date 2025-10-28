@@ -71,18 +71,31 @@
 
 	// Update internal state when style prop changes
 	$effect(() => {
-		const padding = parsePaddingMargin(style.padding);
-		const margin = parsePaddingMargin(style.margin);
+		// Track all style properties to ensure reactivity
+		const currentStyle = {
+			color: style.color,
+			background: style.background,
+			padding: style.padding,
+			margin: style.margin,
+			fontSize: style.fontSize,
+			fontWeight: style.fontWeight,
+			border: style.border,
+			borderRadius: style.borderRadius,
+			minWidth: style.minWidth
+		};
+
+		const padding = parsePaddingMargin(currentStyle.padding);
+		const margin = parsePaddingMargin(currentStyle.margin);
 
 		// Parse border
-		const borderParts = (style.border || '').split(/\s+/);
+		const borderParts = (currentStyle.border || '').split(/\s+/);
 		const borderWidth = borderParts[0]?.replace('px', '') || '';
 		const borderStyle = borderParts[1] || '';
 		const borderColor = borderParts[2] || '';
 
 		styleState = {
-			color: style.color || '',
-			background: style.background || '',
+			color: currentStyle.color || '',
+			background: currentStyle.background || '',
 			paddingTop: padding.top,
 			paddingRight: padding.right,
 			paddingBottom: padding.bottom,
@@ -91,13 +104,13 @@
 			marginRight: margin.right,
 			marginBottom: margin.bottom,
 			marginLeft: margin.left,
-			fontSize: (style.fontSize || '').replace('px', ''),
-			fontWeight: style.fontWeight || '',
-			borderRadius: (style.borderRadius || '').replace('px', ''),
+			fontSize: (currentStyle.fontSize || '').replace('px', ''),
+			fontWeight: currentStyle.fontWeight || '',
+			borderRadius: (currentStyle.borderRadius || '').replace('px', ''),
 			borderWidth,
 			borderStyle,
 			borderColor,
-			minWidth: (style.minWidth || '').replace('px', '')
+			minWidth: (currentStyle.minWidth || '').replace('px', '')
 		};
 	});
 
@@ -173,7 +186,7 @@
 				{moduleTitle} Styling
 			</Dialog.Title>
 			<Dialog.Description class="text-muted-foreground text-xs uppercase">
-				Customize the appearance of this module. CSS selector: #{moduleId}
+				Customize the appearance of this module.
 			</Dialog.Description>
 		</Dialog.Header>
 
@@ -186,16 +199,22 @@
 					<div>
 						<ColorPickerWaybar
 							label="Text Color"
-							bind:color={styleState.color}
-							on:change={emitStyle}
+							color={styleState.color}
+							on:change={(e) => {
+								styleState.color = e.detail;
+								emitStyle();
+							}}
 						/>
 					</div>
 
 					<div>
 						<ColorPickerWaybar
 							label="Background"
-							bind:color={styleState.background}
-							on:change={emitStyle}
+							color={styleState.background}
+							on:change={(e) => {
+								styleState.background = e.detail;
+								emitStyle();
+							}}
 						/>
 					</div>
 				</div>
