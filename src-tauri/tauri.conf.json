@@ -8,7 +8,7 @@
 		"devUrl": "http://localhost:5173",
 		"beforeDevCommand": "npm run dev",
 		"beforeBuildCommand": "npm run build",
-		"removeUnusedCommands": true
+		"removeUnusedCommands": false
 	},
 	"plugins": {
 		"cli": {

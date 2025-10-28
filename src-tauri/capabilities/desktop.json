@@ -9,7 +9,11 @@
     "main"
   ],
   "permissions": [
+    "core:default",
+    "core:app:default",
     "cli:default",
-    "shell:default"
+    "shell:default",
+    "allow-get-community-themes",
+    "allow-theme-cache-commands"
   ]
 }

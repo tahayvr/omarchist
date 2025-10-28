@@ -46,11 +46,11 @@
 		"vitest": "^3.2.4"
 	},
 	"dependencies": {
-		"@tauri-apps/api": "^2.8.0",
-		"@tauri-apps/plugin-cli": "^2.4.0",
-		"@tauri-apps/plugin-dialog": "^2.3.2",
-		"@tauri-apps/plugin-opener": "^2.5.0",
-		"@tauri-apps/plugin-shell": "^2.3.1",
+		"@tauri-apps/api": "^2.9.0",
+		"@tauri-apps/plugin-cli": "^2.4.1",
+		"@tauri-apps/plugin-dialog": "^2.4.2",
+		"@tauri-apps/plugin-opener": "^2.5.2",
+		"@tauri-apps/plugin-shell": "^2.3.3",
 		"cookie": "^0.7.0",
 		"mode-watcher": "^1.1.0",
 		"svelte-awesome-color-picker": "^4.0.2"

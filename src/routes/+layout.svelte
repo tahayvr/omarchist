@@ -4,6 +4,7 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { invoke } from '@tauri-apps/api/core';
 	import { startThemePreloading } from '../lib/services/themePreloader.js';
+	import { themeCache } from '../lib/stores/themeCache.js';
 	import { loadSettings } from '../lib/utils/settingsUtils.js';
 
 	let { children } = $props();
@@ -16,6 +17,24 @@
 		error: null,
 		isInitialized: false
 	});
+
+	async function loadInitialTheme() {
+		try {
+			await invoke('refresh_theme_adjustments');
+			console.log('Initial theme refresh requested successfully');
+		} catch (error) {
+			console.error('Failed to refresh theme adjustments on startup:', error);
+		}
+	}
+
+	async function handleThemeRefresh() {
+		try {
+			await themeCache.refresh(true);
+			console.log('Theme cache refreshed after backend update');
+		} catch (error) {
+			console.error('Failed to refresh theme cache after event:', error);
+		}
+	}
 
 	onMount(async () => {
 		// Initialize app settings first - critical for app functionality

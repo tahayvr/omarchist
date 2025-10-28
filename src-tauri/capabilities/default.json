@@ -7,9 +7,12 @@
   ],
   "permissions": [
     "core:default",
+    "core:app:default",
     "opener:default",
     "dialog:default",
     "cli:default",
-    "shell:default"
+    "shell:default",
+    "allow-get-community-themes",
+    "allow-theme-cache-commands"
   ]
 }

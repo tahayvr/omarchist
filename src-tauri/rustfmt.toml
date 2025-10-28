@@ -13,7 +13,7 @@ group_imports = "StdExternalCrate"
 reorder_imports = true
 
 # Function formatting
-fn_args_layout = "Tall"
+fn_params_layout = "Tall"
 brace_style = "SameLineWhere"
 
 # Control flow formatting
