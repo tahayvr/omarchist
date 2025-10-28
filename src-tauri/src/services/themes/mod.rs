@@ -1,5 +1,6 @@
 // Theme-related services
 pub mod color_extraction;
+pub mod community_themes;
 pub mod custom_themes;
 pub mod get_current_theme;
 pub mod get_sys_themes;

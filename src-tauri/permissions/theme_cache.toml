@@ -1,0 +1,27 @@
+# Automatically generated - DO NOT EDIT!
+
+[[permission]]
+identifier = "allow-theme-cache-commands"
+description = "Allows theme cache management commands."
+commands.allow = [
+    "get_themes_cached",
+    "invalidate_and_refresh_cache",
+    "refresh_theme_cache",
+    "invalidate_theme_cache",
+    "invalidate_themes_cache",
+    "preload_themes",
+    "get_cache_stats"
+]
+
+[[permission]]
+identifier = "deny-theme-cache-commands"
+description = "Denies theme cache management commands."
+commands.deny = [
+    "get_themes_cached",
+    "invalidate_and_refresh_cache",
+    "refresh_theme_cache",
+    "invalidate_theme_cache",
+    "invalidate_themes_cache",
+    "preload_themes",
+    "get_cache_stats"
+]

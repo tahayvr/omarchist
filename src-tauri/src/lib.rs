@@ -36,6 +36,7 @@ fn create_invoke_handler() -> impl Fn(tauri::ipc::Invoke<tauri::Wry>) -> bool + 
         services::get_sys_themes::invalidate_system_themes_cache,
         services::get_sys_themes::invalidate_and_refresh_cache,
         services::themes::get_current_theme::get_system_theme_colors,
+        services::themes::community_themes::get_community_themes,
         // Custom theme commands
         services::themes::custom_themes::create_custom_theme,
         services::themes::custom_themes::create_custom_theme_advanced,

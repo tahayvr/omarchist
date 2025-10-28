@@ -19,6 +19,27 @@ pub struct ThemeData {
     pub theme: Vec<Theme>,
 }
 
+/// Community theme definition sourced from omarchythemes.com
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CommunityTheme {
+    /// Display name of the community theme
+    pub title: String,
+    /// Optional author credit (without the leading "by")
+    pub author: Option<String>,
+    /// Fully-qualified URL to the theme preview/detail page
+    pub detail_url: String,
+    /// Optional preview image URL
+    pub image_url: Option<String>,
+    /// Slug derived from the detail URL
+    pub slug: String,
+    /// Optional GitHub repository link associated with the theme
+    pub github_url: Option<String>,
+    /// Suggested install command derived from the repository link
+    pub install_command: Option<String>,
+    /// Extracted install URL (argument to omarchy-theme-install)
+    pub install_url: Option<String>,
+}
+
 /// Custom theme with multi-app support
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct CustomTheme {
