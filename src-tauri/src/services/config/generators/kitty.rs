@@ -17,16 +17,17 @@ impl ConfigGenerator for KittyGenerator {
 
     fn generate_config(&self, theme_data: &Value) -> Result<String, String> {
         let empty_obj = json!({});
-        let kitty = theme_data.get("kitty").unwrap_or(&empty_obj);
+        // Use unified terminal data
+        let terminal = theme_data.get("terminal").unwrap_or(&empty_obj);
 
         // Primary colors
-        let primary_bg = kitty
+        let primary_bg = terminal
             .get("colors")
             .and_then(|c| c.get("primary"))
             .and_then(|p| p.get("background"))
             .and_then(|b| b.as_str())
             .unwrap_or("#121212");
-        let primary_fg = kitty
+        let primary_fg = terminal
             .get("colors")
             .and_then(|c| c.get("primary"))
             .and_then(|p| p.get("foreground"))
@@ -35,7 +36,7 @@ impl ConfigGenerator for KittyGenerator {
 
         // Cursor colors
         let empty_cursor = json!({});
-        let cursor_obj = kitty
+        let cursor_obj = terminal
             .get("colors")
             .and_then(|c| c.get("cursor"))
             .unwrap_or(&empty_cursor);
@@ -50,7 +51,7 @@ impl ConfigGenerator for KittyGenerator {
 
         // Selection colors
         let empty_selection = json!({});
-        let selection_obj = kitty
+        let selection_obj = terminal
             .get("colors")
             .and_then(|c| c.get("selection"))
             .unwrap_or(&empty_selection);
@@ -65,7 +66,7 @@ impl ConfigGenerator for KittyGenerator {
 
         // Normal colors
         let empty_normal = json!({});
-        let normal = kitty
+        let normal = terminal
             .get("colors")
             .and_then(|c| c.get("normal"))
             .unwrap_or(&empty_normal);
@@ -104,7 +105,7 @@ impl ConfigGenerator for KittyGenerator {
 
         // Bright colors
         let empty_bright = json!({});
-        let bright = kitty
+        let bright = terminal
             .get("colors")
             .and_then(|c| c.get("bright"))
             .unwrap_or(&empty_bright);

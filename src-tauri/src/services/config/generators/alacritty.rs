@@ -17,31 +17,26 @@ impl ConfigGenerator for AlacrittyGenerator {
 
     fn generate_config(&self, theme_data: &Value) -> Result<String, String> {
         let empty_obj = json!({});
-        let alacritty = theme_data.get("alacritty").unwrap_or(&empty_obj);
+        // Use unified terminal data
+        let terminal = theme_data.get("terminal").unwrap_or(&empty_obj);
 
         // Primary colors
-        let primary_bg = alacritty
+        let primary_bg = terminal
             .get("colors")
             .and_then(|c| c.get("primary"))
             .and_then(|p| p.get("background"))
             .and_then(|b| b.as_str())
             .unwrap_or("#121212");
-        let primary_fg = alacritty
+        let primary_fg = terminal
             .get("colors")
             .and_then(|c| c.get("primary"))
             .and_then(|p| p.get("foreground"))
             .and_then(|f| f.as_str())
             .unwrap_or("#bebebe");
-        let dim_fg = alacritty
-            .get("colors")
-            .and_then(|c| c.get("primary"))
-            .and_then(|p| p.get("dim_foreground"))
-            .and_then(|d| d.as_str())
-            .unwrap_or("#8a8a8d");
 
         // Normal colors
         let empty_normal = json!({});
-        let normal = alacritty
+        let normal = terminal
             .get("colors")
             .and_then(|c| c.get("normal"))
             .unwrap_or(&empty_normal);
@@ -80,7 +75,7 @@ impl ConfigGenerator for AlacrittyGenerator {
 
         // Bright colors
         let empty_bright = json!({});
-        let bright = alacritty
+        let bright = terminal
             .get("colors")
             .and_then(|c| c.get("bright"))
             .unwrap_or(&empty_bright);
@@ -140,7 +135,7 @@ impl ConfigGenerator for AlacrittyGenerator {
 
         // Cursor colors
         let empty_cursor = json!({});
-        let cursor_obj = alacritty
+        let cursor_obj = terminal
             .get("colors")
             .and_then(|c| c.get("cursor"))
             .unwrap_or(&empty_cursor);
@@ -170,7 +165,7 @@ impl ConfigGenerator for AlacrittyGenerator {
 
         // Selection
         let empty_selection = json!({});
-        let selection_obj = alacritty
+        let selection_obj = terminal
             .get("colors")
             .and_then(|c| c.get("selection"))
             .unwrap_or(&empty_selection);
@@ -189,7 +184,6 @@ impl ConfigGenerator for AlacrittyGenerator {
 [colors.primary]
 background = "{primary_bg}"
 foreground = "{primary_fg}"
-dim_foreground = "{dim_fg}"
 
 [colors.cursor]
 text = "{cursor_text}"
@@ -242,11 +236,10 @@ white = "{bright_white}"
                     "properties": {
                         "primary": {
                             "type": "object",
-                            "x-order": ["background", "foreground", "dim_foreground"],
+                            "x-order": ["background", "foreground"],
                             "properties": {
                                 "background": {"type": "string", "format": "color", "title": "Background", "description": "Background color"},
-                                "foreground": {"type": "string", "format": "color", "title": "Foreground", "description": "Foreground color"},
-                                "dim_foreground": {"type": "string", "format": "color", "title": "Dim Foreground", "description": "Dim foreground color"}
+                                "foreground": {"type": "string", "format": "color", "title": "Foreground", "description": "Foreground color"}
                             }
                         },
                         "cursor": {
@@ -259,7 +252,8 @@ white = "{bright_white}"
                         "selection": {
                             "type": "object",
                             "properties": {
-                                "background": {"type": "string", "format": "color", "title": "Selection Background", "default": "#333333", "description": "Background color for selected text"}
+                                "background": {"type": "string", "format": "color", "title": "Selection Background", "default": "#333333", "description": "Background color for selected text"},
+                                "foreground": {"type": "string", "format": "color", "title": "Selection Foreground", "default": "#eaeaea", "description": "Foreground color for selected text"}
                             }
                         },
                         "normal": {
