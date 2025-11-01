@@ -567,14 +567,34 @@ impl CustomThemeService {
         let mut theme: CustomTheme = serde_json::from_str(&content)
             .map_err(|e| format!("Failed to parse theme metadata: {e}"))?;
 
+        // Migrate old terminal structure to unified terminal (backwards compatibility)
+        let mut needs_save = false;
+        if let Some(apps) = theme.apps.as_object_mut() {
+            // Check if we have old terminal data (alacritty, ghostty, kitty) but no unified terminal
+            if !apps.contains_key("terminal") && apps.contains_key("alacritty") {
+                // Use alacritty data as the source for unified terminal
+                if let Some(alacritty_data) = apps.get("alacritty").cloned() {
+                    apps.insert("terminal".to_string(), alacritty_data);
+                    needs_save = true;
+                    log::info!(
+                        "Migrated theme '{}' to unified terminal structure",
+                        sanitized_name
+                    );
+                }
+            }
+        }
+
         // If colors are missing (backwards compatibility), extract them now
         if theme.colors.is_none() {
             theme.colors = self.extract_theme_colors(&theme_dir, &theme.apps);
+            needs_save = true;
+        }
 
-            // Save the updated metadata with colors (using the same path we read from)
+        // Save the updated metadata if we made any changes
+        if needs_save {
             if let Ok(updated_content) = serde_json::to_string_pretty(&theme) {
                 if let Err(e) = fs::write(&metadata_path, updated_content) {
-                    log::warn!("Failed to update theme metadata with colors: {e}");
+                    log::warn!("Failed to update theme metadata: {e}");
                 }
             }
         }

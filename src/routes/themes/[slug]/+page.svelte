@@ -3,7 +3,6 @@
 	import { goto } from '$app/navigation';
 	import { invoke } from '@tauri-apps/api/core';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
-	import * as Accordion from '$lib/components/ui/accordion/index.js';
 	import { page } from '$app/stores';
 	import SchemaForm from '$lib/themeDesigner/SchemaForm.svelte';
 	import IconThemeSelector from '$lib/themeDesigner/IconThemeSelector.svelte';
@@ -11,23 +10,22 @@
 	import BackgroundImageSelector from '$lib/themeDesigner/BackgroundImageSelector.svelte';
 	import GeneralTab from '$lib/themeDesigner/GeneralTab.svelte';
 	import VsCodeTextArea from '$lib/themeDesigner/VSCodeTextArea.svelte';
+	import * as Accordion from '$lib/components/ui/accordion/index.js';
 
 	let themeName = $state('');
 	let originalThemeName = $state('');
 	let themeAuthor = $state('');
 	let isSaving = $state(false);
 	let appSchemas = $state(null);
-	let alacrittySchema = $state(null);
+	let terminalSchema = $state(null);
 	let btopSchema = $state(null);
 	let hyprlandSchema = $state(null);
 	let hyprlockSchema = $state(null);
 	let makoSchema = $state(null);
 	let walkerSchema = $state(null);
 	let swayosdSchema = $state(null);
-	let ghosttySchema = $state(null);
-	let kittySchema = $state(null);
 
-	let alacrittyData = $state({});
+	let terminalData = $state({});
 	let waybarData = $state({});
 	let chromiumData = $state({});
 	let btopData = $state({});
@@ -40,8 +38,6 @@
 	let neovimData = $state({});
 	let backgroundsData = $state([]);
 	let vscodeData = $state({});
-	let ghosttyData = $state({});
-	let kittyData = $state({});
 
 	// Helpers to get/set nested properties by path
 	function setByPath(obj, path, value) {
@@ -104,19 +100,17 @@
 			]);
 
 			appSchemas = schemas;
-			alacrittySchema = schemas?.alacritty || null;
+			terminalSchema = schemas?.terminal || null;
 			btopSchema = schemas?.btop || null;
 			hyprlandSchema = schemas?.hyprland || null;
 			hyprlockSchema = schemas?.hyprlock || null;
 			makoSchema = schemas?.mako || null;
 			walkerSchema = schemas?.walker || null;
 			swayosdSchema = schemas?.swayosd || null;
-			ghosttySchema = schemas?.ghostty || null;
-			kittySchema = schemas?.kitty || null;
 			themeName = theme.name;
 			originalThemeName = theme.name; // Store original name for rename detection
 			themeAuthor = theme?.author || '';
-			alacrittyData = theme?.apps?.alacritty || {};
+			terminalData = theme?.apps?.terminal || {};
 			waybarData = theme?.apps?.waybar || {};
 			chromiumData = theme?.apps?.chromium || {};
 			btopData = theme?.apps?.btop || {};
@@ -128,8 +122,6 @@
 			swayosdData = theme?.apps?.swayosd || {};
 			neovimData = theme?.apps?.neovim || {};
 			vscodeData = theme?.apps?.vscode || {};
-			ghosttyData = theme?.apps?.ghostty || {};
-			kittyData = theme?.apps?.kitty || {};
 			// backgroundsData will be loaded by the BackgroundImageSelector component
 		} catch (error) {
 			console.error('Failed to load theme or schemas:', error);
@@ -156,7 +148,7 @@
 					await invoke('update_custom_theme_advanced', {
 						name: themeName,
 						theme_data: {
-							alacritty: alacrittyData,
+							terminal: terminalData,
 							waybar: waybarData,
 							chromium: chromiumData,
 							btop: btopData,
@@ -167,9 +159,7 @@
 							walker: walkerData,
 							swayosd: swayosdData,
 							neovim: neovimData,
-							vscode: vscodeData,
-							ghostty: ghosttyData,
-							kitty: kittyData
+							vscode: vscodeData
 						}
 					});
 
@@ -206,7 +196,7 @@
 			await invoke('update_custom_theme_advanced', {
 				name: themeName,
 				theme_data: {
-					alacritty: alacrittyData,
+					terminal: terminalData,
 					waybar: waybarData,
 					chromium: chromiumData,
 					btop: btopData,
@@ -217,9 +207,7 @@
 					walker: walkerData,
 					swayosd: swayosdData,
 					neovim: neovimData,
-					vscode: vscodeData,
-					ghostty: ghosttyData,
-					kitty: kittyData
+					vscode: vscodeData
 				}
 			});
 
@@ -236,7 +224,7 @@
 			// Re-fetch theme to verify persistence and refresh data
 			const refreshed = await invoke('get_custom_theme', { name: themeName });
 			themeAuthor = refreshed?.author || '';
-			alacrittyData = refreshed?.apps?.alacritty || alacrittyData;
+			terminalData = refreshed?.apps?.terminal || terminalData;
 			waybarData = refreshed?.apps?.waybar || waybarData;
 			chromiumData = refreshed?.apps?.chromium || chromiumData;
 			btopData = refreshed?.apps?.btop || btopData;
@@ -248,8 +236,6 @@
 			swayosdData = refreshed?.apps?.swayosd || swayosdData;
 			neovimData = refreshed?.apps?.neovim || neovimData;
 			vscodeData = refreshed?.apps?.vscode || vscodeData;
-			ghosttyData = refreshed?.apps?.ghostty || ghosttyData;
-			kittyData = refreshed?.apps?.kitty || kittyData;
 		} catch (error) {
 			console.error('Failed to save theme:', error);
 			alert(`Failed to save theme: ${error}`);
@@ -319,69 +305,30 @@
 				<GeneralTab bind:themeName bind:author={themeAuthor} />
 			</Tabs.Content>
 			<Tabs.Content value="terminal" class="max-w-[1200px]">
-				<Accordion.Root type="single">
-					<Accordion.Item value="item-1">
-						<Accordion.Trigger>Alacritty</Accordion.Trigger>
-						<Accordion.Content>
-							<SchemaForm
-								schema={alacrittySchema}
-								data={alacrittyData}
-								on:field-change={(e) => {
-									const { field, value } = e.detail;
-									setByPath(alacrittyData, field, value);
-									alacrittyData = { ...alacrittyData };
-								}}
-							/>
-							<Button
-								variant="outline"
-								size="sm"
-								class="mt-4 uppercase"
-								onclick={() => launchApp('alacritty --working-directory=$HOME')}
-								>Launch Alacritty</Button
-							>
-						</Accordion.Content>
-					</Accordion.Item>
-					<Accordion.Item value="item-2">
-						<Accordion.Trigger>Ghostty</Accordion.Trigger>
-						<Accordion.Content>
-							<SchemaForm
-								schema={ghosttySchema}
-								data={ghosttyData}
-								on:field-change={(e) => {
-									const { field, value } = e.detail;
-									setByPath(ghosttyData, field, value);
-									ghosttyData = { ...ghosttyData };
-								}}
-							/>
-							<Button
-								variant="outline"
-								size="sm"
-								class="mt-4 uppercase"
-								onclick={() => launchApp('ghostty')}>Launch Ghostty</Button
-							>
-						</Accordion.Content>
-					</Accordion.Item>
-					<Accordion.Item value="item-3">
-						<Accordion.Trigger>Kitty</Accordion.Trigger>
-						<Accordion.Content>
-							<SchemaForm
-								schema={kittySchema}
-								data={kittyData}
-								on:field-change={(e) => {
-									const { field, value } = e.detail;
-									setByPath(kittyData, field, value);
-									kittyData = { ...kittyData };
-								}}
-							/>
-							<Button
-								variant="outline"
-								size="sm"
-								class="mt-4 uppercase"
-								onclick={() => launchApp('kitty')}>Launch Kitty</Button
-							>
-						</Accordion.Content>
-					</Accordion.Item>
-				</Accordion.Root>
+				<SchemaForm
+					schema={terminalSchema}
+					data={terminalData}
+					on:field-change={(e) => {
+						const { field, value } = e.detail;
+						setByPath(terminalData, field, value);
+						terminalData = { ...terminalData };
+					}}
+				/>
+				<div class="mt-4 flex gap-2">
+					<Button
+						variant="outline"
+						size="sm"
+						class="uppercase"
+						onclick={() => launchApp('alacritty --working-directory=$HOME')}
+						>Launch Alacritty</Button
+					>
+					<Button variant="outline" size="sm" class="uppercase" onclick={() => launchApp('ghostty')}
+						>Launch Ghostty</Button
+					>
+					<Button variant="outline" size="sm" class="uppercase" onclick={() => launchApp('kitty')}
+						>Launch Kitty</Button
+					>
+				</div>
 			</Tabs.Content>
 			<Tabs.Content value="waybar" class="max-w-[1200px]">
 				<SchemaForm

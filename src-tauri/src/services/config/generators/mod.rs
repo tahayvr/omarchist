@@ -11,6 +11,7 @@ pub mod kitty;
 pub mod mako;
 pub mod neovim;
 pub mod swayosd;
+pub mod terminal;
 pub mod vscode;
 pub mod walker;
 pub mod waybar;
@@ -50,6 +51,7 @@ impl ConfigGeneratorRegistry {
         registry.register(Box::new(kitty::KittyGenerator));
         registry.register(Box::new(mako::MakoGenerator));
         registry.register(Box::new(swayosd::SwayosdGenerator));
+        registry.register(Box::new(terminal::TerminalGenerator));
         registry.register(Box::new(vscode::VscodeGenerator));
         registry.register(Box::new(walker::WalkerGenerator));
         registry.register(Box::new(neovim::NeovimGenerator));
