@@ -8,9 +8,11 @@
 		getRegion = () => 'hidden',
 		getFields = () => [],
 		getConfig = () => ({}),
+		getStyle = () => ({}),
 		onRegionChange = () => {},
 		onFieldChange = () => {},
 		onConfigChange = () => {},
+		onStyleChange = () => {},
 		disabled = false
 	} = $props();
 
@@ -37,6 +39,14 @@
 		}
 		onConfigChange?.(moduleId, moduleConfig);
 	}
+
+	function handleStyleChange(event) {
+		const { moduleId, style: moduleStyle } = event.detail ?? {};
+		if (!moduleId || !moduleStyle) {
+			return;
+		}
+		onStyleChange?.(moduleId, moduleStyle);
+	}
 </script>
 
 <Card.Root>
@@ -53,10 +63,12 @@
 				position={getRegion(module.id)}
 				fields={getFields(module.id)}
 				config={getConfig(module.id)}
+				style={getStyle(module.id)}
 				{disabled}
 				on:change={handleChange}
 				on:fieldChange={handleFieldChange}
 				on:configChange={handleConfigChange}
+				on:styleChange={handleStyleChange}
 			/>
 		{/each}
 	</Card.Content>
