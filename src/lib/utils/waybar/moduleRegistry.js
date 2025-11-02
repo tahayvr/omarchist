@@ -10,6 +10,7 @@ import { bluetoothSchema } from './schemas/bluetoothSchema.js';
 import ClockModuleForm from '../../status-bar/modules/ClockModuleForm.svelte';
 import NetworkModuleForm from '../../status-bar/modules/NetworkModuleForm.svelte';
 import BluetoothModuleForm from '../../status-bar/modules/BluetoothModuleForm.svelte';
+import BatteryModuleForm from '../../status-bar/modules/BatteryModuleForm.svelte';
 
 /**
  * Registry of all supported Waybar modules with their schemas
@@ -28,9 +29,9 @@ export const moduleRegistry = {
 	},
 	battery: {
 		schema: batterySchema,
-		component: null,
+		component: BatteryModuleForm,
 		validator: null,
-		configurable: false
+		configurable: true
 	},
 	bluetooth: {
 		schema: bluetoothSchema,
