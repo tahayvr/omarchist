@@ -6,6 +6,7 @@
 import { clockSchema } from './schemas/clockSchema.js';
 import { batterySchema } from './schemas/batterySchema.js';
 import { networkSchema } from './schemas/networkSchema.js';
+import ClockModuleForm from '../../status-bar/modules/ClockModuleForm.svelte';
 
 /**
  * Registry of all supported Waybar modules with their schemas
@@ -18,7 +19,7 @@ import { networkSchema } from './schemas/networkSchema.js';
 export const moduleRegistry = {
 	clock: {
 		schema: clockSchema,
-		component: null,
+		component: ClockModuleForm,
 		validator: null,
 		configurable: true
 	},
