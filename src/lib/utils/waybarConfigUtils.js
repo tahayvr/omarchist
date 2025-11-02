@@ -613,6 +613,7 @@ export async function saveWaybarConfig(state, options = {}) {
 export function resetWaybarConfigToDefaults(state) {
 	state.layout = cloneLayout();
 	state.modules = cloneModules();
+	state.moduleStyles = {};
 	state.globals = cloneGlobals();
 	state.passthrough = clone(DEFAULT_PASSTHROUGH);
 	state.styleCss = '';
