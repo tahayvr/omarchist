@@ -360,36 +360,36 @@
 							</div>
 						{:else if tabId === 'formats'}
 							<!-- Live Preview Card -->
-							<Card.Root class="border-primary/20 bg-primary/5">
+							<Card.Root class="border-primary/20 bg-primary/5 font-nerd">
 								<Card.Header class="pb-3">
 									<Card.Title class="text-accent-foreground text-sm uppercase">
 										Live Preview
 									</Card.Title>
 								</Card.Header>
-								<Card.Content class="space-y-2">
+								<Card.Content class="font-nerd space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Disabled:</span>
-										<span class="font-mono text-sm font-semibold">
+										<span class=" text-sm font-semibold">
 											{disabledPreview || '(hidden)'}
 										</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Off:</span>
-										<span class="font-mono text-sm font-semibold">{offPreview || '(hidden)'}</span>
+										<span class="text-sm font-semibold">{offPreview || '(hidden)'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">On:</span>
-										<span class="font-mono text-sm font-semibold">{onPreview || '(hidden)'}</span>
+										<span class="text-sm font-semibold">{onPreview || '(hidden)'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Connected:</span>
-										<span class="font-mono text-sm font-semibold">
+										<span class="text-sm font-semibold">
 											{connectedPreview || 'N/A'}
 										</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">With Battery:</span>
-										<span class="font-mono text-sm font-semibold">
+										<span class="text-sm font-semibold">
 											{connectedBatteryPreview || 'N/A'}
 										</span>
 									</div>
@@ -409,7 +409,7 @@
 									<div class="grid grid-cols-1 gap-1 text-xs">
 										{#each formatReplacements as replacement}
 											<div class="flex items-start gap-2">
-												<Badge variant="outline" class="font-mono text-[0.65rem]">
+												<Badge variant="outline" class="font-nerd text-[0.65rem]">
 													{replacement.code}
 												</Badge>
 												<span class="text-muted-foreground text-[0.65rem]">
@@ -424,7 +424,7 @@
 							<Separator class="my-4" />
 
 							<!-- Default Format -->
-							<div class="space-y-4">
+							<div class="font-nerd space-y-4">
 								<h3 class="text-accent-foreground text-sm font-semibold uppercase">
 									Default Format
 								</h3>
@@ -451,7 +451,7 @@
 							<Separator class="my-4" />
 
 							<!-- State-Specific Formats -->
-							<div class="space-y-4">
+							<div class="font-nerd space-y-4">
 								<h3 class="text-accent-foreground text-sm font-semibold uppercase">
 									State-Specific Formats
 								</h3>

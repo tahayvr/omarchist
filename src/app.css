@@ -108,9 +108,9 @@
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
 
-	--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
-	--font-sans: 'IBM Plex Mono', ui-sans-serif, system-ui;
-	--font-cascade: 'Cascadia Mono', ui-sans-serif, system-ui;
+	--font-mono: 'BlexMonoNerdFontMono', 'Courier New', monospace;
+	--font-sans: 'BlexMonoNerdFontMono', ui-sans-serif, system-ui;
+	--font-nerd: 'BlexMonoNerdFontMono', 'Courier New', monospace;
 }
 
 @layer base {
@@ -139,6 +139,13 @@
 @font-face {
 	font-family: 'IBM Plex Mono';
 	src: url('/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+	font-weight: normal;
+	font-style: normal;
+}
+
+@font-face {
+	font-family: 'BlexMonoNerdFontMono';
+	src: url('/fonts/BlexMonoNerdFontMono-Regular.ttf') format('truetype');
 	font-weight: normal;
 	font-style: normal;
 }
