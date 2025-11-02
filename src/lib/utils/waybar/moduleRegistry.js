@@ -8,11 +8,13 @@ import { batterySchema } from './schemas/batterySchema.js';
 import { networkSchema } from './schemas/networkSchema.js';
 import { bluetoothSchema } from './schemas/bluetoothSchema.js';
 import { cpuSchema } from './schemas/cpuSchema.js';
+import { pulseaudioSchema } from './schemas/pulseaudioSchema.js';
 import ClockModuleForm from '../../status-bar/modules/ClockModuleForm.svelte';
 import NetworkModuleForm from '../../status-bar/modules/NetworkModuleForm.svelte';
 import BluetoothModuleForm from '../../status-bar/modules/BluetoothModuleForm.svelte';
 import BatteryModuleForm from '../../status-bar/modules/BatteryModuleForm.svelte';
 import CpuModuleForm from '../../status-bar/modules/CpuModuleForm.svelte';
+import PulseaudioModuleForm from '../../status-bar/modules/PulseaudioModuleForm.svelte';
 
 /**
  * Registry of all supported Waybar modules with their schemas
@@ -44,6 +46,12 @@ export const moduleRegistry = {
 	cpu: {
 		schema: cpuSchema,
 		component: CpuModuleForm,
+		validator: null,
+		configurable: true
+	},
+	pulseaudio: {
+		schema: pulseaudioSchema,
+		component: PulseaudioModuleForm,
 		validator: null,
 		configurable: true
 	},
