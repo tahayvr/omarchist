@@ -387,15 +387,15 @@
 								<Card.Content class="space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">WiFi:</span>
-										<span class="font-mono text-sm font-semibold">{wifiPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{wifiPreview || 'N/A'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Ethernet:</span>
-										<span class="font-mono text-sm font-semibold">{ethernetPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{ethernetPreview || 'N/A'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Disconnected:</span>
-										<span class="font-mono text-sm font-semibold">
+										<span class="text-sm font-semibold">
 											{disconnectedPreview || '(hidden)'}
 										</span>
 									</div>
@@ -415,7 +415,7 @@
 									<div class="grid grid-cols-1 gap-1 text-xs md:grid-cols-2">
 										{#each formatReplacements as replacement}
 											<div class="flex items-start gap-2">
-												<Badge variant="outline" class="font-mono text-[0.65rem]">
+												<Badge variant="outline" class="text-[0.65rem]">
 													{replacement.code}
 												</Badge>
 												<span class="text-muted-foreground text-[0.65rem]">

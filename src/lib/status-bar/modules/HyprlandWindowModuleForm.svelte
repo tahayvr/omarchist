@@ -294,7 +294,7 @@
 								<Card.Content>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Window:</span>
-										<span class="font-mono text-sm font-semibold">{windowPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{windowPreview || 'N/A'}</span>
 									</div>
 								</Card.Content>
 							</Card.Root>
@@ -312,7 +312,7 @@
 									<div class="grid grid-cols-1 gap-1 text-xs">
 										{#each formatReplacements as replacement}
 											<div class="flex items-start gap-2">
-												<Badge variant="outline" class="font-mono text-[0.65rem]">
+												<Badge variant="outline" class="text-[0.65rem]">
 													{replacement.code}
 												</Badge>
 												<span class="text-muted-foreground text-[0.65rem]">
@@ -387,7 +387,7 @@
 										{#each exampleRules as example}
 											<div class="space-y-1">
 												<div class="flex items-start gap-2">
-													<Badge variant="outline" class="font-mono text-[0.65rem]">
+													<Badge variant="outline" class="text-[0.65rem]">
 														{example.desc}
 													</Badge>
 												</div>

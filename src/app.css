@@ -108,9 +108,7 @@
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
 
-	--font-mono: 'BlexMonoNerdFontMono', 'Courier New', monospace;
 	--font-sans: 'BlexMonoNerdFontMono', ui-sans-serif, system-ui;
-	--font-nerd: 'BlexMonoNerdFontMono', 'Courier New', monospace;
 }
 
 @layer base {
@@ -120,20 +118,6 @@
 	body {
 		@apply bg-background text-foreground;
 	}
-}
-
-@font-face {
-	font-family: 'Inconsolata';
-	src: url('/fonts/Inconsolata.ttf') format('truetype');
-	font-weight: normal;
-	font-style: normal;
-}
-
-@font-face {
-	font-family: 'Cascadia Mono';
-	src: url('/fonts/CascadiaMono.ttf') format('truetype');
-	font-weight: bold;
-	font-style: normal;
 }
 
 @font-face {

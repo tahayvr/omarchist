@@ -285,12 +285,12 @@
 								<Card.Content class="space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Primary Format:</span>
-										<span class="font-mono text-sm font-semibold">{formatPreview}</span>
+										<span class="text-sm font-semibold">{formatPreview}</span>
 									</div>
 									{#if formatAltPreview}
 										<div class="flex items-center justify-between">
 											<span class="text-muted-foreground text-xs uppercase">Alternate Format:</span>
-											<span class="font-mono text-sm font-semibold">{formatAltPreview}</span>
+											<span class="text-sm font-semibold">{formatAltPreview}</span>
 										</div>
 									{/if}
 								</Card.Content>

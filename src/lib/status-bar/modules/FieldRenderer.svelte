@@ -103,7 +103,7 @@
 				placeholder={field.placeholder || ''}
 				{disabled}
 				rows={4}
-				class="w-full font-mono text-sm"
+				class="w-full text-sm"
 			/>
 		{:else}
 			<Input

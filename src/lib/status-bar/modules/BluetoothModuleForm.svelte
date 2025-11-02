@@ -360,13 +360,13 @@
 							</div>
 						{:else if tabId === 'formats'}
 							<!-- Live Preview Card -->
-							<Card.Root class="border-primary/20 bg-primary/5 font-nerd">
+							<Card.Root class="border-primary/20 bg-primary/5">
 								<Card.Header class="pb-3">
 									<Card.Title class="text-accent-foreground text-sm uppercase">
 										Live Preview
 									</Card.Title>
 								</Card.Header>
-								<Card.Content class="font-nerd space-y-2">
+								<Card.Content class="space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Disabled:</span>
 										<span class=" text-sm font-semibold">
@@ -409,7 +409,7 @@
 									<div class="grid grid-cols-1 gap-1 text-xs">
 										{#each formatReplacements as replacement}
 											<div class="flex items-start gap-2">
-												<Badge variant="outline" class="font-nerd text-[0.65rem]">
+												<Badge variant="outline" class="text-[0.65rem]">
 													{replacement.code}
 												</Badge>
 												<span class="text-muted-foreground text-[0.65rem]">
@@ -424,7 +424,7 @@
 							<Separator class="my-4" />
 
 							<!-- Default Format -->
-							<div class="font-nerd space-y-4">
+							<div class="space-y-4">
 								<h3 class="text-accent-foreground text-sm font-semibold uppercase">
 									Default Format
 								</h3>
@@ -451,7 +451,7 @@
 							<Separator class="my-4" />
 
 							<!-- State-Specific Formats -->
-							<div class="font-nerd space-y-4">
+							<div class="space-y-4">
 								<h3 class="text-accent-foreground text-sm font-semibold uppercase">
 									State-Specific Formats
 								</h3>

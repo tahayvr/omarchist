@@ -428,25 +428,25 @@
 								<Card.Content class="space-y-2">
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Charging:</span>
-										<span class="font-mono text-sm font-semibold">{chargingPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{chargingPreview || 'N/A'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Discharging:</span>
-										<span class="font-mono text-sm font-semibold">
+										<span class="text-sm font-semibold">
 											{dischargingPreview || 'N/A'}
 										</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Full:</span>
-										<span class="font-mono text-sm font-semibold">{fullPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{fullPreview || 'N/A'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Warning (25%):</span>
-										<span class="font-mono text-sm font-semibold">{warningPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{warningPreview || 'N/A'}</span>
 									</div>
 									<div class="flex items-center justify-between">
 										<span class="text-muted-foreground text-xs uppercase">Critical (10%):</span>
-										<span class="font-mono text-sm font-semibold">{criticalPreview || 'N/A'}</span>
+										<span class="text-sm font-semibold">{criticalPreview || 'N/A'}</span>
 									</div>
 								</Card.Content>
 							</Card.Root>
@@ -464,7 +464,7 @@
 									<div class="grid grid-cols-1 gap-1 text-xs">
 										{#each formatReplacements as replacement}
 											<div class="flex items-start gap-2">
-												<Badge variant="outline" class="font-mono text-[0.65rem]">
+												<Badge variant="outline" class="text-[0.65rem]">
 													{replacement.code}
 												</Badge>
 												<span class="text-muted-foreground text-[0.65rem]">
