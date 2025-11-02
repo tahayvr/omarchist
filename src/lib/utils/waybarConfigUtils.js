@@ -184,6 +184,11 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 		interval: 5,
 		format: '󰍛',
 		'on-click': '$TERMINAL -e btop'
+	}),
+	memory: Object.freeze({
+		interval: 30,
+		format: '',
+		'on-click': '$TERMINAL -e btop'
 	})
 });
 
@@ -247,6 +252,11 @@ export const KNOWN_MODULES = [
 		id: 'hyprland/window',
 		title: 'Focused Window',
 		description: 'Shows the focused window title with truncation.'
+	},
+	{
+		id: 'memory',
+		title: 'Memory',
+		description: 'RAM and swap usage monitoring with state thresholds.'
 	}
 ];
 
