@@ -44,7 +44,7 @@ jobs:
 
       # 5. Install your frontend dependencies.
       - name: install frontend dependencies
-        run: npm install
+        run: npm ci
 
       # 6. Use the `tauri-action` to build the app and upload assets.
       - uses: tauri-apps/tauri-action@v0
