@@ -51,7 +51,7 @@
 			Configure
 		</Button>
 	</Dialog.Trigger>
-	<Dialog.Content class="sm:max-w-3xl">
+	<Dialog.Content class="w-[90vw] !max-w-4xl">
 		<Dialog.Header>
 			<Dialog.Title class="text-sm font-semibold tracking-wide uppercase">
 				{moduleTitle}
