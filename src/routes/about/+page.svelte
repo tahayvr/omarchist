@@ -42,7 +42,7 @@
 					<Kbd.Root>Ctrl</Kbd.Root>
 					<span>+</span>
 					<Kbd.Root>S</Kbd.Root>
-				</Kbd.Group>: Save Theme/Settings
+				</Kbd.Group>: Save
 			</li>
 			<li>
 				<Kbd.Group>
