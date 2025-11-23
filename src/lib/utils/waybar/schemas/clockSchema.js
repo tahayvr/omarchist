@@ -6,7 +6,7 @@
 export const clockSchema = {
 	type: 'object',
 	title: 'Clock',
-	description: 'Localized time display with alternate format',
+	description: '',
 	properties: {
 		// General settings
 		format: {

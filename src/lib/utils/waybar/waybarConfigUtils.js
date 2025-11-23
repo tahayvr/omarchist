@@ -196,67 +196,67 @@ export const KNOWN_MODULES = [
 	{
 		id: 'clock',
 		title: 'Clock',
-		description: 'Localized time display with alternate format.'
+		description: ''
 	},
 	{
 		id: 'network',
 		title: 'Network',
-		description: 'Wi-Fi and wired connectivity indicators.'
+		description: ''
 	},
 	{
 		id: 'bluetooth',
 		title: 'Bluetooth',
-		description: 'Status and quick access to Bluetooth tools.'
+		description: ''
 	},
 	{
 		id: 'pulseaudio',
 		title: 'Audio',
-		description: 'Volume level with mute and mixer shortcuts.'
+		description: ''
 	},
 	{
 		id: 'cpu',
 		title: 'CPU',
-		description: 'CPU activity indicator with btop shortcut.'
+		description: ''
 	},
 	{
 		id: 'battery',
 		title: 'Battery',
-		description: 'Battery status with icon states and warnings.'
+		description: ''
 	},
 	{
 		id: 'hyprland/window',
 		title: 'Focused Window',
-		description: 'Shows the focused window title with truncation.'
+		description: ''
 	},
 	{
 		id: 'memory',
 		title: 'Memory',
-		description: 'RAM and swap usage monitoring with state thresholds.'
+		description: ''
 	},
 	{
 		id: 'custom/omarchy',
 		title: 'Omarchy Menu',
-		description: 'Launch quick Omarchy actions.'
+		description: ''
 	},
 	{
 		id: 'hyprland/workspaces',
 		title: 'Workspaces',
-		description: 'Displays active Hyprland workspaces with icons.'
+		description: ''
 	},
 	{
 		id: 'custom/update',
 		title: 'Update Indicator',
-		description: 'Shows when Omarchy updates are available.'
+		description: ''
 	},
 	{
 		id: 'custom/screenrecording-indicator',
 		title: 'Screen Recording',
-		description: 'Signals when screen recording is active.'
+		description: ''
 	},
 	{
 		id: 'group/tray-expander',
 		title: 'Tray Group',
-		description: 'Expandable system tray container.'
+		description: ''
 	}
 ];
 
