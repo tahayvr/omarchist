@@ -64,7 +64,7 @@
 		</ToggleGroup.Root>
 
 		<div class="mt-4 flex items-center justify-end gap-2">
-			<StatusbarModuleStyleDialog {module} {style} {disabled} on:styleChange={handleStyleChange} />
+			<!-- <StatusbarModuleStyleDialog {module} {style} {disabled} on:styleChange={handleStyleChange} /> -->
 			{#if showConfigButton}
 				<StatusbarModuleDialog
 					{module}

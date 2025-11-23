@@ -53,7 +53,7 @@
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Modules</Card.Title>
 		<Card.Description class="text-xs tracking-wide uppercase">
-			Choose where each module appears. Hidden modules remain available for later.
+			Choose where each module appears. Configure each module's settings.
 		</Card.Description>
 	</Card.Header>
 	<Card.Content class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

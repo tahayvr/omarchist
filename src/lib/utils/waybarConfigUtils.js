@@ -194,16 +194,6 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 
 export const KNOWN_MODULES = [
 	{
-		id: 'custom/omarchy',
-		title: 'Omarchy Menu',
-		description: 'Launch quick Omarchy actions.'
-	},
-	{
-		id: 'hyprland/workspaces',
-		title: 'Workspaces',
-		description: 'Displays active Hyprland workspaces with icons.'
-	},
-	{
 		id: 'clock',
 		title: 'Clock',
 		description: 'Localized time display with alternate format.'
@@ -212,21 +202,6 @@ export const KNOWN_MODULES = [
 		id: 'network',
 		title: 'Network',
 		description: 'Wi-Fi and wired connectivity indicators.'
-	},
-	{
-		id: 'custom/update',
-		title: 'Update Indicator',
-		description: 'Shows when Omarchy updates are available.'
-	},
-	{
-		id: 'custom/screenrecording-indicator',
-		title: 'Screen Recording',
-		description: 'Signals when screen recording is active.'
-	},
-	{
-		id: 'group/tray-expander',
-		title: 'Tray Group',
-		description: 'Expandable system tray container.'
 	},
 	{
 		id: 'bluetooth',
@@ -257,6 +232,31 @@ export const KNOWN_MODULES = [
 		id: 'memory',
 		title: 'Memory',
 		description: 'RAM and swap usage monitoring with state thresholds.'
+	},
+	{
+		id: 'custom/omarchy',
+		title: 'Omarchy Menu',
+		description: 'Launch quick Omarchy actions.'
+	},
+	{
+		id: 'hyprland/workspaces',
+		title: 'Workspaces',
+		description: 'Displays active Hyprland workspaces with icons.'
+	},
+	{
+		id: 'custom/update',
+		title: 'Update Indicator',
+		description: 'Shows when Omarchy updates are available.'
+	},
+	{
+		id: 'custom/screenrecording-indicator',
+		title: 'Screen Recording',
+		description: 'Signals when screen recording is active.'
+	},
+	{
+		id: 'group/tray-expander',
+		title: 'Tray Group',
+		description: 'Expandable system tray container.'
 	}
 ];
 
