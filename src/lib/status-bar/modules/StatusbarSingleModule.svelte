@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import StatusbarModuleDialog from './StatusbarModuleDialog.svelte';
+	import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
 	import StatusbarModuleStyleDialog from './StatusbarModuleStyleDialog.svelte';
 	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
@@ -49,24 +49,24 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<ToggleGroup.Root
-			type="single"
-			aria-label="Module Position"
-			bind:value={position}
-			onValueChange={handleValueChange}
-			size="lg"
-			{disabled}
-		>
-			<ToggleGroup.Item value="left" class="uppercase">Left</ToggleGroup.Item>
-			<ToggleGroup.Item value="center" class="uppercase">Center</ToggleGroup.Item>
-			<ToggleGroup.Item value="right" class="uppercase">Right</ToggleGroup.Item>
-			<ToggleGroup.Item value="hidden" class="uppercase">Hidden</ToggleGroup.Item>
-		</ToggleGroup.Root>
+		<div class="flex items-center justify-between gap-4">
+			<ToggleGroup.Root
+				type="single"
+				aria-label="Module Position"
+				bind:value={position}
+				onValueChange={handleValueChange}
+				size="lg"
+				{disabled}
+			>
+				<ToggleGroup.Item value="left" class="uppercase">Left</ToggleGroup.Item>
+				<ToggleGroup.Item value="center" class="uppercase">Center</ToggleGroup.Item>
+				<ToggleGroup.Item value="right" class="uppercase">Right</ToggleGroup.Item>
+				<ToggleGroup.Item value="hidden" class="uppercase">Hidden</ToggleGroup.Item>
+			</ToggleGroup.Root>
 
-		<div class="mt-4 flex items-center justify-end gap-2">
 			<!-- <StatusbarModuleStyleDialog {module} {style} {disabled} on:styleChange={handleStyleChange} /> -->
 			{#if showConfigButton}
-				<StatusbarModuleDialog
+				<StatusbarModuleConfigDialog
 					{module}
 					{config}
 					{disabled}

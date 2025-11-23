@@ -4,6 +4,7 @@
 	import { Button } from '$lib/components/ui/button/index.js';
 	import SchemaBasedModuleForm from './SchemaBasedModuleForm.svelte';
 	import { getModuleDefinition } from '$lib/utils/waybar/moduleRegistry.js';
+	import GearIcon from '@lucide/svelte/icons/settings';
 
 	let { module = null, config = {}, disabled = false } = $props();
 
@@ -47,8 +48,8 @@
 
 <Dialog.Root bind:open>
 	<Dialog.Trigger asChild>
-		<Button variant="outline" size="sm" class="tracking-wide uppercase" {disabled}>
-			Configure
+		<Button variant="secondary" size="icon" class="tracking-wide uppercase" {disabled}>
+			<GearIcon />
 		</Button>
 	</Dialog.Trigger>
 	<Dialog.Content class="w-[90vw] !max-w-4xl">
