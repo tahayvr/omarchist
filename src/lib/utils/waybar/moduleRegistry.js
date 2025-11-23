@@ -11,14 +11,14 @@ import { cpuSchema } from './schemas/cpuSchema.js';
 import { pulseaudioSchema } from './schemas/pulseaudioSchema.js';
 import { hyprlandWindowSchema } from './schemas/hyprlandWindowSchema.js';
 import { memorySchema } from './schemas/memorySchema.js';
-import ClockModuleForm from '../../status-bar/modules/ClockModuleForm.svelte';
-import NetworkModuleForm from '../../status-bar/modules/NetworkModuleForm.svelte';
-import BluetoothModuleForm from '../../status-bar/modules/BluetoothModuleForm.svelte';
-import BatteryModuleForm from '../../status-bar/modules/BatteryModuleForm.svelte';
-import CpuModuleForm from '../../status-bar/modules/CpuModuleForm.svelte';
-import PulseaudioModuleForm from '../../status-bar/modules/PulseaudioModuleForm.svelte';
-import HyprlandWindowModuleForm from '../../status-bar/modules/HyprlandWindowModuleForm.svelte';
-import MemoryModuleForm from '../../status-bar/modules/MemoryModuleForm.svelte';
+import ClockModuleForm from '../../status-bar/modules/singleModules/ClockModuleForm.svelte';
+import NetworkModuleForm from '../../status-bar/modules/singleModules/NetworkModuleForm.svelte';
+import BluetoothModuleForm from '../../status-bar/modules/singleModules/BluetoothModuleForm.svelte';
+import BatteryModuleForm from '../../status-bar/modules/singleModules/BatteryModuleForm.svelte';
+import CpuModuleForm from '../../status-bar/modules/singleModules/CpuModuleForm.svelte';
+import PulseaudioModuleForm from '../../status-bar/modules/singleModules/PulseaudioModuleForm.svelte';
+import HyprlandWindowModuleForm from '../../status-bar/modules/singleModules/HyprlandWindowModuleForm.svelte';
+import MemoryModuleForm from '../../status-bar/modules/singleModules/MemoryModuleForm.svelte';
 
 /**
  * Registry of all supported Waybar modules with their schemas

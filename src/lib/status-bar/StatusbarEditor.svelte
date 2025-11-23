@@ -30,7 +30,7 @@
 		deleteWaybarProfile,
 		updateModuleStyle,
 		getModuleStyle
-	} from '$lib/utils/waybarConfigUtils.js';
+	} from '$lib/utils/waybar/waybarConfigUtils.js';
 	import ColorPickerField from '$lib/themeDesigner/ColorPickerField.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
 	import ColorPickerWaybar from './ColorPickerWaybar.svelte';

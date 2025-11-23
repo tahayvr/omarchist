@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import StatusbarLayoutItem from './StatusbarLayoutItem.svelte';
-	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
+	import { KNOWN_MODULES } from '$lib/utils/waybar/waybarConfigUtils.js';
 
 	let {
 		layout = { left: [], center: [], right: [] },

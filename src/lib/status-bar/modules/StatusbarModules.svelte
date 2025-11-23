@@ -1,7 +1,7 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import StatusbarSingleModule from './StatusbarSingleModule.svelte';
-	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
+	import { KNOWN_MODULES } from '$lib/utils/waybar/waybarConfigUtils.js';
 
 	let {
 		modules = KNOWN_MODULES,

@@ -2,7 +2,7 @@
 	import { createEventDispatcher } from 'svelte';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
-	import FieldRenderer from './FieldRenderer.svelte';
+	import FieldRenderer from './singleModules/FieldRenderer.svelte';
 	import { hydrateFieldState, buildConfigFromFieldState } from '$lib/utils/waybar/schemaUtils.js';
 
 	let { schema, config = {}, disabled = false } = $props();
