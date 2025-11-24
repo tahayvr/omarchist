@@ -611,25 +611,25 @@ export const bluetoothSchema = {
 		}
 	},
 	tabs: [
-		{
-			id: 'general',
-			label: 'General',
-			description: 'Controller selection and display settings'
-		},
+		// {
+		// 	id: 'general',
+		// 	label: 'General',
+		// 	description: 'Controller selection and display settings'
+		// },
 		{
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different Bluetooth states'
-		},
-		{
-			id: 'tooltip',
-			label: 'Tooltip',
-			description: 'Tooltip formats for each state and device list'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'tooltip',
+		// 	label: 'Tooltip',
+		// 	description: 'Tooltip formats for each state and device list'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

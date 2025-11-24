@@ -636,30 +636,30 @@ export const batterySchema = {
 		}
 	},
 	tabs: [
-		{
-			id: 'general',
-			label: 'General',
-			description: 'Battery selection, polling, and capacity settings'
-		},
+		// {
+		// 	id: 'general',
+		// 	label: 'General',
+		// 	description: 'Battery selection, polling, and capacity settings'
+		// },
 		{
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different battery statuses'
-		},
-		{
-			id: 'states',
-			label: 'States',
-			description: 'Warning and critical state thresholds and formats'
-		},
-		{
-			id: 'tooltip',
-			label: 'Tooltip',
-			description: 'Tooltip formats for each battery status'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'states',
+		// 	label: 'States',
+		// 	description: 'Warning and critical state thresholds and formats'
+		// },
+		// {
+		// 	id: 'tooltip',
+		// 	label: 'Tooltip',
+		// 	description: 'Tooltip formats for each battery status'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

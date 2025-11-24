@@ -209,21 +209,21 @@ export const memorySchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Configure how memory information is displayed'
-		},
-		{
-			id: 'states',
-			label: 'States',
-			description: 'Define warning and critical thresholds'
-		},
-		{
-			id: 'tooltip',
-			label: 'Tooltip',
-			description: 'Tooltip display configuration'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'states',
+		// 	label: 'States',
+		// 	description: 'Define warning and critical thresholds'
+		// },
+		// {
+		// 	id: 'tooltip',
+		// 	label: 'Tooltip',
+		// 	description: 'Tooltip display configuration'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

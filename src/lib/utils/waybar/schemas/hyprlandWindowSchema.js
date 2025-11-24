@@ -164,16 +164,16 @@ export const hyprlandWindowSchema = {
 			id: 'general',
 			label: 'General',
 			description: 'Display format, length, and icon settings'
-		},
-		{
-			id: 'rewrite',
-			label: 'Rewrite',
-			description: 'Transform window titles with regex patterns'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'rewrite',
+		// 	label: 'Rewrite',
+		// 	description: 'Transform window titles with regex patterns'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

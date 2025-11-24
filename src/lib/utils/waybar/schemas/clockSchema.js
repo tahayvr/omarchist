@@ -666,16 +666,16 @@ export const clockSchema = {
 			id: 'general',
 			label: 'General',
 			description: 'Basic clock display, format, timezone, and update settings'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and keyboard interactions on the clock module'
-		},
-		{
-			id: 'calendar',
-			label: 'Calendar',
-			description: 'Calendar tooltip popup appearance and interactions'
 		}
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and keyboard interactions on the clock module'
+		// },
+		// {
+		// 	id: 'calendar',
+		// 	label: 'Calendar',
+		// 	description: 'Calendar tooltip popup appearance and interactions'
+		// }
 	]
 };

@@ -501,16 +501,16 @@ export const networkSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different connection states'
-		},
-		{
-			id: 'tooltip',
-			label: 'Tooltip',
-			description: 'Tooltip formats for each connection state'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'tooltip',
+		// 	label: 'Tooltip',
+		// 	description: 'Tooltip formats for each connection state'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

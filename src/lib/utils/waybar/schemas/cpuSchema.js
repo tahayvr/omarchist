@@ -238,16 +238,16 @@ export const cpuSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display format and usage icons'
-		},
-		{
-			id: 'states',
-			label: 'States',
-			description: 'Warning and critical state thresholds and formats'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'states',
+		// 	label: 'States',
+		// 	description: 'Warning and critical state thresholds and formats'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };

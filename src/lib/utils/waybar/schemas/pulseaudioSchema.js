@@ -419,21 +419,21 @@ export const pulseaudioSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different audio states'
-		},
-		{
-			id: 'states',
-			label: 'States',
-			description: 'Warning and critical volume thresholds'
-		},
-		{
-			id: 'tooltip',
-			label: 'Tooltip',
-			description: 'Tooltip format configuration'
-		},
-		{
-			id: 'actions',
-			label: 'Actions',
-			description: 'Mouse and scroll interactions'
 		}
+		// {
+		// 	id: 'states',
+		// 	label: 'States',
+		// 	description: 'Warning and critical volume thresholds'
+		// },
+		// {
+		// 	id: 'tooltip',
+		// 	label: 'Tooltip',
+		// 	description: 'Tooltip format configuration'
+		// },
+		// {
+		// 	id: 'actions',
+		// 	label: 'Actions',
+		// 	description: 'Mouse and scroll interactions'
+		// }
 	]
 };
