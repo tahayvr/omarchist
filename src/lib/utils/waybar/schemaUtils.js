@@ -315,12 +315,49 @@ export function hydrateFieldState(config, schema) {
 		}
 	}
 
-	// Now handle conditional custom fields
+	// Now handle conditional fields (fields with visibleWhen)
 	for (const [key, field] of Object.entries(schema.properties)) {
-		if (field.visibleWhen && !(key in state)) {
-			// Set default empty value for custom fields
-			if (field.type === 'string') {
-				state[key] = '';
+		if (!field.visibleWhen || key in state) {
+			continue;
+		}
+
+		const value = getNestedValue(config, key);
+
+		// Handle select types
+		if (field.type === 'select' || (field.enum && Array.isArray(field.enum))) {
+			if (value === null || value === undefined || value === '') {
+				state[key] = field.default || '__default';
+			} else if (field.enum && field.enum.includes(value)) {
+				state[key] = value;
+			} else {
+				state[key] = field.default || '__default';
+			}
+			continue;
+		}
+
+		// Handle other types
+		if (value !== null && value !== undefined) {
+			state[key] = value;
+		} else if (field.default !== undefined) {
+			state[key] = field.default;
+		} else {
+			// Set appropriate empty value based on type
+			switch (field.type) {
+				case 'string':
+					state[key] = '';
+					break;
+				case 'integer':
+				case 'number':
+					state[key] = '';
+					break;
+				case 'boolean':
+					state[key] = false;
+					break;
+				case 'array':
+					state[key] = [];
+					break;
+				default:
+					state[key] = '';
 			}
 		}
 	}
@@ -345,9 +382,16 @@ export function buildConfigFromFieldState(fieldState, schema) {
 	const config = {};
 
 	for (const [key, field] of Object.entries(schema.properties)) {
-		// Skip conditional custom fields - they'll be handled by their parent
+		// Check if this field should be included based on visibleWhen condition
 		if (field.visibleWhen) {
-			continue;
+			const parentField = field.visibleWhen.field;
+			const parentValue = fieldState[parentField];
+			const expectedValue = field.visibleWhen.value;
+
+			// Only include this field if the parent condition is met
+			if (parentValue !== expectedValue) {
+				continue;
+			}
 		}
 
 		const value = fieldState[key];

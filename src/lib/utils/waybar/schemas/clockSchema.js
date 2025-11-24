@@ -294,6 +294,30 @@ export const clockSchema = {
 				value: '__custom'
 			}
 		},
+		'calendar.mode': {
+			type: 'select',
+			title: 'Calendar View Mode',
+			description:
+				'Initial calendar display mode when tooltip is shown (only applies if using calendar tooltip)',
+			enum: ['month', 'year'],
+			enumLabels: ['Month View', 'Year View'],
+			default: 'month',
+			tab: 'general'
+		},
+		'calendar.mode-mon-col': {
+			type: 'select',
+			title: 'Calendar Months Per Column',
+			description:
+				'Number of months per column in year view (only applies if calendar mode is year)',
+			enum: [1, 2, 3, 4, 6, 12],
+			enumLabels: ['1', '2', '3', '4', '6', '12'],
+			default: 3,
+			tab: 'general',
+			visibleWhen: {
+				field: 'calendar.mode',
+				value: 'year'
+			}
+		},
 		'smooth-scrolling-threshold': {
 			type: 'number',
 			title: 'Smooth Scrolling Threshold',
@@ -508,158 +532,158 @@ export const clockSchema = {
 				field: 'on-click-backward',
 				value: '__custom'
 			}
-		},
-
-		// Calendar settings
-		'calendar.mode': {
-			type: 'select',
-			title: 'Calendar Mode',
-			description: 'Initial calendar display mode when tooltip is shown',
-			enum: ['month', 'year'],
-			enumLabels: ['Month View', 'Year View'],
-			default: 'month',
-			tab: 'calendar'
-		},
-		'calendar.mode-mon-col': {
-			type: 'select',
-			title: 'Months Per Column',
-			description: 'Number of months per column in year view',
-			enum: [1, 2, 3, 4, 6, 12],
-			enumLabels: ['1', '2', '3 (default)', '4', '6', '12'],
-			default: 3,
-			tab: 'calendar'
-		},
-		'calendar.weeks-pos': {
-			type: 'select',
-			title: 'Week Numbers Position',
-			description: 'Where to show week numbers in calendar',
-			enum: ['__none', 'left', 'right'],
-			enumLabels: ['Hidden', 'Left Side', 'Right Side'],
-			default: '__none',
-			tab: 'calendar'
-		},
-		'calendar.on-scroll': {
-			type: 'select',
-			title: 'Calendar Scroll Amount',
-			description: 'Number of months/years to scroll per action',
-			enum: [1, 2, 3, 6, 12],
-			enumLabels: ['1 month', '2 months', '3 months', '6 months', '1 year'],
-			default: 1,
-			tab: 'calendar'
-		},
-		'calendar.format.months': {
-			type: 'string',
-			title: 'Month Header Format',
-			description:
-				'Pango markup for month headers. Use <b> for bold, <span color="#hex"> for colors.',
-			default: '',
-			placeholder: '<span color="#ffead3"><b>{}</b></span>',
-			tab: 'calendar'
-		},
-		'calendar.format.days': {
-			type: 'string',
-			title: 'Day Number Format',
-			description:
-				'Pango markup for day numbers. Use <b> for bold, <span color="#hex"> for colors.',
-			default: '',
-			placeholder: '<span color="#ecc6d9"><b>{}</b></span>',
-			tab: 'calendar'
-		},
-		'calendar.format.weeks': {
-			type: 'string',
-			title: 'Week Number Format',
-			description:
-				'Pango markup for week numbers. Use <b> for bold, <span color="#hex"> for colors.',
-			default: '',
-			placeholder: '<span color="#99ffdd"><b>W{}</b></span>',
-			tab: 'calendar'
-		},
-		'calendar.format.weekdays': {
-			type: 'string',
-			title: 'Weekday Header Format',
-			description:
-				'Pango markup for weekday headers (Mon, Tue, etc). Use <b> for bold, <span color="#hex"> for colors.',
-			default: '',
-			placeholder: '<span color="#ffcc66"><b>{}</b></span>',
-			tab: 'calendar'
-		},
-		'calendar.format.today': {
-			type: 'string',
-			title: 'Today Highlight',
-			description:
-				'Pango markup for current day. Use <b> for bold, <u> for underline, <span color="#hex"> for colors.',
-			default: '<b><u>{}</u></b>',
-			placeholder: '<span color="#ff6699"><b><u>{}</u></b></span>',
-			tab: 'calendar'
-		},
-		'actions.on-click-right': {
-			type: 'select',
-			title: 'Calendar Popup: Right Click',
-			description: 'Action when right-clicking inside the calendar tooltip popup',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
-			enumLabels: [
-				'None',
-				'Switch Calendar Mode (year/month)',
-				'Next Timezone',
-				'Previous Timezone',
-				'Forward (next month/year)',
-				'Back (previous month/year)',
-				'Reset (today)'
-			],
-			default: '__none',
-			tab: 'calendar'
-		},
-		'actions.on-click-middle': {
-			type: 'select',
-			title: 'Calendar Popup: Middle Click',
-			description: 'Action when middle-clicking inside the calendar tooltip popup',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
-			enumLabels: [
-				'None',
-				'Switch Calendar Mode (year/month)',
-				'Next Timezone',
-				'Previous Timezone',
-				'Forward (next month/year)',
-				'Back (previous month/year)',
-				'Reset (today)'
-			],
-			default: '__none',
-			tab: 'calendar'
-		},
-		'actions.on-scroll-up': {
-			type: 'select',
-			title: 'Calendar Popup: Scroll Up',
-			description: 'Action when scrolling up inside the calendar tooltip popup',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
-			enumLabels: [
-				'None',
-				'Switch Calendar Mode (year/month)',
-				'Next Timezone',
-				'Previous Timezone',
-				'Forward (next month/year)',
-				'Back (previous month/year)',
-				'Reset (today)'
-			],
-			default: '__none',
-			tab: 'calendar'
-		},
-		'actions.on-scroll-down': {
-			type: 'select',
-			title: 'Calendar Popup: Scroll Down',
-			description: 'Action when scrolling down inside the calendar tooltip popup',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
-			enumLabels: [
-				'None',
-				'Switch Calendar Mode (year/month)',
-				'Next Timezone',
-				'Previous Timezone',
-				'Forward (next month/year)',
-				'Back (previous month/year)',
-				'Reset (today)'
-			],
-			default: '__none',
-			tab: 'calendar'
 		}
+
+		// Calendar tab fields - commented out for now
+		// 'calendar.mode': {
+		// 	type: 'select',
+		// 	title: 'Calendar Mode',
+		// 	description: 'Initial calendar display mode when tooltip is shown',
+		// 	enum: ['month', 'year'],
+		// 	enumLabels: ['Month View', 'Year View'],
+		// 	default: 'month',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.mode-mon-col': {
+		// 	type: 'select',
+		// 	title: 'Months Per Column',
+		// 	description: 'Number of months per column in year view',
+		// 	enum: [1, 2, 3, 4, 6, 12],
+		// 	enumLabels: ['1', '2', '3 (default)', '4', '6', '12'],
+		// 	default: 3,
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.weeks-pos': {
+		// 	type: 'select',
+		// 	title: 'Week Numbers Position',
+		// 	description: 'Where to show week numbers in calendar',
+		// 	enum: ['__none', 'left', 'right'],
+		// 	enumLabels: ['Hidden', 'Left Side', 'Right Side'],
+		// 	default: '__none',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.on-scroll': {
+		// 	type: 'select',
+		// 	title: 'Calendar Scroll Amount',
+		// 	description: 'Number of months/years to scroll per action',
+		// 	enum: [1, 2, 3, 6, 12],
+		// 	enumLabels: ['1 month', '2 months', '3 months', '6 months', '1 year'],
+		// 	default: 1,
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.format.months': {
+		// 	type: 'string',
+		// 	title: 'Month Header Format',
+		// 	description:
+		// 		'Pango markup for month headers. Use <b> for bold, <span color="#hex"> for colors.',
+		// 	default: '',
+		// 	placeholder: '<span color="#ffead3"><b>{}</b></span>',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.format.days': {
+		// 	type: 'string',
+		// 	title: 'Day Number Format',
+		// 	description:
+		// 		'Pango markup for day numbers. Use <b> for bold, <span color="#hex"> for colors.',
+		// 	default: '',
+		// 	placeholder: '<span color="#ecc6d9"><b>{}</b></span>',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.format.weeks': {
+		// 	type: 'string',
+		// 	title: 'Week Number Format',
+		// 	description:
+		// 		'Pango markup for week numbers. Use <b> for bold, <span color="#hex"> for colors.',
+		// 	default: '',
+		// 	placeholder: '<span color="#99ffdd"><b>W{}</b></span>',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.format.weekdays': {
+		// 	type: 'string',
+		// 	title: 'Weekday Header Format',
+		// 	description:
+		// 		'Pango markup for weekday headers (Mon, Tue, etc). Use <b> for bold, <span color="#hex"> for colors.',
+		// 	default: '',
+		// 	placeholder: '<span color="#ffcc66"><b>{}</b></span>',
+		// 	tab: 'calendar'
+		// },
+		// 'calendar.format.today': {
+		// 	type: 'string',
+		// 	title: 'Today Highlight',
+		// 	description:
+		// 		'Pango markup for current day. Use <b> for bold, <u> for underline, <span color="#hex"> for colors.',
+		// 	default: '<b><u>{}</u></b>',
+		// 	placeholder: '<span color="#ff6699"><b><u>{}</u></b></span>',
+		// 	tab: 'calendar'
+		// },
+		// 'actions.on-click-right': {
+		// 	type: 'select',
+		// 	title: 'Calendar Popup: Right Click',
+		// 	description: 'Action when right-clicking inside the calendar tooltip popup',
+		// 	enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+		// 	enumLabels: [
+		// 		'None',
+		// 		'Switch Calendar Mode (year/month)',
+		// 		'Next Timezone',
+		// 		'Previous Timezone',
+		// 		'Forward (next month/year)',
+		// 		'Back (previous month/year)',
+		// 		'Reset (today)'
+		// 	],
+		// 	default: '__none',
+		// 	tab: 'calendar'
+		// },
+		// 'actions.on-click-middle': {
+		// 	type: 'select',
+		// 	title: 'Calendar Popup: Middle Click',
+		// 	description: 'Action when middle-clicking inside the calendar tooltip popup',
+		// 	enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+		// 	enumLabels: [
+		// 		'None',
+		// 		'Switch Calendar Mode (year/month)',
+		// 		'Next Timezone',
+		// 		'Previous Timezone',
+		// 		'Forward (next month/year)',
+		// 		'Back (previous month/year)',
+		// 		'Reset (today)'
+		// 	],
+		// 	default: '__none',
+		// 	tab: 'calendar'
+		// },
+		// 'actions.on-scroll-up': {
+		// 	type: 'select',
+		// 	title: 'Calendar Popup: Scroll Up',
+		// 	description: 'Action when scrolling up inside the calendar tooltip popup',
+		// 	enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+		// 	enumLabels: [
+		// 		'None',
+		// 		'Switch Calendar Mode (year/month)',
+		// 		'Next Timezone',
+		// 		'Previous Timezone',
+		// 		'Forward (next month/year)',
+		// 		'Back (previous month/year)',
+		// 		'Reset (today)'
+		// 	],
+		// 	default: '__none',
+		// 	tab: 'calendar'
+		// },
+		// 'actions.on-scroll-down': {
+		// 	type: 'select',
+		// 	title: 'Calendar Popup: Scroll Down',
+		// 	description: 'Action when scrolling down inside the calendar tooltip popup',
+		// 	enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+		// 	enumLabels: [
+		// 		'None',
+		// 		'Switch Calendar Mode (year/month)',
+		// 		'Next Timezone',
+		// 		'Previous Timezone',
+		// 		'Forward (next month/year)',
+		// 		'Back (previous month/year)',
+		// 		'Reset (today)'
+		// 	],
+		// 	default: '__none',
+		// 	tab: 'calendar'
+		// }
 	},
 	tabs: [
 		{

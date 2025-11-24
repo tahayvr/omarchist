@@ -131,6 +131,9 @@
 			return;
 		}
 
+		// Access fieldState to ensure reactivity tracks all changes
+		const stateSnapshot = JSON.stringify(fieldState);
+
 		const newConfig = buildConfigFromFieldState(fieldState, schema);
 		const signature = JSON.stringify(newConfig);
 
