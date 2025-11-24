@@ -328,19 +328,39 @@ impl WaybarConfigService {
             )),
         );
 
-        for key in KNOWN_MODULE_KEYS {
-            root_map.remove(*key);
+        // Preserve order of module definitions based on their appearance in layout
+        // First collect all unique module IDs from layout in order
+        let mut ordered_module_keys: Vec<String> = Vec::new();
+        let mut seen_keys = HashSet::new();
+
+        // Add modules in the order they appear in the layout (left, center, right)
+        for module_id in left
+            .iter()
+            .chain(center.iter())
+            .chain(right.iter())
+        {
+            if seen_keys.insert(module_id.clone()) {
+                ordered_module_keys.push(module_id.clone());
+            }
         }
 
-        let defaults = default_modules_map();
+        // Add any remaining known modules that aren't in the layout
         for key in KNOWN_MODULE_KEYS {
-            let value = payload.modules.get(*key).cloned().unwrap_or_else(|| {
+            if seen_keys.insert((*key).to_string()) {
+                ordered_module_keys.push((*key).to_string());
+            }
+        }
+
+        // Add module definitions in the preserved order
+        let defaults = default_modules_map();
+        for key in &ordered_module_keys {
+            let value = payload.modules.get(key).cloned().unwrap_or_else(|| {
                 defaults
-                    .get(*key)
+                    .get(key)
                     .cloned()
                     .unwrap_or(Value::Object(Map::new()))
             });
-            root_map.insert((*key).to_string(), value);
+            root_map.insert(key.clone(), value);
         }
 
         // Store module styles in _omarchist section if present
