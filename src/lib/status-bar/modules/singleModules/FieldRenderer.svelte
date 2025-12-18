@@ -16,7 +16,6 @@
 		return val;
 	}
 
-	// Get the currently selected label for display in trigger
 	const triggerContent = $derived.by(() => {
 		if (!value || value === '__default') {
 			return 'Select an option';
@@ -103,7 +102,7 @@
 				placeholder={field.placeholder || ''}
 				{disabled}
 				rows={4}
-				class="w-full font-mono text-sm"
+				class="w-full text-sm"
 			/>
 		{:else}
 			<Input

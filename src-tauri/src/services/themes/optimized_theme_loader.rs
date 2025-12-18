@@ -100,10 +100,9 @@ impl OptimizedThemeLoader {
                     .and_then(|ext| ext.to_str())
                     .map(|ext| ext.eq_ignore_ascii_case("json"))
                     .unwrap_or(false)
+                    && Self::is_valid_metadata_file(&path)
                 {
-                    if Self::is_valid_metadata_file(&path) {
-                        return Some(path);
-                    }
+                    return Some(path);
                 }
             }
         }

@@ -1,18 +1,13 @@
-/**
- * Clock module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Clock
- */
-
 export const clockSchema = {
 	type: 'object',
 	title: 'Clock',
-	description: 'Localized time display with alternate format',
+	description: '',
 	properties: {
-		// General settings
 		format: {
 			type: 'select',
 			title: 'Time Format',
-			description: 'Primary format string for the clock display',
+			description:
+				'Primary format string for the clock display. Prepend L for locale-aware formatting: {:L%a %d}',
 			enum: [
 				'{:%H:%M}',
 				'{:%I:%M %p}',
@@ -20,6 +15,8 @@ export const clockSchema = {
 				'{:%I:%M:%S %p}',
 				'{:%R}',
 				'{:%T}',
+				'{:L%a %H:%M}',
+				'{:L%A %H:%M}',
 				'__custom'
 			],
 			enumLabels: [
@@ -29,16 +26,19 @@ export const clockSchema = {
 				'12-hour with seconds (02:30:45 PM)',
 				'Short 24-hour (%R)',
 				'Short with seconds (%T)',
+				'Locale-aware with day (Mon 14:30)',
+				'Locale-aware full day (Monday 14:30)',
 				'Custom format...'
 			],
-			default: '{:%H:%M}',
+			default: '{:L%A %H:%M}',
 			tab: 'general'
 		},
 		'format-custom': {
 			type: 'string',
 			title: 'Custom Time Format',
-			description: 'Enter custom format when "Custom format..." is selected above',
-			placeholder: '{:%H:%M}',
+			description:
+				'Enter custom format. Use {:L%...} for locale-aware formatting. See fmt chrono docs for format codes.',
+			placeholder: '{:%H:%M} or {:L%A %H:%M}',
 			tab: 'general',
 			visibleWhen: {
 				field: 'format',
@@ -57,6 +57,7 @@ export const clockSchema = {
 				'{:%m/%d/%Y}',
 				'{:%Y-%m-%d}',
 				'{:%B %d}',
+				'{:L%d %B W%V %Y}',
 				'__custom'
 			],
 			enumLabels: [
@@ -67,16 +68,17 @@ export const clockSchema = {
 				'MM/DD/YYYY (10/17/2025)',
 				'ISO date (2025-10-17)',
 				'Month day (October 17)',
+				'Full date with week (17 October W42 2025)',
 				'Custom format...'
 			],
-			default: '{:%a %d %b}',
+			default: '{:L%d %B W%V %Y}',
 			tab: 'general'
 		},
 		'format-alt-custom': {
 			type: 'string',
 			title: 'Custom Alternate Format',
-			description: 'Enter custom format when "Custom format..." is selected above',
-			placeholder: '{:%a %d %b}',
+			description: 'Enter custom format. Use {:L%...} for locale-aware formatting.',
+			placeholder: '{:%a %d %b} or {:L%A, %B %d, %Y}',
 			tab: 'general',
 			visibleWhen: {
 				field: 'format-alt',
@@ -88,7 +90,7 @@ export const clockSchema = {
 			title: 'Timezone',
 			description: 'Timezone identifier for time display',
 			enum: [
-				'__local',
+				'__default',
 				'UTC',
 				'America/New_York',
 				'America/Chicago',
@@ -117,7 +119,7 @@ export const clockSchema = {
 				'__custom'
 			],
 			enumLabels: [
-				'Local timezone',
+				'Local timezone (default)',
 				'UTC',
 				'New York (EST/EDT)',
 				'Chicago (CST/CDT)',
@@ -145,7 +147,7 @@ export const clockSchema = {
 				'Auckland (NZDT/NZST)',
 				'Custom timezone...'
 			],
-			default: '__local',
+			default: '__default',
 			tab: 'general'
 		},
 		'timezone-custom': {
@@ -161,14 +163,14 @@ export const clockSchema = {
 		},
 		timezones: {
 			type: 'array',
-			title: 'Additional Timezones',
+			title: 'Multiple Timezones',
 			description:
-				'List of timezones to cycle through (one per line). Do not use with single timezone option.',
+				'⚠️ Do not use with single timezone option above. List timezones to cycle through with scroll wheel (one per line).',
 			items: {
 				type: 'string'
 			},
 			format: 'textarea',
-			placeholder: 'Etc/UTC\nAmerica/New_York\nAsia/Tokyo',
+			placeholder: 'Etc/UTC\nAmerica/New_York\nAsia/Tokyo\nEurope/London\nAsia/Shanghai',
 			tab: 'general'
 		},
 		locale: {
@@ -176,7 +178,7 @@ export const clockSchema = {
 			title: 'Locale',
 			description: 'Locale for date formatting',
 			enum: [
-				'__system',
+				'__default',
 				'C',
 				'en_US.UTF-8',
 				'en_GB.UTF-8',
@@ -193,7 +195,7 @@ export const clockSchema = {
 				'__custom'
 			],
 			enumLabels: [
-				'System locale',
+				'System locale (default)',
 				'C (default)',
 				'English (US)',
 				'English (UK)',
@@ -209,7 +211,7 @@ export const clockSchema = {
 				'Arabic (Saudi Arabia)',
 				'Custom locale...'
 			],
-			default: '__system',
+			default: '__default',
 			tab: 'general'
 		},
 		'locale-custom': {
@@ -251,7 +253,7 @@ export const clockSchema = {
 			type: 'boolean',
 			title: 'Show Tooltip',
 			description: 'Enable tooltip on hover',
-			default: true,
+			default: false,
 			tab: 'general'
 		},
 		'tooltip-format': {
@@ -290,6 +292,7 @@ export const clockSchema = {
 				value: '__custom'
 			}
 		},
+
 		'smooth-scrolling-threshold': {
 			type: 'number',
 			title: 'Smooth Scrolling Threshold',
@@ -298,11 +301,10 @@ export const clockSchema = {
 			tab: 'general'
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',
-			description: 'Command to execute when left-clicking the clock',
+			description: 'Command to execute when left-clicking the clock module',
 			placeholder: 'gnome-calendar',
 			default: '',
 			tab: 'actions'
@@ -318,10 +320,20 @@ export const clockSchema = {
 		'on-click-right': {
 			type: 'select',
 			title: 'Right Click Action',
-			description: 'Built-in action for right-click',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Action or command for right-click on the clock module',
+			enum: [
+				'__default',
+				'__custom',
+				'mode',
+				'tz_up',
+				'tz_down',
+				'shift_up',
+				'shift_down',
+				'shift_reset'
+			],
 			enumLabels: [
-				'None',
+				'None (default)',
+				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
 				'Previous Timezone',
@@ -329,16 +341,37 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
+		},
+		'on-click-right-custom': {
+			type: 'string',
+			title: 'Custom Right Click Command',
+			description: 'Enter custom command to execute',
+			placeholder: 'gnome-calendar',
+			tab: 'actions',
+			visibleWhen: {
+				field: 'on-click-right',
+				value: '__custom'
+			}
 		},
 		'on-scroll-up': {
 			type: 'select',
 			title: 'Scroll Up Action',
-			description: 'Built-in action when scrolling up',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Action or command when scrolling up on the clock module',
+			enum: [
+				'__default',
+				'__custom',
+				'mode',
+				'tz_up',
+				'tz_down',
+				'shift_up',
+				'shift_down',
+				'shift_reset'
+			],
 			enumLabels: [
-				'None',
+				'None (default)',
+				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
 				'Previous Timezone',
@@ -346,16 +379,37 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
+		},
+		'on-scroll-up-custom': {
+			type: 'string',
+			title: 'Custom Scroll Up Command',
+			description: 'Enter custom command to execute',
+			placeholder: 'notify-send "Scrolled up"',
+			tab: 'actions',
+			visibleWhen: {
+				field: 'on-scroll-up',
+				value: '__custom'
+			}
 		},
 		'on-scroll-down': {
 			type: 'select',
 			title: 'Scroll Down Action',
-			description: 'Built-in action when scrolling down',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Action or command when scrolling down on the clock module',
+			enum: [
+				'__default',
+				'__custom',
+				'mode',
+				'tz_up',
+				'tz_down',
+				'shift_up',
+				'shift_down',
+				'shift_reset'
+			],
 			enumLabels: [
-				'None',
+				'None (default)',
+				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
 				'Previous Timezone',
@@ -363,16 +417,37 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
+		},
+		'on-scroll-down-custom': {
+			type: 'string',
+			title: 'Custom Scroll Down Command',
+			description: 'Enter custom command to execute',
+			placeholder: 'notify-send "Scrolled down"',
+			tab: 'actions',
+			visibleWhen: {
+				field: 'on-scroll-down',
+				value: '__custom'
+			}
 		},
 		'on-click-forward': {
 			type: 'select',
 			title: 'Mouse Forward Button',
-			description: 'Built-in action for forward mouse button',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Action or command for forward mouse button',
+			enum: [
+				'__none',
+				'__custom',
+				'mode',
+				'tz_up',
+				'tz_down',
+				'shift_up',
+				'shift_down',
+				'shift_reset'
+			],
 			enumLabels: [
 				'None',
+				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
 				'Previous Timezone',
@@ -382,14 +457,35 @@ export const clockSchema = {
 			],
 			default: '__none',
 			tab: 'actions'
+		},
+		'on-click-forward-custom': {
+			type: 'string',
+			title: 'Custom Forward Button Command',
+			description: 'Enter custom command to execute',
+			placeholder: 'gnome-calendar',
+			tab: 'actions',
+			visibleWhen: {
+				field: 'on-click-forward',
+				value: '__custom'
+			}
 		},
 		'on-click-backward': {
 			type: 'select',
 			title: 'Mouse Back Button',
-			description: 'Built-in action for back mouse button',
-			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
+			description: 'Action or command for back mouse button',
+			enum: [
+				'__none',
+				'__custom',
+				'mode',
+				'tz_up',
+				'tz_down',
+				'shift_up',
+				'shift_down',
+				'shift_reset'
+			],
 			enumLabels: [
 				'None',
+				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
 				'Previous Timezone',
@@ -400,12 +496,23 @@ export const clockSchema = {
 			default: '__none',
 			tab: 'actions'
 		},
+		'on-click-backward-custom': {
+			type: 'string',
+			title: 'Custom Back Button Command',
+			description: 'Enter custom command to execute',
+			placeholder: 'gnome-calendar',
+			tab: 'actions',
+			visibleWhen: {
+				field: 'on-click-backward',
+				value: '__custom'
+			}
+		},
 
-		// Calendar settings
+		// Calendar tab fields
 		'calendar.mode': {
 			type: 'select',
 			title: 'Calendar Mode',
-			description: 'Initial calendar display mode',
+			description: 'Initial calendar display mode when tooltip is shown',
 			enum: ['month', 'year'],
 			enumLabels: ['Month View', 'Year View'],
 			default: 'month',
@@ -432,7 +539,7 @@ export const clockSchema = {
 		'calendar.on-scroll': {
 			type: 'select',
 			title: 'Calendar Scroll Amount',
-			description: 'Number of months to scroll per action',
+			description: 'Number of months/years to scroll per action',
 			enum: [1, 2, 3, 6, 12],
 			enumLabels: ['1 month', '2 months', '3 months', '6 months', '1 year'],
 			default: 1,
@@ -440,48 +547,53 @@ export const clockSchema = {
 		},
 		'calendar.format.months': {
 			type: 'string',
-			title: 'Month Format',
-			description: 'Format for month headers',
+			title: 'Month Header Format',
+			description:
+				'Pango markup for month headers. Use <b> for bold, <span color="#hex"> for colors.',
 			default: '',
 			placeholder: '<span color="#ffead3"><b>{}</b></span>',
 			tab: 'calendar'
 		},
 		'calendar.format.days': {
 			type: 'string',
-			title: 'Day Format',
-			description: 'Format for day numbers',
+			title: 'Day Number Format',
+			description:
+				'Pango markup for day numbers. Use <b> for bold, <span color="#hex"> for colors.',
 			default: '',
 			placeholder: '<span color="#ecc6d9"><b>{}</b></span>',
 			tab: 'calendar'
 		},
 		'calendar.format.weeks': {
 			type: 'string',
-			title: 'Week Format',
-			description: 'Format for week numbers',
+			title: 'Week Number Format',
+			description:
+				'Pango markup for week numbers. Use <b> for bold, <span color="#hex"> for colors.',
 			default: '',
 			placeholder: '<span color="#99ffdd"><b>W{}</b></span>',
 			tab: 'calendar'
 		},
 		'calendar.format.weekdays': {
 			type: 'string',
-			title: 'Weekday Format',
-			description: 'Format for weekday headers',
+			title: 'Weekday Header Format',
+			description:
+				'Pango markup for weekday headers (Mon, Tue, etc). Use <b> for bold, <span color="#hex"> for colors.',
 			default: '',
 			placeholder: '<span color="#ffcc66"><b>{}</b></span>',
 			tab: 'calendar'
 		},
 		'calendar.format.today': {
 			type: 'string',
-			title: 'Today Format',
-			description: 'Format for current day',
-			default: '',
+			title: 'Today Highlight',
+			description:
+				'Pango markup for current day. Use <b> for bold, <u> for underline, <span color="#hex"> for colors.',
+			default: '<b><u>{}</u></b>',
 			placeholder: '<span color="#ff6699"><b><u>{}</u></b></span>',
 			tab: 'calendar'
 		},
 		'actions.on-click-right': {
 			type: 'select',
-			title: 'Calendar Right Click',
-			description: 'Calendar popup action on right-click',
+			title: 'Calendar Popup: Right Click',
+			description: 'Action when right-clicking inside the calendar tooltip popup',
 			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
 				'None',
@@ -497,8 +609,8 @@ export const clockSchema = {
 		},
 		'actions.on-click-middle': {
 			type: 'select',
-			title: 'Calendar Middle Click',
-			description: 'Calendar popup action on middle-click',
+			title: 'Calendar Popup: Middle Click',
+			description: 'Action when middle-clicking inside the calendar tooltip popup',
 			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
 				'None',
@@ -514,8 +626,8 @@ export const clockSchema = {
 		},
 		'actions.on-scroll-up': {
 			type: 'select',
-			title: 'Calendar Scroll Up',
-			description: 'Calendar popup action on scroll up',
+			title: 'Calendar Popup: Scroll Up',
+			description: 'Action when scrolling up inside the calendar tooltip popup',
 			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
 				'None',
@@ -531,8 +643,8 @@ export const clockSchema = {
 		},
 		'actions.on-scroll-down': {
 			type: 'select',
-			title: 'Calendar Scroll Down',
-			description: 'Calendar popup action on scroll down',
+			title: 'Calendar Popup: Scroll Down',
+			description: 'Action when scrolling down inside the calendar tooltip popup',
 			enum: ['__none', 'mode', 'tz_up', 'tz_down', 'shift_up', 'shift_down', 'shift_reset'],
 			enumLabels: [
 				'None',
@@ -551,17 +663,17 @@ export const clockSchema = {
 		{
 			id: 'general',
 			label: 'General',
-			description: 'Basic clock display and update settings'
+			description: 'Basic clock display, format, timezone, and update settings'
 		},
 		{
 			id: 'actions',
 			label: 'Actions',
-			description: 'Mouse and keyboard interactions'
+			description: 'Mouse and keyboard interactions on the clock module'
 		},
 		{
 			id: 'calendar',
 			label: 'Calendar',
-			description: 'Calendar popup configuration'
+			description: 'Calendar tooltip popup appearance and interactions'
 		}
 	]
 };

@@ -8,6 +8,7 @@
 	import * as DropdownMenu from '$lib/components/ui/dropdown-menu/index.js';
 	import MoreIcon from '@lucide/svelte/icons/ellipsis-vertical';
 	import { invoke } from '@tauri-apps/api/core';
+	import * as Kbd from '$lib/components/ui/kbd/index.js';
 
 	let {
 		isLoading = false,
@@ -242,9 +243,9 @@
 			>
 				Reset
 			</Button>
-			<Button class="uppercase" variant="outline" onclick={() => restartApp('waybar')}>
-				Restart Status Bar
-			</Button>
+			<Button class="pe-2 uppercase" variant="outline" onclick={() => restartApp('waybar')}
+				>Save <Kbd.Root>S</Kbd.Root></Button
+			>
 		</div>
 	</Card.Content>
 

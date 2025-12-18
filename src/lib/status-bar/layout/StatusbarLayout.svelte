@@ -1,16 +1,15 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import StatusbarLayoutItem from './StatusbarLayoutItem.svelte';
-	import { KNOWN_MODULES } from '$lib/utils/waybarConfigUtils.js';
+	import { KNOWN_MODULES } from '$lib/utils/waybar/waybarConfigUtils.js';
 
 	let {
 		layout = { left: [], center: [], right: [] },
 		modules = KNOWN_MODULES,
-		disabled = false
+		disabled = false,
+		onReorder = () => {}
 	} = $props();
 
-	const dispatch = createEventDispatcher();
 	const moduleLookup = $derived(new Map(modules.map((entry) => [entry.id, entry])));
 
 	const sections = [
@@ -28,34 +27,30 @@
 			return;
 		}
 
-		const modules = event.detail?.modules;
+		const modules = event?.modules;
 		if (!Array.isArray(modules)) {
 			return;
 		}
-		dispatch('reorder', { section: sectionKey, modules });
+		onReorder({ section: sectionKey, modules });
 	}
 </script>
 
 <Card.Root>
 	<Card.Header>
 		<Card.Title class="text-accent-foreground uppercase">Layout</Card.Title>
-		<Card.Description class="text-xs tracking-wide uppercase"></Card.Description>
 	</Card.Header>
 	<Card.Content class="flex flex-col gap-4">
 		{#each sections as section (section.key)}
 			<Card.Root class="h-full w-full">
 				<Card.Header>
 					<Card.Title class="text-accent-foreground/70 uppercase">{section.title}</Card.Title>
-					<!-- <Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-						{section.description}
-					</Card.Description> -->
 				</Card.Header>
 				<Card.Content>
 					<StatusbarLayoutItem
 						modules={layout[section.key] ?? []}
 						{moduleLookup}
 						{disabled}
-						on:reorder={(event) => handleReorder(section.key, event)}
+						onReorder={(event) => handleReorder(section.key, event)}
 					/>
 				</Card.Content>
 			</Card.Root>

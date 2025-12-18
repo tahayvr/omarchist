@@ -1,21 +1,15 @@
-/**
- * Network module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Network
- */
-
 export const networkSchema = {
 	type: 'object',
 	title: 'Network',
-	description: 'Display network connection status and information',
+	description: '',
 	properties: {
-		// General settings
 		interface: {
 			type: 'string',
 			title: 'Network Interface',
 			description:
 				'Select a specific interface to monitor (e.g., wlan0, eth0). Leave empty for auto-detection. Wildcards are allowed.',
 			placeholder: 'Auto-detect',
-			default: '',
+			default: '__default',
 			tab: 'general'
 		},
 		family: {
@@ -41,7 +35,7 @@ export const networkSchema = {
 				'30 seconds',
 				'60 seconds (default)'
 			],
-			default: 60,
+			default: 3,
 			tab: 'general'
 		},
 		'max-length': {
@@ -63,7 +57,6 @@ export const networkSchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Default Format',
@@ -88,7 +81,7 @@ export const networkSchema = {
 				'IP address only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname}',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -126,6 +119,7 @@ export const networkSchema = {
 				'{signalStrength}%',
 				'{ipaddr}',
 				'{essid} ({signalStrength}%) {bandwidthDownBytes}',
+				' ',
 				'__custom'
 			],
 			enumLabels: [
@@ -139,9 +133,10 @@ export const networkSchema = {
 				'Signal percent only',
 				'IP address only',
 				'SSID + percent + download speed',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: ' ',
 			tab: 'formats'
 		},
 		'format-wifi-custom': {
@@ -167,6 +162,7 @@ export const networkSchema = {
 				'󰊗 {ipaddr}',
 				'󰊗 {bandwidthDownBytes}',
 				'{ifname}',
+				'󰈀',
 				'__custom'
 			],
 			enumLabels: [
@@ -177,9 +173,10 @@ export const networkSchema = {
 				'Icon + IP address',
 				'Icon + download speed',
 				'Interface name only',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰈀',
 			tab: 'formats'
 		},
 		'format-ethernet-custom': {
@@ -206,7 +203,7 @@ export const networkSchema = {
 				'Text "No IP"',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} (No IP)',
 			tab: 'formats'
 		},
 		'format-linked-custom': {
@@ -233,7 +230,7 @@ export const networkSchema = {
 				'Alternative disconnected icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '',
 			tab: 'formats'
 		},
 		'format-disconnected-custom': {
@@ -260,7 +257,7 @@ export const networkSchema = {
 				'Airplane mode icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰤮 Disabled',
 			tab: 'formats'
 		},
 		'format-disabled-custom': {
@@ -294,15 +291,23 @@ export const networkSchema = {
 			type: 'select',
 			title: 'Default Tooltip Format',
 			description: 'Tooltip format for the general state',
-			enum: ['__default', '{ifname} via {gwaddr}', '{ifname}', '{ipaddr}/{cidr}', '__custom'],
+			enum: [
+				'__default',
+				'{ifname} via {gwaddr}',
+				'{ifname}',
+				'{ipaddr}/{cidr}',
+				'{ifname} ({essid}): {ipaddr}',
+				'__custom'
+			],
 			enumLabels: [
 				'Inherit default tooltip',
 				'Interface via gateway',
 				'Interface name only',
 				'IP address / CIDR',
+				'Interface (SSID): IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} ({essid}): {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-custom': {
@@ -326,6 +331,7 @@ export const networkSchema = {
 				'{essid} ({signalStrength}%) - {frequency} GHz',
 				'{essid}\n{ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
 				'{essid} - {signaldBm} dBm',
+				'{ifname} ({essid}): {ipaddr}',
 				'__custom'
 			],
 			enumLabels: [
@@ -334,9 +340,10 @@ export const networkSchema = {
 				'SSID with signal percent and frequency',
 				'SSID + IP + bandwidth',
 				'SSID with signal strength in dBm',
+				'Interface (SSID): IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} ({essid}): {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-wifi-custom': {
@@ -360,6 +367,7 @@ export const networkSchema = {
 				'{ifname} - {ipaddr}/{cidr}',
 				'⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
 				'{ifname}\n{ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
+				'{ifname}: {ipaddr}',
 				'__custom'
 			],
 			enumLabels: [
@@ -368,9 +376,10 @@ export const networkSchema = {
 				'Interface with IP/CIDR',
 				'Download / upload speeds',
 				'Interface + IP + bandwidth',
+				'Interface: IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname}: {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-ethernet-custom': {
@@ -402,7 +411,7 @@ export const networkSchema = {
 				'Interface - Disconnected',
 				'Custom format...'
 			],
-			default: '__default',
+			default: 'Disconnected',
 			tab: 'tooltip'
 		},
 		'tooltip-format-disconnected-custom': {
@@ -443,13 +452,12 @@ export const networkSchema = {
 			}
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',
 			description: 'Command to execute when the module is left-clicked',
 			placeholder: 'nm-connection-editor',
-			default: '',
+			default: 'nm-connection-editor',
 			tab: 'actions'
 		},
 		'on-click-middle': {

@@ -1,9 +1,7 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import StatusbarModuleDialog from './StatusbarModuleDialog.svelte';
-	import StatusbarModuleStyleDialog from './StatusbarModuleStyleDialog.svelte';
+	// import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
 	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
 	let {
@@ -11,33 +9,23 @@
 		position = $bindable('hidden'),
 		fields = [],
 		config = {},
-		style = {},
-		disabled = false
+		disabled = false,
+		onChange = () => {},
+		onConfigChange = () => {}
 	} = $props();
-
-	const dispatch = createEventDispatcher();
 
 	const showConfigButton = $derived(isModuleConfigurable(module.id));
 
 	function handleValueChange(nextPosition) {
 		position = nextPosition || 'hidden';
-		dispatch('change', { moduleId: module.id, position });
+		onChange(position);
 	}
 
-	function handleDialogConfigChange(event) {
-		const { config: nextConfig } = event.detail ?? {};
+	function handleDialogConfigChange(nextConfig) {
 		if (!nextConfig || typeof nextConfig !== 'object') {
 			return;
 		}
-		dispatch('configChange', { moduleId: module.id, config: nextConfig });
-	}
-
-	function handleStyleChange(event) {
-		const { style: nextStyle } = event.detail ?? {};
-		if (!nextStyle || typeof nextStyle !== 'object') {
-			return;
-		}
-		dispatch('styleChange', { moduleId: module.id, style: nextStyle });
+		onConfigChange(nextConfig);
 	}
 </script>
 
@@ -49,31 +37,37 @@
 		</Card.Description>
 	</Card.Header>
 	<Card.Content>
-		<ToggleGroup.Root
-			type="single"
-			aria-label="Module Position"
-			bind:value={position}
-			onValueChange={handleValueChange}
-			size="lg"
-			{disabled}
-		>
-			<ToggleGroup.Item value="left" class="uppercase">Left</ToggleGroup.Item>
-			<ToggleGroup.Item value="center" class="uppercase">Center</ToggleGroup.Item>
-			<ToggleGroup.Item value="right" class="uppercase">Right</ToggleGroup.Item>
-			<ToggleGroup.Item value="hidden" class="uppercase">Hidden</ToggleGroup.Item>
-		</ToggleGroup.Root>
+		<div class="flex flex-wrap items-center justify-between gap-4">
+			<ToggleGroup.Root
+				type="single"
+				class="flex flex-wrap gap-2"
+				aria-label="Module Position"
+				bind:value={position}
+				onValueChange={handleValueChange}
+				size="lg"
+				{disabled}
+			>
+				<ToggleGroup.Item value="left" class="min-w-[70px] flex-1 uppercase">Left</ToggleGroup.Item>
+				<ToggleGroup.Item value="center" class="min-w-[70px] flex-1 uppercase"
+					>Center</ToggleGroup.Item
+				>
+				<ToggleGroup.Item value="right" class="min-w-[70px] flex-1 uppercase"
+					>Right</ToggleGroup.Item
+				>
+				<ToggleGroup.Item value="hidden" class="min-w-[70px] flex-1 uppercase"
+					>Hidden</ToggleGroup.Item
+				>
+			</ToggleGroup.Root>
 
-		<div class="mt-4 flex items-center justify-end gap-2">
-			<StatusbarModuleStyleDialog {module} {style} {disabled} on:styleChange={handleStyleChange} />
-			{#if showConfigButton}
-				<StatusbarModuleDialog
+			<!-- {#if showConfigButton}
+				<StatusbarModuleConfigDialog
 					{module}
 					{config}
 					{disabled}
 					{fields}
-					on:configChange={handleDialogConfigChange}
+					onConfigChange={handleDialogConfigChange}
 				/>
-			{/if}
+			{/if} -->
 		</div>
 	</Card.Content>
 </Card.Root>

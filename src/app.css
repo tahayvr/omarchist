@@ -108,9 +108,7 @@
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
 
-	--font-mono: 'IBM Plex Mono', 'Courier New', monospace;
-	--font-sans: 'IBM Plex Mono', ui-sans-serif, system-ui;
-	--font-cascade: 'Cascadia Mono', ui-sans-serif, system-ui;
+	--font-sans: 'JetBrainsMono', ui-sans-serif, system-ui;
 }
 
 @layer base {
@@ -123,22 +121,8 @@
 }
 
 @font-face {
-	font-family: 'Inconsolata';
-	src: url('/fonts/Inconsolata.ttf') format('truetype');
-	font-weight: normal;
-	font-style: normal;
-}
-
-@font-face {
-	font-family: 'Cascadia Mono';
-	src: url('/fonts/CascadiaMono.ttf') format('truetype');
-	font-weight: bold;
-	font-style: normal;
-}
-
-@font-face {
-	font-family: 'IBM Plex Mono';
-	src: url('/fonts/IBMPlexMono-Regular.ttf') format('truetype');
+	font-family: 'JetBrainsMono';
+	src: url('/fonts/JetBrainsMonoNerdFontMono-Regular.ttf') format('truetype');
 	font-weight: normal;
 	font-style: normal;
 }

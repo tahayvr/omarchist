@@ -1,14 +1,17 @@
 <script>
 	/* eslint-disable svelte/prefer-writable-derived */
-	import { createEventDispatcher } from 'svelte';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import ColorPicker from 'svelte-awesome-color-picker';
 
 	// Props
-	let { label = 'Color', color = '#000000', format = 'hex', description = null } = $props();
-
-	const dispatch = createEventDispatcher();
+	let {
+		label = 'Color',
+		color = '#000000',
+		format = 'hex',
+		description = null,
+		onChange = () => {}
+	} = $props();
 
 	// Convert various formats to hex for the color picker
 	function toHex(input, fmt) {
@@ -65,7 +68,7 @@
 	// Handle color picker changes
 	function handleColorChange() {
 		const outputValue = fromHex(internalHex, format, internalRgb);
-		dispatch('change', outputValue);
+		onChange(outputValue);
 	}
 </script>
 
