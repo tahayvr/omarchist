@@ -9,7 +9,7 @@ export const memorySchema = {
 			description: 'How often to poll memory information (in seconds)',
 			minimum: 1,
 			maximum: 300,
-			default: 30,
+			default: 5,
 			placeholder: '30',
 			tab: 'general'
 		},
@@ -43,6 +43,7 @@ export const memorySchema = {
 				'{icon} {used:0.1f}G',
 				'{percentage}% ({used:0.1f}G)',
 				'{icon} {used:0.1f}G/{total:0.1f}G',
+				'󰍛',
 				'__custom'
 			],
 			enumLabels: [
@@ -53,9 +54,10 @@ export const memorySchema = {
 				'Icon + used (GB)',
 				'Percentage + used (GB)',
 				'Icon + used/total (GB)',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '{percentage}%',
+			default: '󰍛',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -201,21 +203,21 @@ export const memorySchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Configure how memory information is displayed'
+		},
+		{
+			id: 'states',
+			label: 'States',
+			description: 'Define warning and critical thresholds'
+		},
+		{
+			id: 'tooltip',
+			label: 'Tooltip',
+			description: 'Tooltip display configuration'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'states',
-		// 	label: 'States',
-		// 	description: 'Define warning and critical thresholds'
-		// },
-		// {
-		// 	id: 'tooltip',
-		// 	label: 'Tooltip',
-		// 	description: 'Tooltip display configuration'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

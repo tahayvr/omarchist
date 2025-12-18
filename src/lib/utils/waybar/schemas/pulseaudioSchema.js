@@ -10,7 +10,7 @@ export const pulseaudioSchema = {
 			minimum: 0.1,
 			maximum: 100,
 			step: 0.5,
-			default: 1.0,
+			default: 5.0,
 			placeholder: '1.0',
 			tab: 'general'
 		},
@@ -97,7 +97,7 @@ export const pulseaudioSchema = {
 				'Volume + icon + device',
 				'Custom format...'
 			],
-			default: '{volume}% {icon}',
+			default: '{icon} {volume}%',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -149,7 +149,7 @@ export const pulseaudioSchema = {
 			type: 'select',
 			title: 'Muted Format',
 			description: 'Format when sound is muted',
-			enum: ['__default', '', ' Muted', ' {volume}%', '', 'Muted', '__custom'],
+			enum: ['__default', '', ' Muted', ' {volume}%', '', 'Muted', '', '__custom'],
 			enumLabels: [
 				'Inherit default format',
 				'Muted icon',
@@ -157,9 +157,10 @@ export const pulseaudioSchema = {
 				'Muted icon + volume',
 				'Strikethrough icon',
 				'Text only',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '󰝟 {volume}%',
+			default: '',
 			tab: 'formats'
 		},
 		'format-muted-custom': {
@@ -234,7 +235,7 @@ export const pulseaudioSchema = {
 			description:
 				'Icons from low to high volume (one per line). Can also be device-specific (see docs).',
 			placeholder: '\n\n',
-			default: [],
+			default: ['', '', ''],
 			tab: 'formats'
 		},
 
@@ -358,7 +359,7 @@ export const pulseaudioSchema = {
 			title: 'Left Click Command',
 			description: 'Command to execute when left-clicking',
 			placeholder: 'pavucontrol',
-			default: '',
+			default: 'pavucontrol',
 			tab: 'actions'
 		},
 		'on-click-middle': {
@@ -412,21 +413,21 @@ export const pulseaudioSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different audio states'
+		},
+		{
+			id: 'states',
+			label: 'States',
+			description: 'Warning and critical volume thresholds'
+		},
+		{
+			id: 'tooltip',
+			label: 'Tooltip',
+			description: 'Tooltip format configuration'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'states',
-		// 	label: 'States',
-		// 	description: 'Warning and critical volume thresholds'
-		// },
-		// {
-		// 	id: 'tooltip',
-		// 	label: 'Tooltip',
-		// 	description: 'Tooltip format configuration'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

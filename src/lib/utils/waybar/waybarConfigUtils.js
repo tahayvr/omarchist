@@ -414,6 +414,57 @@ function sanitizeModulesForSave(modules) {
 			}
 		}
 
+		// Transform rewrite-rules to rewrite object
+		if (modConfig['rewrite-rules']) {
+			const rules = {};
+			let rulesSource = modConfig['rewrite-rules'];
+
+			// Handle if it's a string (textarea) or array
+			const lines = Array.isArray(rulesSource)
+				? rulesSource
+				: typeof rulesSource === 'string'
+					? rulesSource.split('\n')
+					: [];
+
+			for (const line of lines) {
+				if (!line || typeof line !== 'string') continue;
+				const trimmed = line.trim();
+				if (!trimmed) continue;
+
+				// Match "pattern": "replacement"
+				const match = trimmed.match(/^"(.*)"\s*:\s*"(.*)"$/);
+				if (match) {
+					rules[match[1]] = match[2];
+				}
+			}
+
+			if (Object.keys(rules).length > 0) {
+				modConfig['rewrite'] = rules;
+			}
+			delete modConfig['rewrite-rules'];
+		}
+
+		// Un-flatten dot-notation keys (e.g. "states.warning" -> states: { warning: ... })
+		// We iterate over a snapshot of keys to avoid issues while modifying the object
+		for (const key of Object.keys(modConfig)) {
+			if (key.includes('.')) {
+				const value = modConfig[key];
+				const parts = key.split('.');
+
+				let current = modConfig;
+				for (let i = 0; i < parts.length - 1; i++) {
+					const part = parts[i];
+					if (!current[part] || typeof current[part] !== 'object') {
+						current[part] = {};
+					}
+					current = current[part];
+				}
+
+				current[parts[parts.length - 1]] = value;
+				delete modConfig[key];
+			}
+		}
+
 		cleaned[moduleId] = modConfig;
 	}
 	return cleaned;

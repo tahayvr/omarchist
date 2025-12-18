@@ -48,7 +48,7 @@ export const hyprlandWindowSchema = {
 			minimum: 1,
 			maximum: 500,
 			placeholder: 'No limit',
-			default: 50,
+			default: 40,
 			tab: 'general'
 		},
 		'separate-outputs': {
@@ -57,6 +57,13 @@ export const hyprlandWindowSchema = {
 			description:
 				'Show the active window of the monitor the bar belongs to, instead of the globally focused window',
 			default: false,
+			tab: 'general'
+		},
+		'all-outputs': {
+			type: 'boolean',
+			title: 'All Outputs',
+			description: 'Show the active window on all monitors',
+			default: true,
 			tab: 'general'
 		},
 		icon: {
@@ -156,16 +163,16 @@ export const hyprlandWindowSchema = {
 			id: 'general',
 			label: 'General',
 			description: 'Display format, length, and icon settings'
+		},
+		{
+			id: 'rewrite',
+			label: 'Rewrite',
+			description: 'Transform window titles with regex patterns'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'rewrite',
-		// 	label: 'Rewrite',
-		// 	description: 'Transform window titles with regex patterns'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

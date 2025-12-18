@@ -35,7 +35,7 @@ export const networkSchema = {
 				'30 seconds',
 				'60 seconds (default)'
 			],
-			default: 60,
+			default: 3,
 			tab: 'general'
 		},
 		'max-length': {
@@ -119,6 +119,7 @@ export const networkSchema = {
 				'{signalStrength}%',
 				'{ipaddr}',
 				'{essid} ({signalStrength}%) {bandwidthDownBytes}',
+				' ',
 				'__custom'
 			],
 			enumLabels: [
@@ -132,9 +133,10 @@ export const networkSchema = {
 				'Signal percent only',
 				'IP address only',
 				'SSID + percent + download speed',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '{icon} {essid}',
+			default: ' ',
 			tab: 'formats'
 		},
 		'format-wifi-custom': {
@@ -160,6 +162,7 @@ export const networkSchema = {
 				'󰊗 {ipaddr}',
 				'󰊗 {bandwidthDownBytes}',
 				'{ifname}',
+				'󰈀',
 				'__custom'
 			],
 			enumLabels: [
@@ -170,9 +173,10 @@ export const networkSchema = {
 				'Icon + IP address',
 				'Icon + download speed',
 				'Interface name only',
+				'Icon only (Omarchy)',
 				'Custom format...'
 			],
-			default: '󰊗 {ipaddr}/{cidr}',
+			default: '󰈀',
 			tab: 'formats'
 		},
 		'format-ethernet-custom': {
@@ -226,7 +230,7 @@ export const networkSchema = {
 				'Alternative disconnected icon',
 				'Custom format...'
 			],
-			default: '󰤮 Disconnected',
+			default: '',
 			tab: 'formats'
 		},
 		'format-disconnected-custom': {
@@ -287,15 +291,23 @@ export const networkSchema = {
 			type: 'select',
 			title: 'Default Tooltip Format',
 			description: 'Tooltip format for the general state',
-			enum: ['__default', '{ifname} via {gwaddr}', '{ifname}', '{ipaddr}/{cidr}', '__custom'],
+			enum: [
+				'__default',
+				'{ifname} via {gwaddr}',
+				'{ifname}',
+				'{ipaddr}/{cidr}',
+				'{ifname} ({essid}): {ipaddr}',
+				'__custom'
+			],
 			enumLabels: [
 				'Inherit default tooltip',
 				'Interface via gateway',
 				'Interface name only',
 				'IP address / CIDR',
+				'Interface (SSID): IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} ({essid}): {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-custom': {
@@ -319,6 +331,7 @@ export const networkSchema = {
 				'{essid} ({signalStrength}%) - {frequency} GHz',
 				'{essid}\n{ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
 				'{essid} - {signaldBm} dBm',
+				'{ifname} ({essid}): {ipaddr}',
 				'__custom'
 			],
 			enumLabels: [
@@ -327,9 +340,10 @@ export const networkSchema = {
 				'SSID with signal percent and frequency',
 				'SSID + IP + bandwidth',
 				'SSID with signal strength in dBm',
+				'Interface (SSID): IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} ({essid}): {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-wifi-custom': {
@@ -353,6 +367,7 @@ export const networkSchema = {
 				'{ifname} - {ipaddr}/{cidr}',
 				'⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
 				'{ifname}\n{ipaddr}/{cidr}\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
+				'{ifname}: {ipaddr}',
 				'__custom'
 			],
 			enumLabels: [
@@ -361,9 +376,10 @@ export const networkSchema = {
 				'Interface with IP/CIDR',
 				'Download / upload speeds',
 				'Interface + IP + bandwidth',
+				'Interface: IP',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname}: {ipaddr}',
 			tab: 'tooltip'
 		},
 		'tooltip-format-ethernet-custom': {
@@ -395,7 +411,7 @@ export const networkSchema = {
 				'Interface - Disconnected',
 				'Custom format...'
 			],
-			default: '__default',
+			default: 'Disconnected',
 			tab: 'tooltip'
 		},
 		'tooltip-format-disconnected-custom': {
@@ -441,7 +457,7 @@ export const networkSchema = {
 			title: 'Left Click Command',
 			description: 'Command to execute when the module is left-clicked',
 			placeholder: 'nm-connection-editor',
-			default: '',
+			default: 'nm-connection-editor',
 			tab: 'actions'
 		},
 		'on-click-middle': {
@@ -493,16 +509,16 @@ export const networkSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different connection states'
+		},
+		{
+			id: 'tooltip',
+			label: 'Tooltip',
+			description: 'Tooltip formats for each connection state'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'tooltip',
-		// 	label: 'Tooltip',
-		// 	description: 'Tooltip formats for each connection state'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

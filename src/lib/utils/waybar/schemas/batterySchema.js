@@ -35,7 +35,7 @@ export const batterySchema = {
 				'60 seconds (default)',
 				'2 minutes'
 			],
-			default: 60,
+			default: 5,
 			tab: 'general'
 		},
 		'design-capacity': {
@@ -198,9 +198,10 @@ export const batterySchema = {
 				'Charging icon + capacity (time)',
 				'Plug + "Charging" + capacity',
 				'Capacity + bolt icon',
+				'Icon only',
 				'Custom format...'
 			],
-			default: '󰂄 {capacity}%',
+			default: '{icon}',
 			tab: 'formats'
 		},
 		'format-charging-custom': {
@@ -236,7 +237,7 @@ export const batterySchema = {
 				'Icon only',
 				'Custom format...'
 			],
-			default: '{icon} {capacity}%',
+			default: '{icon}',
 			tab: 'formats'
 		},
 		'format-discharging-custom': {
@@ -264,7 +265,7 @@ export const batterySchema = {
 				'Plug + 100%',
 				'Custom format...'
 			],
-			default: '󰂅 {capacity}%',
+			default: '󰂅',
 			tab: 'formats'
 		},
 		'format-full-custom': {
@@ -296,9 +297,10 @@ export const batterySchema = {
 				'Plug + "Plugged"',
 				'Plug + capacity (Plugged)',
 				'Capacity only',
+				'Plug icon only',
 				'Custom format...'
 			],
-			default: '{capacity}%',
+			default: '',
 			tab: 'formats'
 		},
 		'format-plugged-custom': {
@@ -353,6 +355,7 @@ export const batterySchema = {
 			minimum: 0,
 			maximum: 100,
 			placeholder: '30',
+			default: 20,
 			tab: 'states'
 		},
 		'states.critical': {
@@ -362,6 +365,7 @@ export const batterySchema = {
 			minimum: 0,
 			maximum: 100,
 			placeholder: '15',
+			default: 10,
 			tab: 'states'
 		},
 		'format-warning': {
@@ -494,9 +498,10 @@ export const batterySchema = {
 				'Capacity - time until full',
 				'Charging at power',
 				'Capacity (power) - time until full',
+				'Power + Capacity',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{power:>1.0f}W↑ {capacity}%',
 			tab: 'tooltip'
 		},
 		'tooltip-format-charging-custom': {
@@ -528,9 +533,10 @@ export const batterySchema = {
 				'Capacity - time remaining',
 				'Discharging at power',
 				'Capacity (power) - time remaining',
+				'Power + Capacity',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{power:>1.0f}W↓ {capacity}%',
 			tab: 'tooltip'
 		},
 		'tooltip-format-discharging-custom': {
@@ -584,7 +590,7 @@ export const batterySchema = {
 			title: 'Left Click Command',
 			description: 'Command to execute when left-clicking',
 			placeholder: 'gnome-power-statistics',
-			default: '',
+			default: 'omarchy-menu power',
 			tab: 'actions'
 		},
 		'on-click-middle': {
@@ -627,30 +633,30 @@ export const batterySchema = {
 		}
 	},
 	tabs: [
-		// {
-		// 	id: 'general',
-		// 	label: 'General',
-		// 	description: 'Battery selection, polling, and capacity settings'
-		// },
+		{
+			id: 'general',
+			label: 'General',
+			description: 'Battery selection, polling, and capacity settings'
+		},
 		{
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different battery statuses'
+		},
+		{
+			id: 'states',
+			label: 'States',
+			description: 'Warning and critical state thresholds and formats'
+		},
+		{
+			id: 'tooltip',
+			label: 'Tooltip',
+			description: 'Tooltip formats for each battery status'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'states',
-		// 	label: 'States',
-		// 	description: 'Warning and critical state thresholds and formats'
-		// },
-		// {
-		// 	id: 'tooltip',
-		// 	label: 'Tooltip',
-		// 	description: 'Tooltip formats for each battery status'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

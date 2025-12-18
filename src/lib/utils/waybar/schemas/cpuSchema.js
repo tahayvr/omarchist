@@ -17,7 +17,7 @@ export const cpuSchema = {
 				'15 seconds',
 				'30 seconds'
 			],
-			default: 10,
+			default: 5,
 			tab: 'general'
 		},
 		'max-length': {
@@ -73,7 +73,7 @@ export const cpuSchema = {
 				'Per-core icons (4 cores)',
 				'Custom format...'
 			],
-			default: '{usage}% 󰍛',
+			default: '󰍛',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -229,16 +229,16 @@ export const cpuSchema = {
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display format and usage icons'
+		},
+		{
+			id: 'states',
+			label: 'States',
+			description: 'Warning and critical state thresholds and formats'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'states',
-		// 	label: 'States',
-		// 	description: 'Warning and critical state thresholds and formats'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

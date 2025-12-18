@@ -1,7 +1,7 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
+	// import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
 	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
 	let {
@@ -59,7 +59,7 @@
 				>
 			</ToggleGroup.Root>
 
-			{#if showConfigButton}
+			<!-- {#if showConfigButton}
 				<StatusbarModuleConfigDialog
 					{module}
 					{config}
@@ -67,7 +67,7 @@
 					{fields}
 					onConfigChange={handleDialogConfigChange}
 				/>
-			{/if}
+			{/if} -->
 		</div>
 	</Card.Content>
 </Card.Root>

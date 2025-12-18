@@ -81,9 +81,10 @@ export const bluetoothSchema = {
 				'Icon + connection count',
 				'Alt icon + count + text',
 				'Controller alias',
+				'Icon only',
 				'Custom format...'
 			],
-			default: '󰂯 {status}',
+			default: '',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -111,7 +112,7 @@ export const bluetoothSchema = {
 				'Alt disabled icon + text',
 				'Custom format...'
 			],
-			default: '',
+			default: '󰂲',
 			tab: 'formats'
 		},
 		'format-disabled-custom': {
@@ -203,9 +204,10 @@ export const bluetoothSchema = {
 				'Icon + count + text',
 				'Alt icon + count + text',
 				'Device name only',
+				'Icon only',
 				'Custom format...'
 			],
-			default: '󰂯 {device_alias}',
+			default: '',
 			tab: 'formats'
 		},
 		'format-connected-custom': {
@@ -602,25 +604,25 @@ export const bluetoothSchema = {
 		}
 	},
 	tabs: [
-		// {
-		// 	id: 'general',
-		// 	label: 'General',
-		// 	description: 'Controller selection and display settings'
-		// },
+		{
+			id: 'general',
+			label: 'General',
+			description: 'Controller selection and display settings'
+		},
 		{
 			id: 'formats',
 			label: 'Formats',
 			description: 'Display formats for different Bluetooth states'
+		},
+		{
+			id: 'tooltip',
+			label: 'Tooltip',
+			description: 'Tooltip formats for each state and device list'
+		},
+		{
+			id: 'actions',
+			label: 'Actions',
+			description: 'Mouse and scroll interactions'
 		}
-		// {
-		// 	id: 'tooltip',
-		// 	label: 'Tooltip',
-		// 	description: 'Tooltip formats for each state and device list'
-		// },
-		// {
-		// 	id: 'actions',
-		// 	label: 'Actions',
-		// 	description: 'Mouse and scroll interactions'
-		// }
 	]
 };

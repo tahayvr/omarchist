@@ -29,6 +29,7 @@ const KNOWN_MODULE_KEYS: &[&str] = &[
     "network",
     "pulseaudio",
     "cpu",
+    "memory",
     "battery",
 ];
 
@@ -1078,6 +1079,15 @@ fn default_modules_map() -> BTreeMap<String, Value> {
             "interval": 5,
             "format": "󰍛",
             "on-click": "$TERMINAL -e btop"
+        }),
+    );
+    map.insert(
+        "memory".to_string(),
+        json!({
+            "interval": 30,
+            "format": "{percentage}%",
+            "tooltip": true,
+            "tooltip-format": "Memory: {used:0.1f}GB / {total:0.1f}GB"
         }),
     );
     map.insert(
