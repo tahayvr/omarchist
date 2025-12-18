@@ -196,7 +196,8 @@ pub struct SaveWaybarConfigPayload {
     pub globals: WaybarGlobals,
     pub modules: BTreeMap<String, Value>,
     pub passthrough: Value,
-    pub style_css: Option<String>,
+    #[serde(default)]
+    pub style_css: String,
     #[serde(default)]
     pub module_styles: BTreeMap<String, Value>,
 }
@@ -386,8 +387,14 @@ impl WaybarConfigService {
         write_value_to_path(&profile_path, &config_value)?;
         write_value_to_path(&self.config_path, &config_value)?;
 
-        // Handle CSS styling - generate from globals and module styles
-        let style_css = generate_style_css(&payload.globals, &payload.module_styles);
+        // Handle CSS styling - use the CSS provided by the frontend
+        // If no CSS is provided in the payload (backward compatibility), fallback to generation
+        let style_css = if !payload.style_css.is_empty() {
+            payload.style_css.clone()
+        } else {
+            generate_style_css(&payload.globals, &payload.module_styles)
+        };
+
         let profile_style_path = self.profile_style_path(&active_id);
         write_style_to_path(&profile_style_path, &style_css)?;
         write_style_to_path(&self.style_path, &style_css)?;
@@ -1285,6 +1292,10 @@ fn parse_globals_from_css(css: &str, mut globals: WaybarGlobals) -> WaybarGlobal
     globals
 }
 
+// CSS generation has been moved to the frontend (src/lib/utils/waybar/styleGenerator.js)
+// The backend now receives the full CSS string directly.
+// This function is kept for reference or potential fallback but is no longer the primary generator.
+#[allow(dead_code)]
 fn generate_module_styles_css(module_styles: &BTreeMap<String, Value>) -> String {
     let mut css = String::new();
 
@@ -1369,6 +1380,9 @@ fn generate_module_styles_css(module_styles: &BTreeMap<String, Value>) -> String
     css
 }
 
+// CSS generation has been moved to the frontend.
+// This function is kept for reference or potential fallback.
+#[allow(dead_code)]
 fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, Value>) -> String {
     let mut css = String::new();
 

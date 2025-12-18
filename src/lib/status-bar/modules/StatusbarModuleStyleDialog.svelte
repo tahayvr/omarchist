@@ -1,5 +1,4 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import * as Select from '$lib/components/ui/select/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
@@ -8,12 +7,10 @@
 	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
 	import ColorPickerWaybar from '../ColorPickerWaybar.svelte';
 
-	let { module = null, style = {}, disabled = false } = $props();
+	let { module = null, style = {}, disabled = false, onStyleChange = () => {} } = $props();
 
-	const dispatch = createEventDispatcher();
 	let open = $state(false);
 
-	// Parse padding/margin from CSS string to individual values
 	function parsePaddingMargin(value) {
 		if (!value) return { top: '', right: '', bottom: '', left: '' };
 		const parts = value.trim().replace(/px/g, '').split(/\s+/);
@@ -27,20 +24,16 @@
 		return { top: '', right: '', bottom: '', left: '' };
 	}
 
-	// Build CSS string from individual values
 	function buildPaddingMargin(values) {
 		const { top, right, bottom, left } = values;
 		if (!top && !right && !bottom && !left) return '';
 
-		// If all sides are the same
 		if (top === right && right === bottom && bottom === left && top) {
 			return `${top}px`;
 		}
-		// If top/bottom and left/right are the same
 		if (top === bottom && left === right && top && left) {
 			return `${top}px ${left}px`;
 		}
-		// All four sides
 		const t = top || '0';
 		const r = right || '0';
 		const b = bottom || '0';
@@ -48,7 +41,6 @@
 		return `${t}px ${r}px ${b}px ${l}px`;
 	}
 
-	// Internal state for style properties
 	let styleState = $state({
 		color: '',
 		background: '',
@@ -69,9 +61,7 @@
 		minWidth: ''
 	});
 
-	// Update internal state when style prop changes
 	$effect(() => {
-		// Track all style properties to ensure reactivity
 		const currentStyle = {
 			color: style.color,
 			background: style.background,
@@ -87,7 +77,6 @@
 		const padding = parsePaddingMargin(currentStyle.padding);
 		const margin = parsePaddingMargin(currentStyle.margin);
 
-		// Parse border
 		const borderParts = (currentStyle.border || '').split(/\s+/);
 		const borderWidth = borderParts[0]?.replace('px', '') || '';
 		const borderStyle = borderParts[1] || '';
@@ -117,11 +106,9 @@
 	function emitStyle() {
 		const cleanedStyle = {};
 
-		// Colors
 		if (styleState.color) cleanedStyle.color = styleState.color;
 		if (styleState.background) cleanedStyle.background = styleState.background;
 
-		// Padding
 		const padding = buildPaddingMargin({
 			top: styleState.paddingTop,
 			right: styleState.paddingRight,
@@ -130,7 +117,6 @@
 		});
 		if (padding) cleanedStyle.padding = padding;
 
-		// Margin
 		const margin = buildPaddingMargin({
 			top: styleState.marginTop,
 			right: styleState.marginRight,
@@ -139,25 +125,21 @@
 		});
 		if (margin) cleanedStyle.margin = margin;
 
-		// Typography
 		if (styleState.fontSize) cleanedStyle.fontSize = `${styleState.fontSize}px`;
 		if (styleState.fontWeight) cleanedStyle.fontWeight = styleState.fontWeight;
 
-		// Border
 		if (styleState.borderWidth && styleState.borderStyle) {
 			const border = `${styleState.borderWidth}px ${styleState.borderStyle}${styleState.borderColor ? ' ' + styleState.borderColor : ''}`;
 			cleanedStyle.border = border.trim();
 		}
 		if (styleState.borderRadius) cleanedStyle.borderRadius = `${styleState.borderRadius}px`;
 
-		// Size
 		if (styleState.minWidth) cleanedStyle.minWidth = `${styleState.minWidth}px`;
 
-		dispatch('styleChange', { style: cleanedStyle });
+		onStyleChange(cleanedStyle);
 	}
 
 	const moduleTitle = $derived(module?.title ?? 'Module');
-	const moduleId = $derived(module?.id ?? '');
 </script>
 
 <Dialog.Root bind:open>
@@ -186,8 +168,8 @@
 						<ColorPickerWaybar
 							label="Text Color"
 							color={styleState.color}
-							on:change={(e) => {
-								styleState.color = e.detail;
+							onChange={(color) => {
+								styleState.color = color;
 								emitStyle();
 							}}
 						/>
@@ -197,8 +179,8 @@
 						<ColorPickerWaybar
 							label="Background"
 							color={styleState.background}
-							on:change={(e) => {
-								styleState.background = e.detail;
+							onChange={(color) => {
+								styleState.background = color;
 								emitStyle();
 							}}
 						/>

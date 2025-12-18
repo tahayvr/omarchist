@@ -1,5 +1,4 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import {
 		dndzone,
 		SHADOW_ITEM_MARKER_PROPERTY_NAME,
@@ -7,16 +6,11 @@
 	} from 'svelte-dnd-action';
 	import * as Item from '$lib/components/ui/item/index.js';
 
-	let { modules = [], moduleLookup = new Map(), disabled = false } = $props();
-	const dispatch = createEventDispatcher();
+	let { modules = [], moduleLookup = new Map(), disabled = false, onReorder = () => {} } = $props();
 
-	let orderedItems = $state([]);
-
-	$effect(() => {
-		orderedItems = Array.isArray(modules)
-			? modules.map((moduleId) => ({ id: moduleId, moduleId }))
-			: [];
-	});
+	let orderedItems = $derived(
+		Array.isArray(modules) ? modules.map((moduleId) => ({ id: moduleId, moduleId })) : []
+	);
 
 	const hasModules = $derived(Array.isArray(modules) && modules.length > 0);
 
@@ -48,7 +42,7 @@
 		}
 		const unchanged = nextOrder.every((moduleId, index) => modules[index] === moduleId);
 		if (!unchanged) {
-			dispatch('reorder', { modules: nextOrder });
+			onReorder({ modules: nextOrder });
 		}
 	}
 

@@ -1,14 +1,8 @@
-/**
- * Bluetooth module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Bluetooth
- */
-
 export const bluetoothSchema = {
 	type: 'object',
 	title: 'Bluetooth',
-	description: 'Display Bluetooth controller and device information',
+	description: '',
 	properties: {
-		// General settings
 		controller: {
 			type: 'string',
 			title: 'Controller Alias',
@@ -65,7 +59,6 @@ export const bluetoothSchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Default Format',
@@ -90,7 +83,7 @@ export const bluetoothSchema = {
 				'Controller alias',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂯 {status}',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -118,7 +111,7 @@ export const bluetoothSchema = {
 				'Alt disabled icon + text',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '',
 			tab: 'formats'
 		},
 		'format-disabled-custom': {
@@ -145,7 +138,7 @@ export const bluetoothSchema = {
 				'Icon + Off',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '',
 			tab: 'formats'
 		},
 		'format-off-custom': {
@@ -174,7 +167,7 @@ export const bluetoothSchema = {
 				'Icon + Ready',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂯',
 			tab: 'formats'
 		},
 		'format-on-custom': {
@@ -212,7 +205,7 @@ export const bluetoothSchema = {
 				'Device name only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂯 {device_alias}',
 			tab: 'formats'
 		},
 		'format-connected-custom': {
@@ -247,7 +240,7 @@ export const bluetoothSchema = {
 				'Device (battery %)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂯 {device_alias} {device_battery_percentage}%',
 			tab: 'formats'
 		},
 		'format-connected-battery-custom': {
@@ -289,7 +282,6 @@ export const bluetoothSchema = {
 			}
 		},
 
-		// Tooltip settings
 		tooltip: {
 			type: 'boolean',
 			title: 'Show Tooltip',
@@ -562,7 +554,6 @@ export const bluetoothSchema = {
 			}
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',

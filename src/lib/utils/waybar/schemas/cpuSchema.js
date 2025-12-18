@@ -1,14 +1,8 @@
-/**
- * CPU module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-CPU
- */
-
 export const cpuSchema = {
 	type: 'object',
 	title: 'CPU',
-	description: 'Display CPU utilization and frequency information',
+	description: '',
 	properties: {
-		// General settings
 		interval: {
 			type: 'select',
 			title: 'Update Interval',
@@ -51,7 +45,6 @@ export const cpuSchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Display Format',
@@ -80,7 +73,7 @@ export const cpuSchema = {
 				'Per-core icons (4 cores)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{usage}% 󰍛',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -106,7 +99,6 @@ export const cpuSchema = {
 			tab: 'formats'
 		},
 
-		// States configuration
 		'states.warning': {
 			type: 'integer',
 			title: 'Warning State Threshold',
@@ -180,7 +172,6 @@ export const cpuSchema = {
 			}
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',

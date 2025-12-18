@@ -1,21 +1,15 @@
-/**
- * Network module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Network
- */
-
 export const networkSchema = {
 	type: 'object',
 	title: 'Network',
-	description: 'Display network connection status and information',
+	description: '',
 	properties: {
-		// General settings
 		interface: {
 			type: 'string',
 			title: 'Network Interface',
 			description:
 				'Select a specific interface to monitor (e.g., wlan0, eth0). Leave empty for auto-detection. Wildcards are allowed.',
 			placeholder: 'Auto-detect',
-			default: '',
+			default: '__default',
 			tab: 'general'
 		},
 		family: {
@@ -63,7 +57,6 @@ export const networkSchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Default Format',
@@ -88,7 +81,7 @@ export const networkSchema = {
 				'IP address only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname}',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -141,7 +134,7 @@ export const networkSchema = {
 				'SSID + percent + download speed',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{icon} {essid}',
 			tab: 'formats'
 		},
 		'format-wifi-custom': {
@@ -179,7 +172,7 @@ export const networkSchema = {
 				'Interface name only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰊗 {ipaddr}/{cidr}',
 			tab: 'formats'
 		},
 		'format-ethernet-custom': {
@@ -206,7 +199,7 @@ export const networkSchema = {
 				'Text "No IP"',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{ifname} (No IP)',
 			tab: 'formats'
 		},
 		'format-linked-custom': {
@@ -233,7 +226,7 @@ export const networkSchema = {
 				'Alternative disconnected icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰤮 Disconnected',
 			tab: 'formats'
 		},
 		'format-disconnected-custom': {
@@ -260,7 +253,7 @@ export const networkSchema = {
 				'Airplane mode icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰤮 Disabled',
 			tab: 'formats'
 		},
 		'format-disabled-custom': {
@@ -443,7 +436,6 @@ export const networkSchema = {
 			}
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',

@@ -27,9 +27,7 @@
 		listWaybarProfiles,
 		createWaybarProfile,
 		selectWaybarProfile,
-		deleteWaybarProfile,
-		updateModuleStyle,
-		getModuleStyle
+		deleteWaybarProfile
 	} from '$lib/utils/waybar/waybarConfigUtils.js';
 	import ColorPickerField from '$lib/themeDesigner/ColorPickerField.svelte';
 	import { Separator } from '$lib/components/ui/separator/index.js';
@@ -256,10 +254,6 @@
 		return getModuleFields(moduleId);
 	}
 
-	function getModuleStyleFor(moduleId) {
-		return getModuleStyle(config, moduleId);
-	}
-
 	function handleRegionChange(moduleId, region) {
 		setModuleRegion(config, moduleId, region);
 	}
@@ -278,15 +272,8 @@
 		setModuleConfig(config, moduleId, moduleConfig);
 	}
 
-	function handleModuleStyleChange(moduleId, moduleStyle) {
-		if (!moduleId || !moduleStyle || typeof moduleStyle !== 'object') {
-			return;
-		}
-		updateModuleStyle(config, moduleId, moduleStyle);
-	}
-
 	function handleLayoutReorder(event) {
-		const { section, modules } = event.detail ?? {};
+		const { section, modules } = event.detail ?? event ?? {};
 		if (!section || !Array.isArray(modules)) {
 			return;
 		}
@@ -362,15 +349,13 @@
 				layout={config.layout}
 				modules={moduleDefinitions}
 				disabled={isBusy}
-				on:reorder={handleLayoutReorder}
+				onReorder={handleLayoutReorder}
 			/>
-		</div>
-		<div class="flex w-full flex-col gap-6 xl:w-1/2">
 			<Card.Root>
 				<Card.Header>
 					<Card.Title class="text-accent-foreground uppercase">Bar Appearance</Card.Title>
 					<Card.Description class="text-muted-foreground text-xs tracking-wide uppercase">
-						General bar settings. These apply to the whole status bar.
+						Applies to the whole status bar.
 					</Card.Description>
 				</Card.Header>
 				<Card.Content class="grid gap-4 md:grid-cols-2">
@@ -438,7 +423,7 @@
 						<ColorPickerWaybar
 							label="Bar Background"
 							bind:color={config.globals.background}
-							on:change={(e) => handleGlobalValueChange('background', e.detail)}
+							onChange={(color) => handleGlobalValueChange('background', color)}
 						/>
 					</div>
 
@@ -446,7 +431,7 @@
 						<ColorPickerField
 							label="Bar Foreground"
 							bind:color={config.globals.foreground}
-							on:change={(e) => handleGlobalValueChange('foreground', e.detail)}
+							onChange={(color) => handleGlobalValueChange('foreground', color)}
 						/>
 					</div>
 
@@ -460,7 +445,7 @@
 					<!-- Left Section -->
 					<div class="col-span-2">
 						<Card.Root class="border-muted/50">
-							<Card.Header class="pb-3">
+							<Card.Header>
 								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
 									Left Section
 								</Card.Title>
@@ -499,7 +484,7 @@
 									<ColorPickerWaybar
 										label="Background"
 										bind:color={config.globals.leftBackground}
-										on:change={(e) => handleGlobalValueChange('leftBackground', e.detail)}
+										onChange={(color) => handleGlobalValueChange('leftBackground', color)}
 									/>
 								</div>
 							</Card.Content>
@@ -509,7 +494,7 @@
 					<!-- Center Section -->
 					<div class="col-span-2">
 						<Card.Root class="border-muted/50">
-							<Card.Header class="pb-3">
+							<Card.Header>
 								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
 									Center Section
 								</Card.Title>
@@ -549,7 +534,7 @@
 									<ColorPickerWaybar
 										label="Background"
 										bind:color={config.globals.centerBackground}
-										on:change={(e) => handleGlobalValueChange('centerBackground', e.detail)}
+										onChange={(color) => handleGlobalValueChange('centerBackground', color)}
 									/>
 								</div>
 							</Card.Content>
@@ -559,7 +544,7 @@
 					<!-- Right Section -->
 					<div class="col-span-2">
 						<Card.Root class="border-muted/50">
-							<Card.Header class="pb-3">
+							<Card.Header>
 								<Card.Title class="text-accent-foreground/70 text-xs uppercase">
 									Right Section
 								</Card.Title>
@@ -599,7 +584,7 @@
 									<ColorPickerWaybar
 										label="Background"
 										bind:color={config.globals.rightBackground}
-										on:change={(e) => handleGlobalValueChange('rightBackground', e.detail)}
+										onChange={(color) => handleGlobalValueChange('rightBackground', color)}
 									/>
 								</div>
 							</Card.Content>
@@ -607,16 +592,16 @@
 					</div>
 				</Card.Content>
 			</Card.Root>
+		</div>
+		<div class="flex w-full flex-col gap-6 xl:w-1/2">
 			<StatusbarModules
 				modules={moduleDefinitions}
 				{getRegion}
 				getFields={getModuleFieldsFor}
 				getConfig={getModuleConfig}
-				getStyle={getModuleStyleFor}
 				onRegionChange={handleRegionChange}
 				onFieldChange={handleModuleFieldChange}
 				onConfigChange={handleModuleConfigChange}
-				onStyleChange={handleModuleStyleChange}
 				disabled={isBusy}
 			/>
 		</div>

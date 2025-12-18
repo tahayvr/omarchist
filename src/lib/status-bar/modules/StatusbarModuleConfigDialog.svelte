@@ -1,14 +1,12 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import * as Dialog from '$lib/components/ui/dialog/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import SchemaBasedModuleForm from './SchemaBasedModuleForm.svelte';
 	import { getModuleDefinition } from '$lib/utils/waybar/moduleRegistry.js';
 	import GearIcon from '@lucide/svelte/icons/settings';
 
-	let { module = null, config = {}, disabled = false } = $props();
+	let { module = null, config = {}, disabled = false, onConfigChange = () => {} } = $props();
 
-	const dispatch = createEventDispatcher();
 	let open = $state(false);
 	let lastEmittedSignature = '';
 
@@ -19,8 +17,7 @@
 	const moduleTitle = $derived(module?.title ?? 'Waybar Module');
 	const moduleDescription = $derived(module?.description ?? '');
 
-	function handleConfigChange(event) {
-		const newConfig = event.detail?.config;
+	function handleConfigChange(newConfig) {
 		if (!newConfig || typeof newConfig !== 'object') {
 			return;
 		}
@@ -31,16 +28,13 @@
 		}
 
 		lastEmittedSignature = signature;
-		dispatch('configChange', { config: newConfig });
+		onConfigChange(newConfig);
 	}
 
-	// Initialize/reset signature when dialog opens/closes
 	$effect(() => {
 		if (open) {
-			// When opening, set the signature to prevent initial spurious events
 			lastEmittedSignature = JSON.stringify(config ?? {});
 		} else {
-			// When closing, reset to allow re-opening with same config
 			lastEmittedSignature = JSON.stringify(config ?? {});
 		}
 	});
@@ -66,18 +60,20 @@
 
 		<div class="mt-4">
 			{#if CustomComponent}
-				<!-- Custom component for modules that need special UI -->
-				<CustomComponent {module} {config} {disabled} on:configChange={handleConfigChange} />
+				<CustomComponent
+					{module}
+					{config}
+					{disabled}
+					onConfigChange={(cfg) => handleConfigChange(cfg)}
+				/>
 			{:else if hasSchema}
-				<!-- Schema-based form for modules with schema definitions -->
 				<SchemaBasedModuleForm
 					schema={moduleDefinition.schema}
 					{config}
 					{disabled}
-					on:configChange={handleConfigChange}
+					onConfigChange={(cfg) => handleConfigChange(cfg)}
 				/>
 			{:else}
-				<!-- Fallback message for modules without configuration -->
 				<p class="text-muted-foreground text-xs uppercase">
 					No additional options are available for this module yet.
 				</p>

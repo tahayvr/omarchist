@@ -1,5 +1,4 @@
 <script>
-	import { createEventDispatcher } from 'svelte';
 	import * as Tabs from '$lib/components/ui/tabs/index.js';
 	import * as ScrollArea from '$lib/components/ui/scroll-area/index.js';
 	import * as Card from '$lib/components/ui/card/index.js';
@@ -9,20 +8,16 @@
 	import { hydrateFieldState, buildConfigFromFieldState } from '$lib/utils/waybar/schemaUtils.js';
 	import { getModuleDefinition } from '$lib/utils/waybar/moduleRegistry.js';
 
-	let { module = null, config = {}, disabled = false } = $props();
+	let { module = null, config = {}, disabled = false, onConfigChange = () => {} } = $props();
 
 	const moduleDefinition = getModuleDefinition(module?.id);
 	const schema = moduleDefinition?.schema;
 
-	const dispatch = createEventDispatcher();
-
-	// Internal field state for the form
 	let fieldState = $state({});
 	let lastConfigSignature = '';
 	let lastEmittedSignature = '';
 	let wasInitialized = false;
 
-	// Mock memory state for preview
 	let mockMemoryState = $state({
 		percentage: 65,
 		swapPercentage: 25,
@@ -34,7 +29,6 @@
 		swapAvail: 6.0
 	});
 
-	// Get fields grouped by tab
 	const fieldsByTab = $derived.by(() => {
 		if (!schema || !schema.properties) {
 			return {};
@@ -42,7 +36,6 @@
 
 		const groups = {};
 
-		// Initialize tabs
 		if (schema.tabs) {
 			for (const tab of schema.tabs) {
 				groups[tab.id] = {
@@ -53,7 +46,6 @@
 			}
 		}
 
-		// Group fields by tab
 		for (const [key, field] of Object.entries(schema.properties)) {
 			const tabId = field.tab || 'general';
 			if (!groups[tabId]) {
@@ -88,17 +80,14 @@
 		lastConfigSignature = signature;
 		fieldState = hydrateFieldState(config, schema);
 
-		// Initialize the emitted signature to prevent spurious change events
 		const initialConfig = buildConfigFromFieldState(fieldState, schema);
 		lastEmittedSignature = JSON.stringify(initialConfig);
 
 		wasInitialized = true;
 	}
 
-	// Initialize field state on mount
 	hydrateFromConfig(true);
 
-	// Watch for external config changes
 	$effect(() => {
 		const signature = computeConfigSignature();
 		if (signature !== lastConfigSignature) {
@@ -106,39 +95,32 @@
 		}
 	});
 
-	// Track previous values to handle switching to __custom
 	let previousFieldValues = $state({});
 
-	// Handle switching to __custom - populate custom field with previous value
 	$effect(() => {
 		if (!wasInitialized || !schema || !schema.properties) {
 			return;
 		}
 
 		for (const [key, field] of Object.entries(schema.properties)) {
-			// Check if this is a select field
 			if (field.type === 'select' || field.enum) {
 				const currentValue = fieldState[key];
 				const previousValue = previousFieldValues[key];
 
-				// If just switched to __custom
 				if (currentValue === '__custom' && previousValue !== '__custom') {
 					const customKey = `${key}-custom`;
 					const customField = schema.properties[customKey];
 
-					// If custom field exists and previous value was a real value (not a sentinel)
 					if (
 						customField &&
 						previousValue &&
 						!previousValue.startsWith('__') &&
 						previousValue !== '__custom'
 					) {
-						// Populate custom field with the previous selected value
 						fieldState[customKey] = previousValue;
 					}
 				}
 
-				// Update previous value tracker
 				previousFieldValues[key] = currentValue;
 			}
 		}
@@ -158,9 +140,8 @@
 		}
 
 		lastEmittedSignature = signature;
-		dispatch('configChange', { config: newConfig });
+		onConfigChange(newConfig);
 	});
-
 	// Format preview helpers
 	function formatMemoryPreview(formatString, state) {
 		if (!formatString || formatString.startsWith('__')) {
@@ -353,7 +334,7 @@
 								</Card.Header>
 								<Card.Content>
 									<div class="grid grid-cols-1 gap-1 text-xs">
-										{#each formatReplacements as replacement}
+										{#each formatReplacements as replacement (replacement.code)}
 											<div class="flex items-start gap-2">
 												<Badge variant="outline" class="font-nerd text-[0.65rem]">
 													{replacement.code}

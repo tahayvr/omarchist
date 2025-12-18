@@ -1,14 +1,8 @@
-/**
- * Battery module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Battery
- */
-
 export const batterySchema = {
 	type: 'object',
 	title: 'Battery',
-	description: 'Display battery capacity, state, and time estimates',
+	description: '',
 	properties: {
-		// General settings
 		bat: {
 			type: 'string',
 			title: 'Battery Device',
@@ -95,7 +89,6 @@ export const batterySchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Default Format',
@@ -122,7 +115,7 @@ export const batterySchema = {
 				'Capacity (power)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{capacity}% {icon}',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -158,7 +151,7 @@ export const batterySchema = {
 				'H hours (hours only)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{H} h {M} min',
 			tab: 'formats'
 		},
 		'format-time-custom': {
@@ -207,7 +200,7 @@ export const batterySchema = {
 				'Capacity + bolt icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂄 {capacity}%',
 			tab: 'formats'
 		},
 		'format-charging-custom': {
@@ -243,7 +236,7 @@ export const batterySchema = {
 				'Icon only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{icon} {capacity}%',
 			tab: 'formats'
 		},
 		'format-discharging-custom': {
@@ -271,7 +264,7 @@ export const batterySchema = {
 				'Plug + 100%',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰂅 {capacity}%',
 			tab: 'formats'
 		},
 		'format-full-custom': {
@@ -305,7 +298,7 @@ export const batterySchema = {
 				'Capacity only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{capacity}%',
 			tab: 'formats'
 		},
 		'format-plugged-custom': {
@@ -337,7 +330,7 @@ export const batterySchema = {
 				'Capacity (Not Charging)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{capacity}%',
 			tab: 'formats'
 		},
 		'format-not-charging-custom': {
@@ -440,7 +433,6 @@ export const batterySchema = {
 			}
 		},
 
-		// Tooltip settings
 		tooltip: {
 			type: 'boolean',
 			title: 'Show Tooltip',
@@ -587,7 +579,6 @@ export const batterySchema = {
 			}
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',

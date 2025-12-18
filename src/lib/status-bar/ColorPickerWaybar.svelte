@@ -1,23 +1,19 @@
 <script>
 	/* eslint-disable svelte/prefer-writable-derived */
-	import { createEventDispatcher } from 'svelte';
 	import { Label } from '$lib/components/ui/label/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import ColorPicker from 'svelte-awesome-color-picker';
 
-	// Props
 	let {
 		label = 'Color',
 		color = '#000000',
 		format = 'hex',
 		description = null,
-		allowTransparent = true
+		allowTransparent = true,
+		onChange = () => {}
 	} = $props();
 
-	const dispatch = createEventDispatcher();
-
-	// Convert various formats to hex for the color picker
 	function toHex(input, fmt) {
 		if (fmt === 'rgba-comma') {
 			if (typeof input === 'string') {
@@ -38,7 +34,6 @@
 		return String(input) || '#000000';
 	}
 
-	// Convert hex back to the required format
 	function fromHex(hexValue, fmt, rgbData) {
 		if (fmt === 'hex-no-hash') {
 			return hexValue.replace(/^#/, '');
@@ -53,40 +48,33 @@
 		return hexValue;
 	}
 
-	// Internal state for the color picker
 	let internalHex = $state(toHex(color, format));
 	let internalRgb = $state({ r: 0, g: 0, b: 0, a: 1 });
 
-	// Update internal state when color prop changes
 	$effect(() => {
 		internalHex = toHex(color, format);
 	});
 
-	// Watch for changes to internalHex from color picker interactions
 	$effect(() => {
 		if (internalHex && internalHex !== toHex(color, format)) {
 			handleColorChange();
 		}
 	});
 
-	// Handle color picker changes
 	function handleColorChange() {
 		const outputValue = fromHex(internalHex, format, internalRgb);
-		dispatch('change', outputValue);
+		onChange(outputValue);
 	}
 
-	// Handle transparent/clear button
 	function handleClear() {
-		dispatch('change', 'transparent');
+		onChange('transparent');
 	}
 
-	// Handle set color button (when transparent)
 	function handleSetColor() {
 		internalHex = '#000000';
-		dispatch('change', fromHex('#000000', format, internalRgb));
+		onChange(fromHex('#000000', format, internalRgb));
 	}
 
-	// Check if current color is transparent/empty
 	const isTransparent = $derived(
 		!color || color === '' || color === 'transparent' || color === 'none'
 	);

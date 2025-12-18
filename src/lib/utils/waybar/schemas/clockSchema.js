@@ -1,14 +1,8 @@
-/**
- * Clock module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Clock
- */
-
 export const clockSchema = {
 	type: 'object',
 	title: 'Clock',
 	description: '',
 	properties: {
-		// General settings
 		format: {
 			type: 'select',
 			title: 'Time Format',
@@ -92,7 +86,7 @@ export const clockSchema = {
 			title: 'Timezone',
 			description: 'Timezone identifier for time display',
 			enum: [
-				'__local',
+				'__default',
 				'UTC',
 				'America/New_York',
 				'America/Chicago',
@@ -121,7 +115,7 @@ export const clockSchema = {
 				'__custom'
 			],
 			enumLabels: [
-				'Local timezone',
+				'Local timezone (default)',
 				'UTC',
 				'New York (EST/EDT)',
 				'Chicago (CST/CDT)',
@@ -149,7 +143,7 @@ export const clockSchema = {
 				'Auckland (NZDT/NZST)',
 				'Custom timezone...'
 			],
-			default: '__local',
+			default: '__default',
 			tab: 'general'
 		},
 		'timezone-custom': {
@@ -180,7 +174,7 @@ export const clockSchema = {
 			title: 'Locale',
 			description: 'Locale for date formatting',
 			enum: [
-				'__system',
+				'__default',
 				'C',
 				'en_US.UTF-8',
 				'en_GB.UTF-8',
@@ -197,7 +191,7 @@ export const clockSchema = {
 				'__custom'
 			],
 			enumLabels: [
-				'System locale',
+				'System locale (default)',
 				'C (default)',
 				'English (US)',
 				'English (UK)',
@@ -213,7 +207,7 @@ export const clockSchema = {
 				'Arabic (Saudi Arabia)',
 				'Custom locale...'
 			],
-			default: '__system',
+			default: '__default',
 			tab: 'general'
 		},
 		'locale-custom': {
@@ -326,7 +320,6 @@ export const clockSchema = {
 			tab: 'general'
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',
@@ -348,7 +341,7 @@ export const clockSchema = {
 			title: 'Right Click Action',
 			description: 'Action or command for right-click on the clock module',
 			enum: [
-				'__none',
+				'__default',
 				'__custom',
 				'mode',
 				'tz_up',
@@ -358,7 +351,7 @@ export const clockSchema = {
 				'shift_reset'
 			],
 			enumLabels: [
-				'None',
+				'None (default)',
 				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
@@ -367,7 +360,7 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
 		},
 		'on-click-right-custom': {
@@ -386,7 +379,7 @@ export const clockSchema = {
 			title: 'Scroll Up Action',
 			description: 'Action or command when scrolling up on the clock module',
 			enum: [
-				'__none',
+				'__default',
 				'__custom',
 				'mode',
 				'tz_up',
@@ -396,7 +389,7 @@ export const clockSchema = {
 				'shift_reset'
 			],
 			enumLabels: [
-				'None',
+				'None (default)',
 				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
@@ -405,7 +398,7 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
 		},
 		'on-scroll-up-custom': {
@@ -424,7 +417,7 @@ export const clockSchema = {
 			title: 'Scroll Down Action',
 			description: 'Action or command when scrolling down on the clock module',
 			enum: [
-				'__none',
+				'__default',
 				'__custom',
 				'mode',
 				'tz_up',
@@ -434,7 +427,7 @@ export const clockSchema = {
 				'shift_reset'
 			],
 			enumLabels: [
-				'None',
+				'None (default)',
 				'Custom command...',
 				'Switch Calendar Mode (year/month)',
 				'Next Timezone',
@@ -443,7 +436,7 @@ export const clockSchema = {
 				'Calendar Back (previous month/year)',
 				'Calendar Reset (today)'
 			],
-			default: '__none',
+			default: '__default',
 			tab: 'actions'
 		},
 		'on-scroll-down-custom': {

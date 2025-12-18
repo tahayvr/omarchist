@@ -1,14 +1,8 @@
-/**
- * Memory module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Memory
- */
-
 export const memorySchema = {
 	type: 'object',
 	title: 'Memory',
-	description: 'Display current RAM and swap utilization',
+	description: '',
 	properties: {
-		// General settings
 		interval: {
 			type: 'integer',
 			title: 'Update Interval',
@@ -37,7 +31,6 @@ export const memorySchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Display Format',
@@ -62,7 +55,7 @@ export const memorySchema = {
 				'Icon + used/total (GB)',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{percentage}%',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -88,7 +81,6 @@ export const memorySchema = {
 			tab: 'formats'
 		},
 
-		// State thresholds
 		'states.warning': {
 			type: 'integer',
 			title: 'Warning Threshold',

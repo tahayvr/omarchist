@@ -1,14 +1,8 @@
-/**
- * Hyprland Window module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Hyprland#window
- */
-
 export const hyprlandWindowSchema = {
 	type: 'object',
 	title: 'Focused Window',
-	description: 'Display the title of the currently focused Hyprland window',
+	description: '',
 	properties: {
-		// General settings
 		format: {
 			type: 'select',
 			title: 'Display Format',
@@ -33,7 +27,7 @@ export const hyprlandWindowSchema = {
 				'Class - title',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{title}',
 			tab: 'general'
 		},
 		'format-custom': {
@@ -83,7 +77,6 @@ export const hyprlandWindowSchema = {
 			tab: 'general'
 		},
 
-		// Rewrite rules
 		'rewrite-rules': {
 			type: 'array',
 			format: 'textarea',
@@ -96,7 +89,6 @@ export const hyprlandWindowSchema = {
 			tab: 'rewrite'
 		},
 
-		// Actions
 		'on-click': {
 			type: 'string',
 			title: 'Left Click Command',

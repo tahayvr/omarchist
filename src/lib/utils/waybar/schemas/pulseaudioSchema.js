@@ -1,14 +1,8 @@
-/**
- * Pulseaudio module schema definition for Waybar
- * See: https://github.com/Alexays/Waybar/wiki/Module:-Pulseaudio
- */
-
 export const pulseaudioSchema = {
 	type: 'object',
 	title: 'Pulseaudio',
-	description: 'Display and control PulseAudio volume',
+	description: '',
 	properties: {
-		// General settings
 		'scroll-step': {
 			type: 'number',
 			title: 'Scroll Step',
@@ -79,7 +73,6 @@ export const pulseaudioSchema = {
 			tab: 'general'
 		},
 
-		// Format settings
 		format: {
 			type: 'select',
 			title: 'Default Format',
@@ -104,7 +97,7 @@ export const pulseaudioSchema = {
 				'Volume + icon + device',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{volume}% {icon}',
 			tab: 'formats'
 		},
 		'format-custom': {
@@ -138,7 +131,7 @@ export const pulseaudioSchema = {
 				'Icon + volume + device name',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{volume}% ',
 			tab: 'formats'
 		},
 		'format-bluetooth-custom': {
@@ -166,7 +159,7 @@ export const pulseaudioSchema = {
 				'Text only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '󰝟 {volume}%',
 			tab: 'formats'
 		},
 		'format-muted-custom': {
@@ -193,7 +186,7 @@ export const pulseaudioSchema = {
 				'Mic icon only',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '{volume}% ',
 			tab: 'formats'
 		},
 		'format-source-custom': {
@@ -220,7 +213,7 @@ export const pulseaudioSchema = {
 				'Strikethrough mic icon',
 				'Custom format...'
 			],
-			default: '__default',
+			default: '',
 			tab: 'formats'
 		},
 		'format-source-muted-custom': {

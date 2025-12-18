@@ -1,11 +1,12 @@
 import { invoke } from '@tauri-apps/api/core';
+import { moduleRegistry } from './moduleRegistry.js';
 
 const clone = (value) => {
 	if (typeof structuredClone === 'function') {
 		try {
 			return structuredClone(value);
 		} catch {
-			/* no-op */
+			// Fall through to JSON clone
 		}
 	}
 	if (value === undefined) {
@@ -60,205 +61,39 @@ const DEFAULT_PASSTHROUGH = Object.freeze({
 	reload_style_on_change: true
 });
 
-const DEFAULT_MODULE_SETTINGS = Object.freeze({
-	clock: Object.freeze({
-		format: '{:L%A %H:%M}',
-		'format-alt': '{:L%d %B W%V %Y}',
-		tooltip: false,
-		'on-click-right': 'omarchy-cmd-tzupdate'
-	}),
-	battery: Object.freeze({
-		format: '{capacity}% {icon}',
-		'format-discharging': '{icon}',
-		'format-charging': '{icon}',
-		'format-plugged': '',
-		'format-icons': {
-			charging: ['󰢜', '󰂆', '󰂇', '󰂈', '󰢝', '󰂉', '󰢞', '󰂊', '󰂋', '󰂅'],
-			default: ['󰁺', '󰁻', '󰁼', '󰁽', '󰁾', '󰁿', '󰂀', '󰂁', '󰂂', '󰁹']
-		},
-		'format-full': '󰂅',
-		'tooltip-format-discharging': '{power:>1.0f}W↓ {capacity}%',
-		'tooltip-format-charging': '{power:>1.0f}W↑ {capacity}%',
-		interval: 5,
-		'on-click': 'omarchy-menu power',
-		states: {
-			warning: 20,
-			critical: 10
-		}
-	}),
-	network: Object.freeze({
-		'format-icons': ['󰤯', '󰤟', '󰤢', '󰤥', '󰤨'],
-		format: '{icon}',
-		'format-wifi': '{icon}',
-		'format-ethernet': '󰀂',
-		'format-disconnected': '󰤮',
-		'tooltip-format-wifi': '{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
-		'tooltip-format-ethernet': '⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
-		'tooltip-format-disconnected': 'Disconnected',
-		interval: 3,
-		spacing: 1,
-		'on-click': 'omarchy-launch-wifi'
-	}),
-	tray: Object.freeze({
-		'icon-size': 12,
-		spacing: 12
-	}),
-	'hyprland/workspaces': Object.freeze({
-		'on-click': 'activate',
-		format: '{icon}',
-		'format-icons': {
-			default: '',
-			1: '1',
-			2: '2',
-			3: '3',
-			4: '4',
-			5: '5',
-			6: '6',
-			7: '7',
-			8: '8',
-			9: '9',
-			active: '󱓻'
-		},
-		'persistent-workspaces': {
-			1: [],
-			2: [],
-			3: [],
-			4: [],
-			5: []
-		}
-	}),
-	'hyprland/window': Object.freeze({
-		format: '{title}',
-		'max-length': 50
-	}),
-	'custom/omarchy': Object.freeze({
-		format: "<span font='omarchy'>\ue900</span>",
-		'on-click': 'omarchy-menu',
-		'tooltip-format': 'Omarchy Menu\n\nSuper + Alt + Space'
-	}),
-	'custom/update': Object.freeze({
-		format: '',
-		exec: 'omarchy-update-available',
-		'on-click': 'omarchy-launch-floating-terminal-with-presentation omarchy-update',
-		'tooltip-format': 'Omarchy update available',
-		signal: 7,
-		interval: 3600
-	}),
-	'custom/screenrecording-indicator': Object.freeze({
-		'on-click': 'omarchy-cmd-screenrecord',
-		exec: '$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh',
-		signal: 8,
-		'return-type': 'json'
-	}),
-	'group/tray-expander': Object.freeze({
-		orientation: 'inherit',
-		drawer: {
-			'transition-duration': 600,
-			'children-class': 'tray-group-item'
-		},
-		modules: ['custom/expand-icon', 'tray']
-	}),
-	'custom/expand-icon': Object.freeze({
-		format: ' ',
-		tooltip: false
-	}),
-	bluetooth: Object.freeze({
-		format: '',
-		'format-disabled': '󰂲',
-		'format-connected': '',
-		'tooltip-format': 'Devices connected: {num_connections}',
-		'on-click': 'blueberry'
-	}),
-	pulseaudio: Object.freeze({
-		format: '{icon}',
-		'on-click': '$TERMINAL --class=Wiremix -e wiremix',
-		'on-click-right': 'pamixer -t',
-		'tooltip-format': 'Playing at {volume}%',
-		'scroll-step': 5,
-		'format-muted': '',
-		'format-icons': {
-			default: ['', '', '']
-		}
-	}),
-	cpu: Object.freeze({
-		interval: 5,
-		format: '󰍛',
-		'on-click': '$TERMINAL -e btop'
-	}),
-	memory: Object.freeze({
-		interval: 30,
-		format: '',
-		'on-click': '$TERMINAL -e btop'
-	})
-});
+function getModuleDefaultConfig(moduleId) {
+	const registryEntry = moduleRegistry[moduleId];
+	if (!registryEntry) return {};
 
-export const KNOWN_MODULES = [
-	{
-		id: 'clock',
-		title: 'Clock',
-		description: ''
-	},
-	{
-		id: 'network',
-		title: 'Network',
-		description: ''
-	},
-	{
-		id: 'bluetooth',
-		title: 'Bluetooth',
-		description: ''
-	},
-	{
-		id: 'pulseaudio',
-		title: 'Audio',
-		description: ''
-	},
-	{
-		id: 'cpu',
-		title: 'CPU',
-		description: ''
-	},
-	{
-		id: 'battery',
-		title: 'Battery',
-		description: ''
-	},
-	{
-		id: 'hyprland/window',
-		title: 'Focused Window',
-		description: ''
-	},
-	{
-		id: 'memory',
-		title: 'Memory',
-		description: ''
-	},
-	{
-		id: 'custom/omarchy',
-		title: 'Omarchy Menu',
-		description: ''
-	},
-	{
-		id: 'hyprland/workspaces',
-		title: 'Workspaces',
-		description: ''
-	},
-	{
-		id: 'custom/update',
-		title: 'Update Indicator',
-		description: ''
-	},
-	{
-		id: 'custom/screenrecording-indicator',
-		title: 'Screen Recording',
-		description: ''
-	},
-	{
-		id: 'group/tray-expander',
-		title: 'Tray Group',
-		description: ''
+	if (registryEntry.defaultConfig) {
+		return clone(registryEntry.defaultConfig);
 	}
-];
+
+	if (registryEntry.schema && registryEntry.schema.properties) {
+		const config = {};
+		for (const [key, prop] of Object.entries(registryEntry.schema.properties)) {
+			if (prop.default !== undefined) {
+				config[key] = clone(prop.default);
+			}
+		}
+		return config;
+	}
+
+	return {};
+}
+
+const DEFAULT_MODULE_SETTINGS = Object.freeze(
+	Object.keys(moduleRegistry).reduce((acc, moduleId) => {
+		acc[moduleId] = Object.freeze(getModuleDefaultConfig(moduleId));
+		return acc;
+	}, {})
+);
+
+export const KNOWN_MODULES = Object.entries(moduleRegistry).map(([id, entry]) => ({
+	id,
+	title: entry.schema?.title || id,
+	description: entry.schema?.description || ''
+}));
 
 const MODULE_LOOKUP = new Map(KNOWN_MODULES.map((entry) => [entry.id, entry]));
 const LAYOUT_SECTIONS = ['left', 'center', 'right', 'hidden'];
@@ -404,7 +239,7 @@ export function initializeWaybarConfigState() {
 	return {
 		layout: cloneLayout(),
 		modules: cloneModules(),
-		moduleStyles: {}, // Per-module CSS styles
+		moduleStyles: {},
 		globals: cloneGlobals(),
 		passthrough: clone(DEFAULT_PASSTHROUGH),
 		styleCss: '',
@@ -482,7 +317,6 @@ export function applySnapshotToState(state, snapshot) {
 		state.passthrough = clone(DEFAULT_PASSTHROUGH);
 	}
 
-	// Load module styles from _omarchist section if present
 	const omarchist = snapshot?.passthrough?._omarchist;
 	if (omarchist && typeof omarchist === 'object' && omarchist.moduleStyles) {
 		state.moduleStyles = clone(omarchist.moduleStyles);
@@ -549,7 +383,46 @@ export function validateWaybarConfig(state) {
 	};
 }
 
+import { generateWaybarStyles } from './styleGenerator.js';
+
+function sanitizeModulesForSave(modules) {
+	const cleaned = {};
+	for (const [moduleId, config] of Object.entries(modules)) {
+		const modConfig = { ...config };
+
+		for (const key of Object.keys(modConfig)) {
+			const value = modConfig[key];
+
+			if (value === '__default') {
+				delete modConfig[key];
+				continue;
+			}
+
+			if (value === '__custom') {
+				const customKey = `${key}-custom`;
+				if (modConfig[customKey] !== undefined) {
+					modConfig[key] = modConfig[customKey];
+				} else {
+					delete modConfig[key];
+				}
+			}
+		}
+
+		for (const key of Object.keys(modConfig)) {
+			if (key.endsWith('-custom')) {
+				delete modConfig[key];
+			}
+		}
+
+		cleaned[moduleId] = modConfig;
+	}
+	return cleaned;
+}
+
 function buildSavePayload(state) {
+	const generatedCss = generateWaybarStyles(state.globals, state.moduleStyles);
+	const sanitizedModules = sanitizeModulesForSave(state.modules);
+
 	return {
 		layout: {
 			left: [...state.layout.left],
@@ -557,10 +430,10 @@ function buildSavePayload(state) {
 			right: [...state.layout.right],
 			hidden: computeHidden(state.layout)
 		},
-		modules: state.modules,
+		modules: sanitizedModules,
 		globals: state.globals,
 		passthrough: state.passthrough ?? {},
-		style_css: state.styleCss || null,
+		style_css: generatedCss,
 		module_styles: state.moduleStyles || {}
 	};
 }
@@ -897,7 +770,6 @@ export async function deleteWaybarProfile(profileId) {
 	return invoke('delete_waybar_profile', { profileId });
 }
 
-// CSS Styling functions
 export async function getWaybarStyleCss() {
 	return invoke('get_waybar_style_css');
 }
