@@ -25,7 +25,7 @@
 		{placeholder}
 		value={textareaValue}
 		oninput={handleInput}
-		class="min-h-[300px] font-mono text-sm"
+		class="min-h-[300px] text-sm"
 		spellcheck="false"
 	/>
 

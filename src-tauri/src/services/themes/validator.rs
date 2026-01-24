@@ -115,8 +115,7 @@ impl ThemeValidator {
     /// Validate that color strings are in proper format
     pub fn validate_color(color: &str) -> bool {
         // Check hex color format (#RGB or #RRGGBB or #RRGGBBAA)
-        if color.starts_with('#') {
-            let hex = &color[1..];
+        if let Some(hex) = color.strip_prefix('#') {
             return (hex.len() == 3 || hex.len() == 6 || hex.len() == 8)
                 && hex.chars().all(|c| c.is_ascii_hexdigit());
         }
@@ -127,7 +126,7 @@ impl ThemeValidator {
             return parts.iter().all(|p| {
                 p.trim()
                     .parse::<f32>()
-                    .map(|n| n >= 0.0 && n <= 255.0)
+                    .map(|n| (0.0..=255.0).contains(&n))
                     .unwrap_or(false)
             });
         }

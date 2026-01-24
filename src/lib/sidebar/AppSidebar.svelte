@@ -44,6 +44,12 @@
 			title: 'Omarchy',
 			url: '/omarchy',
 			icon: OmarchyIcon
+		},
+		{
+			title: 'Status Bar',
+			url: '/status-bar',
+			icon: StatusbarIcon,
+			badge: 'Beta'
 		}
 	];
 </script>

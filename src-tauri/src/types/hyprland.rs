@@ -1442,7 +1442,7 @@ impl DecorationField {
                 },
                 HyprlandValue::Int(v) => {
                     let as_float = *v as f32;
-                    if !(as_float >= 1.0 && as_float <= 10.0) {
+                    if !(1.0..=10.0).contains(&as_float) {
                         Err(HyprlandConfigError::Validation {
                             field: self.key().to_string(),
                             message: "Value must be between 1.0 and 10.0".into(),
@@ -1474,7 +1474,7 @@ impl DecorationField {
                 },
                 HyprlandValue::Int(v) => {
                     let as_float = *v as f32;
-                    if !(as_float >= 0.0 && as_float <= 1.0) {
+                    if !(0.0..=1.0).contains(&as_float) {
                         Err(HyprlandConfigError::Validation {
                             field: self.key().to_string(),
                             message: "Value must be between 0.0 and 1.0".into(),
@@ -1811,7 +1811,7 @@ impl BlurField {
                 },
                 HyprlandValue::Int(v) => {
                     let as_float = *v as f32;
-                    if !(as_float >= 0.0 && as_float <= 2.0) {
+                    if !(0.0..=2.0).contains(&as_float) {
                         Err(HyprlandConfigError::Validation {
                             field: self.key().to_string(),
                             message: "Value must be between 0.0 and 2.0".into(),
@@ -1842,7 +1842,7 @@ impl BlurField {
                 },
                 HyprlandValue::Int(v) => {
                     let as_float = *v as f32;
-                    if !(as_float >= 0.0 && as_float <= 1.0) {
+                    if !(0.0..=1.0).contains(&as_float) {
                         Err(HyprlandConfigError::Validation {
                             field: self.key().to_string(),
                             message: "Value must be between 0.0 and 1.0".into(),
@@ -2114,7 +2114,7 @@ impl ShadowField {
                 },
                 HyprlandValue::Int(v) => {
                     let as_float = *v as f32;
-                    if !(as_float >= 0.0 && as_float <= 1.0) {
+                    if !(0.0..=1.0).contains(&as_float) {
                         Err(HyprlandConfigError::Validation {
                             field: self.key().to_string(),
                             message: "Value must be between 0.0 and 1.0".into(),

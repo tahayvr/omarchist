@@ -1,66 +1,164 @@
-/**
- * Module Registry - Maps module IDs to their schemas and configurations
- * This provides a centralized place to define all Waybar module behaviors
- */
-
 import { clockSchema } from './schemas/clockSchema.js';
 import { batterySchema } from './schemas/batterySchema.js';
 import { networkSchema } from './schemas/networkSchema.js';
+import { bluetoothSchema } from './schemas/bluetoothSchema.js';
+import { cpuSchema } from './schemas/cpuSchema.js';
+import { pulseaudioSchema } from './schemas/pulseaudioSchema.js';
+import { hyprlandWindowSchema } from './schemas/hyprlandWindowSchema.js';
+import { memorySchema } from './schemas/memorySchema.js';
+import ClockModuleForm from '../../status-bar/modules/singleModules/ClockModuleForm.svelte';
+import NetworkModuleForm from '../../status-bar/modules/singleModules/NetworkModuleForm.svelte';
+import BluetoothModuleForm from '../../status-bar/modules/singleModules/BluetoothModuleForm.svelte';
+import BatteryModuleForm from '../../status-bar/modules/singleModules/BatteryModuleForm.svelte';
+import CpuModuleForm from '../../status-bar/modules/singleModules/CpuModuleForm.svelte';
+import PulseaudioModuleForm from '../../status-bar/modules/singleModules/PulseaudioModuleForm.svelte';
+import HyprlandWindowModuleForm from '../../status-bar/modules/singleModules/HyprlandWindowModuleForm.svelte';
+import MemoryModuleForm from '../../status-bar/modules/singleModules/MemoryModuleForm.svelte';
 
-/**
- * Registry of all supported Waybar modules with their schemas
- * Each entry can specify:
- * - schema: JSON schema definition for the module
- * - component: Optional custom Svelte component (null = use generic renderer)
- * - validator: Optional custom validation function
- * - configurable: Whether the module has user-facing configuration (default: true if schema exists)
- */
 export const moduleRegistry = {
 	clock: {
 		schema: clockSchema,
-		component: null,
+		component: ClockModuleForm,
 		validator: null,
 		configurable: true
 	},
 	battery: {
 		schema: batterySchema,
-		component: null,
-		validator: null,
-		configurable: false
-	},
-	network: {
-		schema: networkSchema,
-		component: null,
+		component: BatteryModuleForm,
 		validator: null,
 		configurable: true
 	},
-	// Non-configurable modules (no user settings)
-	'custom/omarchy-menu': {
-		schema: null,
-		component: null,
+	bluetooth: {
+		schema: bluetoothSchema,
+		component: BluetoothModuleForm,
 		validator: null,
-		configurable: false
+		configurable: true
 	},
-	'custom/updates': {
-		schema: null,
-		component: null,
+	cpu: {
+		schema: cpuSchema,
+		component: CpuModuleForm,
 		validator: null,
-		configurable: false
+		configurable: true
 	},
-	'custom/screen-recorder': {
+	pulseaudio: {
+		schema: pulseaudioSchema,
+		component: PulseaudioModuleForm,
+		validator: null,
+		configurable: true
+	},
+	network: {
+		schema: networkSchema,
+		component: NetworkModuleForm,
+		validator: null,
+		configurable: true
+	},
+	'hyprland/window': {
+		schema: hyprlandWindowSchema,
+		component: HyprlandWindowModuleForm,
+		validator: null,
+		configurable: true
+	},
+	'hyprland/workspaces': {
 		schema: null,
 		component: null,
 		validator: null,
-		configurable: false
+		configurable: true,
+		defaultConfig: {
+			'all-outputs': true,
+			'active-only': false,
+			'on-click': 'activate',
+			format: '{icon}',
+			'format-icons': {
+				1: '1',
+				2: '2',
+				3: '3',
+				4: '4',
+				5: '5',
+				urgent: '',
+				active: '',
+				default: ''
+			}
+		}
+	},
+	memory: {
+		schema: memorySchema,
+		component: MemoryModuleForm,
+		validator: null,
+		configurable: true
+	},
+	'custom/omarchy': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			format: "<span font='omarchy'>\ue900</span>",
+			'on-click': 'omarchy-menu',
+			'tooltip-format': 'Omarchy Menu\n\nSuper + Alt + Space'
+		}
+	},
+	'custom/update': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			format: '',
+			exec: 'omarchy-update-available',
+			'on-click': 'omarchy-launch-floating-terminal-with-presentation omarchy-update',
+			'tooltip-format': 'Omarchy update available',
+			signal: 7,
+			interval: 3600
+		}
+	},
+	'custom/screenrecording-indicator': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			'on-click': 'omarchy-cmd-screenrecord',
+			exec: '$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh',
+			signal: 8,
+			'return-type': 'json'
+		}
+	},
+	'group/tray-expander': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			orientation: 'inherit',
+			drawer: {
+				'transition-duration': 600,
+				'children-class': 'tray-group-item'
+			},
+			modules: ['custom/expand-icon', 'tray']
+		}
+	},
+	'custom/expand-icon': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			format: ' ',
+			tooltip: false
+		}
+	},
+	tray: {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			'icon-size': 12,
+			spacing: 12
+		}
 	}
-	// Add more modules as needed
 };
 
-/**
- * Get the module definition for a given module ID
- * @param {string} moduleId - The Waybar module identifier
- * @returns {object|null} Module definition with schema, component, and validator
- */
 export function getModuleDefinition(moduleId) {
 	if (!moduleId || typeof moduleId !== 'string') {
 		return null;
@@ -68,57 +166,31 @@ export function getModuleDefinition(moduleId) {
 	return moduleRegistry[moduleId] || null;
 }
 
-/**
- * Check if a module has a schema definition
- * @param {string} moduleId - The Waybar module identifier
- * @returns {boolean} True if the module has a schema
- */
 export function hasModuleSchema(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	return def && def.schema ? true : false;
 }
 
-/**
- * Get the schema for a module
- * @param {string} moduleId - The Waybar module identifier
- * @returns {object|null} The module's JSON schema
- */
 export function getModuleSchema(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	return def?.schema || null;
 }
 
-/**
- * Get the custom component for a module (if any)
- * @param {string} moduleId - The Waybar module identifier
- * @returns {object|null} The Svelte component or null
- */
 export function getModuleComponent(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	return def?.component || null;
 }
 
-/**
- * Get the validator function for a module (if any)
- * @param {string} moduleId - The Waybar module identifier
- * @returns {Function|null} The validator function or null
- */
 export function getModuleValidator(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	return def?.validator || null;
 }
 
-/**
- * Check if a module is user-configurable
- * @param {string} moduleId - The Waybar module identifier
- * @returns {boolean} True if the module can be configured by users
- */
 export function isModuleConfigurable(moduleId) {
 	const def = getModuleDefinition(moduleId);
 	if (!def) {
 		return false;
 	}
-	// Explicitly set configurable flag, or default to true if schema exists
 	if (def.configurable !== undefined) {
 		return def.configurable;
 	}
