@@ -198,7 +198,7 @@
 											checked={nestedValue !== undefined
 												? nestedValue
 												: (nestedProperty.default ?? true)}
-											on:change={(e) => handleFieldChange(nestedFieldPath, e.target.checked)}
+											onchange={(e) => handleFieldChange(nestedFieldPath, e.target.checked)}
 										/>
 										{#if nestedProperty.description}
 											<HoverCard.Root>
@@ -266,7 +266,7 @@
 																		checked={deepValue !== undefined
 																			? deepValue
 																			: (deepProperty.default ?? true)}
-																		on:change={(e) =>
+																		onchange={(e) =>
 																			handleFieldChange(deepFieldPath, e.target.checked)}
 																	/>
 																	{deepProperty.title || deepKey}
