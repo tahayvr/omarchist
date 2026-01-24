@@ -1,13 +1,12 @@
 <script>
 	import * as Card from '$lib/components/ui/card/index.js';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group/index.js';
-	// import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
+	import StatusbarModuleConfigDialog from './StatusbarModuleConfigDialog.svelte';
 	import { isModuleConfigurable } from '$lib/utils/waybar/moduleRegistry.js';
 
 	let {
 		module = { id: 'module', title: 'Module', description: 'Module description goes here.' },
 		position = $bindable('hidden'),
-		fields = [],
 		config = {},
 		disabled = false,
 		onChange = () => {},
@@ -59,15 +58,14 @@
 				>
 			</ToggleGroup.Root>
 
-			<!-- {#if showConfigButton}
+			{#if showConfigButton}
 				<StatusbarModuleConfigDialog
 					{module}
 					{config}
 					{disabled}
-					{fields}
 					onConfigChange={handleDialogConfigChange}
 				/>
-			{/if} -->
+			{/if}
 		</div>
 	</Card.Content>
 </Card.Root>
