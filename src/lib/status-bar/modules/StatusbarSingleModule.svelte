@@ -58,14 +58,14 @@
 				>
 			</ToggleGroup.Root>
 
-			{#if showConfigButton}
+			<!-- {#if showConfigButton}
 				<StatusbarModuleConfigDialog
 					{module}
 					{config}
 					{disabled}
 					onConfigChange={handleDialogConfigChange}
 				/>
-			{/if}
+			{/if} -->
 		</div>
 	</Card.Content>
 </Card.Root>
