@@ -143,7 +143,7 @@ export const moduleRegistry = {
 		validator: null,
 		configurable: false,
 		defaultConfig: {
-			format: ' ',
+			format: '',
 			tooltip: false
 		}
 	},

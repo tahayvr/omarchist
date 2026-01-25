@@ -159,7 +159,7 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 		modules: ['custom/expand-icon', 'tray']
 	}),
 	'custom/expand-icon': Object.freeze({
-		format: ' ',
+		format: '',
 		tooltip: false
 	}),
 	bluetooth: Object.freeze({

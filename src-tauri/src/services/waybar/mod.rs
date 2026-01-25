@@ -15,7 +15,7 @@ const PROFILE_STYLE_FILE_NAME: &str = "style.css";
 const DEFAULT_PROFILE_ID: &str = "omarchy-default";
 const DEFAULT_PROFILE_NAME: &str = "Omarchy Default";
 
-const KNOWN_MODULE_KEYS: &[&str] = &[
+const KNOWN_MODULE_KEYS: [&str; 15] = [
     "custom/omarchy",
     "hyprland/workspaces",
     "hyprland/window",
@@ -347,7 +347,7 @@ impl WaybarConfigService {
         }
 
         // Add any remaining known modules that aren't in the layout
-        for key in KNOWN_MODULE_KEYS {
+        for key in KNOWN_MODULE_KEYS.iter() {
             if seen_keys.insert((*key).to_string()) {
                 ordered_module_keys.push((*key).to_string());
             }
@@ -767,7 +767,7 @@ impl WaybarConfigService {
         globals = parse_globals_from_css(&style_css, globals);
 
         let mut modules = default_modules_map();
-        for key in KNOWN_MODULE_KEYS {
+        for key in KNOWN_MODULE_KEYS.iter() {
             if let Some(value) = root_map.remove(*key) {
                 modules.insert((*key).to_string(), value);
             }
@@ -781,7 +781,7 @@ impl WaybarConfigService {
             .cloned()
             .collect();
         let mut hidden = Vec::new();
-        for key in KNOWN_MODULE_KEYS {
+        for key in KNOWN_MODULE_KEYS.iter() {
             if !seen.contains(*key) {
                 hidden.push((*key).to_string());
             }
@@ -1022,7 +1022,7 @@ fn default_modules_map() -> BTreeMap<String, Value> {
     map.insert(
         "custom/expand-icon".to_string(),
         json!({
-            "format": " ",
+            "format": "",
             "tooltip": false
         }),
     );
