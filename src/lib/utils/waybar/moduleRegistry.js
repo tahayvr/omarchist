@@ -64,19 +64,28 @@ export const moduleRegistry = {
 		validator: null,
 		configurable: true,
 		defaultConfig: {
-			'all-outputs': true,
-			'active-only': false,
 			'on-click': 'activate',
 			format: '{icon}',
 			'format-icons': {
+				default: '',
 				1: '1',
 				2: '2',
 				3: '3',
 				4: '4',
 				5: '5',
-				urgent: '',
-				active: '',
-				default: ''
+				6: '6',
+				7: '7',
+				8: '8',
+				9: '9',
+				10: '0',
+				active: '󱓻'
+			},
+			'persistent-workspaces': {
+				1: [],
+				2: [],
+				3: [],
+				4: [],
+				5: []
 			}
 		}
 	},
@@ -94,6 +103,7 @@ export const moduleRegistry = {
 		defaultConfig: {
 			format: "<span font='omarchy'>\ue900</span>",
 			'on-click': 'omarchy-menu',
+			'on-click-right': 'xdg-terminal-exec',
 			'tooltip-format': 'Omarchy Menu\n\nSuper + Alt + Space'
 		}
 	},
@@ -108,7 +118,26 @@ export const moduleRegistry = {
 			'on-click': 'omarchy-launch-floating-terminal-with-presentation omarchy-update',
 			'tooltip-format': 'Omarchy update available',
 			signal: 7,
-			interval: 3600
+			interval: 21600
+		}
+	},
+	'custom/voxtype': {
+		schema: null,
+		component: null,
+		validator: null,
+		configurable: false,
+		defaultConfig: {
+			exec: 'omarchy-voxtype-status',
+			'return-type': 'json',
+			format: '{icon}',
+			'format-icons': {
+				idle: '',
+				recording: '󰍬',
+				transcribing: '󰔟'
+			},
+			tooltip: true,
+			'on-click-right': 'omarchy-voxtype-config',
+			'on-click': 'omarchy-voxtype-model'
 		}
 	},
 	'custom/screenrecording-indicator': {
@@ -143,8 +172,12 @@ export const moduleRegistry = {
 		validator: null,
 		configurable: false,
 		defaultConfig: {
-			format: ' ',
-			tooltip: false
+			format: '',
+			tooltip: false,
+			'on-scroll-up': '',
+			'on-scroll-down': '',
+			'on-scroll-left': '',
+			'on-scroll-right': ''
 		}
 	},
 	tray: {
@@ -154,7 +187,7 @@ export const moduleRegistry = {
 		configurable: false,
 		defaultConfig: {
 			'icon-size': 12,
-			spacing: 12
+			spacing: 17
 		}
 	}
 };

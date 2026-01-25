@@ -26,7 +26,12 @@ const clone = (value) => {
 
 const DEFAULT_LAYOUT = Object.freeze({
 	left: Object.freeze(['custom/omarchy', 'hyprland/workspaces']),
-	center: Object.freeze(['clock', 'custom/update', 'custom/screenrecording-indicator']),
+	center: Object.freeze([
+		'clock',
+		'custom/update',
+		'custom/voxtype',
+		'custom/screenrecording-indicator'
+	]),
 	right: Object.freeze([
 		'group/tray-expander',
 		'bluetooth',
@@ -42,8 +47,8 @@ const DEFAULT_GLOBALS = Object.freeze({
 	layer: 'top',
 	position: 'top',
 	height: 26,
-	background: '#1e1e1e',
-	foreground: '#d4d4d8',
+	background: '@background',
+	foreground: '@foreground',
 	spacing: 0,
 	leftMargin: 8,
 	leftPadding: 0,
@@ -65,7 +70,7 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 		format: '{:L%A %H:%M}',
 		'format-alt': '{:L%d %B W%V %Y}',
 		tooltip: false,
-		'on-click-right': 'omarchy-cmd-tzupdate'
+		'on-click-right': 'omarchy-launch-floating-terminal-with-presentation omarchy-tz-select'
 	}),
 	battery: Object.freeze({
 		format: '{capacity}% {icon}',
@@ -101,7 +106,7 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 	}),
 	tray: Object.freeze({
 		'icon-size': 12,
-		spacing: 12
+		spacing: 17
 	}),
 	'hyprland/workspaces': Object.freeze({
 		'on-click': 'activate',
@@ -117,6 +122,7 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 			7: '7',
 			8: '8',
 			9: '9',
+			10: '0',
 			active: '󱓻'
 		},
 		'persistent-workspaces': {
@@ -134,6 +140,7 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 	'custom/omarchy': Object.freeze({
 		format: "<span font='omarchy'>\ue900</span>",
 		'on-click': 'omarchy-menu',
+		'on-click-right': 'xdg-terminal-exec',
 		'tooltip-format': 'Omarchy Menu\n\nSuper + Alt + Space'
 	}),
 	'custom/update': Object.freeze({
@@ -142,13 +149,26 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 		'on-click': 'omarchy-launch-floating-terminal-with-presentation omarchy-update',
 		'tooltip-format': 'Omarchy update available',
 		signal: 7,
-		interval: 3600
+		interval: 21600
 	}),
 	'custom/screenrecording-indicator': Object.freeze({
 		'on-click': 'omarchy-cmd-screenrecord',
 		exec: '$OMARCHY_PATH/default/waybar/indicators/screen-recording.sh',
 		signal: 8,
 		'return-type': 'json'
+	}),
+	'custom/voxtype': Object.freeze({
+		exec: 'omarchy-voxtype-status',
+		'return-type': 'json',
+		format: '{icon}',
+		'format-icons': {
+			idle: '',
+			recording: '󰍬',
+			transcribing: '󰔟'
+		},
+		tooltip: true,
+		'on-click-right': 'omarchy-voxtype-config',
+		'on-click': 'omarchy-voxtype-model'
 	}),
 	'group/tray-expander': Object.freeze({
 		orientation: 'inherit',
@@ -159,31 +179,39 @@ const DEFAULT_MODULE_SETTINGS = Object.freeze({
 		modules: ['custom/expand-icon', 'tray']
 	}),
 	'custom/expand-icon': Object.freeze({
-		format: ' ',
-		tooltip: false
+		format: '',
+		tooltip: false,
+		'on-scroll-up': '',
+		'on-scroll-down': '',
+		'on-scroll-left': '',
+		'on-scroll-right': ''
 	}),
 	bluetooth: Object.freeze({
 		format: '',
+		'format-off': '󰂲',
 		'format-disabled': '󰂲',
-		'format-connected': '',
+		'format-connected': '󰂱',
+		'format-no-controller': '',
 		'tooltip-format': 'Devices connected: {num_connections}',
-		'on-click': 'blueberry'
+		'on-click': 'omarchy-launch-bluetooth'
 	}),
 	pulseaudio: Object.freeze({
 		format: '{icon}',
-		'on-click': '$TERMINAL --class=Wiremix -e wiremix',
+		'on-click': 'omarchy-launch-audio',
 		'on-click-right': 'pamixer -t',
 		'tooltip-format': 'Playing at {volume}%',
 		'scroll-step': 5,
 		'format-muted': '',
 		'format-icons': {
+			headphone: '',
 			default: ['', '', '']
 		}
 	}),
 	cpu: Object.freeze({
 		interval: 5,
 		format: '󰍛',
-		'on-click': '$TERMINAL -e btop'
+		'on-click': 'omarchy-launch-or-focus-tui btop',
+		'on-click-right': 'alacritty'
 	})
 });
 
@@ -212,6 +240,11 @@ export const KNOWN_MODULES = [
 		id: 'custom/update',
 		title: 'Update Indicator',
 		description: 'Shows when Omarchy updates are available.'
+	},
+	{
+		id: 'custom/voxtype',
+		title: 'Voxtype',
+		description: 'Voice dictation status indicator.'
 	},
 	{
 		id: 'custom/screenrecording-indicator',

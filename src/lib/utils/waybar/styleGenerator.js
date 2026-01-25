@@ -1,7 +1,7 @@
 export function generateWaybarStyles(globals, moduleStyles) {
 	let css = '';
 
-	css += '@import "../omarchy/current/theme/waybar.css";\n\n';
+	css += "@import '../omarchy/current/theme/waybar.css';\n\n";
 
 	css += '* {\n';
 	css += `  background-color: ${globals.background};\n`;
@@ -9,7 +9,7 @@ export function generateWaybarStyles(globals, moduleStyles) {
 	css += '  border: none;\n';
 	css += '  border-radius: 0;\n';
 	css += '  min-height: 0;\n';
-	css += '  font-family: CaskaydiaMono Nerd Font;\n';
+	css += "  font-family: 'JetBrainsMono Nerd Font';\n";
 	css += '  font-size: 12px;\n';
 	css += '}\n\n';
 
@@ -23,16 +23,18 @@ export function generateWaybarStyles(globals, moduleStyles) {
 	}
 	css += '}\n\n';
 
-	css += '.modules-center {\n';
-	css += `  margin-left: ${globals.centerMargin}px;\n`;
-	css += `  margin-right: ${globals.centerMargin}px;\n`;
-	if (globals.centerPadding > 0) {
-		css += `  padding: ${globals.centerPadding}px;\n`;
+	if (globals.centerMargin > 0 || globals.centerPadding > 0 || globals.centerBackground) {
+		css += '.modules-center {\n';
+		css += `  margin-left: ${globals.centerMargin}px;\n`;
+		css += `  margin-right: ${globals.centerMargin}px;\n`;
+		if (globals.centerPadding > 0) {
+			css += `  padding: ${globals.centerPadding}px;\n`;
+		}
+		if (globals.centerBackground) {
+			css += `  background: ${globals.centerBackground};\n`;
+		}
+		css += '}\n\n';
 	}
-	if (globals.centerBackground) {
-		css += `  background: ${globals.centerBackground};\n`;
-	}
-	css += '}\n\n';
 
 	css += '.modules-right {\n';
 	css += `  margin-right: ${globals.rightMargin}px;\n`;
@@ -56,11 +58,8 @@ export function generateWaybarStyles(globals, moduleStyles) {
 	css += '}\n\n';
 
 	const commonModules = [
-		'#tray',
 		'#cpu',
 		'#battery',
-		'#network',
-		'#bluetooth',
 		'#pulseaudio',
 		'#custom-omarchy',
 		'#custom-screenrecording-indicator',
@@ -71,8 +70,20 @@ export function generateWaybarStyles(globals, moduleStyles) {
 	css += '  margin: 0 7.5px;\n';
 	css += '}\n\n';
 
+	css += '#tray {\n';
+	css += '  margin-right: 16px;\n';
+	css += '}\n\n';
+
+	css += '#bluetooth {\n';
+	css += '  margin-right: 17px;\n';
+	css += '}\n\n';
+
+	css += '#network {\n';
+	css += '  margin-right: 13px;\n';
+	css += '}\n\n';
+
 	css += '#custom-expand-icon {\n';
-	css += '  margin-right: 7px;\n';
+	css += '  margin-right: 18px;\n';
 	css += '}\n\n';
 
 	css += 'tooltip {\n';
@@ -93,11 +104,21 @@ export function generateWaybarStyles(globals, moduleStyles) {
 
 	css += '#custom-screenrecording-indicator {\n';
 	css += '  min-width: 12px;\n';
-	css += '  margin-left: 8.75px;\n';
+	css += '  margin-left: 5px;\n';
 	css += '  font-size: 10px;\n';
+	css += '  padding-bottom: 1px;\n';
 	css += '}\n\n';
 
 	css += '#custom-screenrecording-indicator.active {\n';
+	css += '  color: #a55555;\n';
+	css += '}\n\n';
+
+	css += '#custom-voxtype {\n';
+	css += '  min-width: 12px;\n';
+	css += '  margin: 0 0 0 7.5px;\n';
+	css += '}\n\n';
+
+	css += '#custom-voxtype.recording {\n';
 	css += '  color: #a55555;\n';
 	css += '}\n\n';
 
