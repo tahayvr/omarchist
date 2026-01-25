@@ -5,7 +5,6 @@ import { invoke } from '@tauri-apps/api/core';
 const _loading = writable(false);
 const _error = writable(null);
 
-// Derived stores for public consumption
 export const loading = derived(_loading, ($loading) => $loading);
 export const error = derived(_error, ($error) => $error);
 
@@ -28,10 +27,10 @@ async function loadThemesFromBackend() {
 }
 
 /**
- * Gets themes from backend cache (single source of truth)
+ * Gets themes from backend cache
  * @param {boolean} forceRefresh - Force refresh of backend cache
- * @param {boolean} optimistic - If true, don't show loading state immediately (for fast cache hits)
- * @returns {Promise<Array>} Array of theme objects
+ * @param {boolean} optimistic - If true, don't show loading state immediately
+ * @returns {Promise<Array>}
  */
 export async function getThemes(forceRefresh = false, optimistic = false) {
 	// Deduplicate concurrent requests
@@ -43,7 +42,6 @@ export async function getThemes(forceRefresh = false, optimistic = false) {
 	if (!optimistic) {
 		_loading.set(true);
 	} else {
-		// Show loading state only if request takes longer than 100ms
 		loadingTimeout = setTimeout(() => {
 			_loading.set(true);
 		}, 100);
@@ -97,9 +95,7 @@ export async function refreshThemes(silent = false) {
 	}
 }
 
-/**
- * Invalidates the backend cache
- */
+// Invalidates the backend cache
 export async function invalidateCache() {
 	try {
 		await invoke('refresh_theme_cache');
@@ -111,9 +107,7 @@ export async function invalidateCache() {
 	}
 }
 
-/**
- * Invalidates cache for a specific theme
- */
+// Invalidates cache for a specific theme
 export async function invalidateTheme(themeDir) {
 	try {
 		await invoke('invalidate_theme_cache', { themeDir });
@@ -123,9 +117,7 @@ export async function invalidateTheme(themeDir) {
 	}
 }
 
-/**
- * Invalidates cache for multiple themes
- */
+// Invalidates cache for multiple themes
 export async function invalidateThemes(themeDirs) {
 	try {
 		await invoke('invalidate_themes_cache', { themeDirs });
@@ -156,7 +148,9 @@ export async function preloadThemes() {
  */
 export async function getSystemThemes(optimistic = true) {
 	const allThemes = await getThemes(false, optimistic);
-	return allThemes.filter((theme) => !theme.is_custom);
+	// System themes are explicitly flagged by the backend.
+	// (Community/unknown themes may have both flags false.)
+	return allThemes.filter((theme) => theme?.is_system === true);
 }
 
 /**
@@ -166,7 +160,8 @@ export async function getSystemThemes(optimistic = true) {
  */
 export async function getCustomThemes(optimistic = true) {
 	const allThemes = await getThemes(false, optimistic);
-	return allThemes.filter((theme) => theme.is_custom);
+	// Custom/user themes are explicitly flagged by the backend.
+	return allThemes.filter((theme) => theme?.is_custom === true);
 }
 
 /**

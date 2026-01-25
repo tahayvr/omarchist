@@ -311,7 +311,7 @@ fn base64_encode(data: &[u8]) -> String {
         return String::new();
     }
 
-    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
     // Pre-allocate with exact capacity to avoid reallocations
     let output_len = data.len().div_ceil(3) * 4;
@@ -345,8 +345,25 @@ fn base64_encode(data: &[u8]) -> String {
 /// Get a specific system theme by folder name
 #[tauri::command]
 pub async fn get_sys_theme_by_name(theme_name: String) -> Result<Option<SysTheme>, String> {
-    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
-    let theme_path = home_dir.join(".config/omarchy/themes").join(&theme_name);
+    let system_root = dirs::data_dir()
+        .or_else(|| dirs::home_dir().map(|home| home.join(".local").join("share")))
+        .ok_or_else(|| "Failed to determine data directory".to_string())?
+        .join("omarchy")
+        .join("themes");
+
+    let user_root = dirs::config_dir()
+        .or_else(|| dirs::home_dir().map(|home| home.join(".config")))
+        .ok_or_else(|| "Failed to determine config directory".to_string())?
+        .join("omarchy")
+        .join("themes");
+
+    // Prefer system themes, fallback to user themes for compatibility.
+    let theme_path = system_root.join(&theme_name);
+    let theme_path = if theme_path.exists() {
+        theme_path
+    } else {
+        user_root.join(&theme_name)
+    };
 
     if !theme_path.exists() || !theme_path.is_dir() {
         return Ok(None);

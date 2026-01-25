@@ -67,7 +67,8 @@
 				<div>
 					<ThemeDropDown
 						themeDir={dir}
-						themeTitle={title}
+						{is_system}
+						{is_custom}
 						onDeleted={typeof onDeleted === 'function' ? onDeleted : undefined}
 					/>
 				</div>

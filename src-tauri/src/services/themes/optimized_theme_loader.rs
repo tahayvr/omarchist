@@ -10,6 +10,12 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ThemeOrigin {
+    System,
+    User,
+}
+
 /// Lightweight theme metadata for faster initial responses
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ThemeMetadata {
@@ -75,6 +81,22 @@ impl OptimizedThemeLoader {
         Self {
             color_cache: ColorCache::new(),
         }
+    }
+
+    /// User themes are stored in ~/.config/omarchy/themes
+    fn user_themes_dir() -> Result<PathBuf, String> {
+        let config_dir = dirs::config_dir()
+            .or_else(|| dirs::home_dir().map(|home| home.join(".config")))
+            .ok_or_else(|| "Failed to determine config directory".to_string())?;
+        Ok(config_dir.join("omarchy").join("themes"))
+    }
+
+    /// System themes are stored in ~/.local/share/omarchy/themes
+    fn system_themes_dir() -> Result<PathBuf, String> {
+        let data_dir = dirs::data_dir()
+            .or_else(|| dirs::home_dir().map(|home| home.join(".local").join("share")))
+            .ok_or_else(|| "Failed to determine data directory".to_string())?;
+        Ok(data_dir.join("omarchy").join("themes"))
     }
 
     /// Locate a metadata file for the given theme directory supporting both new and legacy formats
@@ -171,33 +193,30 @@ impl OptimizedThemeLoader {
 
     /// Load themes with parallel processing for better performance
     pub async fn load_themes_parallel(&self) -> Result<Vec<SysTheme>, String> {
-        let home_dir =
-            dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
-        let themes_dir = home_dir.join(".config/omarchy/themes");
+        // Collect themes from both origins.
+        // User themes override system themes when directory names collide.
+        let system_root = Self::system_themes_dir()?;
+        let user_root = Self::user_themes_dir()?;
 
-        if !themes_dir.exists() {
-            return Err(format!("Themes directory does not exist: {themes_dir:?}"));
-        }
-
-        // Collect all theme directory paths
-        let theme_paths = self.collect_theme_paths(&themes_dir)?;
-
-        if theme_paths.is_empty() {
+        let theme_entries = self.collect_theme_paths_with_origin(&system_root, &user_root)?;
+        if theme_entries.is_empty() {
             return Ok(Vec::new());
         }
 
+        let theme_count = theme_entries.len();
+
         log::info!(
             "Loading {} themes with parallel processing",
-            theme_paths.len()
+            theme_count
         );
 
         // Process themes in parallel using tokio::spawn
         let mut handles: Vec<JoinHandle<Result<SysTheme, String>>> = Vec::new();
 
-        for path in theme_paths {
+        for (path, origin) in theme_entries {
             let color_cache = self.color_cache.clone();
             let handle = tokio::spawn(async move {
-                Self::generate_theme_from_directory_async(&path, color_cache).await
+                Self::generate_theme_from_directory_async(&path, origin, color_cache).await
             });
             handles.push(handle);
         }
@@ -229,27 +248,25 @@ impl OptimizedThemeLoader {
 
     /// Load only theme metadata for faster initial responses
     pub async fn load_theme_metadata_only(&self) -> Result<Vec<ThemeMetadata>, String> {
-        let home_dir =
-            dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
-        let themes_dir = home_dir.join(".config/omarchy/themes");
+        let system_root = Self::system_themes_dir()?;
+        let user_root = Self::user_themes_dir()?;
 
-        if !themes_dir.exists() {
-            return Err(format!("Themes directory does not exist: {themes_dir:?}"));
-        }
-
-        let theme_paths = self.collect_theme_paths(&themes_dir)?;
-
-        if theme_paths.is_empty() {
+        let theme_entries = self.collect_theme_paths_with_origin(&system_root, &user_root)?;
+        if theme_entries.is_empty() {
             return Ok(Vec::new());
         }
 
-        log::info!("Loading metadata for {} themes", theme_paths.len());
+        let theme_count = theme_entries.len();
+
+        log::info!("Loading metadata for {} themes", theme_count);
 
         // Process metadata in parallel
         let mut handles: Vec<JoinHandle<Result<ThemeMetadata, String>>> = Vec::new();
 
-        for path in theme_paths {
-            let handle = tokio::spawn(async move { Self::generate_theme_metadata(&path).await });
+        for (path, origin) in theme_entries {
+            let handle = tokio::spawn(async move {
+                Self::generate_theme_metadata(&path, origin).await
+            });
             handles.push(handle);
         }
 
@@ -277,26 +294,55 @@ impl OptimizedThemeLoader {
         Ok(metadata)
     }
 
-    /// Collect all theme directory paths
-    fn collect_theme_paths(&self, themes_dir: &Path) -> Result<Vec<PathBuf>, String> {
-        let entries = fs::read_dir(themes_dir)
-            .map_err(|e| format!("Failed to read themes directory: {e}"))?;
+    /// Collect all theme directory paths from both system and user roots.
+    /// User themes override system themes on name collisions.
+    fn collect_theme_paths_with_origin(
+        &self,
+        system_root: &Path,
+        user_root: &Path,
+    ) -> Result<Vec<(PathBuf, ThemeOrigin)>, String> {
+        let mut by_dir: HashMap<String, (PathBuf, ThemeOrigin)> = HashMap::new();
 
-        let mut theme_paths = Vec::new();
-        for entry in entries {
-            let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
-            let path = entry.path();
-
-            if path.is_dir() {
-                theme_paths.push(path);
+        // System themes first
+        if system_root.exists() {
+            let entries = fs::read_dir(system_root)
+                .map_err(|e| format!("Failed to read system themes directory: {e}"))?;
+            for entry in entries {
+                let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                        by_dir.insert(dir_name.to_string(), (path, ThemeOrigin::System));
+                    }
+                }
             }
         }
 
-        Ok(theme_paths)
+        // User themes override system themes
+        if user_root.exists() {
+            let entries = fs::read_dir(user_root)
+                .map_err(|e| format!("Failed to read user themes directory: {e}"))?;
+            for entry in entries {
+                let entry = entry.map_err(|e| format!("Failed to read directory entry: {e}"))?;
+                let path = entry.path();
+                if path.is_dir() {
+                    if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
+                        by_dir.insert(dir_name.to_string(), (path, ThemeOrigin::User));
+                    }
+                }
+            }
+        }
+
+        let mut entries: Vec<(String, (PathBuf, ThemeOrigin))> = by_dir.into_iter().collect();
+        entries.sort_by(|(a, _), (b, _)| a.cmp(b));
+        Ok(entries.into_iter().map(|(_, v)| v).collect())
     }
 
     /// Generate theme metadata only (lightweight operation)
-    async fn generate_theme_metadata(theme_dir: &Path) -> Result<ThemeMetadata, String> {
+    async fn generate_theme_metadata(
+        theme_dir: &Path,
+        origin: ThemeOrigin,
+    ) -> Result<ThemeMetadata, String> {
         let dir_name = theme_dir
             .file_name()
             .and_then(|name| name.to_str())
@@ -306,16 +352,8 @@ impl OptimizedThemeLoader {
         let title = Self::dir_name_to_title(dir_name);
 
         let metadata_path = Self::find_metadata_file(theme_dir);
-        let is_custom = metadata_path.is_some();
-
-        // Check if the theme directory is a symlink (system theme)
-        let is_system = if is_custom {
-            false
-        } else {
-            fs::symlink_metadata(theme_dir)
-                .map(|m| m.file_type().is_symlink())
-                .unwrap_or(false)
-        };
+        let is_custom = origin == ThemeOrigin::User;
+        let is_system = origin == ThemeOrigin::System;
 
         // Check if theme has color configuration files
         let has_colors = metadata_path.is_some() || theme_dir.join("alacritty.toml").exists();
@@ -357,6 +395,7 @@ impl OptimizedThemeLoader {
     /// Generate full theme from directory with async color extraction and caching
     async fn generate_theme_from_directory_async(
         theme_dir: &Path,
+        origin: ThemeOrigin,
         color_cache: ColorCache,
     ) -> Result<SysTheme, String> {
         let dir_name = theme_dir
@@ -368,16 +407,8 @@ impl OptimizedThemeLoader {
         let title = Self::dir_name_to_title(dir_name);
 
         let metadata_path = Self::find_metadata_file(theme_dir);
-        let is_custom = metadata_path.is_some();
-
-        // Check if the theme directory is a symlink (system theme)
-        let is_system = if is_custom {
-            false
-        } else {
-            fs::symlink_metadata(theme_dir)
-                .map(|m| m.file_type().is_symlink())
-                .unwrap_or(false)
-        };
+        let is_custom = origin == ThemeOrigin::User;
+        let is_system = origin == ThemeOrigin::System;
 
         // Extract colors with caching
         let colors =
@@ -540,7 +571,7 @@ impl OptimizedThemeLoader {
             return String::new();
         }
 
-        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
         // Pre-allocate with exact capacity to avoid reallocations
         let output_len = data.len().div_ceil(3) * 4;

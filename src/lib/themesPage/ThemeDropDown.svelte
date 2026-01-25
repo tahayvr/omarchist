@@ -10,6 +10,8 @@
 	import { join, homeDir, documentDir } from '@tauri-apps/api/path';
 
 	export let themeDir;
+	export let is_system = false;
+	export let is_custom = false;
 	export let onDeleted = null;
 
 	async function handleDelete() {
@@ -32,8 +34,21 @@
 		if (!themeDir) return;
 		try {
 			const home = await homeDir();
-			const themePath = await join(home, '.config', 'omarchy', 'themes', themeDir);
-			await Command.create('nautilus', [themePath]).execute();
+
+			const userThemePath = await join(home, '.config', 'omarchy', 'themes', themeDir);
+			const systemThemePath = await join(home, '.local', 'share', 'omarchy', 'themes', themeDir);
+
+			const preferredPath = is_custom
+				? userThemePath
+				: is_system
+					? systemThemePath
+					: systemThemePath;
+			const fallbackPath = preferredPath === userThemePath ? systemThemePath : userThemePath;
+
+			const result = await Command.create('nautilus', [preferredPath]).execute();
+			if (result?.code && result.code !== 0) {
+				await Command.create('nautilus', [fallbackPath]).execute();
+			}
 		} catch (err) {
 			alert('Failed to open folder: ' + (err?.message || err));
 		}
@@ -42,7 +57,6 @@
 	async function handleShareTheme() {
 		if (!themeDir) return;
 		try {
-			// Open save dialog
 			const defaultFilename = `${themeDir}.omarchy`;
 			const dialogOptions = {
 				defaultPath: defaultFilename,
@@ -80,7 +94,6 @@
 				destination: destination
 			});
 
-			// Notify success
 			toast.success('Theme exported', {
 				description: `${themeDir} has been exported successfully.`
 			});
@@ -101,13 +114,17 @@
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content align="end" class="uppercase">
 		<DropdownMenu.Group>
-			<DropdownMenu.Item onclick={handleShareTheme}>Share Theme</DropdownMenu.Item>
+			{#if is_custom}
+				<DropdownMenu.Item onclick={handleShareTheme}>Share Theme</DropdownMenu.Item>
+			{/if}
 			<DropdownMenu.Item onclick={handleOpenFolder}>Open Folder</DropdownMenu.Item>
-			<DropdownMenu.Separator />
-			<DropdownMenu.Item
-				onclick={handleDelete}
-				class="bg-red-500/15 text-red-500 hover:text-red-500">Delete Theme</DropdownMenu.Item
-			>
+			{#if is_custom}
+				<DropdownMenu.Separator />
+				<DropdownMenu.Item
+					onclick={handleDelete}
+					class="bg-red-500/15 text-red-500 hover:text-red-500">Delete Theme</DropdownMenu.Item
+				>
+			{/if}
 		</DropdownMenu.Group>
 	</DropdownMenu.Content>
 </DropdownMenu.Root>

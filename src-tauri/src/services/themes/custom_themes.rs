@@ -16,7 +16,7 @@ pub struct CustomThemeService {
 
 impl CustomThemeService {
     pub fn new(app_handle: &AppHandle) -> Result<Self, String> {
-        // Use the same directory structure as system themes: ~/.config/omarchy/themes/
+        // Custom/user themes are stored in ~/.config/omarchy/themes/
         let home_dir =
             dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
 
@@ -252,26 +252,23 @@ impl CustomThemeService {
     /// Deep-merge JSON values: when both sides are objects, merge keys recursively.
     /// Otherwise, overwrite target with source.
     fn deep_merge(target: &mut Value, src: &Value) {
-        use serde_json::Value::*;
         match (target, src) {
-            (Object(t_map), Object(s_map)) => {
-                for (k, v) in s_map {
-                    match (t_map.get_mut(k), v) {
-                        (Some(t_child), Object(_)) => {
+            (Value::Object(t_map), Value::Object(s_map)) => {
+                for (k, v) in s_map.iter() {
+                    if let Some(t_child) = t_map.get_mut(k) {
+                        if matches!(t_child, Value::Object(_)) && matches!(v, Value::Object(_)) {
                             Self::deep_merge(t_child, v);
-                        },
-                        (Some(t_child), _) => {
+                        } else {
                             *t_child = v.clone();
-                        },
-                        (None, _) => {
-                            t_map.insert(k.clone(), v.clone());
-                        },
+                        }
+                    } else {
+                        t_map.insert(k.clone(), v.clone());
                     }
                 }
-            },
+            }
             (t, s) => {
                 *t = s.clone();
-            },
+            }
         }
     }
 
@@ -809,7 +806,7 @@ impl CustomThemeService {
             return String::new();
         }
 
-        const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+        const CHARS: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
         // Pre-allocate with exact capacity to avoid reallocations
         let output_len = data.len().div_ceil(3) * 4;
