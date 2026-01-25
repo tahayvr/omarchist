@@ -15,12 +15,13 @@ const PROFILE_STYLE_FILE_NAME: &str = "style.css";
 const DEFAULT_PROFILE_ID: &str = "omarchy-default";
 const DEFAULT_PROFILE_NAME: &str = "Omarchy Default";
 
-const KNOWN_MODULE_KEYS: [&str; 15] = [
+const KNOWN_MODULE_KEYS: [&str; 16] = [
     "custom/omarchy",
     "hyprland/workspaces",
     "hyprland/window",
     "clock",
     "custom/update",
+    "custom/voxtype",
     "custom/screenrecording-indicator",
     "group/tray-expander",
     "custom/expand-icon",
@@ -101,8 +102,8 @@ impl Default for WaybarGlobals {
             position: "top".to_string(),
             height: 26.0,
             spacing: 0.0,
-            background: "#1e1e1e".to_string(),
-            foreground: "#d4d4d8".to_string(),
+            background: "@background".to_string(),
+            foreground: "@foreground".to_string(),
             left_margin: 8.0,
             left_padding: 0.0,
             left_background: String::new(),
@@ -920,6 +921,7 @@ fn default_center_modules() -> Vec<String> {
     vec![
         "clock".to_string(),
         "custom/update".to_string(),
+        "custom/voxtype".to_string(),
         "custom/screenrecording-indicator".to_string(),
     ]
 }
@@ -942,6 +944,7 @@ fn default_modules_map() -> BTreeMap<String, Value> {
         json!({
             "format": "<span font='omarchy'>\u{e900}</span>",
             "on-click": "omarchy-menu",
+            "on-click-right": "xdg-terminal-exec",
             "tooltip-format": "Omarchy Menu\n\nSuper + Alt + Space"
         }),
     );
@@ -951,7 +954,7 @@ fn default_modules_map() -> BTreeMap<String, Value> {
             "format": "{:L%A %H:%M}",
             "format-alt": "{:L%d %B W%V %Y}",
             "tooltip": false,
-            "on-click-right": "omarchy-cmd-tzupdate"
+            "on-click-right": "omarchy-launch-floating-terminal-with-presentation omarchy-tz-select"
         }),
     );
     map.insert(
@@ -962,7 +965,7 @@ fn default_modules_map() -> BTreeMap<String, Value> {
             "on-click": "omarchy-launch-floating-terminal-with-presentation omarchy-update",
             "tooltip-format": "Omarchy update available",
             "signal": 7,
-            "interval": 3600
+            "interval": 21600
         }),
     );
     map.insert(
@@ -990,6 +993,7 @@ fn default_modules_map() -> BTreeMap<String, Value> {
                 "7": "7",
                 "8": "8",
                 "9": "9",
+                "10": "0",
                 "active": "󱓻"
             },
             "persistent-workspaces": {
@@ -1023,24 +1027,30 @@ fn default_modules_map() -> BTreeMap<String, Value> {
         "custom/expand-icon".to_string(),
         json!({
             "format": "",
-            "tooltip": false
+            "tooltip": false,
+            "on-scroll-up": "",
+            "on-scroll-down": "",
+            "on-scroll-left": "",
+            "on-scroll-right": ""
         }),
     );
     map.insert(
         "tray".to_string(),
         json!({
             "icon-size": 12,
-            "spacing": 12
+            "spacing": 17
         }),
     );
     map.insert(
         "bluetooth".to_string(),
         json!({
             "format": "",
+            "format-off": "󰂲",
             "format-disabled": "󰂲",
-            "format-connected": "",
+            "format-connected": "󰂱",
+            "format-no-controller": "",
             "tooltip-format": "Devices connected: {num_connections}",
-            "on-click": "blueberry"
+            "on-click": "omarchy-launch-bluetooth"
         }),
     );
     map.insert(
@@ -1063,12 +1073,13 @@ fn default_modules_map() -> BTreeMap<String, Value> {
         "pulseaudio".to_string(),
         json!({
             "format": "{icon}",
-            "on-click": "$TERMINAL --class=Wiremix -e wiremix",
+            "on-click": "omarchy-launch-audio",
             "on-click-right": "pamixer -t",
             "tooltip-format": "Playing at {volume}%",
             "scroll-step": 5,
             "format-muted": "",
             "format-icons": {
+                "headphone": "",
                 "default": ["", "", ""]
             }
         }),
@@ -1078,7 +1089,24 @@ fn default_modules_map() -> BTreeMap<String, Value> {
         json!({
             "interval": 5,
             "format": "󰍛",
-            "on-click": "$TERMINAL -e btop"
+            "on-click": "omarchy-launch-or-focus-tui btop",
+            "on-click-right": "alacritty"
+        }),
+    );
+    map.insert(
+        "custom/voxtype".to_string(),
+        json!({
+            "exec": "omarchy-voxtype-status",
+            "return-type": "json",
+            "format": "{icon}",
+            "format-icons": {
+                "idle": "",
+                "recording": "󰍬",
+                "transcribing": "󰔟"
+            },
+            "tooltip": true,
+            "on-click-right": "omarchy-voxtype-config",
+            "on-click": "omarchy-voxtype-model"
         }),
     );
     map.insert(
@@ -1163,6 +1191,7 @@ fn default_root_value() -> Value {
         "hyprland/workspaces",
         "clock",
         "custom/update",
+        "custom/voxtype",
         "custom/screenrecording-indicator",
         "group/tray-expander",
         "custom/expand-icon",
@@ -1397,7 +1426,7 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
     let mut css = String::new();
 
     // Import theme variables
-    css.push_str("@import \"../omarchy/current/theme/waybar.css\";\n\n");
+    css.push_str("@import '../omarchy/current/theme/waybar.css';\n\n");
 
     // Base styles with custom or theme colors
     css.push_str("* {\n");
@@ -1406,7 +1435,7 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
     css.push_str("  border: none;\n");
     css.push_str("  border-radius: 0;\n");
     css.push_str("  min-height: 0;\n");
-    css.push_str("  font-family: CaskaydiaMono Nerd Font;\n");
+    css.push_str("  font-family: 'JetBrainsMono Nerd Font';\n");
     css.push_str("  font-size: 12px;\n");
     css.push_str("}\n\n");
 
@@ -1421,16 +1450,21 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
     }
     css.push_str("}\n\n");
 
-    css.push_str(".modules-center {\n");
-    css.push_str(&format!("  margin-left: {}px;\n", globals.center_margin));
-    css.push_str(&format!("  margin-right: {}px;\n", globals.center_margin));
-    if globals.center_padding > 0.0 {
-        css.push_str(&format!("  padding: {}px;\n", globals.center_padding));
+    if globals.center_margin > 0.0
+        || globals.center_padding > 0.0
+        || !globals.center_background.is_empty()
+    {
+        css.push_str(".modules-center {\n");
+        css.push_str(&format!("  margin-left: {}px;\n", globals.center_margin));
+        css.push_str(&format!("  margin-right: {}px;\n", globals.center_margin));
+        if globals.center_padding > 0.0 {
+            css.push_str(&format!("  padding: {}px;\n", globals.center_padding));
+        }
+        if !globals.center_background.is_empty() {
+            css.push_str(&format!("  background: {};\n", globals.center_background));
+        }
+        css.push_str("}\n\n");
     }
-    if !globals.center_background.is_empty() {
-        css.push_str(&format!("  background: {};\n", globals.center_background));
-    }
-    css.push_str("}\n\n");
 
     css.push_str(".modules-right {\n");
     css.push_str(&format!("  margin-right: {}px;\n", globals.right_margin));
@@ -1454,11 +1488,8 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
     css.push_str("  opacity: 0.5;\n");
     css.push_str("}\n\n");
 
-    css.push_str("#tray,\n");
     css.push_str("#cpu,\n");
     css.push_str("#battery,\n");
-    css.push_str("#network,\n");
-    css.push_str("#bluetooth,\n");
     css.push_str("#pulseaudio,\n");
     css.push_str("#custom-omarchy,\n");
     css.push_str("#custom-screenrecording-indicator,\n");
@@ -1467,8 +1498,20 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
     css.push_str("  margin: 0 7.5px;\n");
     css.push_str("}\n\n");
 
+    css.push_str("#tray {\n");
+    css.push_str("  margin-right: 16px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#bluetooth {\n");
+    css.push_str("  margin-right: 17px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#network {\n");
+    css.push_str("  margin-right: 13px;\n");
+    css.push_str("}\n\n");
+
     css.push_str("#custom-expand-icon {\n");
-    css.push_str("  margin-right: 7px;\n");
+    css.push_str("  margin-right: 18px;\n");
     css.push_str("}\n\n");
 
     css.push_str("tooltip {\n");
@@ -1489,11 +1532,21 @@ fn generate_style_css(globals: &WaybarGlobals, module_styles: &BTreeMap<String, 
 
     css.push_str("#custom-screenrecording-indicator {\n");
     css.push_str("  min-width: 12px;\n");
-    css.push_str("  margin-left: 8.75px;\n");
+    css.push_str("  margin-left: 5px;\n");
     css.push_str("  font-size: 10px;\n");
+    css.push_str("  padding-bottom: 1px;\n");
     css.push_str("}\n\n");
 
     css.push_str("#custom-screenrecording-indicator.active {\n");
+    css.push_str("  color: #a55555;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#custom-voxtype {\n");
+    css.push_str("  min-width: 12px;\n");
+    css.push_str("  margin: 0 0 0 7.5px;\n");
+    css.push_str("}\n\n");
+
+    css.push_str("#custom-voxtype.recording {\n");
     css.push_str("  color: #a55555;\n");
     css.push_str("}\n\n");
 
@@ -1525,7 +1578,7 @@ mod tests {
             Some(DEFAULT_PROFILE_ID.to_string()),
         );
         assert_eq!(snapshot.layout.left.len(), 2);
-        assert_eq!(snapshot.layout.center.len(), 3);
+        assert_eq!(snapshot.layout.center.len(), 4);
         assert_eq!(snapshot.layout.right.len(), 6);
         assert!(snapshot.modules.contains_key("custom/omarchy"));
     }
@@ -1538,7 +1591,7 @@ mod tests {
         assert!(css.contains("@foreground"));
         assert!(css.contains("#workspaces"));
         assert!(css.contains("#clock"));
-        assert!(css.contains("CaskaydiaMono Nerd Font"));
+        assert!(css.contains("JetBrainsMono Nerd Font"));
     }
 
     #[test]
