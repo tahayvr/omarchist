@@ -71,6 +71,7 @@
 		{#each orderedEntries(schema) as [key, property] (key)}
 			{@const fieldPath = key}
 			{@const value = getFieldValue(fieldPath)}
+
 			{#if isColorish(property)}
 				{@const colorValue = value ?? property.default ?? '#1e1e1e'}
 				<div class="flex items-center">
@@ -80,19 +81,15 @@
 						color={colorValue}
 						format={getColorFormat(property)}
 						description={property.description}
-						on:change={(e) => handleFieldChange(fieldPath, e.detail)}
+						onChange={(next) => handleFieldChange(fieldPath, next)}
 					/>
 				</div>
 			{:else if property.type === 'string'}
 				<Label>
 					{#if property.description}
 						<HoverCard.Root>
-							<HoverCard.Trigger>
-								{property.title || key}:
-							</HoverCard.Trigger>
-							<HoverCard.Content>
-								{property.description}
-							</HoverCard.Content>
+							<HoverCard.Trigger>{property.title || key}:</HoverCard.Trigger>
+							<HoverCard.Content>{property.description}</HoverCard.Content>
 						</HoverCard.Root>
 					{:else}
 						{property.title || key}:
@@ -100,19 +97,15 @@
 					<Input
 						type="text"
 						value={value ?? property.default ?? ''}
-						onchange={(e) => handleFieldChange(fieldPath, e.target.value)}
+						on:change={(e) => handleFieldChange(fieldPath, e.target.value)}
 					/>
 				</Label>
 			{:else if property.type === 'number'}
 				<Label>
 					{#if property.description}
 						<HoverCard.Root>
-							<HoverCard.Trigger>
-								{property.title || key}:
-							</HoverCard.Trigger>
-							<HoverCard.Content>
-								{property.description}
-							</HoverCard.Content>
+							<HoverCard.Trigger>{property.title || key}:</HoverCard.Trigger>
+							<HoverCard.Content>{property.description}</HoverCard.Content>
 						</HoverCard.Root>
 					{:else}
 						{property.title || key}:
@@ -122,7 +115,7 @@
 						value={value ?? property.default ?? property.minimum ?? 0}
 						min={property.minimum}
 						max={property.maximum}
-						onchange={(e) => handleFieldChange(fieldPath, parseFloat(e.target.value))}
+						on:change={(e) => handleFieldChange(fieldPath, parseFloat(e.target.value))}
 					/>
 				</Label>
 			{:else if property.type === 'boolean'}
@@ -130,16 +123,12 @@
 					<Input
 						type="checkbox"
 						checked={value !== undefined ? value : (property.default ?? true)}
-						onchange={(e) => handleFieldChange(fieldPath, e.target.checked)}
+						on:change={(e) => handleFieldChange(fieldPath, e.target.checked)}
 					/>
 					{#if property.description}
 						<HoverCard.Root>
-							<HoverCard.Trigger>
-								{property.title || key}
-							</HoverCard.Trigger>
-							<HoverCard.Content>
-								{property.description}
-							</HoverCard.Content>
+							<HoverCard.Trigger>{property.title || key}</HoverCard.Trigger>
+							<HoverCard.Content>{property.description}</HoverCard.Content>
 						</HoverCard.Root>
 					{:else}
 						{property.title || key}
@@ -152,6 +141,7 @@
 						{#each orderedEntries(property) as [nestedKey, nestedProperty] (nestedKey)}
 							{@const nestedFieldPath = `${fieldPath}.${nestedKey}`}
 							{@const nestedValue = getFieldValue(nestedFieldPath)}
+
 							<div>
 								{#if isColorish(nestedProperty)}
 									{@const nestedColor = nestedValue ?? nestedProperty.default ?? '#1e1e1e'}
@@ -162,57 +152,45 @@
 											color={nestedColor}
 											format={getColorFormat(nestedProperty)}
 											description={nestedProperty.description}
-											on:change={(e) => handleFieldChange(nestedFieldPath, e.detail)}
+											onChange={(next) => handleFieldChange(nestedFieldPath, next)}
 										/>
 									</div>
 								{:else if nestedProperty.type === 'string'}
-									<div class="mb-2 flex items-center">
-										<Label>
-											{#if nestedProperty.description}
-												<HoverCard.Root>
-													<HoverCard.Trigger>
-														{nestedProperty.title || nestedKey}:
-													</HoverCard.Trigger>
-													<HoverCard.Content>
-														{nestedProperty.description}
-													</HoverCard.Content>
-												</HoverCard.Root>
-											{:else}
-												{nestedProperty.title || nestedKey}:
-											{/if}
-											<Input
-												type="text"
-												value={nestedValue ?? nestedProperty.default ?? ''}
-												onchange={(e) => handleFieldChange(nestedFieldPath, e.target.value)}
-											/>
-										</Label>
-									</div>
+									<Label>
+										{#if nestedProperty.description}
+											<HoverCard.Root>
+												<HoverCard.Trigger>{nestedProperty.title || nestedKey}:</HoverCard.Trigger>
+												<HoverCard.Content>{nestedProperty.description}</HoverCard.Content>
+											</HoverCard.Root>
+										{:else}
+											{nestedProperty.title || nestedKey}:
+										{/if}
+										<Input
+											type="text"
+											value={nestedValue ?? nestedProperty.default ?? ''}
+											on:change={(e) => handleFieldChange(nestedFieldPath, e.target.value)}
+										/>
+									</Label>
 								{:else if nestedProperty.type === 'number'}
-									<div class="mb-2 flex items-center">
-										<Label>
-											{#if nestedProperty.description}
-												<HoverCard.Root>
-													<HoverCard.Trigger>
-														{nestedProperty.title || nestedKey}:
-													</HoverCard.Trigger>
-													<HoverCard.Content>
-														{nestedProperty.description}
-													</HoverCard.Content>
-												</HoverCard.Root>
-											{:else}
-												{nestedProperty.title || nestedKey}:
-											{/if}
-											<Input
-												type="number"
-												class="max-w-xs"
-												value={nestedValue ?? nestedProperty.default ?? nestedProperty.minimum ?? 0}
-												min={nestedProperty.minimum}
-												max={nestedProperty.maximum}
-												onchange={(e) =>
-													handleFieldChange(nestedFieldPath, parseFloat(e.target.value))}
-											/>
-										</Label>
-									</div>
+									<Label>
+										{#if nestedProperty.description}
+											<HoverCard.Root>
+												<HoverCard.Trigger>{nestedProperty.title || nestedKey}:</HoverCard.Trigger>
+												<HoverCard.Content>{nestedProperty.description}</HoverCard.Content>
+											</HoverCard.Root>
+										{:else}
+											{nestedProperty.title || nestedKey}:
+										{/if}
+										<Input
+											type="number"
+											class="max-w-xs"
+											value={nestedValue ?? nestedProperty.default ?? nestedProperty.minimum ?? 0}
+											min={nestedProperty.minimum}
+											max={nestedProperty.maximum}
+											on:change={(e) =>
+												handleFieldChange(nestedFieldPath, parseFloat(e.target.value))}
+										/>
+									</Label>
 								{:else if nestedProperty.type === 'boolean'}
 									<Label>
 										<input
@@ -224,12 +202,8 @@
 										/>
 										{#if nestedProperty.description}
 											<HoverCard.Root>
-												<HoverCard.Trigger>
-													{nestedProperty.title || nestedKey}
-												</HoverCard.Trigger>
-												<HoverCard.Content>
-													{nestedProperty.description}
-												</HoverCard.Content>
+												<HoverCard.Trigger>{nestedProperty.title || nestedKey}</HoverCard.Trigger>
+												<HoverCard.Content>{nestedProperty.description}</HoverCard.Content>
 											</HoverCard.Root>
 										{:else}
 											{nestedProperty.title || nestedKey}
@@ -239,9 +213,7 @@
 									<div class="h-full">
 										<Card.Root class="flex h-full flex-col">
 											<Card.Header>
-												<Card.Title>
-													{nestedProperty.title || nestedKey}
-												</Card.Title>
+												<Card.Title>{nestedProperty.title || nestedKey}</Card.Title>
 											</Card.Header>
 											<CardContent class="flex-1">
 												<div id="subsection" class="grid grid-cols-2 gap-4">
@@ -258,64 +230,35 @@
 																		color={deepColor}
 																		format={getColorFormat(deepProperty)}
 																		description={deepProperty.description}
-																		on:change={(e) => handleFieldChange(deepFieldPath, e.detail)}
+																		onChange={(next) => handleFieldChange(deepFieldPath, next)}
 																	/>
 																</div>
 															{:else if deepProperty.type === 'string'}
-																<div class="flex items-center">
-																	<Label>
-																		{#if deepProperty.description}
-																			<HoverCard.Root>
-																				<HoverCard.Trigger>
-																					{deepProperty.title || deepKey}:
-																				</HoverCard.Trigger>
-																				<HoverCard.Content>
-																					{deepProperty.description}
-																				</HoverCard.Content>
-																			</HoverCard.Root>
-																		{:else}
-																			{deepProperty.title || deepKey}:
-																		{/if}
-																		<Input
-																			type="text"
-																			value={deepValue ?? deepProperty.default ?? ''}
-																			onchange={(e) =>
-																				handleFieldChange(deepFieldPath, e.target.value)}
-																		/>
-																	</Label>
-																</div>
+																<Label>
+																	{deepProperty.title || deepKey}:
+																	<Input
+																		type="text"
+																		value={deepValue ?? deepProperty.default ?? ''}
+																		on:change={(e) =>
+																			handleFieldChange(deepFieldPath, e.target.value)}
+																	/>
+																</Label>
 															{:else if deepProperty.type === 'number'}
-																<div class="mb-2 flex items-center">
-																	<Label>
-																		{#if deepProperty.description}
-																			<HoverCard.Root>
-																				<HoverCard.Trigger>
-																					{deepProperty.title || deepKey}:
-																				</HoverCard.Trigger>
-																				<HoverCard.Content>
-																					{deepProperty.description}
-																				</HoverCard.Content>
-																			</HoverCard.Root>
-																		{:else}
-																			{deepProperty.title || deepKey}:
-																		{/if}
-																		<Input
-																			type="number"
-																			class="max-w-xs"
-																			value={deepValue ??
-																				deepProperty.default ??
-																				deepProperty.minimum ??
-																				0}
-																			min={deepProperty.minimum}
-																			max={deepProperty.maximum}
-																			onchange={(e) =>
-																				handleFieldChange(
-																					deepFieldPath,
-																					parseFloat(e.target.value)
-																				)}
-																		/>
-																	</Label>
-																</div>
+																<Label>
+																	{deepProperty.title || deepKey}:
+																	<Input
+																		type="number"
+																		class="max-w-xs"
+																		value={deepValue ??
+																			deepProperty.default ??
+																			deepProperty.minimum ??
+																			0}
+																		min={deepProperty.minimum}
+																		max={deepProperty.maximum}
+																		on:change={(e) =>
+																			handleFieldChange(deepFieldPath, parseFloat(e.target.value))}
+																	/>
+																</Label>
 															{:else if deepProperty.type === 'boolean'}
 																<Label>
 																	<input
@@ -326,18 +269,7 @@
 																		onchange={(e) =>
 																			handleFieldChange(deepFieldPath, e.target.checked)}
 																	/>
-																	{#if deepProperty.description}
-																		<HoverCard.Root>
-																			<HoverCard.Trigger>
-																				{deepProperty.title || deepKey}
-																			</HoverCard.Trigger>
-																			<HoverCard.Content>
-																				{deepProperty.description}
-																			</HoverCard.Content>
-																		</HoverCard.Root>
-																	{:else}
-																		{deepProperty.title || deepKey}
-																	{/if}
+																	{deepProperty.title || deepKey}
 																</Label>
 															{/if}
 														</div>
