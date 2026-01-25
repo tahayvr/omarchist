@@ -9,8 +9,8 @@
 
 	let { module = null, config = {}, disabled = false, onConfigChange = () => {} } = $props();
 
-	const moduleDefinition = getModuleDefinition(module?.id);
-	const schema = moduleDefinition?.schema;
+	const moduleDefinition = $derived.by(() => getModuleDefinition(module?.id));
+	const schema = $derived.by(() => moduleDefinition?.schema);
 
 	let fieldState = $state({});
 	let lastConfigSignature = '';

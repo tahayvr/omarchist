@@ -1,5 +1,4 @@
 <script>
-	/* eslint-disable svelte/prefer-writable-derived */
 	import { Textarea } from '$lib/components/ui/textarea/index.js';
 	import { createEventDispatcher } from 'svelte';
 
@@ -7,7 +6,7 @@
 
 	let { value = '', placeholder = 'Paste your Neovim theme configuration here...' } = $props();
 
-	let textareaValue = $state(value);
+	let textareaValue = $state('');
 
 	$effect(() => {
 		textareaValue = value;

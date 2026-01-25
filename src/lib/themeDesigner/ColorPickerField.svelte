@@ -1,5 +1,4 @@
 <script>
-	/* eslint-disable svelte/prefer-writable-derived */
 	import { Label } from '$lib/components/ui/label/index.js';
 	import * as HoverCard from '$lib/components/ui/hover-card/index.js';
 	import ColorPicker from 'svelte-awesome-color-picker';
@@ -50,7 +49,7 @@
 	}
 
 	// Internal state for the color picker
-	let internalHex = $state(toHex(color, format));
+	let internalHex = $state('');
 	let internalRgb = $state({ r: 0, g: 0, b: 0, a: 1 });
 
 	// Update internal state when color prop changes
