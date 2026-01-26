@@ -27,7 +27,12 @@ const clone = (value) => {
 
 const DEFAULT_LAYOUT = Object.freeze({
 	left: Object.freeze(['custom/omarchy', 'hyprland/workspaces']),
-	center: Object.freeze(['clock', 'custom/update', 'custom/screenrecording-indicator']),
+	center: Object.freeze([
+		'clock',
+		'custom/update',
+		'custom/voxtype',
+		'custom/screenrecording-indicator'
+	]),
 	right: Object.freeze([
 		'group/tray-expander',
 		'bluetooth',
@@ -43,8 +48,8 @@ const DEFAULT_GLOBALS = Object.freeze({
 	layer: 'top',
 	position: 'top',
 	height: 26,
-	background: '#1e1e1e',
-	foreground: '#d4d4d8',
+	background: '@background',
+	foreground: '@foreground',
 	spacing: 0,
 	leftMargin: 8,
 	leftPadding: 0,

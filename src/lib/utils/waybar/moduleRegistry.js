@@ -20,37 +20,103 @@ export const moduleRegistry = {
 		schema: clockSchema,
 		component: ClockModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			format: '{:L%A %H:%M}',
+			'format-alt': '{:L%d %B W%V %Y}',
+			tooltip: false,
+			'on-click-right': 'omarchy-launch-floating-terminal-with-presentation omarchy-tz-select'
+		}
 	},
 	battery: {
 		schema: batterySchema,
 		component: BatteryModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			format: '{capacity}% {icon}',
+			'format-discharging': '{icon}',
+			'format-charging': '{icon}',
+			'format-plugged': '',
+			'format-icons': {
+				charging: ['󰢜', '󰂆', '󰂇', '󰂈', '󰢝', '󰂉', '󰢞', '󰂊', '󰂋', '󰂅'],
+				default: ['󰁺', '󰁻', '󰁼', '󰁽', '󰁾', '󰁿', '󰂀', '󰂁', '󰂂', '󰁹']
+			},
+			'format-full': '󰂅',
+			'tooltip-format-discharging': '{power:>1.0f}W↓ {capacity}%',
+			'tooltip-format-charging': '{power:>1.0f}W↑ {capacity}%',
+			interval: 5,
+			'on-click': 'omarchy-menu power',
+			states: {
+				warning: 20,
+				critical: 10
+			}
+		}
 	},
 	bluetooth: {
 		schema: bluetoothSchema,
 		component: BluetoothModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			format: '',
+			'format-off': '󰂲',
+			'format-disabled': '󰂲',
+			'format-connected': '󰂱',
+			'format-no-controller': '',
+			'tooltip-format': 'Devices connected: {num_connections}',
+			'on-click': 'omarchy-launch-bluetooth'
+		}
 	},
 	cpu: {
 		schema: cpuSchema,
 		component: CpuModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			interval: 5,
+			format: '󰍛',
+			'on-click': 'omarchy-launch-or-focus-tui btop',
+			'on-click-right': 'alacritty'
+		}
 	},
 	pulseaudio: {
 		schema: pulseaudioSchema,
 		component: PulseaudioModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			format: '{icon}',
+			'on-click': 'omarchy-launch-audio',
+			'on-click-right': 'pamixer -t',
+			'tooltip-format': 'Playing at {volume}%',
+			'scroll-step': 5,
+			'format-muted': '',
+			'format-icons': {
+				headphone: '',
+				default: ['', '', '']
+			}
+		}
 	},
 	network: {
 		schema: networkSchema,
 		component: NetworkModuleForm,
 		validator: null,
-		configurable: true
+		configurable: true,
+		defaultConfig: {
+			'format-icons': ['󰤯', '󰤟', '󰤢', '󰤥', '󰤨'],
+			format: '{icon}',
+			'format-wifi': '{icon}',
+			'format-ethernet': '󰀂',
+			'format-disconnected': '󰤮',
+			'tooltip-format-wifi':
+				'{essid} ({frequency} GHz)\n⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
+			'tooltip-format-ethernet': '⇣{bandwidthDownBytes}  ⇡{bandwidthUpBytes}',
+			'tooltip-format-disconnected': 'Disconnected',
+			interval: 3,
+			spacing: 1,
+			'on-click': 'omarchy-launch-wifi'
+		}
 	},
 	'hyprland/window': {
 		schema: hyprlandWindowSchema,
