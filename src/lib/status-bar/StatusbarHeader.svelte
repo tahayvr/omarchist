@@ -244,7 +244,7 @@
 				Reset
 			</Button>
 			<Button class="pe-2 uppercase" variant="outline" onclick={() => restartApp('waybar')}
-				>Save <Kbd.Root>S</Kbd.Root></Button
+				>Refresh <Kbd.Root>R</Kbd.Root></Button
 			>
 		</div>
 	</Card.Content>

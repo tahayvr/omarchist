@@ -13,7 +13,7 @@
 	}
 
 	function handleKeydown(event) {
-		if (event.ctrlKey && event.key === 's') {
+		if (event.ctrlKey && event.key === 'r') {
 			event.preventDefault();
 			restartApp('waybar');
 		}
