@@ -9,6 +9,7 @@ use crate::ui::theme_edit_page::lockscreen_tab::LockScreenTab;
 use crate::ui::theme_edit_page::menu_tab::MenuTab;
 use crate::ui::theme_edit_page::notification_tab::NotificationTab;
 use crate::ui::theme_edit_page::shared::error_message;
+use crate::ui::theme_edit_page::swayosd_tab::SwayosdTab;
 use crate::ui::theme_edit_page::terminal_tab::TerminalTab;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
@@ -53,6 +54,7 @@ pub struct ThemeEditPage {
     notification_tab: Entity<NotificationTab>,
     editor_tab: Entity<EditorTab>,
     btop_tab: Entity<BtopTab>,
+    swayosd_tab: Entity<SwayosdTab>,
 }
 
 impl ThemeEditPage {
@@ -109,6 +111,10 @@ impl ThemeEditPage {
         let btop_tab =
             cx.new(|cx| BtopTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create SwayOSD tab instance
+        let swayosd_tab =
+            cx.new(|cx| SwayosdTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name,
             active_tab: 0,
@@ -124,6 +130,7 @@ impl ThemeEditPage {
             notification_tab,
             editor_tab,
             btop_tab,
+            swayosd_tab,
         }
     }
 
@@ -194,17 +201,8 @@ impl ThemeEditPage {
                 self.btop_tab.clone().into_any_element()
             }
             ThemeEditTab::Swayosd => {
-                // TODO: Implement SwayOSD tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("SwayOSD Settings"))
-                    .child(
-                        div().text_sm().text_color(gpui::rgb(0x888888)).child(
-                            "SwayOSD on-screen display configuration will be implemented here",
-                        ),
-                    )
-                    .into_any_element()
+                // Use the SwayosdTab entity
+                self.swayosd_tab.clone().into_any_element()
             }
             ThemeEditTab::Backgrounds => {
                 // TODO: Implement Backgrounds tab

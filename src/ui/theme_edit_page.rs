@@ -7,6 +7,7 @@ pub mod lockscreen_tab;
 pub mod menu_tab;
 pub mod notification_tab;
 pub mod shared;
+pub mod swayosd_tab;
 pub mod terminal_tab;
 pub mod theme_edit;
 pub mod waybar_tab;

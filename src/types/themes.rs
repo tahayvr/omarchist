@@ -279,6 +279,28 @@ impl Default for MakoConfig {
     }
 }
 
+/// SwayOSD configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwayosdConfig {
+    pub background_color: String, // Hex color (#0F0F19)
+    pub border_color: String,     // Hex color (#33A1FF)
+    pub label: String,            // Hex color (#8A8A8D)
+    pub image: String,            // Hex color (#8A8A8D)
+    pub progress: String,         // Hex color (#8A8A8D)
+}
+
+impl Default for SwayosdConfig {
+    fn default() -> Self {
+        Self {
+            background_color: "#0F0F19".to_string(),
+            border_color: "#33A1FF".to_string(),
+            label: "#8A8A8D".to_string(),
+            image: "#8A8A8D".to_string(),
+            progress: "#8A8A8D".to_string(),
+        }
+    }
+}
+
 /// Btop configuration structure for activity monitor colors
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BtopConfig {
@@ -507,7 +529,7 @@ pub struct AppConfigs {
     #[serde(rename = "walker")]
     pub walker: Option<WalkerConfig>,
     #[serde(rename = "swayosd")]
-    pub swayosd: Option<serde_json::Value>,
+    pub swayosd: Option<SwayosdConfig>,
     #[serde(rename = "neovim")]
     pub neovim: Option<serde_json::Value>,
     #[serde(rename = "vscode")]

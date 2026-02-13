@@ -873,11 +873,11 @@ impl Render for BtopTab {
                                     .gap_64()
                                     .child(
                                         ColorPicker::new(&self.selected_bg_picker)
-                                            .label("Selected BG"),
+                                            .label("Selected Background"),
                                     )
                                     .child(
                                         ColorPicker::new(&self.selected_fg_picker)
-                                            .label("Selected FG"),
+                                            .label("Selected Foreground"),
                                     ),
                             ),
                     )

@@ -1,6 +1,6 @@
 use crate::types::themes::{
     BrowserConfig, BtopConfig, EditingTheme, HyprlandConfig, HyprlockConfig, MakoConfig,
-    TerminalConfig, WalkerConfig, WaybarConfig,
+    SwayosdConfig, TerminalConfig, WalkerConfig, WaybarConfig,
 };
 use chrono::Utc;
 use std::fs;
@@ -214,6 +214,16 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         }
     }
 
+    // Load swayosd.css if the file exists
+    let swayosd_css_path = theme_dir.join("swayosd.css");
+    if swayosd_css_path.exists() {
+        if let Ok(css_content) = fs::read_to_string(&swayosd_css_path) {
+            if let Some(config) = parse_swayosd_css(&css_content) {
+                editing_theme.apps.swayosd = Some(config);
+            }
+        }
+    }
+
     Ok(editing_theme)
 }
 
@@ -305,6 +315,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 
     if let Some(ref btop_config) = theme_data.apps.btop {
         update_btop_theme(theme_name, btop_config)?;
+    }
+
+    if let Some(ref swayosd_config) = theme_data.apps.swayosd {
+        update_swayosd_css(theme_name, swayosd_config)?;
     }
 
     // Update icons.theme if icons config exists
@@ -1299,6 +1313,77 @@ theme[upload_end]="{}"
     let theme_path = theme_dir.join("btop.theme");
     fs::write(&theme_path, theme_content)
         .map_err(|e| format!("Failed to write btop.theme: {}", e))?;
+
+    Ok(())
+}
+
+/// Parse swayosd.css content to extract color values
+fn parse_swayosd_css(css_content: &str) -> Option<SwayosdConfig> {
+    let mut background_color = None;
+    let mut border_color = None;
+    let mut label = None;
+    let mut image = None;
+    let mut progress = None;
+
+    for line in css_content.lines() {
+        let trimmed = line.trim();
+
+        if let Some(value) = trimmed.strip_prefix("@define-color background-color ") {
+            background_color = Some(value.trim_end_matches(';').to_string());
+        } else if let Some(value) = trimmed.strip_prefix("@define-color border-color ") {
+            border_color = Some(value.trim_end_matches(';').to_string());
+        } else if let Some(value) = trimmed.strip_prefix("@define-color label ") {
+            label = Some(value.trim_end_matches(';').to_string());
+        } else if let Some(value) = trimmed.strip_prefix("@define-color image ") {
+            image = Some(value.trim_end_matches(';').to_string());
+        } else if let Some(value) = trimmed.strip_prefix("@define-color progress ") {
+            progress = Some(value.trim_end_matches(';').to_string());
+        }
+    }
+
+    // Create config if we have at least some values
+    if background_color.is_some()
+        || border_color.is_some()
+        || label.is_some()
+        || image.is_some()
+        || progress.is_some()
+    {
+        Some(SwayosdConfig {
+            background_color: background_color.unwrap_or_else(|| "#0F0F19".to_string()),
+            border_color: border_color.unwrap_or_else(|| "#33A1FF".to_string()),
+            label: label.unwrap_or_else(|| "#8A8A8D".to_string()),
+            image: image.unwrap_or_else(|| "#8A8A8D".to_string()),
+            progress: progress.unwrap_or_else(|| "#8A8A8D".to_string()),
+        })
+    } else {
+        None
+    }
+}
+
+/// Update the swayosd.css file with the given settings
+pub fn update_swayosd_css(theme_name: &str, config: &SwayosdConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Generate the CSS content
+    let css_content = format!(
+        "@define-color background-color {};\n@define-color border-color {};\n@define-color label {};\n@define-color image {};\n@define-color progress {};\n",
+        config.background_color,
+        config.border_color,
+        config.label,
+        config.image,
+        config.progress
+    );
+
+    // Write to swayosd.css
+    let css_path = theme_dir.join("swayosd.css");
+    fs::write(&css_path, css_content).map_err(|e| format!("Failed to write swayosd.css: {}", e))?;
 
     Ok(())
 }
