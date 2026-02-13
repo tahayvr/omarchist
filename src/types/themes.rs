@@ -225,6 +225,20 @@ impl Default for WalkerConfig {
     }
 }
 
+/// Browser (Chromium) configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BrowserConfig {
+    pub theme_color: String, // Hex color for browser theme
+}
+
+impl Default for BrowserConfig {
+    fn default() -> Self {
+        Self {
+            theme_color: "#0F0F19".to_string(),
+        }
+    }
+}
+
 /// Terminal color palette (8 standard ANSI colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPalette {
@@ -345,7 +359,7 @@ pub struct AppConfigs {
     #[serde(rename = "waybar")]
     pub waybar: Option<WaybarConfig>,
     #[serde(rename = "chromium")]
-    pub chromium: Option<serde_json::Value>,
+    pub chromium: Option<BrowserConfig>,
     #[serde(rename = "btop")]
     pub btop: Option<serde_json::Value>,
     #[serde(rename = "hyprland")]

@@ -1,3 +1,5 @@
+pub mod browser_tab;
+pub mod file_manager_tab;
 pub mod general_tab;
 pub mod menu_tab;
 pub mod shared;

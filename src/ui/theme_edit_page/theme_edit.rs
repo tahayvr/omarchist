@@ -1,5 +1,7 @@
-use crate::system::theme_management::{load_theme_for_editing, save_theme_data};
+use crate::system::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
+use crate::ui::theme_edit_page::browser_tab::BrowserTab;
+use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::menu_tab::MenuTab;
 use crate::ui::theme_edit_page::shared::error_message;
@@ -34,16 +36,15 @@ pub struct SaveTheme;
 
 pub struct ThemeEditPage {
     theme_name: String,
-    original_theme_name: String,
-    theme_data: EditingTheme,
     active_tab: usize,
-    is_saving: bool,
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
     waybar_tab: Entity<WaybarTab>,
     windows_tab: Entity<WindowsTab>,
     menu_tab: Entity<MenuTab>,
     terminal_tab: Entity<TerminalTab>,
+    browser_tab: Entity<BrowserTab>,
+    file_manager_tab: Entity<FileManagerTab>,
 }
 
 impl ThemeEditPage {
@@ -76,57 +77,30 @@ impl ThemeEditPage {
         let terminal_tab =
             cx.new(|cx| TerminalTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Browser tab instance
+        let browser_tab =
+            cx.new(|cx| BrowserTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
+        // Create File Manager tab instance
+        let file_manager_tab =
+            cx.new(|cx| FileManagerTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
-            theme_name: theme_name.clone(),
-            original_theme_name: theme_name,
-            theme_data,
+            theme_name,
             active_tab: 0,
-            is_saving: false,
             error_message: None,
             general_tab,
             waybar_tab,
             windows_tab,
             menu_tab,
             terminal_tab,
+            browser_tab,
+            file_manager_tab,
         }
     }
 
     pub fn theme_name(&self) -> &str {
         &self.theme_name
-    }
-
-    fn save_theme(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-        cx.notify();
-
-        // Check if theme name has changed (rename needed)
-        if self.theme_name != self.original_theme_name {
-            // Handle rename first, then save
-            // This will be implemented when we add the rename functionality
-            // For now, just save with current name
-        }
-
-        // Save theme data
-        match save_theme_data(&self.theme_name, &self.theme_data) {
-            Ok(()) => {
-                self.is_saving = false;
-                // Show success notification
-                // window.push_notification("Theme saved successfully!", cx);
-            }
-            Err(e) => {
-                let error_clone = e.clone();
-                self.is_saving = false;
-                self.error_message = Some(e);
-                eprintln!("Failed to save theme: {}", error_clone);
-            }
-        }
-
-        cx.notify();
     }
 
     fn navigate_back(&self, _window: &mut Window, _cx: &mut Context<Self>) {
@@ -168,32 +142,12 @@ impl ThemeEditPage {
                 self.terminal_tab.clone().into_any_element()
             }
             ThemeEditTab::Browser => {
-                // TODO: Implement Browser (Chromium) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Browser Settings (Chromium)"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Chromium theme configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the BrowserTab entity
+                self.browser_tab.clone().into_any_element()
             }
             ThemeEditTab::FileManager => {
-                // TODO: Implement File Manager (Icons) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("File Manager Icon Theme"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Icon theme selection will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the FileManagerTab entity
+                self.file_manager_tab.clone().into_any_element()
             }
             ThemeEditTab::LockScreen => {
                 // TODO: Implement Lock Screen (Hyprlock) tab

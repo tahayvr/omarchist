@@ -1,5 +1,5 @@
 use crate::types::themes::{
-    EditingTheme, HyprlandConfig, TerminalConfig, WalkerConfig, WaybarConfig,
+    BrowserConfig, EditingTheme, HyprlandConfig, TerminalConfig, WalkerConfig, WaybarConfig,
 };
 use chrono::Utc;
 use std::fs;
@@ -173,6 +173,16 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         }
     }
 
+    // Load icons.theme if the file exists
+    let icons_theme_path = theme_dir.join("icons.theme");
+    if icons_theme_path.exists() {
+        if let Ok(content) = fs::read_to_string(&icons_theme_path) {
+            if let Some(icons_config) = parse_icons_theme(&content) {
+                editing_theme.apps.icons = Some(icons_config);
+            }
+        }
+    }
+
     Ok(editing_theme)
 }
 
@@ -249,6 +259,75 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     if let Some(ref terminal_config) = theme_data.apps.terminal {
         update_terminal_configs(theme_name, terminal_config)?;
     }
+
+    if let Some(ref chromium_config) = theme_data.apps.chromium {
+        update_chromium_config(theme_name, chromium_config)?;
+    }
+
+    // Update icons.theme if icons config exists
+    if let Some(ref icons_config) = theme_data.apps.icons {
+        if let Some(theme_name_val) = icons_config.get("theme_name").and_then(|v| v.as_str()) {
+            update_icons_theme(theme_name, theme_name_val)?;
+        }
+    }
+
+    Ok(())
+}
+
+/// Update the icons.theme file with the given icon theme name
+pub fn update_icons_theme(theme_name: &str, icon_theme_name: &str) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Write the icon theme name to icons.theme
+    let icons_theme_path = theme_dir.join("icons.theme");
+    fs::write(&icons_theme_path, format!("{}\n", icon_theme_name))
+        .map_err(|e| format!("Failed to write icons.theme: {}", e))?;
+
+    Ok(())
+}
+
+/// Parse icons.theme file content to extract icon theme name
+fn parse_icons_theme(content: &str) -> Option<serde_json::Value> {
+    let theme_name = content.trim();
+    if theme_name.is_empty() {
+        return None;
+    }
+
+    Some(serde_json::json!({
+        "theme_name": theme_name
+    }))
+}
+
+/// Update the chromium config file with the given theme color
+pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Convert hex color to RGB format
+    let hex = config.theme_color.trim_start_matches('#');
+    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(15);
+    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(15);
+    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(25);
+
+    let theme_content = format!("{},{},{}\n", r, g, b);
+
+    // Write to chromium.theme
+    let theme_path = theme_dir.join("chromium.theme");
+    fs::write(&theme_path, theme_content)
+        .map_err(|e| format!("Failed to write chromium.theme: {}", e))?;
 
     Ok(())
 }
