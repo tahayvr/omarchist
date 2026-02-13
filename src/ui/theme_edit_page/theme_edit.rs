@@ -1,6 +1,7 @@
 use crate::system::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::browser_tab::BrowserTab;
+use crate::ui::theme_edit_page::btop_tab::BtopTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
@@ -51,6 +52,7 @@ pub struct ThemeEditPage {
     lockscreen_tab: Entity<LockScreenTab>,
     notification_tab: Entity<NotificationTab>,
     editor_tab: Entity<EditorTab>,
+    btop_tab: Entity<BtopTab>,
 }
 
 impl ThemeEditPage {
@@ -103,6 +105,10 @@ impl ThemeEditPage {
         let editor_tab =
             cx.new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Btop tab instance
+        let btop_tab =
+            cx.new(|cx| BtopTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name,
             active_tab: 0,
@@ -117,6 +123,7 @@ impl ThemeEditPage {
             lockscreen_tab,
             notification_tab,
             editor_tab,
+            btop_tab,
         }
     }
 
@@ -183,18 +190,8 @@ impl ThemeEditPage {
                 self.editor_tab.clone().into_any_element()
             }
             ThemeEditTab::Btop => {
-                // TODO: Implement Btop tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Btop Settings"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Btop activity monitor configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the BtopTab entity
+                self.btop_tab.clone().into_any_element()
             }
             ThemeEditTab::Swayosd => {
                 // TODO: Implement SwayOSD tab

@@ -497,7 +497,7 @@ pub struct AppConfigs {
     #[serde(rename = "chromium")]
     pub chromium: Option<BrowserConfig>,
     #[serde(rename = "btop")]
-    pub btop: Option<serde_json::Value>,
+    pub btop: Option<BtopConfig>,
     #[serde(rename = "hyprland")]
     pub hyprland: Option<HyprlandConfig>,
     #[serde(rename = "hyprlock")]

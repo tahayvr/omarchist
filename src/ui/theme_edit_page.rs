@@ -1,4 +1,5 @@
 pub mod browser_tab;
+pub mod btop_tab;
 pub mod editor_tab;
 pub mod file_manager_tab;
 pub mod general_tab;
