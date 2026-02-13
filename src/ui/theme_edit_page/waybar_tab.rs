@@ -9,9 +9,8 @@ use crate::types::themes::{EditingTheme, WaybarConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// Waybar tab content for editing waybar colors
@@ -37,9 +36,9 @@ impl WaybarTab {
 
         // Create color picker states with current values
         let background_color =
-            Self::hex_to_hsla(&waybar_config.background).unwrap_or(gpui::rgb(0x1e1e1e).into());
+            Self::hex_to_hsla(&waybar_config.background).unwrap_or(gpui::rgb(0x0F0F19).into());
         let foreground_color =
-            Self::hex_to_hsla(&waybar_config.foreground).unwrap_or(gpui::rgb(0x8a8a8d).into());
+            Self::hex_to_hsla(&waybar_config.foreground).unwrap_or(gpui::rgb(0xEDEDFE).into());
 
         let background_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(background_color));

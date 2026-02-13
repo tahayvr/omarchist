@@ -171,8 +171,8 @@ pub struct WaybarConfig {
 impl Default for WaybarConfig {
     fn default() -> Self {
         Self {
-            background: "#1e1e1e".to_string(),
-            foreground: "#8a8a8d".to_string(),
+            background: "#0F0F19".to_string(),
+            foreground: "#EDEDFE".to_string(),
         }
     }
 }

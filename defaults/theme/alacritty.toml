@@ -1,39 +1,33 @@
-# ────────────────────────────────────────────────────────────
-# Omarchy Matte Black Theme for Alacritty
-# By tahayvr
-# https://github.com/tahayvr
-# ────────────────────────────────────────────────────────────
-
 [colors]
 [colors.primary]
-background = "#121212"
-foreground = "#bebebe"
-dim_foreground = "#8a8a8d"
+background = "#0F0F19"
+foreground = "#EDEDFE"
+dim_foreground = "#8C8CB8"
 
 [colors.cursor]
-text = "#121212"
-cursor = "#eaeaea"
+text = "#0F0F19"
+cursor = "#EDEDFE"
 
 [colors.selection]
 text = "CellForeground"
-background = "#333333"
+background = "#202034"
 
 [colors.normal]
-black = "#333333"
-red = "#D35F5F"
-green = "#FFC107"
-yellow = "#b91c1c"
-blue = "#e68e0d"
-magenta = "#D35F5F"
-cyan = "#bebebe"
-white = "#bebebe"
+black = "#0A0A12"
+red = "#FF3366"
+green = "#00F59B"
+yellow = "#FFEA00"
+blue = "#33A1FF"
+magenta = "#FF66F6"
+cyan = "#3CFFED"
+white = "#EDEDFE"
 
 [colors.bright]
-black = "#8a8a8d"
-red = "#B91C1C"
-green = "#FFC107"
-yellow = "#b90a0a"
-blue = "#f59e0b"
-magenta = "#B91C1C"
-cyan = "#eaeaea"
-white = "#ffffff"
+black = "#181824"
+red = "#ff9a8f"
+green = "#57f8bd"
+yellow = "#ffff80"
+blue = "#5a9eff"
+magenta = "#ff99ff"
+cyan = "#80ffff"
+white = "#F8F8FF"
