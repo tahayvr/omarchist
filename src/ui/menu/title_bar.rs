@@ -92,6 +92,19 @@ impl Render for MainTitleBar {
                     .px_2()
                     .gap_2()
                     .child(
+                        Button::new("settings-btn")
+                            .icon(IconName::Settings2)
+                            .small()
+                            .ghost()
+                            .dropdown_menu(|menu: PopupMenu, _, _| {
+                                menu.item(PopupMenuItem::new("UI Text size"),)
+                                .separator()
+                                .item(PopupMenuItem::new("Option 2"))
+                                .separator()
+                                .item(PopupMenuItem::new("Option 3"))
+                            }),
+                    )
+                    .child(
                         Button::new("github")
                             .icon(IconName::GitHub)
                             .small()
