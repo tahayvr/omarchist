@@ -82,6 +82,10 @@ fn main() {
         cx.on_action(|_: &app_menu::Quit, cx: &mut App| {
             cx.quit();
         });
+        cx.on_action(|action: &app_menu::SelectFont, cx: &mut App| {
+            gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
+            cx.refresh_windows();
+        });
 
         cx.bind_keys([
             KeyBinding::new("ctrl-q", app_menu::Quit, None),

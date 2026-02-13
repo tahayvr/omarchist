@@ -1,11 +1,10 @@
 use gpui::*;
 use gpui_component::{
-    IconName, Sizable, TitleBar, button::*, h_flex, menu::DropdownMenu, menu::PopupMenu,
-    menu::PopupMenuItem,
+    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
+    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
 };
 
-// For image-based logo
-use gpui::img;
+use crate::ui::menu::app_menu::SelectFont;
 
 pub struct MainTitleBar;
 
@@ -69,8 +68,7 @@ impl Render for MainTitleBar {
                             .compact()
                             .ghost()
                             .dropdown_menu(|menu: PopupMenu, _, _| {
-                                menu.item(
-                                    PopupMenuItem::new("Create New Theme")
+                                menu.item(PopupMenuItem::new("Create New Theme")
                                         .on_click(|_, window, cx| {
                                             crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog(window, cx);
                                         }),
@@ -96,12 +94,13 @@ impl Render for MainTitleBar {
                             .icon(IconName::Settings2)
                             .small()
                             .ghost()
-                            .dropdown_menu(|menu: PopupMenu, _, _| {
-                                menu.item(PopupMenuItem::new("UI Text size"),)
-                                .separator()
-                                .item(PopupMenuItem::new("Option 2"))
-                                .separator()
-                                .item(PopupMenuItem::new("Option 3"))
+                            .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
+                                let font_size = cx.theme().font_size.as_f32() as i32;
+                                menu.label("Font Size")
+                                    .check_side(Side::Right)
+                                    .menu_with_check("Large", font_size == 18, Box::new(SelectFont(18)))
+                                    .menu_with_check("Medium", font_size == 16, Box::new(SelectFont(16)))
+                                    .menu_with_check("Small", font_size == 14, Box::new(SelectFont(14)))
                             }),
                     )
                     .child(
@@ -115,4 +114,10 @@ impl Render for MainTitleBar {
                     ),
             )
     }
+}
+
+/// Handle font size selection action
+pub fn handle_select_font(font_size: &SelectFont, window: &mut Window, cx: &mut App) {
+    gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size.0 as f32);
+    window.refresh();
 }
