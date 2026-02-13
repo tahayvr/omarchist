@@ -201,6 +201,30 @@ impl Default for HyprlandConfig {
     }
 }
 
+/// Walker menu configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WalkerConfig {
+    pub background: String,    // Hex color
+    pub base: String,          // Hex color
+    pub border: String,        // Hex color
+    pub foreground: String,    // Hex color
+    pub text: String,          // Hex color
+    pub selected_text: String, // Hex color
+}
+
+impl Default for WalkerConfig {
+    fn default() -> Self {
+        Self {
+            background: "#0F0F19".to_string(),
+            base: "#0F0F19".to_string(),
+            border: "#33A1FF".to_string(),
+            foreground: "#EDEDFE".to_string(),
+            text: "#EDEDFE".to_string(),
+            selected_text: "#FF66F6".to_string(),
+        }
+    }
+}
+
 /// All app configurations for a theme
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfigs {
@@ -219,7 +243,7 @@ pub struct AppConfigs {
     #[serde(rename = "mako")]
     pub mako: Option<serde_json::Value>,
     #[serde(rename = "walker")]
-    pub walker: Option<serde_json::Value>,
+    pub walker: Option<WalkerConfig>,
     #[serde(rename = "swayosd")]
     pub swayosd: Option<serde_json::Value>,
     #[serde(rename = "neovim")]

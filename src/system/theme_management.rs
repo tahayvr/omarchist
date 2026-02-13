@@ -1,4 +1,4 @@
-use crate::types::themes::{EditingTheme, HyprlandConfig, WaybarConfig};
+use crate::types::themes::{EditingTheme, HyprlandConfig, WalkerConfig, WaybarConfig};
 use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -240,6 +240,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
         update_hyprland_conf(theme_name, hyprland_config)?;
     }
 
+    if let Some(ref walker_config) = theme_data.apps.walker {
+        update_walker_css(theme_name, walker_config)?;
+    }
+
     Ok(())
 }
 
@@ -429,6 +433,35 @@ pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result
     let conf_path = theme_dir.join("hyprland.conf");
     fs::write(&conf_path, conf_content)
         .map_err(|e| format!("Failed to write hyprland.conf: {}", e))?;
+
+    Ok(())
+}
+
+/// Update the walker.css file with the given colors
+pub fn update_walker_css(theme_name: &str, config: &WalkerConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Generate the CSS content
+    let css_content = format!(
+        "@define-color selected-text {};\n@define-color text {};\n@define-color base {};\n@define-color border {};\n@define-color foreground {};\n@define-color background {};\n",
+        config.selected_text,
+        config.text,
+        config.base,
+        config.border,
+        config.foreground,
+        config.background
+    );
+
+    // Write to walker.css
+    let css_path = theme_dir.join("walker.css");
+    fs::write(&css_path, css_content).map_err(|e| format!("Failed to write walker.css: {}", e))?;
 
     Ok(())
 }

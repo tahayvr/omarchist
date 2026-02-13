@@ -1,6 +1,7 @@
 use crate::system::theme_management::{load_theme_for_editing, save_theme_data};
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
+use crate::ui::theme_edit_page::menu_tab::MenuTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
@@ -40,6 +41,7 @@ pub struct ThemeEditPage {
     general_tab: Entity<GeneralTab>,
     waybar_tab: Entity<WaybarTab>,
     windows_tab: Entity<WindowsTab>,
+    menu_tab: Entity<MenuTab>,
 }
 
 impl ThemeEditPage {
@@ -64,6 +66,10 @@ impl ThemeEditPage {
         let windows_tab =
             cx.new(|cx| WindowsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Menu tab instance
+        let menu_tab =
+            cx.new(|cx| MenuTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name: theme_name.clone(),
             original_theme_name: theme_name,
@@ -74,6 +80,7 @@ impl ThemeEditPage {
             general_tab,
             waybar_tab,
             windows_tab,
+            menu_tab,
         }
     }
 
@@ -146,18 +153,8 @@ impl ThemeEditPage {
                 self.windows_tab.clone().into_any_element()
             }
             ThemeEditTab::Menu => {
-                // TODO: Implement Menu (Walker) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Menu Settings (Walker)"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Walker menu configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the MenuTab entity
+                self.menu_tab.clone().into_any_element()
             }
             ThemeEditTab::Terminal => {
                 // TODO: Implement Terminal (Alacritty, Ghostty, Kitty) tab
