@@ -3,6 +3,7 @@ use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::menu_tab::MenuTab;
 use crate::ui::theme_edit_page::shared::error_message;
+use crate::ui::theme_edit_page::terminal_tab::TerminalTab;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
@@ -42,6 +43,7 @@ pub struct ThemeEditPage {
     waybar_tab: Entity<WaybarTab>,
     windows_tab: Entity<WindowsTab>,
     menu_tab: Entity<MenuTab>,
+    terminal_tab: Entity<TerminalTab>,
 }
 
 impl ThemeEditPage {
@@ -70,6 +72,10 @@ impl ThemeEditPage {
         let menu_tab =
             cx.new(|cx| MenuTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Terminal tab instance
+        let terminal_tab =
+            cx.new(|cx| TerminalTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name: theme_name.clone(),
             original_theme_name: theme_name,
@@ -81,6 +87,7 @@ impl ThemeEditPage {
             waybar_tab,
             windows_tab,
             menu_tab,
+            terminal_tab,
         }
     }
 
@@ -157,22 +164,8 @@ impl ThemeEditPage {
                 self.menu_tab.clone().into_any_element()
             }
             ThemeEditTab::Terminal => {
-                // TODO: Implement Terminal (Alacritty, Ghostty, Kitty) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(
-                        div()
-                            .text_lg()
-                            .child("Terminal Settings")
-                    )
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Terminal (Alacritty, Ghostty, Kitty) configuration will be implemented here")
-                    )
-                    .into_any_element()
+                // Use the TerminalTab entity
+                self.terminal_tab.clone().into_any_element()
             }
             ThemeEditTab::Browser => {
                 // TODO: Implement Browser (Chromium) tab

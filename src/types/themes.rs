@@ -225,6 +225,118 @@ impl Default for WalkerConfig {
     }
 }
 
+/// Terminal color palette (8 standard ANSI colors)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalPalette {
+    pub black: String,
+    pub red: String,
+    pub green: String,
+    pub yellow: String,
+    pub blue: String,
+    pub magenta: String,
+    pub cyan: String,
+    pub white: String,
+}
+
+impl Default for TerminalPalette {
+    fn default() -> Self {
+        Self {
+            black: "#0A0A12".to_string(),
+            red: "#FF3366".to_string(),
+            green: "#00F59B".to_string(),
+            yellow: "#FFEA00".to_string(),
+            blue: "#33A1FF".to_string(),
+            magenta: "#FF66F6".to_string(),
+            cyan: "#3CFFED".to_string(),
+            white: "#EDEDFE".to_string(),
+        }
+    }
+}
+
+/// Terminal cursor colors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalCursor {
+    pub cursor: String,
+    pub text: String,
+}
+
+impl Default for TerminalCursor {
+    fn default() -> Self {
+        Self {
+            cursor: "#EDEDFE".to_string(),
+            text: "#0F0F19".to_string(),
+        }
+    }
+}
+
+/// Terminal selection colors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalSelection {
+    pub background: String,
+    pub foreground: String,
+}
+
+impl Default for TerminalSelection {
+    fn default() -> Self {
+        Self {
+            background: "#202034".to_string(),
+            foreground: "#EDEDFE".to_string(),
+        }
+    }
+}
+
+/// Terminal primary colors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalPrimary {
+    pub background: String,
+    pub foreground: String,
+}
+
+impl Default for TerminalPrimary {
+    fn default() -> Self {
+        Self {
+            background: "#0F0F19".to_string(),
+            foreground: "#EDEDFE".to_string(),
+        }
+    }
+}
+
+/// Unified terminal configuration for all terminal emulators
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TerminalConfig {
+    #[serde(default)]
+    pub primary: TerminalPrimary,
+    #[serde(default)]
+    pub cursor: TerminalCursor,
+    #[serde(default)]
+    pub selection: TerminalSelection,
+    #[serde(default)]
+    pub normal: TerminalPalette,
+    #[serde(default)]
+    pub bright: TerminalPalette,
+}
+
+impl Default for TerminalConfig {
+    fn default() -> Self {
+        Self {
+            primary: TerminalPrimary::default(),
+            cursor: TerminalCursor::default(),
+            selection: TerminalSelection::default(),
+            normal: TerminalPalette::default(),
+            bright: TerminalPalette {
+                black: "#181824".to_string(),
+                red: "#FF9A8F".to_string(),
+                green: "#57F8BD".to_string(),
+                yellow: "#FFFF80".to_string(),
+                blue: "#5A9EFF".to_string(),
+                magenta: "#FF99FF".to_string(),
+                cyan: "#80FFFF".to_string(),
+                white: "#F8F8FF".to_string(),
+            },
+        }
+    }
+}
+
 /// All app configurations for a theme
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfigs {
@@ -256,6 +368,8 @@ pub struct AppConfigs {
     pub ghostty: Option<serde_json::Value>,
     #[serde(rename = "kitty")]
     pub kitty: Option<serde_json::Value>,
+    #[serde(rename = "terminal")]
+    pub terminal: Option<TerminalConfig>,
 }
 
 impl Default for AppConfigs {
@@ -275,6 +389,7 @@ impl Default for AppConfigs {
             icons: None,
             ghostty: None,
             kitty: None,
+            terminal: None,
         }
     }
 }
