@@ -239,6 +239,28 @@ impl Default for BrowserConfig {
     }
 }
 
+/// Hyprlock configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HyprlockConfig {
+    pub color: String,       // Hex color (rgb format: 0f0f19)
+    pub inner_color: String, // Hex color (rgb format: 0f0f19)
+    pub outer_color: String, // Hex color (rgb format: 33a0ff)
+    pub font_color: String,  // Hex color (rgb format: ff66f5)
+    pub check_color: String, // Hex color (rgb format: ffea00)
+}
+
+impl Default for HyprlockConfig {
+    fn default() -> Self {
+        Self {
+            color: "0f0f19".to_string(),
+            inner_color: "0f0f19".to_string(),
+            outer_color: "33a0ff".to_string(),
+            font_color: "ff66f5".to_string(),
+            check_color: "ffea00".to_string(),
+        }
+    }
+}
+
 /// Terminal color palette (8 standard ANSI colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPalette {
@@ -365,7 +387,7 @@ pub struct AppConfigs {
     #[serde(rename = "hyprland")]
     pub hyprland: Option<HyprlandConfig>,
     #[serde(rename = "hyprlock")]
-    pub hyprlock: Option<serde_json::Value>,
+    pub hyprlock: Option<HyprlockConfig>,
     #[serde(rename = "mako")]
     pub mako: Option<serde_json::Value>,
     #[serde(rename = "walker")]
