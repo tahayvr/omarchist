@@ -9,15 +9,50 @@ use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container}
 use gpui::*;
 use gpui_component::{h_flex, radio::Radio, v_flex};
 
-/// Available Yaru icon theme colors
-const YARU_COLORS: &[&str] = &[
-    "Yaru-red",
-    "Yaru-blue",
-    "Yaru-olive",
-    "Yaru-yellow",
-    "Yaru-purple",
-    "Yaru-magenta",
-    "Yaru-sage",
+/// Yaru icon theme color with display label and hex color
+struct YaruColor {
+    value: &'static str,
+    label: &'static str,
+    color: u32,
+}
+
+/// Available Yaru icon theme colors with their display colors
+const YARU_COLORS: &[YaruColor] = &[
+    YaruColor {
+        value: "Yaru-red",
+        label: "Yaru Red",
+        color: 0xe92020,
+    },
+    YaruColor {
+        value: "Yaru-blue",
+        label: "Yaru Blue",
+        color: 0x208fe9,
+    },
+    YaruColor {
+        value: "Yaru-olive",
+        label: "Yaru Olive",
+        color: 0x636B2F,
+    },
+    YaruColor {
+        value: "Yaru-yellow",
+        label: "Yaru Yellow",
+        color: 0xe9ba20,
+    },
+    YaruColor {
+        value: "Yaru-purple",
+        label: "Yaru Purple",
+        color: 0x5e2750,
+    },
+    YaruColor {
+        value: "Yaru-magenta",
+        label: "Yaru Magenta",
+        color: 0xFF00FF,
+    },
+    YaruColor {
+        value: "Yaru-sage",
+        label: "Yaru Sage",
+        color: 0x123d18,
+    },
 ];
 
 /// File Manager tab content for editing icon theme
@@ -108,20 +143,32 @@ impl FileManagerTab {
         cx.notify();
     }
 
-    /// Create radio button element for a color
-    fn create_color_radio(&self, color: &'static str, cx: &mut Context<Self>) -> impl IntoElement {
-        let color_value: SharedString = color.into();
-        let is_selected = self.selected_color == color;
+    /// Create radio button element for a color with color square
+    fn create_color_radio(
+        &self,
+        yaru_color: &'static YaruColor,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let color_value: SharedString = yaru_color.value.into();
+        let is_selected = self.selected_color == yaru_color.value;
+        let color_hex = yaru_color.color;
 
-        h_flex().gap_2().items_center().child(
-            Radio::new(color_value)
-                .label(color)
-                .checked(is_selected)
-                .on_click(cx.listener(move |this, _checked: &bool, window, cx| {
-                    this.update_icon_theme(color.to_string());
-                    this.save(window, cx);
-                })),
-        )
+        h_flex()
+            .gap_3()
+            .items_center()
+            .child(
+                Radio::new(color_value)
+                    .label(yaru_color.label)
+                    .checked(is_selected)
+                    .on_click(cx.listener(move |this, _checked: &bool, window, cx| {
+                        this.update_icon_theme(yaru_color.value.to_string());
+                        this.save(window, cx);
+                    })),
+            )
+            .child(
+                // Color square
+                div().size_6().bg(gpui::rgb(color_hex)).border_1(),
+            )
     }
 }
 
@@ -129,8 +176,8 @@ impl Render for FileManagerTab {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let mut container = v_flex().gap_3();
 
-        for &color in YARU_COLORS {
-            container = container.child(self.create_color_radio(color, cx));
+        for yaru_color in YARU_COLORS {
+            container = container.child(self.create_color_radio(yaru_color, cx));
         }
 
         tab_container()
