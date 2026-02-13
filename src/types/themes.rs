@@ -161,13 +161,29 @@ impl Default for EditingTheme {
     }
 }
 
+/// Waybar configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WaybarConfig {
+    pub background: String, // Hex color
+    pub foreground: String, // Hex color
+}
+
+impl Default for WaybarConfig {
+    fn default() -> Self {
+        Self {
+            background: "#1e1e1e".to_string(),
+            foreground: "#8a8a8d".to_string(),
+        }
+    }
+}
+
 /// All app configurations for a theme
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfigs {
     #[serde(rename = "alacritty")]
     pub alacritty: Option<serde_json::Value>,
     #[serde(rename = "waybar")]
-    pub waybar: Option<serde_json::Value>,
+    pub waybar: Option<WaybarConfig>,
     #[serde(rename = "chromium")]
     pub chromium: Option<serde_json::Value>,
     #[serde(rename = "btop")]
@@ -215,7 +231,7 @@ impl Default for AppConfigs {
     }
 }
 
-/// Edit tab identifiers
+/// Tab identifiers
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeEditTab {
     General,

@@ -1,4 +1,4 @@
-use crate::types::themes::EditingTheme;
+use crate::types::themes::{EditingTheme, WaybarConfig};
 use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -151,7 +151,48 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
     let light_mode_path = theme_dir.join("light.mode");
     editing_theme.is_light_theme = light_mode_path.exists();
 
+    // Load waybar.css colors if the file exists
+    let waybar_css_path = theme_dir.join("waybar.css");
+    if waybar_css_path.exists() {
+        if let Ok(css_content) = fs::read_to_string(&waybar_css_path) {
+            if let Some(config) = parse_waybar_css(&css_content) {
+                editing_theme.apps.waybar = Some(config);
+            }
+        }
+    }
+
     Ok(editing_theme)
+}
+
+/// Parse waybar.css content to extract color values
+fn parse_waybar_css(css_content: &str) -> Option<WaybarConfig> {
+    let mut background = None;
+    let mut foreground = None;
+
+    for line in css_content.lines() {
+        let line = line.trim();
+        if line.starts_with("@define-color background") {
+            // Extract color value after the space
+            if let Some(color) = line.split_whitespace().nth(2) {
+                background = Some(color.to_string());
+            }
+        } else if line.starts_with("@define-color foreground") {
+            // Extract color value after the space
+            if let Some(color) = line.split_whitespace().nth(2) {
+                foreground = Some(color.to_string());
+            }
+        }
+    }
+
+    // Return config only if we found both colors
+    if let (Some(bg), Some(fg)) = (background, foreground) {
+        Some(WaybarConfig {
+            background: bg,
+            foreground: fg,
+        })
+    } else {
+        None
+    }
 }
 
 /// Save theme data
@@ -180,8 +221,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     // Manage light.mode file
     update_light_mode_file(&theme_dir, theme_data.is_light_theme)?;
 
-    // TODO: Update individual app config files (alacritty.toml, waybar.css, etc.)
-    // based on the theme_data.apps content
+    // Update individual app config files based on theme_data.apps content
+    if let Some(ref waybar_config) = theme_data.apps.waybar {
+        update_waybar_css(theme_name, waybar_config)?;
+    }
 
     Ok(())
 }
@@ -240,6 +283,30 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
         fs::write(&json_path, updated_content)
             .map_err(|e| format!("Failed to write custom_theme.json: {}", e))?;
     }
+
+    Ok(())
+}
+
+/// Update the waybar.css file with the given colors
+pub fn update_waybar_css(theme_name: &str, config: &WaybarConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Generate the CSS content
+    let css_content = format!(
+        "@define-color background {};\n@define-color foreground {};\n",
+        config.background, config.foreground
+    );
+
+    // Write to waybar.css
+    let css_path = theme_dir.join("waybar.css");
+    fs::write(&css_path, css_content).map_err(|e| format!("Failed to write waybar.css: {}", e))?;
 
     Ok(())
 }

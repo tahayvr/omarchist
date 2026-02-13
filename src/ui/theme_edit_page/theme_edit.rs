@@ -2,14 +2,14 @@ use crate::system::theme_management::{load_theme_for_editing, save_theme_data};
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::shared::error_message;
+use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
     button::{Button, ButtonVariants},
     h_flex,
     scroll::ScrollableElement,
     tab::{Tab, TabBar},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
 /// Action to navigate back to themes page
@@ -37,6 +37,7 @@ pub struct ThemeEditPage {
     is_saving: bool,
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
+    waybar_tab: Entity<WaybarTab>,
 }
 
 impl ThemeEditPage {
@@ -53,6 +54,10 @@ impl ThemeEditPage {
         // Create General tab instance
         let general_tab = cx.new(|cx| GeneralTab::new(theme_data.clone(), window, cx));
 
+        // Create Waybar tab instance
+        let waybar_tab =
+            cx.new(|cx| WaybarTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name: theme_name.clone(),
             original_theme_name: theme_name,
@@ -61,6 +66,7 @@ impl ThemeEditPage {
             is_saving: false,
             error_message: None,
             general_tab,
+            waybar_tab,
         }
     }
 
@@ -125,18 +131,8 @@ impl ThemeEditPage {
                 self.general_tab.clone().into_any_element()
             }
             ThemeEditTab::Waybar => {
-                // TODO: Implement Waybar tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Waybar Settings"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Waybar configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the WaybarTab entity
+                self.waybar_tab.clone().into_any_element()
             }
             ThemeEditTab::Windows => {
                 // TODO: Implement Windows (Hyprland) tab
