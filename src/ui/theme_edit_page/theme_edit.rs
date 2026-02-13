@@ -3,6 +3,7 @@ use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
+use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
     button::{Button, ButtonVariants},
@@ -38,6 +39,7 @@ pub struct ThemeEditPage {
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
     waybar_tab: Entity<WaybarTab>,
+    windows_tab: Entity<WindowsTab>,
 }
 
 impl ThemeEditPage {
@@ -58,6 +60,10 @@ impl ThemeEditPage {
         let waybar_tab =
             cx.new(|cx| WaybarTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Windows tab instance
+        let windows_tab =
+            cx.new(|cx| WindowsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name: theme_name.clone(),
             original_theme_name: theme_name,
@@ -67,6 +73,7 @@ impl ThemeEditPage {
             error_message: None,
             general_tab,
             waybar_tab,
+            windows_tab,
         }
     }
 
@@ -135,18 +142,8 @@ impl ThemeEditPage {
                 self.waybar_tab.clone().into_any_element()
             }
             ThemeEditTab::Windows => {
-                // TODO: Implement Windows (Hyprland) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Window Settings (Hyprland)"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Hyprland window configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the WindowsTab entity
+                self.windows_tab.clone().into_any_element()
             }
             ThemeEditTab::Menu => {
                 // TODO: Implement Menu (Walker) tab

@@ -177,6 +177,30 @@ impl Default for WaybarConfig {
     }
 }
 
+/// Hyprland window configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct HyprlandConfig {
+    pub active_border: String,   // Hex color (without #, e.g., "6e6e92")
+    pub inactive_border: String, // Hex color (without #, e.g., "5C5C5E")
+    pub border_size: i32,
+    pub gaps_in: i32,
+    pub gaps_out: i32,
+    pub rounding: i32,
+}
+
+impl Default for HyprlandConfig {
+    fn default() -> Self {
+        Self {
+            active_border: "6e6e92".to_string(),
+            inactive_border: "5C5C5E".to_string(),
+            border_size: 1,
+            gaps_in: 5,
+            gaps_out: 10,
+            rounding: 0,
+        }
+    }
+}
+
 /// All app configurations for a theme
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfigs {
@@ -189,7 +213,7 @@ pub struct AppConfigs {
     #[serde(rename = "btop")]
     pub btop: Option<serde_json::Value>,
     #[serde(rename = "hyprland")]
-    pub hyprland: Option<serde_json::Value>,
+    pub hyprland: Option<HyprlandConfig>,
     #[serde(rename = "hyprlock")]
     pub hyprlock: Option<serde_json::Value>,
     #[serde(rename = "mako")]

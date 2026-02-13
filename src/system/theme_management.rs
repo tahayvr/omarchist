@@ -1,4 +1,4 @@
-use crate::types::themes::{EditingTheme, WaybarConfig};
+use crate::types::themes::{EditingTheme, HyprlandConfig, WaybarConfig};
 use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -161,6 +161,16 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         }
     }
 
+    // Load hyprland.conf settings if the file exists
+    let hyprland_conf_path = theme_dir.join("hyprland.conf");
+    if hyprland_conf_path.exists() {
+        if let Ok(conf_content) = fs::read_to_string(&hyprland_conf_path) {
+            if let Some(config) = parse_hyprland_conf(&conf_content) {
+                editing_theme.apps.hyprland = Some(config);
+            }
+        }
+    }
+
     Ok(editing_theme)
 }
 
@@ -224,6 +234,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     // Update individual app config files based on theme_data.apps content
     if let Some(ref waybar_config) = theme_data.apps.waybar {
         update_waybar_css(theme_name, waybar_config)?;
+    }
+
+    if let Some(ref hyprland_config) = theme_data.apps.hyprland {
+        update_hyprland_conf(theme_name, hyprland_config)?;
     }
 
     Ok(())
@@ -307,6 +321,114 @@ pub fn update_waybar_css(theme_name: &str, config: &WaybarConfig) -> Result<(), 
     // Write to waybar.css
     let css_path = theme_dir.join("waybar.css");
     fs::write(&css_path, css_content).map_err(|e| format!("Failed to write waybar.css: {}", e))?;
+
+    Ok(())
+}
+
+/// Parse hyprland.conf content to extract window settings
+fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
+    let mut active_border = None;
+    let mut inactive_border = None;
+    let mut border_size = None;
+    let mut gaps_in = None;
+    let mut gaps_out = None;
+    let mut rounding = None;
+
+    let mut in_general_section = false;
+    let mut in_decoration_section = false;
+
+    for line in conf_content.lines() {
+        let trimmed = line.trim();
+
+        // Check for section headers
+        if trimmed == "general {" {
+            in_general_section = true;
+            continue;
+        }
+        if trimmed == "decoration {" {
+            in_decoration_section = true;
+            continue;
+        }
+        if trimmed == "}" {
+            in_general_section = false;
+            in_decoration_section = false;
+            continue;
+        }
+
+        // Parse general section
+        if in_general_section {
+            if let Some(value) = trimmed.strip_prefix("col.active_border = rgb(") {
+                if let Some(end) = value.find(')') {
+                    active_border = Some(value[..end].to_string());
+                }
+            } else if let Some(value) = trimmed.strip_prefix("col.inactive_border = rgb(") {
+                if let Some(end) = value.find(')') {
+                    inactive_border = Some(value[..end].to_string());
+                }
+            } else if let Some(value) = trimmed.strip_prefix("border_size = ") {
+                border_size = value.parse::<i32>().ok();
+            } else if let Some(value) = trimmed.strip_prefix("gaps_in = ") {
+                gaps_in = value.parse::<i32>().ok();
+            } else if let Some(value) = trimmed.strip_prefix("gaps_out = ") {
+                gaps_out = value.parse::<i32>().ok();
+            }
+        }
+
+        // Parse decoration section
+        if in_decoration_section {
+            if let Some(value) = trimmed.strip_prefix("rounding = ") {
+                rounding = value.parse::<i32>().ok();
+            }
+        }
+    }
+
+    // Create config if we have at least some values
+    if active_border.is_some()
+        || inactive_border.is_some()
+        || border_size.is_some()
+        || gaps_in.is_some()
+        || gaps_out.is_some()
+        || rounding.is_some()
+    {
+        Some(HyprlandConfig {
+            active_border: active_border.unwrap_or_else(|| "6e6e92".to_string()),
+            inactive_border: inactive_border.unwrap_or_else(|| "5C5C5E".to_string()),
+            border_size: border_size.unwrap_or(1),
+            gaps_in: gaps_in.unwrap_or(5),
+            gaps_out: gaps_out.unwrap_or(10),
+            rounding: rounding.unwrap_or(0),
+        })
+    } else {
+        None
+    }
+}
+
+/// Update the hyprland.conf file with the given settings
+pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Generate the conf content
+    let conf_content = format!(
+        "general {{\n    col.active_border = rgb({})\n    col.inactive_border = rgb({})\n    border_size = {}\n    gaps_in = {}\n    gaps_out = {}\n}}\n\ndecoration {{\n    rounding = {}\n}}\n",
+        config.active_border,
+        config.inactive_border,
+        config.border_size,
+        config.gaps_in,
+        config.gaps_out,
+        config.rounding
+    );
+
+    // Write to hyprland.conf
+    let conf_path = theme_dir.join("hyprland.conf");
+    fs::write(&conf_path, conf_content)
+        .map_err(|e| format!("Failed to write hyprland.conf: {}", e))?;
 
     Ok(())
 }

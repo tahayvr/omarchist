@@ -176,10 +176,12 @@
 			}
 		},
 		"hyprland": {
-			"active_border": "8A8A8D",
-			"general": {
-				"active_border": "6e6e92"
-			}
+			"active_border": "6e6e92",
+			"inactive_border": "5C5C5E",
+			"border_size": 1,
+			"gaps_in": 5,
+			"gaps_out": 10,
+			"rounding": 0
 		},
 		"hyprlock": {
 			"check_color": "245,158,11,1.0",
@@ -293,14 +295,8 @@
 			"text": "#EAEAEA"
 		},
 		"waybar": {
-			"background": "#1e1e1e",
-			"colors": {
-				"main": {
-					"background": "#0F0F19",
-					"foreground": "#EDEDFE"
-				}
-			},
-			"foreground": "#8a8a8d"
+			"background": "#0F0F19",
+			"foreground": "#EDEDFE"
 		}
 	},
 	"colors": {
