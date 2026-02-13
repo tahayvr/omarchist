@@ -261,6 +261,24 @@ impl Default for HyprlockConfig {
     }
 }
 
+/// Mako notification configuration structure
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MakoConfig {
+    pub text_color: String,       // Hex color (#EDEDFE)
+    pub border_color: String,     // Hex color (#00F59B)
+    pub background_color: String, // Hex color (#0F0F19)
+}
+
+impl Default for MakoConfig {
+    fn default() -> Self {
+        Self {
+            text_color: "#EDEDFE".to_string(),
+            border_color: "#00F59B".to_string(),
+            background_color: "#0F0F19".to_string(),
+        }
+    }
+}
+
 /// Terminal color palette (8 standard ANSI colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPalette {
@@ -389,7 +407,7 @@ pub struct AppConfigs {
     #[serde(rename = "hyprlock")]
     pub hyprlock: Option<HyprlockConfig>,
     #[serde(rename = "mako")]
-    pub mako: Option<serde_json::Value>,
+    pub mako: Option<MakoConfig>,
     #[serde(rename = "walker")]
     pub walker: Option<WalkerConfig>,
     #[serde(rename = "swayosd")]

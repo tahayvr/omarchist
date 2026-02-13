@@ -5,6 +5,7 @@ use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::lockscreen_tab::LockScreenTab;
 use crate::ui::theme_edit_page::menu_tab::MenuTab;
+use crate::ui::theme_edit_page::notification_tab::NotificationTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use crate::ui::theme_edit_page::terminal_tab::TerminalTab;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
@@ -47,6 +48,7 @@ pub struct ThemeEditPage {
     browser_tab: Entity<BrowserTab>,
     file_manager_tab: Entity<FileManagerTab>,
     lockscreen_tab: Entity<LockScreenTab>,
+    notification_tab: Entity<NotificationTab>,
 }
 
 impl ThemeEditPage {
@@ -91,6 +93,10 @@ impl ThemeEditPage {
         let lockscreen_tab =
             cx.new(|cx| LockScreenTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Notification tab instance
+        let notification_tab =
+            cx.new(|cx| NotificationTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name,
             active_tab: 0,
@@ -103,6 +109,7 @@ impl ThemeEditPage {
             browser_tab,
             file_manager_tab,
             lockscreen_tab,
+            notification_tab,
         }
     }
 
@@ -161,18 +168,8 @@ impl ThemeEditPage {
                 self.lockscreen_tab.clone().into_any_element()
             }
             ThemeEditTab::Notification => {
-                // TODO: Implement Notification (Mako) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Notification Settings (Mako)"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Mako notification configuration will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the NotificationTab entity
+                self.notification_tab.clone().into_any_element()
             }
             ThemeEditTab::Editor => {
                 // TODO: Implement Editor (Neovim, VSCode:) tab

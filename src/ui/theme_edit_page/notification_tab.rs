@@ -1,0 +1,207 @@
+//! Notifications (Mako) tab for theme editing
+//!
+//! Provides UI for editing Mako notification colors using ColorPicker components:
+//! - text-color: Notification text color
+//! - border-color: Notification border color
+//! - background-color: Notification background color
+
+use crate::system::theme_management::{save_theme_data, update_mako_ini};
+use crate::types::themes::{EditingTheme, MakoConfig};
+use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use gpui::*;
+use gpui_component::{
+    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    h_flex, Colorize,
+};
+
+/// Notifications tab content for editing mako notification colors
+pub struct NotificationTab {
+    theme_name: String,
+    theme_data: EditingTheme,
+    text_color_picker: Entity<ColorPickerState>,
+    border_color_picker: Entity<ColorPickerState>,
+    background_color_picker: Entity<ColorPickerState>,
+    is_saving: bool,
+    error_message: Option<String>,
+}
+
+impl NotificationTab {
+    /// Create a new NotificationTab instance
+    pub fn new(
+        theme_name: String,
+        theme_data: EditingTheme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        // Get current mako config or use defaults
+        let mako_config = theme_data.apps.mako.as_ref().cloned().unwrap_or_default();
+
+        // Create color picker states with current values
+        let text_color =
+            Self::hex_to_hsla(&mako_config.text_color).unwrap_or(gpui::rgb(0xEDEDFE).into());
+        let border_color =
+            Self::hex_to_hsla(&mako_config.border_color).unwrap_or(gpui::rgb(0x00F59B).into());
+        let background_color =
+            Self::hex_to_hsla(&mako_config.background_color).unwrap_or(gpui::rgb(0x0F0F19).into());
+
+        let text_color_picker =
+            cx.new(|cx| ColorPickerState::new(window, cx).default_value(text_color));
+
+        let border_color_picker =
+            cx.new(|cx| ColorPickerState::new(window, cx).default_value(border_color));
+
+        let background_color_picker =
+            cx.new(|cx| ColorPickerState::new(window, cx).default_value(background_color));
+
+        let tab = Self {
+            theme_name,
+            theme_data,
+            text_color_picker,
+            border_color_picker,
+            background_color_picker,
+            is_saving: false,
+            error_message: None,
+        };
+
+        // Subscribe to text color picker changes
+        cx.subscribe_in(
+            &tab.text_color_picker,
+            window,
+            |this, _picker, event: &ColorPickerEvent, window, cx| {
+                if let ColorPickerEvent::Change(Some(color)) = event {
+                    let hex = color.to_hex();
+                    this.update_mako_config(|config| {
+                        config.text_color = hex;
+                    });
+                    this.save(window, cx);
+                }
+            },
+        )
+        .detach();
+
+        // Subscribe to border color picker changes
+        cx.subscribe_in(
+            &tab.border_color_picker,
+            window,
+            |this, _picker, event: &ColorPickerEvent, window, cx| {
+                if let ColorPickerEvent::Change(Some(color)) = event {
+                    let hex = color.to_hex();
+                    this.update_mako_config(|config| {
+                        config.border_color = hex;
+                    });
+                    this.save(window, cx);
+                }
+            },
+        )
+        .detach();
+
+        // Subscribe to background color picker changes
+        cx.subscribe_in(
+            &tab.background_color_picker,
+            window,
+            |this, _picker, event: &ColorPickerEvent, window, cx| {
+                if let ColorPickerEvent::Change(Some(color)) = event {
+                    let hex = color.to_hex();
+                    this.update_mako_config(|config| {
+                        config.background_color = hex;
+                    });
+                    this.save(window, cx);
+                }
+            },
+        )
+        .detach();
+
+        tab
+    }
+
+    /// Convert hex color string (#RRGGBB) to Hsla
+    fn hex_to_hsla(hex: &str) -> Option<Hsla> {
+        let hex = hex.trim_start_matches('#');
+        if hex.len() != 6 {
+            return None;
+        }
+
+        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+    }
+
+    /// Update the mako config within theme_data
+    fn update_mako_config<F>(&mut self, updater: F)
+    where
+        F: FnOnce(&mut MakoConfig),
+    {
+        let mut config = self.theme_data.apps.mako.clone().unwrap_or_default();
+        updater(&mut config);
+        self.theme_data.apps.mako = Some(config);
+    }
+
+    /// Get the current theme data
+    pub fn theme_data(&self) -> &EditingTheme {
+        &self.theme_data
+    }
+
+    /// Save the theme data and update mako.ini
+    fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_saving {
+            return;
+        }
+
+        // Validate theme name
+        if self.theme_name.is_empty() {
+            self.error_message = Some("Theme name cannot be empty".to_string());
+            cx.notify();
+            return;
+        }
+
+        self.is_saving = true;
+        self.error_message = None;
+        cx.notify();
+
+        // Save theme data
+        match save_theme_data(&self.theme_name, &self.theme_data) {
+            Ok(()) => {
+                // Also update the mako.ini file
+                if let Some(ref mako_config) = self.theme_data.apps.mako {
+                    if let Err(e) = update_mako_ini(&self.theme_name, mako_config) {
+                        self.error_message = Some(format!("Failed to update mako.ini: {}", e));
+                    }
+                }
+                self.is_saving = false;
+            }
+            Err(e) => {
+                self.is_saving = false;
+                self.error_message = Some(e);
+            }
+        }
+
+        cx.notify();
+    }
+}
+
+impl Render for NotificationTab {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        tab_container()
+            .child(help_text(
+                "Changes auto-save. Mako notification colors use hex format.",
+            ))
+            .child(
+                h_flex()
+                    .gap_4()
+                    .child(
+                        form_section()
+                            .child(ColorPicker::new(&self.text_color_picker).label("Text Color")),
+                    )
+                    .child(
+                        form_section().child(
+                            ColorPicker::new(&self.border_color_picker).label("Border Color"),
+                        ),
+                    )
+                    .child(form_section().child(
+                        ColorPicker::new(&self.background_color_picker).label("Background Color"),
+                    )),
+            )
+    }
+}

@@ -1,6 +1,6 @@
 use crate::types::themes::{
-    BrowserConfig, EditingTheme, HyprlandConfig, HyprlockConfig, TerminalConfig, WalkerConfig,
-    WaybarConfig,
+    BrowserConfig, EditingTheme, HyprlandConfig, HyprlockConfig, MakoConfig, TerminalConfig,
+    WalkerConfig, WaybarConfig,
 };
 use chrono::Utc;
 use std::fs;
@@ -194,6 +194,16 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         }
     }
 
+    // Load mako.ini if the file exists
+    let mako_ini_path = theme_dir.join("mako.ini");
+    if mako_ini_path.exists() {
+        if let Ok(ini_content) = fs::read_to_string(&mako_ini_path) {
+            if let Some(config) = parse_mako_ini(&ini_content) {
+                editing_theme.apps.mako = Some(config);
+            }
+        }
+    }
+
     Ok(editing_theme)
 }
 
@@ -277,6 +287,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 
     if let Some(ref hyprlock_config) = theme_data.apps.hyprlock {
         update_hyprlock_conf(theme_name, hyprlock_config)?;
+    }
+
+    if let Some(ref mako_config) = theme_data.apps.mako {
+        update_mako_ini(theme_name, mako_config)?;
     }
 
     // Update icons.theme if icons config exists
@@ -879,6 +893,112 @@ pub fn update_hyprlock_conf(theme_name: &str, config: &HyprlockConfig) -> Result
     let conf_path = theme_dir.join("hyprlock.conf");
     fs::write(&conf_path, conf_content)
         .map_err(|e| format!("Failed to write hyprlock.conf: {}", e))?;
+
+    Ok(())
+}
+
+/// Parse mako.ini content to extract color values
+fn parse_mako_ini(ini_content: &str) -> Option<MakoConfig> {
+    let mut text_color = None;
+    let mut border_color = None;
+    let mut background_color = None;
+
+    for line in ini_content.lines() {
+        let trimmed = line.trim();
+
+        // Only parse the global section (before any [section] headers)
+        if trimmed.starts_with('[') {
+            break;
+        }
+
+        if let Some(value) = trimmed.strip_prefix("text-color=") {
+            text_color = Some(value.to_string());
+        } else if let Some(value) = trimmed.strip_prefix("border-color=") {
+            border_color = Some(value.to_string());
+        } else if let Some(value) = trimmed.strip_prefix("background-color=") {
+            background_color = Some(value.to_string());
+        }
+    }
+
+    // Create config if we have at least some values
+    if text_color.is_some() || border_color.is_some() || background_color.is_some() {
+        Some(MakoConfig {
+            text_color: text_color.unwrap_or_else(|| "#EDEDFE".to_string()),
+            border_color: border_color.unwrap_or_else(|| "#00F59B".to_string()),
+            background_color: background_color.unwrap_or_else(|| "#0F0F19".to_string()),
+        })
+    } else {
+        None
+    }
+}
+
+/// Update the mako.ini file with the given settings
+pub fn update_mako_ini(theme_name: &str, config: &MakoConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Read existing content to preserve non-color settings and sections
+    let ini_path = theme_dir.join("mako.ini");
+    let existing_content = fs::read_to_string(&ini_path).unwrap_or_default();
+
+    // Extract non-color settings and sections from existing content
+    let mut preserved_lines = Vec::new();
+    let mut in_preserve_section = false;
+    let mut colors_found = false;
+
+    for line in existing_content.lines() {
+        let trimmed = line.trim();
+
+        // Once we hit a section header, preserve everything from there
+        if trimmed.starts_with('[') {
+            in_preserve_section = true;
+        }
+
+        if in_preserve_section {
+            preserved_lines.push(line.to_string());
+        } else if !trimmed.starts_with("text-color=")
+            && !trimmed.starts_with("border-color=")
+            && !trimmed.starts_with("background-color=")
+            && !trimmed.is_empty()
+        {
+            // Preserve non-color global settings
+            preserved_lines.push(line.to_string());
+        } else if trimmed.starts_with("text-color=")
+            || trimmed.starts_with("border-color=")
+            || trimmed.starts_with("background-color=")
+        {
+            colors_found = true;
+        }
+    }
+
+    // Generate the new ini content with updated colors
+    let mut new_content = format!(
+        "text-color={}\nborder-color={}\nbackground-color={}\n",
+        config.text_color, config.border_color, config.background_color
+    );
+
+    // Add preserved settings and sections
+    if !preserved_lines.is_empty() {
+        // Add a blank line before preserved content if we had colors before
+        if colors_found {
+            new_content.push('\n');
+        }
+        new_content.push_str(&preserved_lines.join("\n"));
+    }
+
+    // Ensure file ends with newline
+    if !new_content.ends_with('\n') {
+        new_content.push('\n');
+    }
+
+    // Write to mako.ini
+    fs::write(&ini_path, new_content).map_err(|e| format!("Failed to write mako.ini: {}", e))?;
 
     Ok(())
 }
