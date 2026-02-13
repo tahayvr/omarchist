@@ -1,5 +1,7 @@
+use crate::system::theme_file_ops::is_system_theme;
 use crate::system::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
+use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::browser_tab::BrowserTab;
 use crate::ui::theme_edit_page::btop_tab::BtopTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
@@ -55,10 +57,14 @@ pub struct ThemeEditPage {
     editor_tab: Entity<EditorTab>,
     btop_tab: Entity<BtopTab>,
     swayosd_tab: Entity<SwayosdTab>,
+    backgrounds_tab: Entity<BackgroundsTab>,
 }
 
 impl ThemeEditPage {
     pub fn new(theme_name: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        // Determine if this is a system theme or custom theme
+        let is_system = is_system_theme(&theme_name);
+
         // Load theme data
         let theme_data = match load_theme_for_editing(&theme_name) {
             Ok(data) => data,
@@ -115,6 +121,10 @@ impl ThemeEditPage {
         let swayosd_tab =
             cx.new(|cx| SwayosdTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Backgrounds tab instance
+        let backgrounds_tab =
+            cx.new(|cx| BackgroundsTab::new(theme_name.clone(), is_system, window, cx));
+
         Self {
             theme_name,
             active_tab: 0,
@@ -131,6 +141,7 @@ impl ThemeEditPage {
             editor_tab,
             btop_tab,
             swayosd_tab,
+            backgrounds_tab,
         }
     }
 
@@ -205,18 +216,8 @@ impl ThemeEditPage {
                 self.swayosd_tab.clone().into_any_element()
             }
             ThemeEditTab::Backgrounds => {
-                // TODO: Implement Backgrounds tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Background Images"))
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(gpui::rgb(0x888888))
-                            .child("Background image management will be implemented here"),
-                    )
-                    .into_any_element()
+                // Use the BackgroundsTab entity
+                self.backgrounds_tab.clone().into_any_element()
             }
         }
     }

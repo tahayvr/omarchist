@@ -1,3 +1,4 @@
+pub mod backgrounds_tab;
 pub mod browser_tab;
 pub mod btop_tab;
 pub mod editor_tab;
