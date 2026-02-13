@@ -1,6 +1,7 @@
 use crate::system::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::browser_tab::BrowserTab;
+use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::lockscreen_tab::LockScreenTab;
@@ -49,6 +50,7 @@ pub struct ThemeEditPage {
     file_manager_tab: Entity<FileManagerTab>,
     lockscreen_tab: Entity<LockScreenTab>,
     notification_tab: Entity<NotificationTab>,
+    editor_tab: Entity<EditorTab>,
 }
 
 impl ThemeEditPage {
@@ -97,6 +99,10 @@ impl ThemeEditPage {
         let notification_tab =
             cx.new(|cx| NotificationTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
+        // Create Editor tab instance
+        let editor_tab =
+            cx.new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+
         Self {
             theme_name,
             active_tab: 0,
@@ -110,6 +116,7 @@ impl ThemeEditPage {
             file_manager_tab,
             lockscreen_tab,
             notification_tab,
+            editor_tab,
         }
     }
 
@@ -172,17 +179,8 @@ impl ThemeEditPage {
                 self.notification_tab.clone().into_any_element()
             }
             ThemeEditTab::Editor => {
-                // TODO: Implement Editor (Neovim, VSCode:) tab
-                v_flex()
-                    .p_4()
-                    .gap_4()
-                    .child(div().text_lg().child("Editor Settings"))
-                    .child(
-                        div().text_sm().text_color(gpui::rgb(0x888888)).child(
-                            "Neovim and VSCode: theme configuration will be implemented here",
-                        ),
-                    )
-                    .into_any_element()
+                // Use the EditorTab entity
+                self.editor_tab.clone().into_any_element()
             }
             ThemeEditTab::Btop => {
                 // TODO: Implement Btop tab

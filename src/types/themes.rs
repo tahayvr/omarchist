@@ -279,6 +279,102 @@ impl Default for MakoConfig {
     }
 }
 
+/// Btop configuration structure for activity monitor colors
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BtopConfig {
+    // Main colors
+    pub main_bg: String,     // Main background
+    pub main_fg: String,     // Main text color
+    pub title: String,       // Title color for boxes
+    pub hi_fg: String,       // Highlight color for keyboard shortcuts
+    pub selected_bg: String, // Background of selected item in processes
+    pub selected_fg: String, // Foreground of selected item in processes
+    pub inactive_fg: String, // Color of inactive/disabled text
+    pub proc_misc: String,   // Misc colors for processes box
+    // Box outline colors
+    pub cpu_box: String,  // Cpu box outline color
+    pub mem_box: String,  // Memory/disks box outline color
+    pub net_box: String,  // Net up/down box outline color
+    pub proc_box: String, // Processes box outline color
+    pub div_line: String, // Box divider line color
+    // Gradient colors - Temperature
+    pub temp_start: String,
+    pub temp_mid: String,
+    pub temp_end: String,
+    // Gradient colors - CPU
+    pub cpu_start: String,
+    pub cpu_mid: String,
+    pub cpu_end: String,
+    // Gradient colors - Free meter
+    pub free_start: String,
+    pub free_mid: String,
+    pub free_end: String,
+    // Gradient colors - Cached meter
+    pub cached_start: String,
+    pub cached_mid: String,
+    pub cached_end: String,
+    // Gradient colors - Available meter
+    pub available_start: String,
+    pub available_mid: String,
+    pub available_end: String,
+    // Gradient colors - Used meter
+    pub used_start: String,
+    pub used_mid: String,
+    pub used_end: String,
+    // Gradient colors - Download
+    pub download_start: String,
+    pub download_mid: String,
+    pub download_end: String,
+    // Gradient colors - Upload
+    pub upload_start: String,
+    pub upload_mid: String,
+    pub upload_end: String,
+}
+
+impl Default for BtopConfig {
+    fn default() -> Self {
+        Self {
+            main_bg: "#0F0F19".to_string(),
+            main_fg: "#EDEDFE".to_string(),
+            title: "#6e6e92".to_string(),
+            hi_fg: "#33A1FF".to_string(),
+            selected_bg: "#f59e0b".to_string(),
+            selected_fg: "#EDEDFE".to_string(),
+            inactive_fg: "#333333".to_string(),
+            proc_misc: "#8a8a8d".to_string(),
+            cpu_box: "#6e6e92".to_string(),
+            mem_box: "#6e6e92".to_string(),
+            net_box: "#6e6e92".to_string(),
+            proc_box: "#6e6e92".to_string(),
+            div_line: "#6e6e92".to_string(),
+            temp_start: "#00F59B".to_string(),
+            temp_mid: "#FF66F6".to_string(),
+            temp_end: "#FF3366".to_string(),
+            cpu_start: "#00F59B".to_string(),
+            cpu_mid: "#FF66F6".to_string(),
+            cpu_end: "#FF3366".to_string(),
+            free_start: "#00F59B".to_string(),
+            free_mid: "#FF66F6".to_string(),
+            free_end: "#FF3366".to_string(),
+            cached_start: "#00F59B".to_string(),
+            cached_mid: "#FF66F6".to_string(),
+            cached_end: "#FF3366".to_string(),
+            available_start: "#00F59B".to_string(),
+            available_mid: "#FF66F6".to_string(),
+            available_end: "#FF3366".to_string(),
+            used_start: "#00F59B".to_string(),
+            used_mid: "#FF66F6".to_string(),
+            used_end: "#FF3366".to_string(),
+            download_start: "#00F59B".to_string(),
+            download_mid: "#FF66F6".to_string(),
+            download_end: "#FF3366".to_string(),
+            upload_start: "#00F59B".to_string(),
+            upload_mid: "#FF66F6".to_string(),
+            upload_end: "#FF3366".to_string(),
+        }
+    }
+}
+
 /// Terminal color palette (8 standard ANSI colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPalette {
