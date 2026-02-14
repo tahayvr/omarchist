@@ -224,7 +224,7 @@ impl Render for SwayosdTab {
             .child(help_text("Changes auto-save."))
             .child(
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section().child(
@@ -241,7 +241,7 @@ impl Render for SwayosdTab {
             )
             .child(
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section().child(ColorPicker::new(&self.image_picker).label("Image")),

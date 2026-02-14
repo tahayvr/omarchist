@@ -1,5 +1,5 @@
-use gpui::{div, prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
-use gpui_component::{h_flex, v_flex, Icon};
+use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
+use gpui_component::{Icon, h_flex, v_flex};
 
 use super::sparkline::Sparkline;
 
@@ -102,7 +102,6 @@ impl IntoElement for MetricCard {
         div()
             .border_1()
             .border_color(self.border_color)
-            .rounded_md()
             .h_full()
             .child(
                 v_flex()

@@ -164,7 +164,7 @@ impl Render for WaybarTab {
             .child(help_text("Changes auto-save."))
             .child(
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section()

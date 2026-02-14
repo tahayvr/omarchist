@@ -17,12 +17,10 @@ use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
     button::Button,
     h_flex,
-    scroll::ScrollableElement,
     tab::{Tab, TabBar},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
 /// Action to navigate back to themes page
@@ -269,10 +267,14 @@ impl Render for ThemeEditPage {
                     .map(|error| error_message(error.clone())),
             )
             .child(
-                // Tab content area
+                // Tab content area with scrolling
                 div()
+                    .id("tab-content")
                     .flex_1()
-                    .overflow_y_scrollbar()
+                    .overflow_y_scroll()
+                    .overflow_x_hidden()
+                    .pt_4()
+                    .pb_8()
                     .child(self.render_tab_content(window, cx)),
             )
     }

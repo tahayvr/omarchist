@@ -224,12 +224,12 @@ impl Render for BackgroundsTab {
                         .into_any_element()
                 } else {
                     // Image grid
-                    let mut grid = v_flex().gap_4();
+                    let mut grid = v_flex().gap_6();
                     let mut image_index: usize = 0;
 
                     // Group images into rows
                     for row_images in images.chunks(images_per_row) {
-                        let mut row = h_flex().gap_4();
+                        let mut row = h_flex().gap_6();
 
                         for image in row_images {
                             let filename = image.filename.clone();

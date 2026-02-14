@@ -252,9 +252,9 @@ impl Render for MenuTab {
         tab_container()
             .child(help_text("Changes auto-save."))
             .child(
-                // First row of color pickers - wraps on narrow screens
+                // First row of color pickers
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section()
@@ -268,7 +268,7 @@ impl Render for MenuTab {
             .child(
                 // Second row of color pickers - wraps on narrow screens
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section()

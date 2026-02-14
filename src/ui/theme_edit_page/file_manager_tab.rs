@@ -20,37 +20,37 @@ struct YaruColor {
 const YARU_COLORS: &[YaruColor] = &[
     YaruColor {
         value: "Yaru-red",
-        label: "Yaru Red",
+        label: "Red",
         color: 0xe92020,
     },
     YaruColor {
         value: "Yaru-blue",
-        label: "Yaru Blue",
+        label: "Blue",
         color: 0x208fe9,
     },
     YaruColor {
         value: "Yaru-olive",
-        label: "Yaru Olive",
+        label: "Olive",
         color: 0x636B2F,
     },
     YaruColor {
         value: "Yaru-yellow",
-        label: "Yaru Yellow",
+        label: "Yellow",
         color: 0xe9ba20,
     },
     YaruColor {
         value: "Yaru-purple",
-        label: "Yaru Purple",
+        label: "Purple",
         color: 0x5e2750,
     },
     YaruColor {
         value: "Yaru-magenta",
-        label: "Yaru Magenta",
+        label: "Magenta",
         color: 0xFF00FF,
     },
     YaruColor {
         value: "Yaru-sage",
-        label: "Yaru Sage",
+        label: "Sage",
         color: 0x123d18,
     },
 ];

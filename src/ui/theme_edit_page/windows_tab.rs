@@ -397,9 +397,9 @@ impl Render for WindowsTab {
         tab_container()
             .child(help_text("Changes auto-save."))
             .child(
-                // Border colors in a row - wraps on narrow screens
+                // Border colors row
                 h_flex()
-                    .gap_8()
+                    .gap_24()
                     .flex_wrap()
                     .child(
                         form_section().child(
@@ -411,9 +411,9 @@ impl Render for WindowsTab {
                     )),
             )
             .child(
-                // Numeric inputs in a row - wraps on narrow screens
+                // Numeric inputs row
                 h_flex()
-                    .gap_6()
+                    .gap_12()
                     .flex_wrap()
                     .child(
                         form_section()

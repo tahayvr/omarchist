@@ -12,7 +12,8 @@ use gpui::*;
 use gpui_component::{
     Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    divider::Divider,
+    h_flex, v_flex,
 };
 
 /// Terminal tab content for editing unified terminal colors
@@ -244,124 +245,165 @@ impl Render for TerminalTab {
         tab_container()
             .child(help_text("Changes apply to Alacritty, Kitty, and Ghostty."))
             .child(
-                h_flex()
+                v_flex()
                     .gap_6()
-                    .flex_wrap()
+                    // Primary Colors Section
                     .child(
                         form_section()
-                            .child(ColorPicker::new(&self.primary_bg_picker).label("Background")),
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Primary Colors"),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(
+                                        ColorPicker::new(&self.primary_bg_picker)
+                                            .label("Background"),
+                                    )
+                                    .child(
+                                        ColorPicker::new(&self.primary_fg_picker)
+                                            .label("Foreground"),
+                                    ),
+                            ),
                     )
+                    .child(Divider::horizontal())
+                    // Cursor Colors Section
                     .child(
                         form_section()
-                            .child(ColorPicker::new(&self.primary_fg_picker).label("Foreground")),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Cursor Colors"),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(
+                                        ColorPicker::new(&self.cursor_cursor_picker)
+                                            .label("Cursor"),
+                                    )
+                                    .child(
+                                        ColorPicker::new(&self.cursor_text_picker)
+                                            .label("Cursor Text"),
+                                    ),
+                            ),
+                    )
+                    .child(Divider::horizontal())
+                    // Selection Colors Section
                     .child(
                         form_section()
-                            .child(ColorPicker::new(&self.cursor_cursor_picker).label("Cursor")),
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Selection Colors"),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(
+                                        ColorPicker::new(&self.selection_bg_picker)
+                                            .label("Background"),
+                                    )
+                                    .child(
+                                        ColorPicker::new(&self.selection_fg_picker)
+                                            .label("Foreground"),
+                                    ),
+                            ),
                     )
+                    .child(Divider::horizontal())
+                    // Normal Colors Section (Row 1)
                     .child(
                         form_section()
-                            .child(ColorPicker::new(&self.cursor_text_picker).label("Cursor Text")),
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Normal Colors"),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(
+                                        ColorPicker::new(&self.normal_black_picker).label("Black"),
+                                    )
+                                    .child(ColorPicker::new(&self.normal_red_picker).label("Red"))
+                                    .child(
+                                        ColorPicker::new(&self.normal_green_picker).label("Green"),
+                                    )
+                                    .child(
+                                        ColorPicker::new(&self.normal_yellow_picker)
+                                            .label("Yellow"),
+                                    ),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(ColorPicker::new(&self.normal_blue_picker).label("Blue"))
+                                    .child(
+                                        ColorPicker::new(&self.normal_magenta_picker)
+                                            .label("Magenta"),
+                                    )
+                                    .child(ColorPicker::new(&self.normal_cyan_picker).label("Cyan"))
+                                    .child(
+                                        ColorPicker::new(&self.normal_white_picker).label("White"),
+                                    ),
+                            ),
                     )
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.selection_bg_picker).label("Selection BG"),
-                        ),
-                    )
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.selection_fg_picker).label("Selection FG"),
-                        ),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
+                    .child(Divider::horizontal())
+                    // Bright Colors Section (Row 1)
                     .child(
                         form_section()
-                            .child(ColorPicker::new(&self.normal_black_picker).label("Black")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_red_picker).label("Red")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_green_picker).label("Green")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_yellow_picker).label("Yellow")),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_blue_picker).label("Blue")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_magenta_picker).label("Magenta")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_cyan_picker).label("Cyan")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.normal_white_picker).label("White")),
-                    ),
-            )
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.bright_black_picker).label("Bright Black"),
-                        ),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.bright_red_picker).label("Bright Red")),
-                    )
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.bright_green_picker).label("Bright Green"),
-                        ),
-                    )
-                    .child(form_section().child(
-                        ColorPicker::new(&self.bright_yellow_picker).label("Bright Yellow"),
-                    )),
-            )
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.bright_blue_picker).label("Bright Blue")),
-                    )
-                    .child(form_section().child(
-                        ColorPicker::new(&self.bright_magenta_picker).label("Bright Magenta"),
-                    ))
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.bright_cyan_picker).label("Bright Cyan")),
-                    )
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.bright_white_picker).label("Bright White"),
-                        ),
+                            .gap_4()
+                            .child(
+                                div()
+                                    .text_lg()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child("Bright Colors"),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(
+                                        ColorPicker::new(&self.bright_black_picker).label("Black"),
+                                    )
+                                    .child(ColorPicker::new(&self.bright_red_picker).label("Red"))
+                                    .child(
+                                        ColorPicker::new(&self.bright_green_picker).label("Green"),
+                                    )
+                                    .child(
+                                        ColorPicker::new(&self.bright_yellow_picker)
+                                            .label("Yellow"),
+                                    ),
+                            )
+                            .child(
+                                h_flex()
+                                    .gap_24()
+                                    .flex_wrap()
+                                    .child(ColorPicker::new(&self.bright_blue_picker).label("Blue"))
+                                    .child(
+                                        ColorPicker::new(&self.bright_magenta_picker)
+                                            .label("Magenta"),
+                                    )
+                                    .child(ColorPicker::new(&self.bright_cyan_picker).label("Cyan"))
+                                    .child(
+                                        ColorPicker::new(&self.bright_white_picker).label("White"),
+                                    ),
+                            ),
                     ),
             )
     }
