@@ -37,18 +37,20 @@ impl EditorTab {
         let neovim_content = Self::load_neovim_content(&theme_name);
         let vscode_content = Self::load_vscode_content(&theme_name);
 
-        // Create input states with current values
+        // Create input states with code editor mode
         let neovim_input = cx.new(|cx| {
             InputState::new(window, cx)
-                .multi_line(true)
-                .rows(10)
+                .code_editor("lua")
+                .line_number(true)
+                .searchable(true)
                 .default_value(&neovim_content)
         });
 
         let vscode_input = cx.new(|cx| {
             InputState::new(window, cx)
-                .multi_line(true)
-                .rows(5)
+                .code_editor("json")
+                .line_number(true)
+                .searchable(true)
                 .default_value(&vscode_content)
         });
 
@@ -256,7 +258,11 @@ impl Render for EditorTab {
                                     .text_color(gpui::rgb(0x888888))
                                     .child("Lua configuration for Neovim theme"),
                             )
-                            .child(Input::new(&self.neovim_input).h(px(240.))),
+                            .child(
+                                div()
+                                    .h(px(300.))
+                                    .child(Input::new(&self.neovim_input).h_full()),
+                            ),
                     )
                     .child(
                         // VSCode: section
@@ -274,7 +280,11 @@ impl Render for EditorTab {
                                     .text_color(gpui::rgb(0x888888))
                                     .child("JSON configuration for VSCode: theme"),
                             )
-                            .child(Input::new(&self.vscode_input).h(px(120.))),
+                            .child(
+                                div()
+                                    .h(px(200.))
+                                    .child(Input::new(&self.vscode_input).h_full()),
+                            ),
                     ),
             )
     }
