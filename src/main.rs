@@ -110,14 +110,20 @@ fn main() {
         cx.spawn(async move |cx| {
             let window_options = WindowOptions {
                 titlebar: Some(TitleBar::title_bar_options()),
+                focus: true,
+                show: true,
+                app_id: Some("omarchist".into()),
                 ..Default::default()
             };
-            cx.open_window(window_options, |window, cx| {
+            let window_handle = cx.open_window(window_options, |window, cx| {
                 let title_bar = cx.new(|_| MainTitleBar::new());
-
                 let main_view = cx.new(|cx| MainWindowView::new(title_bar, window, cx));
-
                 cx.new(|cx| Root::new(main_view, window, cx))
+            })?;
+
+            // Attempt to activate the window after creation
+            window_handle.update(cx, |_view, window, _cx| {
+                window.activate_window();
             })?;
 
             Ok::<_, anyhow::Error>(())
