@@ -269,8 +269,11 @@ impl Render for MainWindowView {
                                                 SidebarMenuItem::new("Toggle Sidebar")
                                                     .icon(Icon::new(IconName::PanelLeft))
                                                     .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.sidebar_collapsed =
-                                                            !this.sidebar_collapsed;
+                                                        this.sidebar_collapsed = !this.sidebar_collapsed;
+                                                        // Update themes page with new sidebar state
+                                                        this.themes_view.update(cx, |themes_page, cx| {
+                                                            themes_page.set_sidebar_collapsed(this.sidebar_collapsed, cx);
+                                                        });
                                                         cx.notify();
                                                     })),
                                             ),

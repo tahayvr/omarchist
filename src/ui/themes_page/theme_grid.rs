@@ -17,6 +17,7 @@ pub struct ThemeGrid {
     themes: Vec<SysTheme>,
     filter: Option<ThemeFilter>,
     cards: Vec<Entity<ThemeCard>>,
+    sidebar_collapsed: bool,
 }
 
 impl ThemeGrid {
@@ -31,7 +32,12 @@ impl ThemeGrid {
             themes,
             filter,
             cards,
+            sidebar_collapsed: false,
         }
+    }
+
+    pub fn set_sidebar_collapsed(&mut self, collapsed: bool) {
+        self.sidebar_collapsed = collapsed;
     }
 
     pub fn set_filter(&mut self, filter: Option<ThemeFilter>) {
@@ -66,12 +72,12 @@ impl ThemeGrid {
 
 impl Render for ThemeGrid {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Get the actual viewport size and account for sidebar (approximately 255px when expanded, 48px when collapsed)
+        // Get the actual viewport size and account for sidebar
         let viewport_size = window.viewport_size();
-        let sidebar_width = if viewport_size.width > px(600.0) {
-            px(255.0) // Expanded sidebar
-        } else {
+        let sidebar_width = if self.sidebar_collapsed {
             px(48.0) // Collapsed sidebar
+        } else {
+            px(255.0) // Expanded sidebar
         };
         let width = (viewport_size.width - sidebar_width).max(px(0.0));
         let column_count = self.get_column_count(width);

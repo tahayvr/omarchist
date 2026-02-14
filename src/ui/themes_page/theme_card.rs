@@ -149,9 +149,9 @@ impl Render for ThemeCard {
             )
             .child(div().h(px(1.)).bg(theme.border))
             .child(
-                // Image / preview container
+                // Image / preview container - 16:9 aspect ratio
                 div()
-                    .w_full()
+                    .w(self.image_height / 9.0 * 16.0)
                     .h(self.image_height)
                     .flex()
                     .items_center()
@@ -160,6 +160,7 @@ impl Render for ThemeCard {
                     .overflow_hidden()
                     .when(!self.theme.image.is_empty(), |this| {
                         let path = PathBuf::from(&self.theme.image);
+                        // Image fills the 16:9 container
                         this.child(img(path).w_full().h_full().object_fit(ObjectFit::Cover))
                     })
                     .when(self.theme.image.is_empty(), |this| {

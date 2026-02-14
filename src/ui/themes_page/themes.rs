@@ -80,6 +80,14 @@ impl ThemesPage {
     }
 }
 
+impl ThemesPage {
+    pub fn set_sidebar_collapsed(&mut self, collapsed: bool, cx: &mut Context<Self>) {
+        self.theme_grid.update(cx, |grid, _| {
+            grid.set_sidebar_collapsed(collapsed);
+        });
+    }
+}
+
 impl Render for ThemesPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let filter = match self.active_tab {
