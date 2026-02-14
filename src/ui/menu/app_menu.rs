@@ -10,7 +10,8 @@ actions!(
         Copy,
         Paste,
         Cut,
-        RefreshTheme
+        RefreshTheme,
+        ToggleSidebar
     ]
 );
 actions!(appearance, [SwitchToLight, SwitchToDark]);

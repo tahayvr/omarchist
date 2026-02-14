@@ -86,6 +86,12 @@ fn main() {
             gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
             cx.refresh_windows();
         });
+        cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {
+            omarchist::ui::app_view::PENDING_TOGGLE_SIDEBAR.with(|flag| {
+                *flag.borrow_mut() = true;
+            });
+            cx.refresh_windows();
+        });
 
         cx.bind_keys([
             KeyBinding::new("ctrl-q", app_menu::Quit, None),
@@ -98,6 +104,7 @@ fn main() {
             KeyBinding::new("ctrl-c", gpui_component::input::Copy, None),
             KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
             KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
+            KeyBinding::new("ctrl-b", app_menu::ToggleSidebar, None),
         ]);
 
         cx.spawn(async move |cx| {

@@ -10,6 +10,11 @@ use gpui_component::{
     Collapsible, Icon, IconName, Root, h_flex,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
 };
+use std::cell::RefCell;
+
+thread_local! {
+    pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = RefCell::new(false);
+}
 
 /// Represents the currently active page in the application.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -162,6 +167,22 @@ impl Render for MainWindowView {
             self.themes_view.update(cx, |themes_page, cx| {
                 themes_page.refresh_themes(cx);
             });
+        }
+
+        // Check for pending sidebar toggle
+        let pending_toggle = PENDING_TOGGLE_SIDEBAR.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_toggle {
+            self.sidebar_collapsed = !self.sidebar_collapsed;
+            self.themes_view.update(cx, |themes_page, cx| {
+                themes_page.set_sidebar_collapsed(self.sidebar_collapsed, cx);
+            });
+            cx.notify();
         }
 
         div()
