@@ -168,13 +168,7 @@ impl OverviewTab {
                 })
                 .into_element()
         } else {
-            // Desktop Bento Layout
-            // ┌───────────────────┬───────────┬───────────┐
-            // │                   │    CPU    │  Memory   │
-            // │    Network        ├───────────┼───────────┤
-            // │    (hero)         │ Processes │   Disk    │
-            // │                   │           │           │
-            // └───────────────────┴───────────┴───────────┘
+            // Desktop Layout
             // If battery present, it goes in bottom right instead of Disk
             let has_battery = battery_info.is_some();
 

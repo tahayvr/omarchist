@@ -131,7 +131,7 @@ impl IntoElement for MetricCard {
                             }),
                     )
                     .when_some(self.sparkline_data, |this, data| {
-                        let sparkline_height = if self.large { px(80.0) } else { px(40.0) };
+                        let sparkline_height = if self.large { px(160.0) } else { px(80.0) };
                         this.child(
                             div().flex_grow().child(
                                 Sparkline::new(data)

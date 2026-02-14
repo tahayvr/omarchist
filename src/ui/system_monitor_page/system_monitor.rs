@@ -112,7 +112,7 @@ impl SystemMonitorPage {
         cx.notify();
     }
 
-    fn render_status_bar(&self, cx: &Context<Self>) -> impl IntoElement {
+    fn render_status_bar(&self, cx: &Context<Self>, viewport_width: gpui::Pixels) -> impl IntoElement {
         let theme = cx.theme();
         let metrics = self.collector.get_current_metrics();
 
@@ -146,6 +146,9 @@ impl SystemMonitorPage {
             theme.chart_3
         };
 
+        // Check if we're on mobile or tablet (hide progress bars on smaller screens)
+        let is_compact = viewport_width < px(1200.0);
+
         h_flex()
             .px_5()
             .gap_6()
@@ -172,7 +175,9 @@ impl SystemMonitorPage {
                                     .path("icons/cpu.svg")
                                     .size(px(16.0)),
                             )
-                            .child(Progress::new().w(px(96.0)).h(px(6.0)).value(cpu_percent))
+                            .when(!is_compact, |this| {
+                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(cpu_percent))
+                            })
                             .child(
                                 div()
                                     .text_sm()
@@ -190,7 +195,9 @@ impl SystemMonitorPage {
                                     .path("icons/memory-stick.svg")
                                     .size(px(16.0)),
                             )
-                            .child(Progress::new().w(px(96.0)).h(px(6.0)).value(memory_percent))
+                            .when(!is_compact, |this| {
+                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(memory_percent))
+                            })
                             .child(
                                 div()
                                     .text_sm()
@@ -208,7 +215,9 @@ impl SystemMonitorPage {
                                     .path("icons/hard-drive.svg")
                                     .size(px(16.0)),
                             )
-                            .child(Progress::new().w(px(96.0)).h(px(6.0)).value(disk_percent))
+                            .when(!is_compact, |this| {
+                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(disk_percent))
+                            })
                             .child(
                                 div()
                                     .text_sm()
@@ -300,7 +309,7 @@ impl Render for SystemMonitorPage {
                         )),
                     }),
             )
-            .child(self.render_status_bar(cx))
+            .child(self.render_status_bar(cx, viewport_width))
             .into_element()
     }
 }
