@@ -847,7 +847,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.main_bg_picker).label("Background"),
                                     )
@@ -871,7 +872,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.selected_bg_picker)
                                             .label("Selected Background"),
@@ -895,7 +897,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.inactive_fg_picker)
                                             .label("Inactive"),
@@ -918,7 +921,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(ColorPicker::new(&self.cpu_box_picker).label("CPU Box"))
                                     .child(
                                         ColorPicker::new(&self.mem_box_picker).label("Memory Box"),
@@ -946,7 +950,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(ColorPicker::new(&self.temp_start_picker).label("Start"))
                                     .child(ColorPicker::new(&self.temp_mid_picker).label("Mid"))
                                     .child(ColorPicker::new(&self.temp_end_picker).label("End")),
@@ -965,7 +970,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(ColorPicker::new(&self.cpu_start_picker).label("Start"))
                                     .child(ColorPicker::new(&self.cpu_mid_picker).label("Mid"))
                                     .child(ColorPicker::new(&self.cpu_end_picker).label("End")),
@@ -984,7 +990,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(ColorPicker::new(&self.free_start_picker).label("Start"))
                                     .child(ColorPicker::new(&self.free_mid_picker).label("Mid"))
                                     .child(ColorPicker::new(&self.free_end_picker).label("End")),
@@ -1003,7 +1010,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.cached_start_picker).label("Start"),
                                     )
@@ -1024,7 +1032,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.available_start_picker)
                                             .label("Start"),
@@ -1050,7 +1059,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(ColorPicker::new(&self.used_start_picker).label("Start"))
                                     .child(ColorPicker::new(&self.used_mid_picker).label("Mid"))
                                     .child(ColorPicker::new(&self.used_end_picker).label("End")),
@@ -1069,7 +1079,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.download_start_picker)
                                             .label("Start"),
@@ -1093,7 +1104,8 @@ impl Render for BtopTab {
                             )
                             .child(
                                 h_flex()
-                                    .gap_64()
+                                    .gap_6()
+                                    .flex_wrap()
                                     .child(
                                         ColorPicker::new(&self.upload_start_picker).label("Start"),
                                     )

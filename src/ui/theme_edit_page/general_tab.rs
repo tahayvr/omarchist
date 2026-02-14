@@ -173,8 +173,9 @@ impl GeneralTab {
 }
 
 impl Render for GeneralTab {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_light = self.theme_data.is_light_theme;
+        let _viewport_width = window.viewport_size().width;
 
         // Check if theme name has changed for rename button
         let current_name = self.name_input.read(cx).value().to_string();
@@ -182,7 +183,7 @@ impl Render for GeneralTab {
 
         tab_container()
             .child(
-                // Theme Name Section with Rename button
+                // Theme Name Section with Rename button - wraps on narrow screens
                 form_section()
                     .child(
                         Label::new("Theme Name")
@@ -192,6 +193,7 @@ impl Render for GeneralTab {
                     .child(
                         h_flex()
                             .gap_2()
+                            .flex_wrap()
                             .child(Input::new(&self.name_input).cleanable(true))
                             .child(
                                 Button::new("rename-btn")

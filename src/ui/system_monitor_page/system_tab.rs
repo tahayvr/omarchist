@@ -15,6 +15,7 @@ impl SystemTab {
         &self,
         collector: &DataCollector,
         theme: &gpui_component::Theme,
+        _viewport_width: gpui::Pixels,
     ) -> impl IntoElement {
         let cpu_data: Vec<f64> = collector.data.iter().map(|p| p.cpu).collect();
         let memory_data: Vec<f64> = collector.data.iter().map(|p| p.memory).collect();

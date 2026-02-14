@@ -252,9 +252,10 @@ impl Render for MenuTab {
         tab_container()
             .child(help_text("Changes auto-save."))
             .child(
-                // First row of color pickers
+                // First row of color pickers - wraps on narrow screens
                 h_flex()
-                    .gap_64()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.background_picker).label("Background")),
@@ -265,9 +266,10 @@ impl Render for MenuTab {
                     ),
             )
             .child(
-                // Second row of color pickers
+                // Second row of color pickers - wraps on narrow screens
                 h_flex()
-                    .gap_64()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.foreground_picker).label("Foreground")),

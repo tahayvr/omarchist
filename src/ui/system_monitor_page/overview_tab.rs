@@ -18,6 +18,7 @@ impl OverviewTab {
         &self,
         collector: &DataCollector,
         theme: &gpui_component::Theme,
+        viewport_width: gpui::Pixels,
     ) -> impl IntoElement {
         let metrics = collector.get_current_metrics();
         let cpu_data: Vec<f64> = if collector.data.is_empty() {
@@ -69,11 +70,20 @@ impl OverviewTab {
 
         let battery_info = collector.get_battery_info().first().cloned();
 
+        // Responsive column count based on viewport width
+        let column_count = if viewport_width < px(640.0) {
+            1
+        } else if viewport_width < px(1024.0) {
+            2
+        } else {
+            3
+        };
+
         v_flex()
             .gap_6()
             .child(
                 MetricGrid::new()
-                    .columns(3)
+                    .columns(column_count)
                     .gap(px(20.0))
                     // CPU Card
                     .child(

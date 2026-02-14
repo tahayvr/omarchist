@@ -397,9 +397,10 @@ impl Render for WindowsTab {
         tab_container()
             .child(help_text("Changes auto-save."))
             .child(
-                // Border colors in a row
+                // Border colors in a row - wraps on narrow screens
                 h_flex()
-                    .gap_128()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section().child(
                             ColorPicker::new(&self.active_border_picker).label("Active Border"),
@@ -410,9 +411,10 @@ impl Render for WindowsTab {
                     )),
             )
             .child(
-                // Numeric inputs in a row
+                // Numeric inputs in a row - wraps on narrow screens
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(Label::new("Border Size").text_sm())

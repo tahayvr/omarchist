@@ -164,7 +164,8 @@ impl Render for WaybarTab {
             .child(help_text("Changes auto-save."))
             .child(
                 h_flex()
-                    .gap_128()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.background_picker).label("Background")),

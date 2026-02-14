@@ -31,6 +31,7 @@ impl DisksTab {
         &self,
         collector: &DataCollector,
         theme: &gpui_component::Theme,
+        viewport_width: gpui::Pixels,
     ) -> impl IntoElement {
         let disks = collector.get_disks();
 
@@ -67,7 +68,17 @@ impl DisksTab {
                                     };
 
                                     v_flex()
-                                        .w(px(240.0))
+                                        .flex_basis(if viewport_width < px(640.0) {
+                                            px(0.0)
+                                        } else {
+                                            px(240.0)
+                                        })
+                                        .flex_grow()
+                                        .min_w(if viewport_width < px(640.0) {
+                                            px(0.0)
+                                        } else {
+                                            px(200.0)
+                                        })
                                         .p_4()
                                         .rounded_md()
                                         .border_1()

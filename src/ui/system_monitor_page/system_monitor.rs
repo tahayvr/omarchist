@@ -250,12 +250,12 @@ impl SystemMonitorPage {
 }
 
 impl Render for SystemMonitorPage {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let active_index = self.active_tab.to_index();
+        let viewport_width = window.viewport_size().width;
 
         let tab_bar = TabBar::new("monitor-tabs")
-            // .segmented()
             .selected_index(active_index)
             .on_click(cx.listener(|this, ix: &usize, window, cx| {
                 this.set_active_tab(*ix, window, cx);
@@ -267,27 +267,37 @@ impl Render for SystemMonitorPage {
 
         v_flex()
             .size_full()
+            .overflow_x_hidden()
             .child(tab_bar)
             .child(
                 div()
                     .id("tab-content")
                     .flex_1()
                     .overflow_y_scroll()
+                    .overflow_x_hidden()
                     .pt_4()
                     .pb_4()
                     .map(|this| match self.active_tab {
-                        MonitorTab::Overview => {
-                            this.child(self.overview_tab.render(&self.collector, theme))
-                        }
-                        MonitorTab::System => {
-                            this.child(self.system_tab.render(&self.collector, theme))
-                        }
-                        MonitorTab::Network => {
-                            this.child(self.network_tab.render(&self.collector, theme))
-                        }
-                        MonitorTab::Disks => {
-                            this.child(self.disks_tab.render(&self.collector, theme))
-                        }
+                        MonitorTab::Overview => this.child(self.overview_tab.render(
+                            &self.collector,
+                            theme,
+                            viewport_width,
+                        )),
+                        MonitorTab::System => this.child(self.system_tab.render(
+                            &self.collector,
+                            theme,
+                            viewport_width,
+                        )),
+                        MonitorTab::Network => this.child(self.network_tab.render(
+                            &self.collector,
+                            theme,
+                            viewport_width,
+                        )),
+                        MonitorTab::Disks => this.child(self.disks_tab.render(
+                            &self.collector,
+                            theme,
+                            viewport_width,
+                        )),
                     }),
             )
             .child(self.render_status_bar(cx))

@@ -33,6 +33,7 @@ impl NetworkTab {
         &self,
         collector: &DataCollector,
         theme: &gpui_component::Theme,
+        viewport_width: gpui::Pixels,
     ) -> impl IntoElement {
         let up_values: Vec<f64> = collector.data.iter().map(|p| p.network_up).collect();
         let down_values: Vec<f64> = collector.data.iter().map(|p| p.network_down).collect();
@@ -86,63 +87,126 @@ impl NetworkTab {
                                         .child(div().text_xs().child("Upload")),
                                 ),
                         )
-                        // Traffic charts
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .gap_3()
-                                        .child(div().text_xs().child("Download"))
-                                        .child(
-                                            div().h(px(180.0)).child(
-                                                AreaChart::new(down_data)
-                                                    .x(|(t, _)| t.clone())
-                                                    .y(|(_, v)| *v)
-                                                    .stroke(green)
-                                                    .fill(gpui::linear_gradient(
-                                                        0.0,
-                                                        gpui::linear_color_stop(
-                                                            green.opacity(0.3),
-                                                            1.0,
-                                                        ),
-                                                        gpui::linear_color_stop(
-                                                            background.opacity(0.1),
+                        // Traffic charts - responsive: stack vertically on narrow screens
+                        .child({
+                            let chart_height = if viewport_width < px(640.0) {
+                                px(140.0)
+                            } else {
+                                px(180.0)
+                            };
+
+                            if viewport_width < px(768.0) {
+                                // Stack vertically on narrow screens
+                                v_flex()
+                                    .gap_4()
+                                    .child(
+                                        v_flex()
+                                            .gap_3()
+                                            .child(div().text_xs().child("Download"))
+                                            .child(
+                                                div().h(chart_height).child(
+                                                    AreaChart::new(down_data)
+                                                        .x(|(t, _)| t.clone())
+                                                        .y(|(_, v)| *v)
+                                                        .stroke(green)
+                                                        .fill(gpui::linear_gradient(
                                                             0.0,
-                                                        ),
-                                                    ))
-                                                    .tick_margin(10),
+                                                            gpui::linear_color_stop(
+                                                                green.opacity(0.3),
+                                                                1.0,
+                                                            ),
+                                                            gpui::linear_color_stop(
+                                                                background.opacity(0.1),
+                                                                0.0,
+                                                            ),
+                                                        ))
+                                                        .tick_margin(10),
+                                                ),
                                             ),
-                                        ),
-                                )
-                                .child(
-                                    v_flex()
-                                        .flex_1()
-                                        .gap_3()
-                                        .child(div().text_xs().child("Upload"))
-                                        .child(
-                                            div().h(px(180.0)).child(
-                                                AreaChart::new(up_data)
-                                                    .x(|(t, _)| t.clone())
-                                                    .y(|(_, v)| *v)
-                                                    .stroke(yellow)
-                                                    .fill(gpui::linear_gradient(
-                                                        0.0,
-                                                        gpui::linear_color_stop(
-                                                            yellow.opacity(0.3),
-                                                            1.0,
-                                                        ),
-                                                        gpui::linear_color_stop(
-                                                            background.opacity(0.1),
+                                    )
+                                    .child(
+                                        v_flex()
+                                            .gap_3()
+                                            .child(div().text_xs().child("Upload"))
+                                            .child(
+                                                div().h(chart_height).child(
+                                                    AreaChart::new(up_data)
+                                                        .x(|(t, _)| t.clone())
+                                                        .y(|(_, v)| *v)
+                                                        .stroke(yellow)
+                                                        .fill(gpui::linear_gradient(
                                                             0.0,
-                                                        ),
-                                                    ))
-                                                    .tick_margin(10),
+                                                            gpui::linear_color_stop(
+                                                                yellow.opacity(0.3),
+                                                                1.0,
+                                                            ),
+                                                            gpui::linear_color_stop(
+                                                                background.opacity(0.1),
+                                                                0.0,
+                                                            ),
+                                                        ))
+                                                        .tick_margin(10),
+                                                ),
                                             ),
-                                        ),
-                                ),
-                        ),
+                                    )
+                            } else {
+                                // Side by side on wider screens
+                                h_flex()
+                                    .gap_6()
+                                    .child(
+                                        v_flex()
+                                            .flex_1()
+                                            .gap_3()
+                                            .child(div().text_xs().child("Download"))
+                                            .child(
+                                                div().h(chart_height).child(
+                                                    AreaChart::new(down_data)
+                                                        .x(|(t, _)| t.clone())
+                                                        .y(|(_, v)| *v)
+                                                        .stroke(green)
+                                                        .fill(gpui::linear_gradient(
+                                                            0.0,
+                                                            gpui::linear_color_stop(
+                                                                green.opacity(0.3),
+                                                                1.0,
+                                                            ),
+                                                            gpui::linear_color_stop(
+                                                                background.opacity(0.1),
+                                                                0.0,
+                                                            ),
+                                                        ))
+                                                        .tick_margin(10),
+                                                ),
+                                            ),
+                                    )
+                                    .child(
+                                        v_flex()
+                                            .flex_1()
+                                            .gap_3()
+                                            .child(div().text_xs().child("Upload"))
+                                            .child(
+                                                div().h(chart_height).child(
+                                                    AreaChart::new(up_data)
+                                                        .x(|(t, _)| t.clone())
+                                                        .y(|(_, v)| *v)
+                                                        .stroke(yellow)
+                                                        .fill(gpui::linear_gradient(
+                                                            0.0,
+                                                            gpui::linear_color_stop(
+                                                                yellow.opacity(0.3),
+                                                                1.0,
+                                                            ),
+                                                            gpui::linear_color_stop(
+                                                                background.opacity(0.1),
+                                                                0.0,
+                                                            ),
+                                                        ))
+                                                        .tick_margin(10),
+                                                ),
+                                            ),
+                                    )
+                            }
+                        }),
                 ),
             )
             // Interfaces Section

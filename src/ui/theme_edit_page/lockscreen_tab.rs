@@ -247,7 +247,8 @@ impl Render for LockScreenTab {
             ))
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.color_picker).label("Background Color")),
@@ -263,7 +264,8 @@ impl Render for LockScreenTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.font_color_picker).label("Font Color")),

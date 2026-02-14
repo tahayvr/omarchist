@@ -190,7 +190,8 @@ impl Render for NotificationTab {
             ))
             .child(
                 h_flex()
-                    .gap_4()
+                    .gap_8()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.text_color_picker).label("Text Color")),

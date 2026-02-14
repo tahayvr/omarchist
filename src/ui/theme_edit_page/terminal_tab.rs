@@ -245,7 +245,8 @@ impl Render for TerminalTab {
             .child(help_text("Changes apply to Alacritty, Kitty, and Ghostty."))
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.primary_bg_picker).label("Background")),
@@ -257,7 +258,8 @@ impl Render for TerminalTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.cursor_cursor_picker).label("Cursor")),
@@ -279,7 +281,8 @@ impl Render for TerminalTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.normal_black_picker).label("Black")),
@@ -299,7 +302,8 @@ impl Render for TerminalTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.normal_blue_picker).label("Blue")),
@@ -319,7 +323,8 @@ impl Render for TerminalTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section().child(
                             ColorPicker::new(&self.bright_black_picker).label("Bright Black"),
@@ -340,7 +345,8 @@ impl Render for TerminalTab {
             )
             .child(
                 h_flex()
-                    .gap_64()
+                    .gap_6()
+                    .flex_wrap()
                     .child(
                         form_section()
                             .child(ColorPicker::new(&self.bright_blue_picker).label("Bright Blue")),
