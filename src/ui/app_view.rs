@@ -1,3 +1,4 @@
+use crate::system::omarchy_version::get_local_omarchy_version;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::settings_page::settings_view::SettingsView;
@@ -7,7 +8,7 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    Collapsible, Icon, IconName, Root, h_flex,
+    ActiveTheme, Collapsible, Icon, IconName, Root, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
 };
@@ -38,6 +39,7 @@ pub struct MainWindowView {
     settings_root: AnyView,
     about_root: AnyView,
     sidebar_collapsed: bool,
+    omarchy_version: Option<String>,
 }
 
 impl MainWindowView {
@@ -62,6 +64,11 @@ impl MainWindowView {
         let about_view = cx.new(|_| AboutView);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
 
+        // Get Omarchy version (silently fail if unavailable)
+        let omarchy_version = get_local_omarchy_version()
+            .ok()
+            .filter(|v| v != "unknown" && !v.is_empty());
+
         Self {
             title_bar,
             active_page: ActivePage::Themes,
@@ -73,6 +80,7 @@ impl MainWindowView {
             settings_root,
             about_root,
             sidebar_collapsed: false,
+            omarchy_version,
         }
     }
 
@@ -285,6 +293,22 @@ impl Render for MainWindowView {
                                                 SidebarMenuItem::new("Omarchy")
                                                     .icon(
                                                         Icon::empty().path("logo/omarchy-icon.svg"),
+                                                    )
+                                                    .suffix(
+                                                        self.omarchy_version
+                                                            .as_ref()
+                                                            .map(|v| {
+                                                                div()
+                                                                    .text_xs()
+                                                                    .text_color(
+                                                                        cx.theme().muted_foreground,
+                                                                    )
+                                                                    .child(v.clone())
+                                                                    .into_any_element()
+                                                            })
+                                                            .unwrap_or_else(|| {
+                                                                div().into_any_element()
+                                                            }),
                                                     )
                                                     .on_click(cx.listener(|_, _, _, _| {
                                                         // No-op for now
