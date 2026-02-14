@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
-    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
+    button::*, h_flex, menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem, ActiveTheme,
+    IconName, PixelsExt, Side, Sizable, TitleBar,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
@@ -76,8 +76,8 @@ impl Render for MainTitleBar {
                                 .separator()
                                 .item(PopupMenuItem::new("Refresh Theme"))
                                 .separator()
-                                .item(PopupMenuItem::new("Import Theme..."))
-                                .item(PopupMenuItem::new("Export Theme..."))
+                                .item(PopupMenuItem::new("Import Theme...").disabled(true))
+                                .item(PopupMenuItem::new("Export Theme...").disabled(true))
                             }),
                     ),
             )
