@@ -250,7 +250,9 @@ impl MenuTab {
 impl Render for MenuTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Changes auto-save."))
+            .child(help_text(
+                "Colors for the Omarchy Menu and Launcher (Walker).",
+            ))
             .child(
                 // First row of color pickers
                 h_flex()

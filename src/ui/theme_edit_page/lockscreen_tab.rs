@@ -242,9 +242,7 @@ impl LockScreenTab {
 impl Render for LockScreenTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text(
-                "Changes auto-save. Hyprlock colors use RGB format.",
-            ))
+            .child(help_text("Colors for the lock screen (Hyprlock)."))
             .child(
                 h_flex()
                     .gap_24()

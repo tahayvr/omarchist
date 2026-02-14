@@ -181,7 +181,7 @@ impl Render for FileManagerTab {
         }
 
         tab_container()
-            .child(help_text("Changes auto-save."))
+            .child(help_text("Accent color for Nautilus."))
             .child(form_section().child(container))
     }
 }

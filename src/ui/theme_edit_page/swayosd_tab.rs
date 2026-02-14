@@ -221,7 +221,9 @@ impl SwayosdTab {
 impl Render for SwayosdTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Changes auto-save."))
+            .child(help_text(
+                "Colors for On-Screen Display (Volume Change, Display Brightness, etc).",
+            ))
             .child(
                 h_flex()
                     .gap_24()

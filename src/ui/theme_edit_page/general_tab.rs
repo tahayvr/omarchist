@@ -234,7 +234,7 @@ impl Render for GeneralTab {
             )
             .child(
                 // Help Text
-                help_text("Themes are dark mode by default."),
+                help_text("Themes are in dark mode by default."),
             )
             .children(
                 self.error_message

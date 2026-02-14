@@ -137,7 +137,7 @@ impl BrowserTab {
 impl Render for BrowserTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Changes auto-save."))
+            .child(help_text("Color for the Chromium browser."))
             .child(
                 form_section()
                     .child(ColorPicker::new(&self.theme_color_picker).label("Theme Color")),

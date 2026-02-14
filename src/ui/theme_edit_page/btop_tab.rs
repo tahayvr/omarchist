@@ -5,7 +5,7 @@
 
 use crate::system::theme_management::{save_theme_data, update_btop_theme};
 use crate::types::themes::{BtopConfig, EditingTheme};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{form_section, tab_container};
 use gpui::*;
 use gpui_component::{
     Colorize,
@@ -830,289 +830,259 @@ impl BtopTab {
 
 impl Render for BtopTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
-        tab_container()
-            .child(help_text("Changes auto-save. Btop uses hex color format."))
-            .child(
-                v_flex()
-                    .gap_6()
-                    // Main Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Main Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.main_bg_picker).label("Background"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.main_fg_picker).label("Foreground"),
-                                    )
-                                    .child(ColorPicker::new(&self.title_picker).label("Title"))
-                                    .child(ColorPicker::new(&self.hi_fg_picker).label("Highlight")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Selection Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Selection Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.selected_bg_picker)
-                                            .label("Selected Background"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.selected_fg_picker)
-                                            .label("Selected Foreground"),
-                                    ),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Status Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Status Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.inactive_fg_picker)
-                                            .label("Inactive"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.proc_misc_picker).label("Proc Misc"),
-                                    ),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Box Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Box Outline Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(ColorPicker::new(&self.cpu_box_picker).label("CPU Box"))
-                                    .child(
-                                        ColorPicker::new(&self.mem_box_picker).label("Memory Box"),
-                                    )
-                                    .child(ColorPicker::new(&self.net_box_picker).label("Net Box"))
-                                    .child(
-                                        ColorPicker::new(&self.proc_box_picker).label("Proc Box"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.div_line_picker)
-                                            .label("Divider Line"),
-                                    ),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Temperature Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Temperature Graph"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(ColorPicker::new(&self.temp_start_picker).label("Start"))
-                                    .child(ColorPicker::new(&self.temp_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.temp_end_picker).label("End")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // CPU Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("CPU Graph"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(ColorPicker::new(&self.cpu_start_picker).label("Start"))
-                                    .child(ColorPicker::new(&self.cpu_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.cpu_end_picker).label("End")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Free Meter Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Free Meter"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(ColorPicker::new(&self.free_start_picker).label("Start"))
-                                    .child(ColorPicker::new(&self.free_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.free_end_picker).label("End")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Cached Meter Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Cached Meter"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.cached_start_picker).label("Start"),
-                                    )
-                                    .child(ColorPicker::new(&self.cached_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.cached_end_picker).label("End")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Available Meter Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Available Meter"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.available_start_picker)
-                                            .label("Start"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.available_mid_picker).label("Mid"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.available_end_picker).label("End"),
-                                    ),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Used Meter Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Used Meter"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(ColorPicker::new(&self.used_start_picker).label("Start"))
-                                    .child(ColorPicker::new(&self.used_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.used_end_picker).label("End")),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Download Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Download Graph"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.download_start_picker)
-                                            .label("Start"),
-                                    )
-                                    .child(ColorPicker::new(&self.download_mid_picker).label("Mid"))
-                                    .child(
-                                        ColorPicker::new(&self.download_end_picker).label("End"),
-                                    ),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Upload Gradient Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Upload Graph"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.upload_start_picker).label("Start"),
-                                    )
-                                    .child(ColorPicker::new(&self.upload_mid_picker).label("Mid"))
-                                    .child(ColorPicker::new(&self.upload_end_picker).label("End")),
-                            ),
-                    ),
-            )
+        tab_container().child(
+            v_flex()
+                .gap_6()
+                // Main Colors Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Main Colors"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.main_bg_picker).label("Background"))
+                                .child(ColorPicker::new(&self.main_fg_picker).label("Foreground"))
+                                .child(ColorPicker::new(&self.title_picker).label("Title"))
+                                .child(ColorPicker::new(&self.hi_fg_picker).label("Highlight")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Selection Colors Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Selection Colors"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(
+                                    ColorPicker::new(&self.selected_bg_picker)
+                                        .label("Selected Background"),
+                                )
+                                .child(
+                                    ColorPicker::new(&self.selected_fg_picker)
+                                        .label("Selected Foreground"),
+                                ),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Status Colors Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Status Colors"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.inactive_fg_picker).label("Inactive"))
+                                .child(ColorPicker::new(&self.proc_misc_picker).label("Proc Misc")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Box Colors Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Box Outline Colors"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.cpu_box_picker).label("CPU Box"))
+                                .child(ColorPicker::new(&self.mem_box_picker).label("Memory Box"))
+                                .child(ColorPicker::new(&self.net_box_picker).label("Net Box"))
+                                .child(ColorPicker::new(&self.proc_box_picker).label("Proc Box"))
+                                .child(
+                                    ColorPicker::new(&self.div_line_picker).label("Divider Line"),
+                                ),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Temperature Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Temperature Graph"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.temp_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.temp_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.temp_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // CPU Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("CPU Graph"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.cpu_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.cpu_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.cpu_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Free Meter Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Free Meter"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.free_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.free_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.free_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Cached Meter Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Cached Meter"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.cached_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.cached_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.cached_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Available Meter Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Available Meter"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(
+                                    ColorPicker::new(&self.available_start_picker).label("Start"),
+                                )
+                                .child(ColorPicker::new(&self.available_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.available_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Used Meter Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Used Meter"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.used_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.used_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.used_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Download Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Download Graph"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.download_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.download_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.download_end_picker).label("End")),
+                        ),
+                )
+                .child(Divider::horizontal())
+                // Upload Gradient Section
+                .child(
+                    form_section()
+                        .gap_4()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child("Upload Graph"),
+                        )
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .child(ColorPicker::new(&self.upload_start_picker).label("Start"))
+                                .child(ColorPicker::new(&self.upload_mid_picker).label("Mid"))
+                                .child(ColorPicker::new(&self.upload_end_picker).label("End")),
+                        ),
+                ),
+        )
     }
 }

@@ -185,9 +185,7 @@ impl NotificationTab {
 impl Render for NotificationTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text(
-                "Changes auto-save. Mako notification colors use hex format.",
-            ))
+            .child(help_text("Colors for Notifications (Mako)."))
             .child(
                 h_flex()
                     .gap_24()

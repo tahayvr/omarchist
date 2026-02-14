@@ -177,12 +177,11 @@ impl Render for BackgroundsTab {
                             })),
                     ),
             )
-            .child(
-                help_text("Manage background images for this theme. Click \"Add Images\" to select images to add. You can also delete images directly from the grid below."),
-            )
+            .child(help_text("Manage background images for this theme."))
             .child(
                 // Image count display
-                Label::new(format!("{} image{}",
+                Label::new(format!(
+                    "{} image{}",
                     images.len(),
                     if images.len() == 1 { "" } else { "s" }
                 ))
@@ -210,18 +209,15 @@ impl Render for BackgroundsTab {
                                 .flex()
                                 .items_center()
                                 .justify_center()
-                                .child(
-                                    Label::new("🖼️")
-                                        .text_2xl(),
-                                ),
+                                .child(Label::new("🖼️").text_2xl()),
                         )
                         .child(
                             Label::new("No background images")
                                 .text_color(cx.theme().muted_foreground),
                         )
-                        .child(
-                            help_text("Click \"Add Images\" to select background images"),
-                        )
+                        .child(help_text(
+                            "Click \"Add Images\" to select background images",
+                        ))
                         .into_any_element()
                 } else {
                     // Image grid
@@ -260,35 +256,31 @@ impl Render for BackgroundsTab {
                                             )
                                             .child(
                                                 // Delete button overlay (top-right)
-                                                div()
-                                                    .absolute()
-                                                    .top_1()
-                                                    .right_1()
-                                                    .child(
-                                                        Button::new(("delete-bg", current_index))
-                                                            .icon(IconName::Close)
-                                                            .small()
-                                                            .danger()
-                                                            .cursor_pointer()
-                                                            .on_click(cx.listener({
-                                                                let filename = filename.clone();
-                                                                move |this, _, window, cx| {
-                                                                    this.delete_image(&filename, window, cx);
-                                                                }
-                                                            })),
-                                                    ),
+                                                div().absolute().top_1().right_1().child(
+                                                    Button::new(("delete-bg", current_index))
+                                                        .icon(IconName::Close)
+                                                        .small()
+                                                        .danger()
+                                                        .cursor_pointer()
+                                                        .on_click(cx.listener({
+                                                            let filename = filename.clone();
+                                                            move |this, _, window, cx| {
+                                                                this.delete_image(
+                                                                    &filename, window, cx,
+                                                                );
+                                                            }
+                                                        })),
+                                                ),
                                             ),
                                     )
                                     .child(
                                         // Filename label (truncated)
-                                        div()
-                                            .w(px(150.))
-                                            .child(
-                                                Label::new(&filename)
-                                                    .text_xs()
-                                                    .text_color(cx.theme().muted_foreground)
-                                                    .truncate(),
-                                            ),
+                                        div().w(px(150.)).child(
+                                            Label::new(&filename)
+                                                .text_xs()
+                                                .text_color(cx.theme().muted_foreground)
+                                                .truncate(),
+                                        ),
                                     ),
                             );
                         }

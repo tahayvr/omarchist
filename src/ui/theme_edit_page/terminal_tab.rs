@@ -243,7 +243,9 @@ impl TerminalTab {
 impl Render for TerminalTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Changes apply to Alacritty, Kitty, and Ghostty."))
+            .child(help_text(
+                "Color changes apply to Alacritty, Kitty, and Ghostty.",
+            ))
             .child(
                 v_flex()
                     .gap_6()

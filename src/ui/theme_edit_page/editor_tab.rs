@@ -237,7 +237,7 @@ impl Render for EditorTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
             .child(help_text(
-                "Changes auto-save. Edit the raw configuration files for Neovim and VSCode:.",
+                "Edit the configuration files for Neovim and VSCode themes:",
             ))
             .child(
                 v_flex()

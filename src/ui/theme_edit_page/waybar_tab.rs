@@ -161,7 +161,7 @@ impl WaybarTab {
 impl Render for WaybarTab {
     fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Changes auto-save."))
+            .child(help_text("Colors for Waybar."))
             .child(
                 h_flex()
                     .gap_24()
