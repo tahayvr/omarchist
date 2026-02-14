@@ -80,7 +80,6 @@ impl DisksTab {
                                             px(200.0)
                                         })
                                         .p_4()
-                                        .rounded_md()
                                         .border_1()
                                         .border_color(border)
                                         .gap_3()
@@ -142,6 +141,9 @@ impl DisksTab {
                 GroupBox::new().title("Disk Details").child(
                     v_flex()
                         .h(px(240.0))
+                        .min_h(px(150.0))
+                        .flex_1()
+                        .overflow_hidden()
                         .child(Table::new(&self.disk_table).bordered(false).stripe(true)),
                 ),
             )
@@ -173,12 +175,12 @@ impl DiskTableDelegate {
         Self {
             disks: Vec::new(),
             columns: vec![
-                Column::new("name", "Name").width(px(120.0)),
-                Column::new("mount", "Mount Point").width(px(150.0)),
-                Column::new("filesystem", "Filesystem").width(px(100.0)),
-                Column::new("total", "Total").width(px(100.0)),
-                Column::new("used", "Used").width(px(100.0)),
-                Column::new("available", "Available").width(px(100.0)),
+                Column::new("name", "Name").width(px(80.0)),
+                Column::new("mount", "Mount").width(px(100.0)),
+                Column::new("filesystem", "FS").width(px(60.0)),
+                Column::new("total", "Total").width(px(70.0)),
+                Column::new("used", "Used").width(px(70.0)),
+                Column::new("available", "Free").width(px(70.0)),
             ],
         }
     }

@@ -84,7 +84,6 @@ impl OverviewTab {
             .child(
                 MetricGrid::new()
                     .columns(column_count)
-                    .gap(px(20.0))
                     // CPU Card
                     .child(
                         MetricCard::new("CPU Usage", format!("{:.1}%", cpu_percent))
@@ -92,7 +91,8 @@ impl OverviewTab {
                             .color(theme.blue)
                             .alert_color(cpu_color)
                             .sparkline(cpu_data)
-                            .sub_value(format!("{} cores", collector.get_cpu_cores().len())),
+                            .sub_value(format!("{} cores", collector.get_cpu_cores().len()))
+                            .border_color(theme.border),
                     )
                     // Memory Card
                     .child(
@@ -108,7 +108,8 @@ impl OverviewTab {
                                     format_bytes(mem_info.used),
                                     format_bytes(mem_info.total)
                                 )
-                            }),
+                            })
+                            .border_color(theme.border),
                     )
                     // Network Card
                     .child(
@@ -116,7 +117,8 @@ impl OverviewTab {
                             .icon(Icon::new(Icon::empty()).path("icons/globe.svg"))
                             .color(theme.cyan)
                             .sparkline(network_down_data)
-                            .sub_value(format!("↑ {}", format_bytes_speed(network_up))),
+                            .sub_value(format!("↑ {}", format_bytes_speed(network_up)))
+                            .border_color(theme.border),
                     )
                     // Disk Card
                     .child(
@@ -139,14 +141,16 @@ impl OverviewTab {
                                 } else {
                                     "No disks".to_string()
                                 }
-                            }),
+                            })
+                            .border_color(theme.border),
                     )
                     // Processes Card
                     .child(
                         MetricCard::new("Processes", format!("{}", process_count))
                             .icon(Icon::new(Icon::empty()).path("icons/layout-dashboard.svg"))
                             .color(theme.chart_2)
-                            .sub_value("Active tasks"),
+                            .sub_value("Active tasks")
+                            .border_color(theme.border),
                     )
                     // Battery Card (if available)
                     .when(battery_info.is_some(), |this| {
@@ -185,7 +189,8 @@ impl OverviewTab {
                                     }
                                 } else {
                                     battery.state
-                                }),
+                                })
+                                .border_color(theme.border),
                         )
                     }),
             )

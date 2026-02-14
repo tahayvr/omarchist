@@ -13,6 +13,7 @@ pub struct MetricCard {
     color: gpui::Hsla,
     alert_color: Option<gpui::Hsla>,
     compact: bool,
+    border_color: gpui::Hsla,
 }
 
 impl MetricCard {
@@ -26,6 +27,7 @@ impl MetricCard {
             color: gpui::Hsla::default(),
             alert_color: None,
             compact: false,
+            border_color: gpui::Hsla::default(),
         }
     }
 
@@ -58,6 +60,11 @@ impl MetricCard {
         self.compact = true;
         self
     }
+
+    pub fn border_color(mut self, color: gpui::Hsla) -> Self {
+        self.border_color = color;
+        self
+    }
 }
 
 impl IntoElement for MetricCard {
@@ -69,9 +76,8 @@ impl IntoElement for MetricCard {
         let icon_size = if self.compact { px(18.0) } else { px(24.0) };
 
         div()
-            .rounded_md()
             .border_1()
-            .border_color(gpui::Hsla::default())
+            .border_color(self.border_color)
             .child(
                 v_flex()
                     .gap_3()

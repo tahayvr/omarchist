@@ -212,11 +212,16 @@ impl NetworkTab {
             // Interfaces Section
             .child(
                 GroupBox::new().title("Network Interfaces").child(
-                    v_flex().h(px(260.0)).child(
-                        Table::new(&self.interface_table)
-                            .bordered(false)
-                            .stripe(true),
-                    ),
+                    v_flex()
+                        .h(px(240.0))
+                        .min_h(px(150.0))
+                        .flex_1()
+                        .overflow_hidden()
+                        .child(
+                            Table::new(&self.interface_table)
+                                .bordered(false)
+                                .stripe(true),
+                        ),
                 ),
             )
             .into_element()
@@ -265,11 +270,11 @@ impl InterfaceTableDelegate {
         Self {
             interfaces: Vec::new(),
             columns: vec![
-                Column::new("name", "Interface").width(px(120.0)),
-                Column::new("ip", "IP Address").width(px(150.0)),
-                Column::new("status", "Status").width(px(80.0)),
-                Column::new("received", "Received").width(px(100.0)),
-                Column::new("transmitted", "Transmitted").width(px(100.0)),
+                Column::new("name", "Interface").width(px(80.0)),
+                Column::new("ip", "IP Address").width(px(120.0)),
+                Column::new("status", "Status").width(px(60.0)),
+                Column::new("received", "Received").width(px(80.0)),
+                Column::new("transmitted", "Transmitted").width(px(80.0)),
             ],
         }
     }

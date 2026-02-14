@@ -205,7 +205,6 @@ impl Render for BackgroundsTab {
                         .child(
                             div()
                                 .size_16()
-                                .rounded_md()
                                 .bg(cx.theme().muted)
                                 .flex()
                                 .items_center()
@@ -249,7 +248,6 @@ impl Render for BackgroundsTab {
                                             .relative()
                                             .w(px(150.))
                                             .h(px(100.))
-                                            .rounded_md()
                                             .overflow_hidden()
                                             .border_1()
                                             .border_color(cx.theme().border)

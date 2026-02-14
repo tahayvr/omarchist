@@ -162,7 +162,6 @@ pub fn error_message(text: impl Into<SharedString>) -> Div {
         .bg(gpui::rgb(0xffcccc))
         .border_1()
         .border_color(gpui::rgb(0xff0000))
-        .rounded_md()
         .child(
             div()
                 .text_sm()

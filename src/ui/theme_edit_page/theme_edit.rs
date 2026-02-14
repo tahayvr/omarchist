@@ -18,7 +18,7 @@ use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
-    button::{Button, ButtonVariants},
+    button::Button,
     h_flex,
     scroll::ScrollableElement,
     tab::{Tab, TabBar},
@@ -246,8 +246,6 @@ impl Render for ThemeEditPage {
                     .child(
                         Button::new("back-btn")
                             .label("Back")
-                            .primary()
-                            .outline()
                             .compact()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.navigate_back(window, cx);

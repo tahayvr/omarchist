@@ -15,7 +15,7 @@ impl SystemTab {
         &self,
         collector: &DataCollector,
         theme: &gpui_component::Theme,
-        _viewport_width: gpui::Pixels,
+        viewport_width: gpui::Pixels,
     ) -> impl IntoElement {
         let cpu_data: Vec<f64> = collector.data.iter().map(|p| p.cpu).collect();
         let memory_data: Vec<f64> = collector.data.iter().map(|p| p.memory).collect();
@@ -28,6 +28,13 @@ impl SystemTab {
         let green = theme.green;
         let blue = theme.blue;
         let background = theme.background;
+
+        // Responsive chart height
+        let chart_height = if viewport_width < px(640.0) {
+            px(140.0)
+        } else {
+            px(180.0)
+        };
 
         v_flex()
             .gap_6()
@@ -72,8 +79,8 @@ impl SystemTab {
                         )))
                         // CPU History Chart
                         .child(
-                            v_flex().gap_3().child(div().text_sm().child("CPU")).child(
-                                div().h(px(180.0)).child(
+                            v_flex().gap_3().child(
+                                div().h(chart_height).child(
                                     AreaChart::new(build_chart_points(&cpu_data, 5))
                                         .x(|(t, _)| t.clone())
                                         .y(|(_, v)| *v)
@@ -91,12 +98,13 @@ impl SystemTab {
             )
             // Memory Section
             .child(
-                div().w_full().child(
-                    GroupBox::new().title("Memory").child(
-                        v_flex()
-                            .gap_3()
-                            .child(
-                                div().h(px(180.0)).w_full().child(
+                GroupBox::new().title("Memory").child(
+                    v_flex()
+                        .gap_3()
+                        // Memory History Chart
+                        .child(
+                            v_flex().gap_3().child(
+                                div().h(chart_height).child(
                                     AreaChart::new(build_chart_points(&memory_data, 5))
                                         .x(|(t, _)| t.clone())
                                         .y(|(_, v)| *v)
@@ -108,44 +116,37 @@ impl SystemTab {
                                         ))
                                         .tick_margin(10),
                                 ),
-                            )
-                            // Memory stats
-                            .child(
-                                h_flex()
-                                    .gap_6()
-                                    .mt_2()
-                                    .child(
-                                        v_flex()
-                                            .gap_1()
-                                            .child(div().text_xs().child("Total"))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .child(format_bytes(memory_info.total)),
-                                            ),
-                                    )
-                                    .child(
-                                        v_flex()
-                                            .gap_1()
-                                            .child(div().text_xs().child("Used"))
-                                            .child(
-                                                div()
-                                                    .text_sm()
-                                                    .child(format_bytes(memory_info.used)),
-                                            ),
-                                    )
-                                    .child(
-                                        v_flex()
-                                            .gap_1()
-                                            .child(div().text_xs().child("Swap"))
-                                            .child(div().text_sm().child(format!(
-                                                "{} / {}",
-                                                format_bytes(memory_info.swap_used),
-                                                format_bytes(memory_info.swap_total)
-                                            ))),
-                                    ),
                             ),
-                    ),
+                        )
+                        // Memory stats - flex_wrap for responsiveness
+                        .child(
+                            h_flex()
+                                .gap_6()
+                                .flex_wrap()
+                                .mt_2()
+                                .child(
+                                    v_flex()
+                                        .gap_1()
+                                        .child(div().text_xs().child("Total"))
+                                        .child(
+                                            div().text_sm().child(format_bytes(memory_info.total)),
+                                        ),
+                                )
+                                .child(
+                                    v_flex().gap_1().child(div().text_xs().child("Used")).child(
+                                        div().text_sm().child(format_bytes(memory_info.used)),
+                                    ),
+                                )
+                                .child(
+                                    v_flex().gap_1().child(div().text_xs().child("Swap")).child(
+                                        div().text_sm().child(format!(
+                                            "{} / {}",
+                                            format_bytes(memory_info.swap_used),
+                                            format_bytes(memory_info.swap_total)
+                                        )),
+                                    ),
+                                ),
+                        ),
                 ),
             )
             .into_element()
