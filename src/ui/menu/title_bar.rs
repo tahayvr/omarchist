@@ -74,7 +74,7 @@ impl Render for MainTitleBar {
                                         }),
                                 )
                                 .separator()
-                                .item(PopupMenuItem::new("Refresh Theme"))
+                                .menu("Refresh Theme", Box::new(super::app_menu::RefreshTheme))
                                 .separator()
                                 .item(PopupMenuItem::new("Import Theme...").disabled(true))
                                 .item(PopupMenuItem::new("Export Theme...").disabled(true))

@@ -97,6 +97,7 @@ fn main() {
             KeyBinding::new("ctrl-x", gpui_component::input::Cut, None),
             KeyBinding::new("ctrl-c", gpui_component::input::Copy, None),
             KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
+            KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
         ]);
 
         cx.spawn(async move |cx| {

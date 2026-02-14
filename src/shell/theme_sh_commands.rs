@@ -1,5 +1,5 @@
 use smol::unblock;
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 pub async fn apply_theme(dir: String) -> Result<(), String> {
     unblock(move || {
@@ -16,4 +16,43 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
         Ok(())
     })
     .await
+}
+
+// Refresh apps and gnome to apply theme changes
+pub fn refresh_theme() -> Result<(), String> {
+    // Run a best-effort, silent bash script (no terminal)
+    let script = r#"
+# Restart components to apply new theme
+if pgrep -x waybar >/dev/null; then
+  omarchy-restart-waybar
+fi
+omarchy-restart-swayosd
+omarchy-restart-terminal
+omarchy-restart-hyprctl
+omarchy-restart-btop
+omarchy-restart-opencode
+omarchy-restart-mako
+
+# Change app-specific themes
+omarchy-theme-set-gnome
+omarchy-theme-set-browser
+omarchy-theme-set-vscode
+omarchy-theme-set-obsidian
+"#;
+
+    let status = Command::new("bash")
+        .arg("-c")
+        .arg(script)
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status()
+        .map_err(|e| format!("Failed to start bash: {e}"))?;
+
+    if status.success() {
+        Ok(())
+    } else {
+        eprintln!("Desktop adjustments exited with status: {status}");
+        Ok(())
+    }
 }

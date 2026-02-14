@@ -181,6 +181,15 @@ impl Render for MainWindowView {
                     this.navigate_to(ActivePage::About, window, cx);
                 },
             ))
+            .on_action(cx.listener(
+                |_, _: &crate::ui::menu::app_menu::RefreshTheme, _window, cx| {
+                    cx.spawn(async move |_this, _cx| {
+                        if let Err(e) = crate::shell::theme_sh_commands::refresh_theme() {
+                            eprintln!("Failed to refresh theme: {e}");
+                        }
+                    }).detach();
+                },
+            ))
             .child(self.title_bar.clone())
             .child(
                 h_flex()

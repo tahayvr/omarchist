@@ -1,4 +1,4 @@
-use gpui::{Action, actions};
+use gpui::{actions, Action};
 
 actions!(
     app_menu,
@@ -9,7 +9,8 @@ actions!(
         NavigateToSettings,
         Copy,
         Paste,
-        Cut
+        Cut,
+        RefreshTheme
     ]
 );
 actions!(appearance, [SwitchToLight, SwitchToDark]);
