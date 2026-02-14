@@ -1,14 +1,13 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui::{div, px, App, AppContext, IntoElement, ParentElement, Styled, Window};
 use gpui_component::{
-    ActiveTheme,
     chart::AreaChart,
     group_box::GroupBox,
     h_flex,
     table::{Column, Table, TableDelegate, TableState},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
-use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
+use super::data_collector::{format_bytes, format_bytes_speed, DataCollector, InterfaceInfo};
 
 /// Network tab with traffic visualization and interface details
 pub struct NetworkTab {
@@ -240,10 +239,21 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
         data.extend(std::iter::repeat(last).take(min_len - data.len()));
     }
 
-    data.iter()
+    // Find max value to normalize the scale
+    let max_val = data.iter().copied().fold(0.0_f64, f64::max);
+    let scale = if max_val > 0.0 { max_val } else { 1.0 };
+
+    // Normalize to 0.0-1.0 range and add an anchor point at 1.0 to fix Y-axis scale
+    let mut points: Vec<(String, f64)> = data
+        .iter()
         .enumerate()
-        .map(|(i, v)| (format!("{}", i), *v))
-        .collect()
+        .map(|(i, v)| (format!("{}", i), *v / scale))
+        .collect();
+
+    // Add hidden anchor point at max to fix Y-axis scale
+    points.push(("".to_string(), 1.0));
+
+    points
 }
 
 /// Create the interface table entity

@@ -23,6 +23,7 @@ impl SystemTab {
         let memory_info = collector.get_memory_info();
 
         // Clone colors to avoid lifetime issues
+        let cyan = theme.cyan;
         let red = theme.red;
         let yellow = theme.yellow;
         let green = theme.green;
@@ -84,10 +85,11 @@ impl SystemTab {
                                     AreaChart::new(build_chart_points(&cpu_data, 5))
                                         .x(|(t, _)| t.clone())
                                         .y(|(_, v)| *v)
-                                        .stroke(red)
+                                        .step_after()
+                                        .stroke(cyan)
                                         .fill(gpui::linear_gradient(
                                             0.0,
-                                            gpui::linear_color_stop(red.opacity(0.3), 1.0),
+                                            gpui::linear_color_stop(cyan.opacity(0.3), 1.0),
                                             gpui::linear_color_stop(background.opacity(0.1), 0.0),
                                         ))
                                         .tick_margin(10),
@@ -108,6 +110,7 @@ impl SystemTab {
                                     AreaChart::new(build_chart_points(&memory_data, 5))
                                         .x(|(t, _)| t.clone())
                                         .y(|(_, v)| *v)
+                                        .step_after()
                                         .stroke(blue)
                                         .fill(gpui::linear_gradient(
                                             0.0,
@@ -165,8 +168,14 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
         data.extend(std::iter::repeat(last).take(min_len - data.len()));
     }
 
-    data.iter()
+    let mut points: Vec<(String, f64)> = data
+        .iter()
         .enumerate()
-        .map(|(i, v)| (format!("{}", i), *v))
-        .collect()
+        .map(|(i, v)| (format!("{}", i), *v / 100.0))
+        .collect();
+
+    // Add hidden anchor point at 100% to fix Y-axis scale
+    points.push(("".to_string(), 1.0));
+
+    points
 }

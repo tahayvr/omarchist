@@ -1,4 +1,4 @@
-use gpui::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
+use gpui::{div, Hsla, IntoElement, ParentElement, Pixels, Styled};
 use gpui_component::{chart::AreaChart, h_flex};
 
 /// A mini sparkline chart for displaying trends in small spaces
@@ -82,10 +82,21 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
         data.extend(std::iter::repeat(last).take(min_len - data.len()));
     }
 
-    data.iter()
+    // Find max value to normalize the scale
+    let max_val = data.iter().copied().fold(0.0_f64, f64::max);
+    let scale = if max_val > 0.0 { max_val } else { 1.0 };
+
+    // Normalize to 0.0-1.0 range and add an anchor point at 1.0 to fix Y-axis scale
+    let mut points: Vec<(String, f64)> = data
+        .iter()
         .enumerate()
-        .map(|(i, v)| (format!("{}", i), *v))
-        .collect()
+        .map(|(i, v)| (format!("{}", i), *v / scale))
+        .collect();
+
+    // Add hidden anchor point at max to fix Y-axis scale
+    points.push(("".to_string(), 1.0));
+
+    points
 }
 
 /// A colored indicator dot showing status
