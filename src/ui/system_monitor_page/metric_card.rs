@@ -1,5 +1,5 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, h_flex, v_flex};
+use gpui::{div, prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
+use gpui_component::{h_flex, v_flex, Icon};
 
 use super::sparkline::Sparkline;
 
@@ -13,6 +13,7 @@ pub struct MetricCard {
     color: gpui::Hsla,
     alert_color: Option<gpui::Hsla>,
     compact: bool,
+    large: bool,
     border_color: gpui::Hsla,
 }
 
@@ -27,6 +28,7 @@ impl MetricCard {
             color: gpui::Hsla::default(),
             alert_color: None,
             compact: false,
+            large: false,
             border_color: gpui::Hsla::default(),
         }
     }
@@ -61,6 +63,11 @@ impl MetricCard {
         self
     }
 
+    pub fn large(mut self) -> Self {
+        self.large = true;
+        self
+    }
+
     pub fn border_color(mut self, color: gpui::Hsla) -> Self {
         self.border_color = color;
         self
@@ -72,16 +79,37 @@ impl IntoElement for MetricCard {
 
     fn into_element(self) -> Self::Element {
         let value_color = self.alert_color.unwrap_or(self.color);
-        let padding = if self.compact { px(14.0) } else { px(22.0) };
-        let icon_size = if self.compact { px(18.0) } else { px(24.0) };
+        let padding = if self.compact {
+            px(14.0)
+        } else if self.large {
+            px(28.0)
+        } else {
+            px(22.0)
+        };
+        let icon_size = if self.compact {
+            px(18.0)
+        } else if self.large {
+            px(32.0)
+        } else {
+            px(24.0)
+        };
+        let value_text_class = if self.large {
+            |d: gpui::Div| d.text_3xl()
+        } else {
+            |d: gpui::Div| d.text_2xl()
+        };
 
         div()
             .border_1()
             .border_color(self.border_color)
+            .rounded_md()
+            .h_full()
             .child(
                 v_flex()
                     .gap_3()
                     .p(padding)
+                    .h_full()
+                    .justify_between()
                     .child(
                         h_flex()
                             .gap_3()
@@ -90,22 +118,27 @@ impl IntoElement for MetricCard {
                             .child(div().text_sm().child(self.label)),
                     )
                     .child(
-                        h_flex()
-                            .items_baseline()
-                            .gap_3()
+                        v_flex()
+                            .gap_2()
                             .child(
-                                div()
-                                    .text_2xl()
+                                value_text_class(div())
                                     .font_weight(gpui::FontWeight::SEMIBOLD)
                                     .text_color(value_color)
                                     .child(self.value),
                             )
                             .when_some(self.sub_value, |this, sub| {
-                                this.child(div().text_xs().child(sub))
+                                this.child(div().text_xs().opacity(0.7).child(sub))
                             }),
                     )
                     .when_some(self.sparkline_data, |this, data| {
-                        this.child(Sparkline::new(data).color(self.color).height(px(40.0)))
+                        let sparkline_height = if self.large { px(80.0) } else { px(40.0) };
+                        this.child(
+                            div().flex_grow().child(
+                                Sparkline::new(data)
+                                    .color(self.color)
+                                    .height(sparkline_height),
+                            ),
+                        )
                     }),
             )
             .into_element()
