@@ -17,11 +17,12 @@ use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme,
     button::{Button, ButtonVariants},
     h_flex,
     scroll::ScrollableElement,
     tab::{Tab, TabBar},
-    v_flex, ActiveTheme,
+    v_flex,
 };
 
 /// Action to navigate back to themes page

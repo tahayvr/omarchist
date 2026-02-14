@@ -7,10 +7,11 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
+    Icon, IconName, Root, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
-    v_flex, Icon, IconName, Root, Sizable,
+    v_flex,
 };
 
 /// Represents the currently active page in the application.

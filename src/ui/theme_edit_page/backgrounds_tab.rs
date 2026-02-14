@@ -11,10 +11,11 @@ use crate::system::theme_file_ops::{
 use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
-    v_flex, ActiveTheme, IconName, Sizable,
+    v_flex,
 };
 use std::path::PathBuf;
 
@@ -180,7 +181,7 @@ impl Render for BackgroundsTab {
             )
             .child(
                 // Image count display
-                Label::new(format!("{} image{}", 
+                Label::new(format!("{} image{}",
                     images.len(),
                     if images.len() == 1 { "" } else { "s" }
                 ))
@@ -226,17 +227,17 @@ impl Render for BackgroundsTab {
                     // Image grid
                     let mut grid = v_flex().gap_4();
                     let mut image_index: usize = 0;
-                    
+
                     // Group images into rows
                     for row_images in images.chunks(images_per_row) {
                         let mut row = h_flex().gap_4();
-                        
+
                         for image in row_images {
                             let filename = image.filename.clone();
                             let path = image.path.clone();
                             let current_index = image_index;
                             image_index += 1;
-                            
+
                             row = row.child(
                                 // Image card
                                 v_flex()
@@ -291,10 +292,8 @@ impl Render for BackgroundsTab {
                                     ),
                             );
                         }
-                        
                         grid = grid.child(row);
                     }
-                    
                     grid.into_any_element()
                 },
             )

@@ -10,8 +10,9 @@ use crate::types::themes::{EditingTheme, TerminalConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
+    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex, Colorize,
+    h_flex,
 };
 
 /// Terminal tab content for editing unified terminal colors

@@ -5,11 +5,11 @@
 
 use gpui::*;
 use gpui_component::{
-    h_flex,
+    ActiveTheme, h_flex,
     input::{Input, InputState},
     label::Label,
     switch::Switch,
-    v_flex, ActiveTheme,
+    v_flex,
 };
 
 /// A reusable form field with label and input

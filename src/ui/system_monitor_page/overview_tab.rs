@@ -1,8 +1,8 @@
-use gpui::{prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
-use gpui_component::{v_flex, Icon};
+use gpui::{IntoElement, ParentElement, Styled, prelude::FluentBuilder as _, px};
+use gpui_component::{Icon, v_flex};
 
 use super::{
-    data_collector::{format_bytes, format_bytes_speed, DataCollector},
+    data_collector::{DataCollector, format_bytes, format_bytes_speed},
     metric_card::{MetricCard, MetricGrid},
 };
 
