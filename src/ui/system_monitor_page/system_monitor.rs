@@ -255,7 +255,7 @@ impl Render for SystemMonitorPage {
         let active_index = self.active_tab.to_index();
 
         let tab_bar = TabBar::new("monitor-tabs")
-            .segmented()
+            // .segmented()
             .selected_index(active_index)
             .on_click(cx.listener(|this, ix: &usize, window, cx| {
                 this.set_active_tab(*ix, window, cx);
@@ -273,6 +273,8 @@ impl Render for SystemMonitorPage {
                     .id("tab-content")
                     .flex_1()
                     .overflow_y_scroll()
+                    .pt_4()
+                    .pb_4()
                     .map(|this| match self.active_tab {
                         MonitorTab::Overview => {
                             this.child(self.overview_tab.render(&self.collector, theme))

@@ -152,7 +152,7 @@ pub trait TabInputHandler: Sized {
 
 /// Standard tab container styling
 pub fn tab_container() -> Div {
-    v_flex().p_4().gap_6()
+    v_flex().gap_6().pt_4().pb_4()
 }
 
 /// Error message display component

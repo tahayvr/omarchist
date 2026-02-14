@@ -1,14 +1,13 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui::{div, px, App, AppContext, IntoElement, ParentElement, Styled, Window};
 use gpui_component::{
-    ActiveTheme,
     group_box::GroupBox,
     h_flex,
     progress::Progress,
     table::{Column, Table, TableDelegate, TableState},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
-use super::data_collector::{DataCollector, DiskInfo, format_bytes};
+use super::data_collector::{format_bytes, DataCollector, DiskInfo};
 
 /// Disks tab with storage visualization
 pub struct DisksTab {
@@ -41,7 +40,6 @@ impl DisksTab {
         let border = theme.border;
 
         v_flex()
-            .p_6()
             .gap_6()
             // Disk Usage Overview
             .child(

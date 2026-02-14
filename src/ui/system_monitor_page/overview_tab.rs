@@ -1,8 +1,8 @@
-use gpui::{IntoElement, ParentElement, Styled, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, v_flex};
+use gpui::{prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
+use gpui_component::{v_flex, Icon};
 
 use super::{
-    data_collector::{DataCollector, format_bytes, format_bytes_speed},
+    data_collector::{format_bytes, format_bytes_speed, DataCollector},
     metric_card::{MetricCard, MetricGrid},
 };
 
@@ -70,7 +70,6 @@ impl OverviewTab {
         let battery_info = collector.get_battery_info().first().cloned();
 
         v_flex()
-            .p_6()
             .gap_6()
             .child(
                 MetricGrid::new()

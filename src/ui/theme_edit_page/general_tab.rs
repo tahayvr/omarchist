@@ -30,9 +30,14 @@ pub struct GeneralTab {
 
 impl GeneralTab {
     /// Create a new GeneralTab instance
-    pub fn new(theme_data: EditingTheme, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // Store the original theme name for saving
-        let original_theme_name = theme_data.name.clone();
+    pub fn new(
+        theme_name: String,
+        theme_data: EditingTheme,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        // Store the folder name for saving (not the display name from JSON)
+        let original_theme_name = theme_name;
 
         // Extract author value before moving theme_data
         let author_value = theme_data.author.clone().unwrap_or_default();

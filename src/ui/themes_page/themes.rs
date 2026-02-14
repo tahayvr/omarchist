@@ -99,11 +99,9 @@ impl Render for ThemesPage {
             .overflow_y_scrollbar()
             .overflow_x_hidden()
             .gap_4()
-            .p_4()
-            .pb_16()
             .child(
                 TabBar::new("theme-tabs")
-                    .segmented()
+                    // .segmented()
                     .selected_index(self.active_tab)
                     .on_click(cx.listener(|view, index, _, cx| {
                         view.active_tab = *index;

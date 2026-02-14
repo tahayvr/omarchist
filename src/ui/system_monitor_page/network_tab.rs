@@ -1,14 +1,13 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui::{div, px, App, AppContext, IntoElement, ParentElement, Styled, Window};
 use gpui_component::{
-    ActiveTheme,
     chart::AreaChart,
     group_box::GroupBox,
     h_flex,
     table::{Column, Table, TableDelegate, TableState},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
-use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
+use super::data_collector::{format_bytes, format_bytes_speed, DataCollector, InterfaceInfo};
 
 /// Network tab with traffic visualization and interface details
 pub struct NetworkTab {
@@ -49,7 +48,6 @@ impl NetworkTab {
         let background = theme.background;
 
         v_flex()
-            .p_6()
             .gap_6()
             // Traffic Section
             .child(

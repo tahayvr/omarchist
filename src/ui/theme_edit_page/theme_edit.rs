@@ -75,7 +75,8 @@ impl ThemeEditPage {
         };
 
         // Create General tab instance
-        let general_tab = cx.new(|cx| GeneralTab::new(theme_data.clone(), window, cx));
+        let general_tab =
+            cx.new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Waybar tab instance
         let waybar_tab =
@@ -233,15 +234,12 @@ impl Render for ThemeEditPage {
             .id("theme-edit-page")
             .size_full()
             .bg(theme.background)
+            .gap_4()
             .child(
-                // Header
+                // Back button + Tabs row
                 h_flex()
-                    .p_4()
                     .gap_4()
                     .items_center()
-                    .justify_start()
-                    .border_b_1()
-                    .border_color(theme.border)
                     .child(
                         Button::new("back-btn")
                             .label("Back")
@@ -251,22 +249,21 @@ impl Render for ThemeEditPage {
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.navigate_back(window, cx);
                             })),
+                    )
+                    .child(
+                        TabBar::new("theme-edit-tabs")
+                            .selected_index(self.active_tab)
+                            .on_click(cx.listener(|view, index, _, cx| {
+                                view.active_tab = *index;
+                                cx.notify();
+                            }))
+                            .children(tabs.iter().map(|tab| Tab::new().label(tab.as_str()))),
                     ),
             )
             .children(
                 self.error_message
                     .as_ref()
                     .map(|error| error_message(error.clone())),
-            )
-            .child(
-                // Tabs
-                TabBar::new("theme-edit-tabs")
-                    .selected_index(self.active_tab)
-                    .on_click(cx.listener(|view, index, _, cx| {
-                        view.active_tab = *index;
-                        cx.notify();
-                    }))
-                    .children(tabs.iter().map(|tab| Tab::new().label(tab.as_str()))),
             )
             .child(
                 // Tab content area

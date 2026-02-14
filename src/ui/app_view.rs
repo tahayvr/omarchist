@@ -7,11 +7,10 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    Icon, IconName, Root, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
-    v_flex,
+    v_flex, Icon, IconName, Root, Sizable,
 };
 
 /// Represents the currently active page in the application.
@@ -267,6 +266,7 @@ impl Render for MainWindowView {
                             .flex_1()
                             .size_full()
                             .overflow_hidden()
+                            .p_4()
                             .child(self.current_page_view()),
                     ),
             )

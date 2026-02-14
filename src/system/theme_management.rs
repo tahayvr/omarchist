@@ -235,14 +235,14 @@ fn parse_waybar_css(css_content: &str) -> Option<WaybarConfig> {
     for line in css_content.lines() {
         let line = line.trim();
         if line.starts_with("@define-color background") {
-            // Extract color value after the space
+            // Extract color value after the space and strip trailing semicolons
             if let Some(color) = line.split_whitespace().nth(2) {
-                background = Some(color.to_string());
+                background = Some(color.trim_end_matches(';').to_string());
             }
         } else if line.starts_with("@define-color foreground") {
-            // Extract color value after the space
+            // Extract color value after the space and strip trailing semicolons
             if let Some(color) = line.split_whitespace().nth(2) {
-                foreground = Some(color.to_string());
+                foreground = Some(color.trim_end_matches(';').to_string());
             }
         }
     }
@@ -643,11 +643,7 @@ pub fn update_terminal_configs(theme_name: &str, config: &TerminalConfig) -> Res
 /// Generate Alacritty TOML config
 fn generate_alacritty_config(config: &TerminalConfig) -> String {
     format!(
-        r#"# ────────────────────────────────────────────────────────────
-# Omarchy Custom Theme for Alacritty
-# Generated with Omarchist
-# ────────────────────────────────────────────────────────────
-
+        r#"
 [colors]
 [colors.primary]
 background = "{}"
@@ -708,13 +704,7 @@ white = "{}"
 /// Generate Kitty config
 fn generate_kitty_config(config: &TerminalConfig) -> String {
     format!(
-        r#"# ────────────────────────────────────────────────────────────
-# Custom Theme for Kitty
-# Made with Omarchist
-# ────────────────────────────────────────────────────────────
-
-## name: Custom Theme
-
+        r#"
 foreground              {}
 background              {}
 selection_foreground    {}
@@ -784,11 +774,7 @@ color15 {}
 /// Generate Ghostty config
 fn generate_ghostty_config(config: &TerminalConfig) -> String {
     format!(
-        r#"# ────────────────────────────────────────────────────────────
-# Custom Theme for Ghostty
-# Made by Omarchist
-# ────────────────────────────────────────────────────────────
-
+        r#"
 background = {}
 foreground = {}
 
@@ -910,11 +896,7 @@ pub fn update_hyprlock_conf(theme_name: &str, config: &HyprlockConfig) -> Result
     // Generate the conf content
     let conf_content = format!(
         "$color = rgb({})\n$inner_color = rgb({})\n$outer_color = rgb({})\n$font_color = rgb({})\n$check_color = rgb({})\n",
-        config.color,
-        config.inner_color,
-        config.outer_color,
-        config.font_color,
-        config.check_color
+        config.color, config.inner_color, config.outer_color, config.font_color, config.check_color
     );
 
     // Write to hyprlock.conf
@@ -1374,11 +1356,7 @@ pub fn update_swayosd_css(theme_name: &str, config: &SwayosdConfig) -> Result<()
     // Generate the CSS content
     let css_content = format!(
         "@define-color background-color {};\n@define-color border-color {};\n@define-color label {};\n@define-color image {};\n@define-color progress {};\n",
-        config.background_color,
-        config.border_color,
-        config.label,
-        config.image,
-        config.progress
+        config.background_color, config.border_color, config.label, config.image, config.progress
     );
 
     // Write to swayosd.css

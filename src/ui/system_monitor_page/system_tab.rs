@@ -1,7 +1,7 @@
-use gpui::{IntoElement, ParentElement, Styled, div, px};
+use gpui::{div, px, IntoElement, ParentElement, Styled};
 use gpui_component::{chart::AreaChart, group_box::GroupBox, h_flex, progress::Progress, v_flex};
 
-use super::data_collector::{DataCollector, format_bytes};
+use super::data_collector::{format_bytes, DataCollector};
 
 /// System tab with detailed CPU and Memory information
 pub struct SystemTab;
@@ -29,7 +29,6 @@ impl SystemTab {
         let background = theme.background;
 
         v_flex()
-            .p_6()
             .gap_6()
             // CPU Section
             .child(
