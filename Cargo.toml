@@ -17,6 +17,7 @@ rust-embed = "8.11.0"
 chrono = "0.4.43"
 sysinfo = "0.38.1"
 battery = "0.7.8"
+rfd = "0.17.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 core-text = "=21.0.0"

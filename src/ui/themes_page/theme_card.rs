@@ -212,7 +212,7 @@ impl Render for ThemeCard {
                             .small()
                             .primary()
                             .on_click(move |_event, _window, _cx| {
-                                eprintln!("=== BUTTON CLICKED ===");
+                                eprintln!("=== Apply BUTTON CLICKED ===");
                                 eprintln!("Theme: {}", dir);
                                 let dir_clone = dir.clone();
                                 smol::spawn(async move {

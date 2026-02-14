@@ -6,7 +6,7 @@
 //! - Delete individual images directly from the UI
 
 use crate::system::theme_file_ops::{
-    list_background_images, open_backgrounds_folder, remove_background_image,
+    add_background_image, list_background_images, remove_background_image,
 };
 use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
 use gpui::*;
@@ -82,15 +82,40 @@ impl BackgroundsTab {
         cx.notify();
     }
 
-    /// Open the backgrounds folder in Nautilus
-    fn open_folder(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    /// Add images using native file picker dialog
+    fn add_images(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.error_message = None;
 
-        if let Err(e) = open_backgrounds_folder(&self.theme_name, self.is_system_theme) {
-            self.error_message = Some(format!("Failed to open folder: {}", e));
-        }
+        // Use rfd to pick multiple image files
+        let files = rfd::FileDialog::new()
+            .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
+            .set_title("Select Background Images")
+            .pick_files();
 
-        cx.notify();
+        if let Some(paths) = files {
+            let mut added_count = 0;
+            let mut errors = Vec::new();
+
+            for path in paths {
+                match add_background_image(&self.theme_name, self.is_system_theme, &path) {
+                    Ok(_) => added_count += 1,
+                    Err(e) => errors.push(format!("{}: {}", path.display(), e)),
+                }
+            }
+
+            // Reload images to show new ones
+            self.load_images(cx);
+
+            // Show error if any files failed
+            if !errors.is_empty() {
+                self.error_message = Some(format!(
+                    "Added {} images. Failed to add: {}",
+                    added_count,
+                    errors.join("; ")
+                ));
+                cx.notify();
+            }
+        }
     }
 
     /// Delete a background image
@@ -142,16 +167,16 @@ impl Render for BackgroundsTab {
                             .font_weight(FontWeight::MEDIUM),
                     )
                     .child(
-                        Button::new("open-folder-btn")
-                            .label("Open Folder")
+                        Button::new("add-images-btn")
+                            .label("Add Images")
                             .primary()
                             .on_click(cx.listener(|this, _, window, cx| {
-                                this.open_folder(window, cx);
+                                this.add_images(window, cx);
                             })),
                     ),
             )
             .child(
-                help_text("Manage background images in the backgrounds folder. Click \"Open Folder\" to add or remove images using the file manager. You can also delete images directly below."),
+                help_text("Manage background images for this theme. Click \"Add Images\" to select images to add. You can also delete images directly from the grid below."),
             )
             .child(
                 // Image count display
@@ -194,7 +219,7 @@ impl Render for BackgroundsTab {
                                 .text_color(cx.theme().muted_foreground),
                         )
                         .child(
-                            help_text("Click \"Open Folder\" to add background images"),
+                            help_text("Click \"Add Images\" to select background images"),
                         )
                         .into_any_element()
                 } else {
