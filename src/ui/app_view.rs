@@ -67,13 +67,14 @@ impl MainWindowView {
         let about_view = cx.new(|_| AboutView);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
 
-        let omarchy_view = cx.new(|_| OmarchyView);
-        let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
-
-        // Get Omarchy version (silently fail if unavailable)
+        // Get Omarchy version once (silently fail if unavailable)
         let omarchy_version = get_local_omarchy_version()
             .ok()
             .filter(|v| v != "unknown" && !v.is_empty());
+        
+        // Pass version to OmarchyView to avoid redundant git calls
+        let omarchy_view = cx.new(|cx| OmarchyView::new(omarchy_version.clone(), cx));
+        let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
 
         Self {
             title_bar,

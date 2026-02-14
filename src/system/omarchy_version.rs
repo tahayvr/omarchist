@@ -1,4 +1,5 @@
 use dirs;
+use isahc::AsyncReadResponseExt;
 use std::process::Command;
 
 use serde::Deserialize;
@@ -10,26 +11,19 @@ struct GitHubRelease {
 }
 
 // Check if there's a new version available on GitHub
-pub async fn check_omarchy_update() -> Result<bool, String> {
-    eprintln!("Checking for Omarchy updates");
-
-    // Get current version
-    let current_version = get_local_omarchy_version()?;
-
+pub async fn check_omarchy_update(current_version: &str) -> Result<bool, String> {
     if current_version == "unknown" {
-        eprintln!("Cannot check for updates - current version is unknown");
         return Ok(false);
     }
 
-    // Fetch latest release from GitHub
-    let client = reqwest::Client::builder()
-        .user_agent("omarchist")
-        .build()
-        .map_err(|e| format!("Failed to create HTTP client: {e}"))?;
+    // Fetch latest release from GitHub using isahc (runtime-agnostic)
+    let request = isahc::Request::builder()
+        .uri("https://api.github.com/repos/basecamp/omarchy/releases/latest")
+        .header("User-Agent", "omarchist")
+        .body(())
+        .map_err(|e| format!("Failed to build request: {e}"))?;
 
-    let response = client
-        .get("https://api.github.com/repos/basecamp/omarchy/releases/latest")
-        .send()
+    let mut response = isahc::send_async(request)
         .await
         .map_err(|e| format!("Failed to fetch releases: {e}"))?;
 
@@ -38,29 +32,20 @@ pub async fn check_omarchy_update() -> Result<bool, String> {
     }
 
     let release: GitHubRelease = response
-        .json()
+        .json::<GitHubRelease>()
         .await
         .map_err(|e| format!("Failed to parse release data: {e}"))?;
 
     // Skip prereleases
     if release.prerelease {
-        eprintln!("Latest release is a prerelease, skipping");
         return Ok(false);
     }
 
     let latest_version = release.tag_name.trim_start_matches('v');
     let current_version_clean = current_version.trim_start_matches('v');
 
-    eprintln!("Current version: {current_version_clean}, Latest version: {latest_version}");
-
     // Compare versions
     let update_available = compare_versions(current_version_clean, latest_version);
-
-    if update_available {
-        eprintln!("Update available: {latest_version}");
-    } else {
-        eprintln!("Already up to date");
-    }
 
     Ok(update_available)
 }
@@ -90,8 +75,6 @@ fn compare_versions(current: &str, latest: &str) -> bool {
 
 // Get local Omarchy version from git tags
 pub fn get_local_omarchy_version() -> Result<String, String> {
-    eprintln!("Getting Omarchy version from git tag");
-
     // Get the home directory
     let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
 
@@ -121,19 +104,12 @@ pub fn get_local_omarchy_version() -> Result<String, String> {
                 if version.is_empty() {
                     Ok("unknown".to_string())
                 } else {
-                    eprintln!("Found Omarchy version: {version}");
                     Ok(version)
                 }
             } else {
-                let error = String::from_utf8(result.stderr)
-                    .unwrap_or_else(|_| "Unknown error".to_string());
-                eprintln!("Git command failed: {error}");
                 Ok("unknown".to_string())
             }
         }
-        Err(e) => {
-            eprintln!("Failed to run git command: {e}");
-            Ok("unknown".to_string())
-        }
+        Err(_) => Ok("unknown".to_string()),
     }
 }
