@@ -7,11 +7,8 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    Icon, IconName, Root, Sizable,
-    button::{Button, ButtonVariants},
-    h_flex,
+    Collapsible, Icon, IconName, Root, h_flex,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
-    v_flex,
 };
 
 /// Represents the currently active page in the application.
@@ -187,7 +184,8 @@ impl Render for MainWindowView {
                         if let Err(e) = crate::shell::theme_sh_commands::refresh_theme() {
                             eprintln!("Failed to refresh theme: {e}");
                         }
-                    }).detach();
+                    })
+                    .detach();
                 },
             ))
             .child(self.title_bar.clone())
@@ -216,14 +214,13 @@ impl Render for MainWindowView {
                                     )
                                     .when(!self.sidebar_collapsed, |this| {
                                         this.child(
-                                            v_flex()
-                                                .gap_0()
-                                                .text_sm()
+                                            h_flex()
                                                 .flex_1()
+                                                .text_sm()
                                                 .line_height(relative(1.25))
                                                 .overflow_hidden()
                                                 .text_ellipsis()
-                                                .child("OMARCHIST"),
+                                                .child("Dashboard"),
                                         )
                                     }),
                             )
@@ -259,16 +256,29 @@ impl Render for MainWindowView {
                                 ),
                             )
                             .footer(
-                                div().p_2().flex().items_center().justify_center().child(
-                                    Button::new("sidebar-toggle")
-                                        .icon(Icon::new(IconName::PanelLeft))
-                                        .ghost()
-                                        .small()
-                                        .on_click(cx.listener(|this, _, _, cx| {
-                                            this.sidebar_collapsed = !this.sidebar_collapsed;
-                                            cx.notify();
-                                        })),
-                                ),
+                                SidebarGroup::new("")
+                                    .collapsed(self.sidebar_collapsed)
+                                    .child(
+                                        SidebarMenu::new()
+                                            .child(
+                                                SidebarMenuItem::new("Omarchy")
+                                                    .icon(
+                                                        Icon::empty().path("logo/omarchy-icon.svg"),
+                                                    )
+                                                    .on_click(cx.listener(|_, _, _, _| {
+                                                        // No-op for now
+                                                    })),
+                                            )
+                                            .child(
+                                                SidebarMenuItem::new("Toggle Sidebar")
+                                                    .icon(Icon::new(IconName::PanelLeft))
+                                                    .on_click(cx.listener(|this, _, _, cx| {
+                                                        this.sidebar_collapsed =
+                                                            !this.sidebar_collapsed;
+                                                        cx.notify();
+                                                    })),
+                                            ),
+                                    ),
                             ),
                     )
                     .child(
