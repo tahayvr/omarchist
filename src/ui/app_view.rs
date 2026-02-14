@@ -206,11 +206,7 @@ impl Render for MainWindowView {
                                             .justify_center()
                                             .size_4()
                                             .flex_shrink_0()
-                                            .child(
-                                                img("logo/omarchist.png")
-                                                    .size_8()
-                                                    .object_fit(ObjectFit::Contain),
-                                            ),
+                                            .child(Icon::empty().path("icons/layout-grid.svg")),
                                     )
                                     .when(!self.sidebar_collapsed, |this| {
                                         this.child(
