@@ -1,6 +1,7 @@
 use crate::system::omarchy_version::get_local_omarchy_version;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::menu::title_bar::MainTitleBar;
+use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
@@ -26,6 +27,7 @@ pub enum ActivePage {
     SystemMonitor,
     Settings,
     About,
+    Omarchy,
 }
 
 pub struct MainWindowView {
@@ -38,6 +40,7 @@ pub struct MainWindowView {
     system_monitor_root: AnyView,
     settings_root: AnyView,
     about_root: AnyView,
+    omarchy_root: AnyView,
     sidebar_collapsed: bool,
     omarchy_version: Option<String>,
 }
@@ -64,6 +67,9 @@ impl MainWindowView {
         let about_view = cx.new(|_| AboutView);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
 
+        let omarchy_view = cx.new(|_| OmarchyView);
+        let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
+
         // Get Omarchy version (silently fail if unavailable)
         let omarchy_version = get_local_omarchy_version()
             .ok()
@@ -79,6 +85,7 @@ impl MainWindowView {
             system_monitor_root,
             settings_root,
             about_root,
+            omarchy_root,
             sidebar_collapsed: false,
             omarchy_version,
         }
@@ -127,6 +134,7 @@ impl MainWindowView {
             ActivePage::SystemMonitor => self.system_monitor_root.clone(),
             ActivePage::Settings => self.settings_root.clone(),
             ActivePage::About => self.about_root.clone(),
+            ActivePage::Omarchy => self.omarchy_root.clone(),
         }
     }
 
@@ -137,6 +145,7 @@ impl MainWindowView {
             (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
+            (ActivePage::Omarchy, ActivePage::Omarchy) => true,
             _ => false,
         }
     }
@@ -294,6 +303,7 @@ impl Render for MainWindowView {
                                                     .icon(
                                                         Icon::empty().path("logo/omarchy-icon.svg"),
                                                     )
+                                                    .active(self.is_page_active(ActivePage::Omarchy))
                                                     .suffix(
                                                         self.omarchy_version
                                                             .as_ref()
@@ -310,8 +320,8 @@ impl Render for MainWindowView {
                                                                 div().into_any_element()
                                                             }),
                                                     )
-                                                    .on_click(cx.listener(|_, _, _, _| {
-                                                        // No-op for now
+                                                    .on_click(cx.listener(|this, _, window, cx| {
+                                                        this.navigate_to(ActivePage::Omarchy, window, cx);
                                                     })),
                                             )
                                             .child(
