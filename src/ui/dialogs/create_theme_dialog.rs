@@ -53,6 +53,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                 Button::new("from-image-btn")
                                     .primary()
                                     .label("Select Image")
+                                    .cursor_pointer()
                                     .on_click(|_, window, cx| {
                                         // TODO: Implement image-based theme creation
                                         window.close_dialog(cx);
@@ -88,6 +89,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                 Button::new("from-scratch-btn")
                                     .primary()
                                     .label("Create Manually")
+                                    .cursor_pointer()
                                     .on_click(|_, window, cx| {
                                         // Generate a unique theme name
                                         let theme_name = generate_unique_theme_name();

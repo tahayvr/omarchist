@@ -112,7 +112,11 @@ impl SystemMonitorPage {
         cx.notify();
     }
 
-    fn render_status_bar(&self, cx: &Context<Self>, viewport_width: gpui::Pixels) -> impl IntoElement {
+    fn render_status_bar(
+        &self,
+        cx: &Context<Self>,
+        viewport_width: gpui::Pixels,
+    ) -> impl IntoElement {
         let theme = cx.theme();
         let metrics = self.collector.get_current_metrics();
 
@@ -176,7 +180,9 @@ impl SystemMonitorPage {
                                     .size(px(16.0)),
                             )
                             .when(!is_compact, |this| {
-                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(cpu_percent))
+                                this.child(
+                                    Progress::new().w(px(96.0)).h(px(6.0)).value(cpu_percent),
+                                )
                             })
                             .child(
                                 div()
@@ -196,7 +202,9 @@ impl SystemMonitorPage {
                                     .size(px(16.0)),
                             )
                             .when(!is_compact, |this| {
-                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(memory_percent))
+                                this.child(
+                                    Progress::new().w(px(96.0)).h(px(6.0)).value(memory_percent),
+                                )
                             })
                             .child(
                                 div()
@@ -216,7 +224,9 @@ impl SystemMonitorPage {
                                     .size(px(16.0)),
                             )
                             .when(!is_compact, |this| {
-                                this.child(Progress::new().w(px(96.0)).h(px(6.0)).value(disk_percent))
+                                this.child(
+                                    Progress::new().w(px(96.0)).h(px(6.0)).value(disk_percent),
+                                )
                             })
                             .child(
                                 div()
@@ -265,6 +275,7 @@ impl Render for SystemMonitorPage {
         let viewport_width = window.viewport_size().width;
 
         let tab_bar = TabBar::new("monitor-tabs")
+            .cursor_pointer()
             .selected_index(active_index)
             .on_click(cx.listener(|this, ix: &usize, window, cx| {
                 this.set_active_tab(*ix, window, cx);

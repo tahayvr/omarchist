@@ -100,6 +100,7 @@ impl Render for ThemeCard {
                             .icon(IconName::EllipsisVertical)
                             .xsmall()
                             .ghost()
+                            .cursor_pointer()
                             .dropdown_menu(move |menu, _, _cx| {
                                 let theme_dir_open = theme_dir_clone.clone();
                                 let theme_dir_edit = theme_dir_clone.clone();
@@ -194,6 +195,7 @@ impl Render for ThemeCard {
                                 .label("Edit")
                                 .small()
                                 .ghost()
+                                .cursor_pointer()
                                 .on_click(move |_event, _window, cx| {
                                     // Store theme name for navigation
                                     crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION.with(|nav| {
@@ -208,10 +210,11 @@ impl Render for ThemeCard {
                     .child({
                         let dir = self.theme.dir.clone();
                         let index = self.index;
-                        Button::new(("apply", index))
+                            Button::new(("apply", index))
                             .label("Apply")
                             .small()
                             .primary()
+                            .cursor_pointer()
                             .on_click(move |_event, _window, _cx| {
                                 eprintln!("=== Apply BUTTON CLICKED ===");
                                 eprintln!("Theme: {}", dir);

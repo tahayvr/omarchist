@@ -24,11 +24,13 @@ impl Render for AboutView {
                     .child(
                         Button::new("btn")
                             .icon(Icon::new(Icon::empty()).path("icons/x.svg"))
+                            .cursor_pointer()
                             .on_click(|_, _, cx| cx.open_url("https://x.com/tahayvr/")),
                     )
                     .child(
                         Button::new("github")
                             .icon(IconName::GitHub)
+                            .cursor_pointer()
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist-rs")
                             }),

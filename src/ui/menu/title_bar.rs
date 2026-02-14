@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    button::*, h_flex, menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem, ActiveTheme,
-    IconName, PixelsExt, Side, Sizable, TitleBar,
+    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
+    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
@@ -34,6 +34,7 @@ impl Render for MainTitleBar {
                             .small()
                             .compact()
                             .ghost()
+                            .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, window, cx| {
                                 menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
@@ -52,6 +53,7 @@ impl Render for MainTitleBar {
                             .small()
                             .compact()
                             .ghost()
+                            .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _, _| {
                                 menu.menu("Undo", Box::new(gpui_component::input::Undo))
                                     .menu("Redo", Box::new(gpui_component::input::Redo))
@@ -67,6 +69,7 @@ impl Render for MainTitleBar {
                             .small()
                             .compact()
                             .ghost()
+                            .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _, _| {
                                 menu.item(PopupMenuItem::new("Create New Theme")
                                         .on_click(|_, window, cx| {
@@ -94,6 +97,7 @@ impl Render for MainTitleBar {
                             .icon(IconName::Settings2)
                             .small()
                             .ghost()
+                            .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
                                 let font_size = cx.theme().font_size.as_f32() as i32;
                                 menu.label("Font Size")
@@ -108,6 +112,7 @@ impl Render for MainTitleBar {
                             .icon(IconName::GitHub)
                             .small()
                             .ghost()
+                            .cursor_pointer()
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist-rs")
                             }),

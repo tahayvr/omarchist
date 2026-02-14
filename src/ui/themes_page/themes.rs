@@ -110,6 +110,7 @@ impl Render for ThemesPage {
             .child(
                 TabBar::new("theme-tabs")
                     // .segmented()
+                    .cursor_pointer()
                     .selected_index(self.active_tab)
                     .on_click(cx.listener(|view, index, _, cx| {
                         view.active_tab = *index;

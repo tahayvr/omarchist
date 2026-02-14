@@ -200,6 +200,7 @@ impl Render for GeneralTab {
                                     .label("Rename")
                                     .small()
                                     .disabled(!can_rename)
+                                    .cursor_pointer()
                                     .on_click(cx.listener(|this, _, window, cx| {
                                         this.rename_theme(window, cx);
                                     })),
@@ -225,6 +226,7 @@ impl Render for GeneralTab {
                     .child(
                         Switch::new("light-theme-toggle")
                             .checked(is_light)
+                            .cursor_pointer()
                             .on_click(cx.listener(|this, checked, window, cx| {
                                 this.on_light_mode_toggle(*checked, window, cx);
                             })),

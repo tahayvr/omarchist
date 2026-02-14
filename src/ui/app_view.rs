@@ -221,6 +221,7 @@ impl Render for MainWindowView {
                             .collapsed(self.sidebar_collapsed)
                             .header(
                                 SidebarHeader::new()
+                                    .cursor_pointer()
                                     .child(
                                         div()
                                             .flex()
@@ -245,6 +246,7 @@ impl Render for MainWindowView {
                             .child(
                                 SidebarGroup::new("Navigation").child(
                                     SidebarMenu::new()
+                                        .cursor_pointer()
                                         .child(
                                             SidebarMenuItem::new("THEMES")
                                                 .icon(Icon::new(IconName::LayoutDashboard))
@@ -278,6 +280,7 @@ impl Render for MainWindowView {
                                     .collapsed(self.sidebar_collapsed)
                                     .child(
                                         SidebarMenu::new()
+                                            .cursor_pointer()
                                             .child(
                                                 SidebarMenuItem::new("Omarchy")
                                                     .icon(

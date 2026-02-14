@@ -5,11 +5,11 @@
 
 use gpui::*;
 use gpui_component::{
-    h_flex,
+    ActiveTheme, h_flex,
     input::{Input, InputState},
     label::Label,
     switch::Switch,
-    v_flex, ActiveTheme,
+    v_flex,
 };
 
 /// A reusable form field with label and input
@@ -105,6 +105,7 @@ impl RenderOnce for ToggleField {
             .child(
                 Switch::new(id)
                     .checked(is_checked)
+                    .cursor_pointer()
                     .on_click(move |checked, window, cx| {
                         if let Some(ref handler) = on_change {
                             handler(*checked, window, cx);

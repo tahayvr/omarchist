@@ -171,6 +171,7 @@ impl Render for BackgroundsTab {
                         Button::new("add-images-btn")
                             .label("Add Images")
                             .primary()
+                            .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.add_images(window, cx);
                             })),
@@ -268,6 +269,7 @@ impl Render for BackgroundsTab {
                                                             .icon(IconName::Close)
                                                             .small()
                                                             .danger()
+                                                            .cursor_pointer()
                                                             .on_click(cx.listener({
                                                                 let filename = filename.clone();
                                                                 move |this, _, window, cx| {

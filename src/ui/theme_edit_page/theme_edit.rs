@@ -17,10 +17,11 @@ use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme,
     button::Button,
     h_flex,
     tab::{Tab, TabBar},
-    v_flex, ActiveTheme,
+    v_flex,
 };
 
 /// Action to navigate back to themes page
@@ -245,6 +246,7 @@ impl Render for ThemeEditPage {
                         Button::new("back-btn")
                             .label("Back")
                             .compact()
+                            .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.navigate_back(window, cx);
                             })),
@@ -252,6 +254,7 @@ impl Render for ThemeEditPage {
                     .child(
                         div().flex_1().min_w_0().child(
                             TabBar::new("theme-edit-tabs")
+                                .cursor_pointer()
                                 .selected_index(self.active_tab)
                                 .on_click(cx.listener(|view, index, _, cx| {
                                     view.active_tab = *index;
@@ -272,7 +275,6 @@ impl Render for ThemeEditPage {
                     .id("tab-content")
                     .flex_1()
                     .overflow_y_scroll()
-                    .overflow_x_hidden()
                     .pt_4()
                     .pb_8()
                     .child(self.render_tab_content(window, cx)),
