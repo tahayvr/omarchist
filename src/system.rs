@@ -1,4 +1,5 @@
 pub mod custom_themes;
+pub mod omarchy_version;
 pub mod parse_colors;
 pub mod preview_img;
 pub mod system_themes;
