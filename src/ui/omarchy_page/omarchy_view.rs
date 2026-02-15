@@ -203,12 +203,11 @@ impl Render for OmarchyView {
             .pt_8()
             .px_4()
             .child(
-                div().w_full().h(px(150.)).max_w(px(400.)).child(
-                    img("logo/omarchy-logo.svg")
-                        .w(relative(1.))
-                        .max_w(px(400.))
-                        .h(px(150.)),
-                ),
+                div()
+                    // set to specific dimensions of Omarchy logo
+                    .w(px(400.))
+                    .h(px(94.))
+                    .child(img("logo/omarchy-logo.svg").h(relative(1.)).max_w(px(400.))),
             )
             .child(version_status)
             .child(release_notes_section)
