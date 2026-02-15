@@ -1,5 +1,5 @@
 use gpui::*;
-use gpui_component::{ActiveTheme, v_flex};
+use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
 
 use crate::system::omarchy_version::check_omarchy_update;
 
@@ -77,10 +77,16 @@ impl Render for OmarchyView {
                             .child(format!("Version {}", self.local_version)),
                     )
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.red)
-                            .child("Update available"),
+                        h_flex()
+                            .gap_4()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.red)
+                                    .child("Update available"),
+                            )
+                            .child(Button::new("update-omarchy")),
                     )
             }
             Some(false) => {

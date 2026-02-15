@@ -9,9 +9,10 @@ use crate::types::themes::{BrowserConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
+    Colorize,
     button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex, Colorize,
+    h_flex,
 };
 
 /// Browser tab content for editing Chromium theme color

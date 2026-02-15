@@ -4038,7 +4038,6 @@ dependencies = [
  "base64",
  "battery",
  "chrono",
- "core-text",
  "dirs 6.0.0",
  "gpui",
  "gpui-component",
