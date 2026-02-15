@@ -1,6 +1,6 @@
 use gpui::FontWeight;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, button::*, h_flex, v_flex};
+use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*, h_flex, v_flex};
 
 pub struct AboutView;
 
@@ -19,17 +19,24 @@ impl Render for AboutView {
                     .object_fit(ObjectFit::Contain),
             )
             .child(
-                div()
+                v_flex()
                     .mt_6()
-                    .text_3xl()
-                    .font_weight(FontWeight::BOLD)
-                    .text_color(cx.theme().foreground)
-                    .child("OMARCHIST"),
-            )
-            .child(
-                div()
-                    .text_color(cx.theme().muted_foreground)
-                    .child("v0.1.0"),
+                    .gap_1()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_size(px(42.))
+                            .font_weight(FontWeight::BOLD)
+                            .text_color(cx.theme().foreground)
+                            .line_height(relative(1.0))
+                            .child("OMARCHIST"),
+                    )
+                    .child(
+                        div()
+                            .id("omarchist-version")
+                            .text_color(cx.theme().muted_foreground)
+                            .child("v0.1.0"),
+                    ),
             )
             .child(
                 h_flex()
@@ -37,16 +44,18 @@ impl Render for AboutView {
                     .gap_4()
                     .child(
                         Button::new("x-com")
-                            .icon(Icon::new(Icon::empty()).path("icons/x.svg"))
-                            .outline()
+                            .icon(Icon::new(Icon::empty()).path("icons/x.svg").size_8())
+                            .ghost()
                             .cursor_pointer()
+                            .large()
                             .on_click(|_, _, cx| cx.open_url("https://x.com/tahayvr/")),
                     )
                     .child(
                         Button::new("github")
-                            .icon(IconName::GitHub)
-                            .outline()
+                            .icon(Icon::new(IconName::GitHub).size_8())
+                            .ghost()
                             .cursor_pointer()
+                            .large()
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist-rs")
                             }),
