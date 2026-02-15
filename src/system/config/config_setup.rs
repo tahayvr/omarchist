@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::PathBuf;
 
-const DEFAULT_SETTINGS_JSON: &str = include_str!("../../../defaults/settings.json");
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsSchema {
     pub version: String,
@@ -23,35 +21,70 @@ pub struct Metadata {
     pub last_modified: String,
 }
 
-/// Ensures the omarchist config directory exists and contains a valid settings.json
+/// Ensures the omarchist config directory exists with all default files
+/// If the directory doesn't exist, copies the entire defaults/omarchist folder
 /// Returns Ok(()) on success, or an error message on failure
 pub fn ensure_config() -> Result<(), String> {
     let config_dir = get_config_dir()?;
-    let settings_path = config_dir.join("settings.json");
 
-    // Check if settings.json already exists
-    if settings_path.exists() {
-        // Validate the existing settings.json
-        validate_settings(&settings_path)?;
+    // If config directory already exists, just validate settings.json
+    if config_dir.exists() {
+        let settings_path = config_dir.join("settings.json");
+        if settings_path.exists() {
+            validate_settings(&settings_path)?;
+        }
         return Ok(());
     }
 
-    // Create the config directory if it doesn't exist
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+    // Copy the entire defaults/omarchist folder to ~/.config/omarchist
+    let defaults_dir = PathBuf::from("defaults/omarchist");
+    copy_directory_recursive(&defaults_dir, &config_dir)?;
+
+    // Update timestamps in settings.json
+    let settings_path = config_dir.join("settings.json");
+    if settings_path.exists() {
+        let timestamp = Utc::now().to_rfc3339();
+        let content = fs::read_to_string(&settings_path)
+            .map_err(|e| format!("Failed to read settings.json: {}", e))?;
+        let updated_content = content
+            .replace("{{CREATED_AT}}", &timestamp)
+            .replace("{{MODIFIED_AT}}", &timestamp);
+        fs::write(&settings_path, updated_content)
+            .map_err(|e| format!("Failed to write settings.json: {}", e))?;
     }
 
-    // Copy default settings and replace placeholders with current timestamp
-    let timestamp = Utc::now().to_rfc3339();
-    let settings_content = DEFAULT_SETTINGS_JSON
-        .replace("{{CREATED_AT}}", &timestamp)
-        .replace("{{MODIFIED_AT}}", &timestamp);
+    println!("Created default config at: {:?}", config_dir);
 
-    fs::write(&settings_path, settings_content)
-        .map_err(|e| format!("Failed to write settings.json: {}", e))?;
+    Ok(())
+}
 
-    println!("Created default settings at: {:?}", settings_path);
+/// Recursively copy a directory and all its contents
+fn copy_directory_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    // Create destination directory
+    fs::create_dir_all(dst)
+        .map_err(|e| format!("Failed to create directory '{}': {}", dst.display(), e))?;
+
+    // Read source directory entries
+    let entries = fs::read_dir(src)
+        .map_err(|e| format!("Failed to read directory '{}': {}", src.display(), e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| "Invalid file name".to_string())?;
+        let dest_path = dst.join(file_name);
+
+        if path.is_dir() {
+            // Recursively copy subdirectory
+            copy_directory_recursive(&path, &dest_path)?;
+        } else {
+            // Copy file
+            fs::copy(&path, &dest_path)
+                .map_err(|e| format!("Failed to copy file '{}': {}", path.display(), e))?;
+        }
+    }
 
     Ok(())
 }
