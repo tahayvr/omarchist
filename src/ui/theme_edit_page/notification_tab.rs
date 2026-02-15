@@ -5,14 +5,15 @@
 //! - border-color: Notification border color
 //! - background-color: Notification background color
 
+use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::theme_management::{save_theme_data, update_mako_ini};
 use crate::types::themes::{EditingTheme, MakoConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// Notifications tab content for editing mako notification colors
@@ -180,12 +181,33 @@ impl NotificationTab {
 
         cx.notify();
     }
+
+    /// Launch a test notification
+    fn launch_test_notification(&self) {
+        let command =
+            r#"notify-send "Test Notification" "This is a test notification""#.to_string();
+        if let Err(e) = execute_bash_command(command) {
+            eprintln!("Failed to send test notification: {}", e);
+        }
+    }
 }
 
 impl Render for NotificationTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Colors for Notifications (Mako)."))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(help_text("Colors for Notifications (Mako)."))
+                    .child(
+                        Button::new("launch-test-notification")
+                            .label("Test Notification")
+                            .on_click(cx.listener(|this, _event, _window, _cx| {
+                                this.launch_test_notification();
+                            })),
+                    ),
+            )
             .child(
                 h_flex()
                     .gap_24()

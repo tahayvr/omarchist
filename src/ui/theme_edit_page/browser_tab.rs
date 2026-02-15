@@ -3,13 +3,15 @@
 //! Provides UI for editing Chromium browser theme color:
 //! - Theme color (RGB/Hex)
 
+use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::theme_management::{save_theme_data, update_chromium_config};
 use crate::types::themes::{BrowserConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    h_flex, Colorize,
 };
 
 /// Browser tab content for editing Chromium theme color
@@ -132,12 +134,32 @@ impl BrowserTab {
 
         cx.notify();
     }
+
+    /// Launch Chromium browser
+    fn launch_browser(&self) {
+        let command = "uwsm app -- chromium".to_string();
+        if let Err(e) = execute_bash_command(command) {
+            eprintln!("Failed to launch chromium: {}", e);
+        }
+    }
 }
 
 impl Render for BrowserTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Color for the Chromium browser."))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(help_text("Color for the Chromium browser."))
+                    .child(
+                        Button::new("launch-chromium")
+                            .label("Chromium")
+                            .on_click(cx.listener(|this, _event, _window, _cx| {
+                                this.launch_browser();
+                            })),
+                    ),
+            )
             .child(
                 form_section()
                     .child(ColorPicker::new(&self.theme_color_picker).label("Theme Color")),

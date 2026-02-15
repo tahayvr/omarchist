@@ -3,11 +3,12 @@
 //! Provides UI for editing the file manager icon theme:
 //! - Yaru color selection via radio buttons
 
+use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::theme_management::{save_theme_data, update_icons_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
-use gpui_component::{h_flex, radio::Radio, v_flex};
+use gpui_component::{button::Button, h_flex, radio::Radio, v_flex};
 
 /// Yaru icon theme color with display label and hex color
 struct YaruColor {
@@ -143,6 +144,14 @@ impl FileManagerTab {
         cx.notify();
     }
 
+    /// Launch Nautilus file manager
+    fn launch_file_manager(&self) {
+        let command = "uwsm app -- nautilus --new-window".to_string();
+        if let Err(e) = execute_bash_command(command) {
+            eprintln!("Failed to launch nautilus: {}", e);
+        }
+    }
+
     /// Create radio button element for a color with color square
     fn create_color_radio(
         &self,
@@ -181,7 +190,19 @@ impl Render for FileManagerTab {
         }
 
         tab_container()
-            .child(help_text("Accent color for Nautilus."))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(help_text("Accent color for Nautilus."))
+                    .child(
+                        Button::new("launch-nautilus")
+                            .label("Nautilus")
+                            .on_click(cx.listener(|this, _event, _window, _cx| {
+                                this.launch_file_manager();
+                            })),
+                    ),
+            )
             .child(form_section().child(container))
     }
 }

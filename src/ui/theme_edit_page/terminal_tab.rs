@@ -5,15 +5,16 @@
 //! - Kitty
 //! - Ghostty
 
+use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::theme_management::{save_theme_data, update_terminal_configs};
 use crate::types::themes::{EditingTheme, TerminalConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
     divider::Divider,
-    h_flex, v_flex,
+    h_flex, v_flex, Colorize,
 };
 
 /// Terminal tab content for editing unified terminal colors
@@ -238,14 +239,46 @@ impl TerminalTab {
 
         cx.notify();
     }
+
+    /// Launch a terminal emulator
+    fn launch_terminal(&self, app_name: &str) {
+        let command = format!("uwsm app -- {}", app_name);
+        if let Err(e) = execute_bash_command(command) {
+            eprintln!("Failed to launch {}: {}", app_name, e);
+        }
+    }
 }
 
 impl Render for TerminalTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text(
-                "Color changes apply to Alacritty, Kitty, and Ghostty.",
-            ))
+            .child(
+                h_flex()
+                    .justify_between()
+                    .items_center()
+                    .child(help_text(
+                        "Color changes apply to Alacritty, Kitty, and Ghostty.",
+                    ))
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .child(Button::new("launch-alacritty").label("Alacritty").on_click(
+                                cx.listener(|this, _event, _window, _cx| {
+                                    this.launch_terminal("alacritty");
+                                }),
+                            ))
+                            .child(Button::new("launch-kitty").label("Kitty").on_click(
+                                cx.listener(|this, _event, _window, _cx| {
+                                    this.launch_terminal("kitty");
+                                }),
+                            ))
+                            .child(Button::new("launch-ghostty").label("Ghostty").on_click(
+                                cx.listener(|this, _event, _window, _cx| {
+                                    this.launch_terminal("ghostty");
+                                }),
+                            )),
+                    ),
+            )
             .child(
                 v_flex()
                     .gap_6()

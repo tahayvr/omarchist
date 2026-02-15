@@ -56,3 +56,18 @@ omarchy-theme-set-obsidian
         Ok(())
     }
 }
+
+// Execute a bash command without waiting for output (fire and forget)
+pub fn execute_bash_command(command: String) -> Result<(), String> {
+    eprintln!("Executing bash command (async): {}", command);
+
+    Command::new("bash")
+        .arg("-c")
+        .arg(&command)
+        .spawn()
+        .map_err(|e| format!("Failed to spawn command: {e}"))?;
+
+    eprintln!("Command spawned successfully");
+    Ok(())
+}
+// `uwsm app -- <app-name>` for launching apps
