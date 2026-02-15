@@ -5,17 +5,16 @@
 //! - Open backgrounds folder in Nautilus for adding/removing images
 //! - Delete individual images directly from the UI
 
-use crate::system::theme_file_ops::{
+use crate::system::themes::theme_file_ops::{
     add_background_image, list_background_images, remove_background_image,
 };
 use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
-    v_flex,
+    v_flex, ActiveTheme, IconName, Sizable,
 };
 use std::path::PathBuf;
 

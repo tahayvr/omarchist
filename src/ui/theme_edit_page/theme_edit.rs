@@ -1,5 +1,5 @@
-use crate::system::theme_file_ops::is_system_theme;
-use crate::system::theme_management::load_theme_for_editing;
+use crate::system::themes::theme_file_ops::is_system_theme;
+use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::browser_tab::BrowserTab;
@@ -17,11 +17,10 @@ use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
     button::Button,
     h_flex,
     tab::{Tab, TabBar},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
 /// Action to navigate back to themes page

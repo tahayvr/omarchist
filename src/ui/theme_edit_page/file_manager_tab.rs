@@ -4,7 +4,7 @@
 //! - Yaru color selection via radio buttons
 
 use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::theme_management::{save_theme_data, update_icons_theme};
+use crate::system::themes::theme_management::{save_theme_data, update_icons_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;

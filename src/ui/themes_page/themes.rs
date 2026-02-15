@@ -1,5 +1,5 @@
-use crate::system::custom_themes::get_custom_themes;
-use crate::system::system_themes::get_system_themes;
+use crate::system::themes::custom_themes::get_custom_themes;
+use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::{CustomTheme, SysTheme};
 use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
 use gpui::*;
@@ -67,7 +67,7 @@ impl ThemesPage {
     fn custom_theme_to_sys_theme(custom_theme: CustomTheme) -> SysTheme {
         SysTheme {
             dir: custom_theme.name.clone(),
-            title: crate::system::custom_themes::dir_to_title(&custom_theme.name),
+            title: crate::system::themes::custom_themes::dir_to_title(&custom_theme.name),
             description: format!(
                 "Custom theme by {}",
                 custom_theme.author.as_deref().unwrap_or("Unknown")

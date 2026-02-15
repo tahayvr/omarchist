@@ -6,15 +6,14 @@
 //! - background-color: Notification background color
 
 use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::theme_management::{save_theme_data, update_mako_ini};
+use crate::system::themes::theme_management::{save_theme_data, update_mako_ini};
 use crate::types::themes::{EditingTheme, MakoConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// Notifications tab content for editing mako notification colors

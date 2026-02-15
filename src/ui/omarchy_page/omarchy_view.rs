@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
 
-use crate::system::omarchy_version::check_omarchy_update;
+use crate::system::omarchy::omarchy_version::check_omarchy_update;
 
 pub struct OmarchyView {
     local_version: String,

@@ -4,15 +4,14 @@
 //! - Theme color (RGB/Hex)
 
 use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::theme_management::{save_theme_data, update_chromium_config};
+use crate::system::themes::theme_management::{save_theme_data, update_chromium_config};
 use crate::types::themes::{BrowserConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// Browser tab content for editing Chromium theme color

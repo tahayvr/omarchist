@@ -7,14 +7,13 @@
 //! - image: Image/icon color
 //! - progress: Progress bar color
 
-use crate::system::theme_management::{save_theme_data, update_swayosd_css};
+use crate::system::themes::theme_management::{save_theme_data, update_swayosd_css};
 use crate::types::themes::{EditingTheme, SwayosdConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// SwayOSD tab content for editing swayosd.css colors

@@ -4,7 +4,7 @@
 //! - Neovim: edits neovim.lua file
 //! - VSCode:: edits vscode.json file
 
-use crate::system::theme_management::save_theme_data;
+use crate::system::themes::theme_management::save_theme_data;
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;

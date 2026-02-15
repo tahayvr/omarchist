@@ -1,5 +1,5 @@
 use crate::shell::theme_sh_commands::apply_theme;
-use crate::system::theme_file_ops::{delete_theme, open_theme_folder};
+use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
 use crate::types::themes::SysTheme;
 use gpui::prelude::*;
 use gpui::*;

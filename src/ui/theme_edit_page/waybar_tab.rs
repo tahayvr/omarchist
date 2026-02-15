@@ -4,14 +4,13 @@
 //! - Background color
 //! - Foreground color
 
-use crate::system::theme_management::{save_theme_data, update_waybar_css};
+use crate::system::themes::theme_management::{save_theme_data, update_waybar_css};
 use crate::types::themes::{EditingTheme, WaybarConfig};
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    h_flex,
+    h_flex, Colorize,
 };
 
 /// Waybar tab content for editing waybar colors

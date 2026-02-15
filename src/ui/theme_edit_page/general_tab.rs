@@ -5,17 +5,17 @@
 //! - Author
 //! - Light/Dark theme toggle (manages light.mode file)
 
-use crate::system::theme_management::{rename_theme, save_theme_data};
+use crate::system::themes::theme_management::{rename_theme, save_theme_data};
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{error_message, form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Sizable,
     button::Button,
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
     switch::Switch,
+    ActiveTheme, Disableable, Sizable,
 };
 
 /// General tab content for editing theme metadata

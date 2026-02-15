@@ -1,4 +1,4 @@
-use crate::system::omarchy_version::get_local_omarchy_version;
+use crate::system::omarchy::omarchy_version::get_local_omarchy_version;
 use crate::terminal::PENDING_TERMINAL_NAVIGATION;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::menu::title_bar::MainTitleBar;

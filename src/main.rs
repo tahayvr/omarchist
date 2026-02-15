@@ -1,5 +1,6 @@
 use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
 use gpui_component::{Root, Theme, ThemeSet, TitleBar};
+use omarchist::system::config::config_setup;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
 use std::rc::Rc;
@@ -66,6 +67,11 @@ fn main() {
     let app = Application::new().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
+        // Ensure config directory and settings.json exist
+        if let Err(e) = config_setup::ensure_config() {
+            eprintln!("Failed to initialize config: {}", e);
+        }
+
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);

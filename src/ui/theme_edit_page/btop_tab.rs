@@ -3,15 +3,14 @@
 //! Provides UI for editing Btop activity monitor colors using ColorPicker components.
 //! Organized into sections with dividers for better visual separation.
 
-use crate::system::theme_management::{save_theme_data, update_btop_theme};
+use crate::system::themes::theme_management::{save_theme_data, update_btop_theme};
 use crate::types::themes::{BtopConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{form_section, tab_container};
 use gpui::*;
 use gpui_component::{
-    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
     divider::Divider,
-    h_flex, v_flex,
+    h_flex, v_flex, Colorize,
 };
 
 /// Btop tab content for editing btop theme colors

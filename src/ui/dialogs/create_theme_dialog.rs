@@ -1,10 +1,11 @@
-use crate::system::theme_management::{create_theme_from_defaults, generate_unique_theme_name};
+use crate::system::themes::theme_management::{
+    create_theme_from_defaults, generate_unique_theme_name,
+};
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
     divider::Divider,
-    h_flex, v_flex,
+    h_flex, v_flex, ActiveTheme, Icon, IconName, WindowExt,
 };
 use std::cell::RefCell;
 
