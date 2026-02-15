@@ -4,7 +4,7 @@ alias u := update
 alias b := build
 alias c := check
 
-# Build the project in release mode
+# Build the project
 build:
     cargo build
 
@@ -14,6 +14,6 @@ update VER:
     cargo check
 
 check:
-    cargo check
     cargo fmt
+    cargo check
     cargo clippy --all-targets --all-features -- -D warnings
