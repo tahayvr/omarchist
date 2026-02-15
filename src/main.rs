@@ -75,7 +75,19 @@ fn main() {
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
+
         gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
+
+        // Load and apply saved font size from settings (after theme change to override default)
+        if let Ok(font_size_str) = config_setup::get_font_size() {
+            let font_size_px = match font_size_str.as_str() {
+                "small" => 14.0,
+                "medium" => 16.0,
+                "large" => 18.0,
+                _ => 16.0,
+            };
+            gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size_px);
+        }
 
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
             gpui_component::Theme::change(gpui_component::ThemeMode::Light, None, cx);
@@ -90,6 +102,19 @@ fn main() {
         });
         cx.on_action(|action: &app_menu::SelectFont, cx: &mut App| {
             gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
+
+            // Map pixel size to font size string and save to settings
+            let font_size_str = match action.0 {
+                14 => "small",
+                16 => "medium",
+                18 => "large",
+                _ => "medium",
+            };
+
+            if let Err(e) = config_setup::update_font_size(font_size_str) {
+                eprintln!("Failed to save font size setting: {}", e);
+            }
+
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {

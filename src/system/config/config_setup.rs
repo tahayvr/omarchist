@@ -116,3 +116,33 @@ pub fn save_settings(settings: &SettingsSchema) -> Result<(), String> {
 
     Ok(())
 }
+
+/// Updates the font_size setting and saves to disk
+/// font_size should be one of: "small", "medium", "large"
+pub fn update_font_size(font_size: &str) -> Result<(), String> {
+    let mut settings = read_settings()?;
+
+    // Validate font_size value
+    let valid_sizes = ["small", "medium", "large"];
+    if !valid_sizes.contains(&font_size) {
+        return Err(format!(
+            "Invalid font_size '{}'. Must be one of: small, medium, large",
+            font_size
+        ));
+    }
+
+    settings.settings.font_size = font_size.to_string();
+    settings.metadata.last_modified = Utc::now().to_rfc3339();
+
+    save_settings(&settings)?;
+
+    println!("Updated font_size to: {}", font_size);
+
+    Ok(())
+}
+
+/// Gets the current font_size setting
+pub fn get_font_size() -> Result<String, String> {
+    let settings = read_settings()?;
+    Ok(settings.settings.font_size)
+}
