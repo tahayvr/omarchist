@@ -11,7 +11,7 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Collapsible, Icon, IconName, Root, h_flex,
+    ActiveTheme, Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
 };
@@ -243,6 +243,16 @@ impl Render for MainWindowView {
             self.navigate_to_terminal(command, window, cx);
         }
 
+        // Responsive sidebar: auto-collapse on small windows (< 768px)
+        let viewport_width = window.viewport_size().width;
+        let is_small_window = viewport_width < px(768.0);
+        let sidebar_should_be_collapsed = is_small_window || self.sidebar_collapsed;
+        
+        // Update themes_page with collapsed state if it changed due to resize
+        self.themes_view.update(cx, |themes_page, cx| {
+            themes_page.set_sidebar_collapsed(sidebar_should_be_collapsed, cx);
+        });
+
         div()
             .flex()
             .flex_col()
@@ -274,8 +284,8 @@ impl Render for MainWindowView {
                     .size_full()
                     .overflow_hidden()
                     .child(
-                        Sidebar::left()
-                            .collapsed(self.sidebar_collapsed)
+                        Sidebar::new(Side::Left)
+                            .collapsed(sidebar_should_be_collapsed)
                             .header(
                                 SidebarHeader::new()
                                     .cursor_pointer()
@@ -288,7 +298,7 @@ impl Render for MainWindowView {
                                             .flex_shrink_0()
                                             .child(Icon::empty().path("icons/layout-grid.svg")),
                                     )
-                                    .when(!self.sidebar_collapsed, |this| {
+                                    .when(!sidebar_should_be_collapsed, |this| {
                                         this.child(
                                             h_flex()
                                                 .flex_1()
@@ -334,7 +344,7 @@ impl Render for MainWindowView {
                             )
                             .footer(
                                 SidebarGroup::new("")
-                                    .collapsed(self.sidebar_collapsed)
+                                    .collapsed(sidebar_should_be_collapsed)
                                     .child(
                                         SidebarMenu::new()
                                             .cursor_pointer()
