@@ -130,7 +130,6 @@ impl TerminalSession {
                 this.update(cx, |this, cx| {
                     cx.notify();
                     if !this.running {
-                        return;
                     }
                 })
                 .ok();

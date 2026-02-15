@@ -5,11 +5,11 @@
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, h_flex,
+    h_flex,
     input::{Input, InputState},
     label::Label,
     switch::Switch,
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
 /// A reusable form field with label and input
@@ -63,12 +63,15 @@ impl RenderOnce for FormField {
     }
 }
 
+/// Callback type for toggle change events
+type ToggleChangeCallback = Box<dyn Fn(bool, &mut Window, &mut App)>;
+
 /// A reusable toggle field with label and switch
 pub struct ToggleField {
     id: String,
     label: String,
     is_checked: bool,
-    on_change: Option<Box<dyn Fn(bool, &mut Window, &mut App)>>,
+    on_change: Option<ToggleChangeCallback>,
 }
 
 impl ToggleField {

@@ -375,10 +375,10 @@ impl WindowsTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the hyprland.conf file
-                if let Some(ref hyprland_config) = self.theme_data.apps.hyprland {
-                    if let Err(e) = update_hyprland_conf(&self.theme_name, hyprland_config) {
-                        self.error_message = Some(format!("Failed to update hyprland.conf: {}", e));
-                    }
+                if let Some(ref hyprland_config) = self.theme_data.apps.hyprland
+                    && let Err(e) = update_hyprland_conf(&self.theme_name, hyprland_config)
+                {
+                    self.error_message = Some(format!("Failed to update hyprland.conf: {}", e));
                 }
                 self.is_saving = false;
             }

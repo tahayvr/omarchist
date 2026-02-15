@@ -224,11 +224,11 @@ impl TerminalTab {
 
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
-                if let Some(ref terminal_config) = self.theme_data.apps.terminal {
-                    if let Err(e) = update_terminal_configs(&self.theme_name, terminal_config) {
-                        self.error_message =
-                            Some(format!("Failed to update terminal configs: {}", e));
-                    }
+                if let Some(ref terminal_config) = self.theme_data.apps.terminal
+                    && let Err(e) = update_terminal_configs(&self.theme_name, terminal_config)
+                {
+                    self.error_message =
+                        Some(format!("Failed to update terminal configs: {}", e));
                 }
                 self.is_saving = false;
             }

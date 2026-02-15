@@ -1,14 +1,13 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
+use gpui::{div, px, App, AppContext, IntoElement, ParentElement, Styled, Window};
 use gpui_component::{
-    ActiveTheme,
     chart::AreaChart,
     group_box::GroupBox,
     h_flex,
     table::{Column, Table, TableDelegate, TableState},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
-use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
+use super::data_collector::{format_bytes, format_bytes_speed, DataCollector, InterfaceInfo};
 
 /// Network tab with traffic visualization and interface details
 pub struct NetworkTab {
@@ -237,7 +236,7 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
 
     if data.len() < min_len {
         let last = *data.last().unwrap_or(&0.0);
-        data.extend(std::iter::repeat(last).take(min_len - data.len()));
+        data.extend(std::iter::repeat_n(last, min_len - data.len()));
     }
 
     // Find max value to normalize the scale

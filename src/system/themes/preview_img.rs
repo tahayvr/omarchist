@@ -13,15 +13,14 @@ pub fn find_preview_image(theme_dir: &Path) -> Option<String> {
     let entries = fs::read_dir(theme_dir).ok()?;
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_file() {
-            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                if matches!(
-                    ext.to_lowercase().as_str(),
-                    "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"
-                ) {
-                    return Some(path.to_string_lossy().to_string());
-                }
-            }
+        if path.is_file()
+            && let Some(ext) = path.extension().and_then(|e| e.to_str())
+            && matches!(
+                ext.to_lowercase().as_str(),
+                "png" | "jpg" | "jpeg" | "webp" | "gif" | "svg"
+            )
+        {
+            return Some(path.to_string_lossy().to_string());
         }
     }
     None

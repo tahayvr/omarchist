@@ -222,10 +222,10 @@ impl LockScreenTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the hyprlock.conf file
-                if let Some(ref hyprlock_config) = self.theme_data.apps.hyprlock {
-                    if let Err(e) = update_hyprlock_conf(&self.theme_name, hyprlock_config) {
-                        self.error_message = Some(format!("Failed to update hyprlock.conf: {}", e));
-                    }
+                if let Some(ref hyprlock_config) = self.theme_data.apps.hyprlock
+                    && let Err(e) = update_hyprlock_conf(&self.theme_name, hyprlock_config)
+                {
+                    self.error_message = Some(format!("Failed to update hyprlock.conf: {}", e));
                 }
                 self.is_saving = false;
             }

@@ -141,10 +141,10 @@ impl WaybarTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the waybar.css file
-                if let Some(ref waybar_config) = self.theme_data.apps.waybar {
-                    if let Err(e) = update_waybar_css(&self.theme_name, waybar_config) {
-                        self.error_message = Some(format!("Failed to update waybar.css: {}", e));
-                    }
+                if let Some(ref waybar_config) = self.theme_data.apps.waybar
+                    && let Err(e) = update_waybar_css(&self.theme_name, waybar_config)
+                {
+                    self.error_message = Some(format!("Failed to update waybar.css: {}", e));
                 }
                 self.is_saving = false;
             }

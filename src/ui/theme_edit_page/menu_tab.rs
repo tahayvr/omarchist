@@ -230,10 +230,10 @@ impl MenuTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the walker.css file
-                if let Some(ref walker_config) = self.theme_data.apps.walker {
-                    if let Err(e) = update_walker_css(&self.theme_name, walker_config) {
-                        self.error_message = Some(format!("Failed to update walker.css: {}", e));
-                    }
+                if let Some(ref walker_config) = self.theme_data.apps.walker
+                    && let Err(e) = update_walker_css(&self.theme_name, walker_config)
+                {
+                    self.error_message = Some(format!("Failed to update walker.css: {}", e));
                 }
                 self.is_saving = false;
             }

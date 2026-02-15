@@ -1,5 +1,5 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, h_flex, v_flex};
+use gpui::{div, prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
+use gpui_component::{h_flex, v_flex, Icon};
 
 use super::sparkline::Sparkline;
 
@@ -200,6 +200,12 @@ pub struct MetricGrid {
     children: Vec<MetricCard>,
     columns: usize,
     gap: gpui::Pixels,
+}
+
+impl Default for MetricGrid {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl MetricGrid {

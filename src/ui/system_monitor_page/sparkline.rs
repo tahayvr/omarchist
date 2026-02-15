@@ -1,4 +1,4 @@
-use gpui::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
+use gpui::{div, Hsla, IntoElement, ParentElement, Pixels, Styled};
 use gpui_component::{chart::AreaChart, h_flex};
 
 /// A mini sparkline chart for displaying trends in small spaces
@@ -79,7 +79,7 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
 
     if data.len() < min_len {
         let last = *data.last().unwrap_or(&0.0);
-        data.extend(std::iter::repeat(last).take(min_len - data.len()));
+        data.extend(std::iter::repeat_n(last, min_len - data.len()));
     }
 
     // Find max value to normalize the scale
@@ -164,13 +164,11 @@ pub fn trend_color(
         } else {
             theme.muted_foreground
         }
+    } else if diff > threshold {
+        theme.red
+    } else if diff < -threshold {
+        theme.green
     } else {
-        if diff > threshold {
-            theme.red
-        } else if diff < -threshold {
-            theme.green
-        } else {
-            theme.muted_foreground
-        }
+        theme.muted_foreground
     }
 }

@@ -1,10 +1,16 @@
-use gpui::{IntoElement, ParentElement, Styled, div, px};
+use gpui::{div, px, IntoElement, ParentElement, Styled};
 use gpui_component::{chart::AreaChart, group_box::GroupBox, h_flex, progress::Progress, v_flex};
 
-use super::data_collector::{DataCollector, format_bytes};
+use super::data_collector::{format_bytes, DataCollector};
 
 /// System tab with detailed CPU and Memory information
 pub struct SystemTab;
+
+impl Default for SystemTab {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl SystemTab {
     pub fn new() -> Self {
@@ -165,7 +171,7 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
 
     if data.len() < min_len {
         let last = *data.last().unwrap_or(&0.0);
-        data.extend(std::iter::repeat(last).take(min_len - data.len()));
+        data.extend(std::iter::repeat_n(last, min_len - data.len()));
     }
 
     let mut points: Vec<(String, f64)> = data

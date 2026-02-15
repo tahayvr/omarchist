@@ -17,11 +17,10 @@ use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
     button::Button,
     h_flex,
     tab::{Tab, TabBar},
-    v_flex,
+    v_flex, ActiveTheme,
 };
 
 /// Action to navigate back to themes page
@@ -33,7 +32,7 @@ use std::cell::RefCell;
 
 thread_local! {
     /// Flag to navigate back to themes page
-    pub static PENDING_NAVIGATE_TO_THEMES: RefCell<bool> = RefCell::new(false);
+    pub static PENDING_NAVIGATE_TO_THEMES: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Action to save the current theme

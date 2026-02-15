@@ -1,13 +1,19 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, v_flex};
+use gpui::{div, prelude::FluentBuilder as _, px, IntoElement, ParentElement, Styled};
+use gpui_component::{v_flex, Icon};
 
 use super::{
-    data_collector::{DataCollector, format_bytes, format_bytes_speed},
+    data_collector::{format_bytes, format_bytes_speed, DataCollector},
     metric_card::MetricCard,
 };
 
 /// Overview tab showing key metrics at a glance
 pub struct OverviewTab;
+
+impl Default for OverviewTab {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl OverviewTab {
     pub fn new() -> Self {

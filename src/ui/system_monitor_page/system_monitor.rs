@@ -40,7 +40,7 @@ impl MonitorTab {
         }
     }
 
-    fn to_index(&self) -> usize {
+    fn to_index(self) -> usize {
         match self {
             MonitorTab::Overview => 0,
             MonitorTab::System => 1,

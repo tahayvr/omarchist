@@ -29,6 +29,12 @@ pub struct CombinedAssets {
     gpui_component: gpui_component_assets::Assets,
 }
 
+impl Default for CombinedAssets {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CombinedAssets {
     pub fn new() -> Self {
         Self {

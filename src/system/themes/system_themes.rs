@@ -58,10 +58,10 @@ pub fn get_system_themes() -> Result<Vec<SysTheme>, String> {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            if let Some(theme) = load_theme_from_dir_quick(&path, true, false) {
-                themes.push(theme);
-            }
+        if path.is_dir()
+            && let Some(theme) = load_theme_from_dir_quick(&path, true, false)
+        {
+            themes.push(theme);
         }
     }
 

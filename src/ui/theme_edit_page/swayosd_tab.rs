@@ -201,10 +201,10 @@ impl SwayosdTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the swayosd.css file
-                if let Some(ref swayosd_config) = self.theme_data.apps.swayosd {
-                    if let Err(e) = update_swayosd_css(&self.theme_name, swayosd_config) {
-                        self.error_message = Some(format!("Failed to update swayosd.css: {}", e));
-                    }
+                if let Some(ref swayosd_config) = self.theme_data.apps.swayosd
+                    && let Err(e) = update_swayosd_css(&self.theme_name, swayosd_config)
+                {
+                    self.error_message = Some(format!("Failed to update swayosd.css: {}", e));
                 }
                 self.is_saving = false;
             }

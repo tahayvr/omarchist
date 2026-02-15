@@ -128,6 +128,12 @@ pub struct DataCollector {
     pub has_battery: bool,
 }
 
+impl Default for DataCollector {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DataCollector {
     pub fn new() -> Self {
         let mut sys = System::new_all();
@@ -327,40 +333,40 @@ impl DataCollector {
     pub fn get_battery_info(&self) -> Vec<BatteryInfo> {
         let mut batteries = Vec::new();
 
-        if let Ok(manager) = battery::Manager::new() {
-            if let Ok(bat_iter) = manager.batteries() {
-                for battery in bat_iter.flatten() {
-                    let state = battery.state();
-                    let state_str = match state {
-                        battery::State::Charging => "Charging",
-                        battery::State::Discharging => "Discharging",
-                        battery::State::Full => "Full",
-                        battery::State::Empty => "Empty",
-                        _ => "Unknown",
-                    };
+        if let Ok(manager) = battery::Manager::new()
+            && let Ok(bat_iter) = manager.batteries()
+        {
+            for battery in bat_iter.flatten() {
+                let state = battery.state();
+                let state_str = match state {
+                    battery::State::Charging => "Charging",
+                    battery::State::Discharging => "Discharging",
+                    battery::State::Full => "Full",
+                    battery::State::Empty => "Empty",
+                    _ => "Unknown",
+                };
 
-                    let time_remaining = if state == battery::State::Discharging {
-                        battery.time_to_empty().map(|t| t.value as u64)
-                    } else if state == battery::State::Charging {
-                        battery.time_to_full().map(|t| t.value as u64)
-                    } else {
-                        None
-                    };
+                let time_remaining = if state == battery::State::Discharging {
+                    battery.time_to_empty().map(|t| t.value as u64)
+                } else if state == battery::State::Charging {
+                    battery.time_to_full().map(|t| t.value as u64)
+                } else {
+                    None
+                };
 
-                    batteries.push(BatteryInfo {
-                        model: battery
-                            .model()
-                            .map(|s| s.to_string())
-                            .unwrap_or_else(|| "Battery".to_string()),
-                        percentage: battery.state_of_charge().value * 100.0,
-                        state: state_str.to_string(),
-                        time_remaining,
-                        health: battery.state_of_health().value * 100.0,
-                        voltage: battery.voltage().value,
-                        temperature: battery.temperature().map(|t| t.value),
-                        cycle_count: battery.cycle_count(),
-                    });
-                }
+                batteries.push(BatteryInfo {
+                    model: battery
+                        .model()
+                        .map(|s| s.to_string())
+                        .unwrap_or_else(|| "Battery".to_string()),
+                    percentage: battery.state_of_charge().value * 100.0,
+                    state: state_str.to_string(),
+                    time_remaining,
+                    health: battery.state_of_health().value * 100.0,
+                    voltage: battery.voltage().value,
+                    temperature: battery.temperature().map(|t| t.value),
+                    cycle_count: battery.cycle_count(),
+                });
             }
         }
 

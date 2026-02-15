@@ -167,10 +167,10 @@ impl NotificationTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the mako.ini file
-                if let Some(ref mako_config) = self.theme_data.apps.mako {
-                    if let Err(e) = update_mako_ini(&self.theme_name, mako_config) {
-                        self.error_message = Some(format!("Failed to update mako.ini: {}", e));
-                    }
+                if let Some(ref mako_config) = self.theme_data.apps.mako
+                    && let Err(e) = update_mako_ini(&self.theme_name, mako_config)
+                {
+                    self.error_message = Some(format!("Failed to update mako.ini: {}", e));
                 }
                 self.is_saving = false;
             }

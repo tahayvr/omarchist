@@ -3,19 +3,18 @@ use crate::system::themes::theme_management::{
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
     divider::Divider,
-    h_flex, v_flex,
+    h_flex, v_flex, ActiveTheme, Icon, IconName, WindowExt,
 };
 use std::cell::RefCell;
 
 thread_local! {
     /// Stores the theme name to navigate to after creation
-    pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = RefCell::new(None);
+    pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
 
     /// Flag to trigger themes list refresh
-    pub static PENDING_REFRESH_THEMES: RefCell<bool> = RefCell::new(false);
+    pub static PENDING_REFRESH_THEMES: RefCell<bool> = const { RefCell::new(false) };
 }
 
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {

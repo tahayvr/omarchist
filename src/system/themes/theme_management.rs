@@ -156,72 +156,65 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
 
     // Load waybar.css colors if the file exists
     let waybar_css_path = theme_dir.join("waybar.css");
-    if waybar_css_path.exists() {
-        if let Ok(css_content) = fs::read_to_string(&waybar_css_path) {
-            if let Some(config) = parse_waybar_css(&css_content) {
-                editing_theme.apps.waybar = Some(config);
-            }
-        }
+    if waybar_css_path.exists()
+        && let Ok(css_content) = fs::read_to_string(&waybar_css_path)
+        && let Some(config) = parse_waybar_css(&css_content)
+    {
+        editing_theme.apps.waybar = Some(config);
     }
 
     // Load hyprland.conf settings if the file exists
     let hyprland_conf_path = theme_dir.join("hyprland.conf");
-    if hyprland_conf_path.exists() {
-        if let Ok(conf_content) = fs::read_to_string(&hyprland_conf_path) {
-            if let Some(config) = parse_hyprland_conf(&conf_content) {
-                editing_theme.apps.hyprland = Some(config);
-            }
-        }
+    if hyprland_conf_path.exists()
+        && let Ok(conf_content) = fs::read_to_string(&hyprland_conf_path)
+        && let Some(config) = parse_hyprland_conf(&conf_content)
+    {
+        editing_theme.apps.hyprland = Some(config);
     }
 
     // Load icons.theme if the file exists
     let icons_theme_path = theme_dir.join("icons.theme");
-    if icons_theme_path.exists() {
-        if let Ok(content) = fs::read_to_string(&icons_theme_path) {
-            if let Some(icons_config) = parse_icons_theme(&content) {
-                editing_theme.apps.icons = Some(icons_config);
-            }
-        }
+    if icons_theme_path.exists()
+        && let Ok(content) = fs::read_to_string(&icons_theme_path)
+        && let Some(icons_config) = parse_icons_theme(&content)
+    {
+        editing_theme.apps.icons = Some(icons_config);
     }
 
     // Load hyprlock.conf if the file exists
     let hyprlock_conf_path = theme_dir.join("hyprlock.conf");
-    if hyprlock_conf_path.exists() {
-        if let Ok(conf_content) = fs::read_to_string(&hyprlock_conf_path) {
-            if let Some(config) = parse_hyprlock_conf(&conf_content) {
-                editing_theme.apps.hyprlock = Some(config);
-            }
-        }
+    if hyprlock_conf_path.exists()
+        && let Ok(conf_content) = fs::read_to_string(&hyprlock_conf_path)
+        && let Some(config) = parse_hyprlock_conf(&conf_content)
+    {
+        editing_theme.apps.hyprlock = Some(config);
     }
 
     // Load mako.ini if the file exists
     let mako_ini_path = theme_dir.join("mako.ini");
-    if mako_ini_path.exists() {
-        if let Ok(ini_content) = fs::read_to_string(&mako_ini_path) {
-            if let Some(config) = parse_mako_ini(&ini_content) {
-                editing_theme.apps.mako = Some(config);
-            }
-        }
+    if mako_ini_path.exists()
+        && let Ok(ini_content) = fs::read_to_string(&mako_ini_path)
+        && let Some(config) = parse_mako_ini(&ini_content)
+    {
+        editing_theme.apps.mako = Some(config);
     }
 
     // Load btop.theme if the file exists
     let btop_theme_path = theme_dir.join("btop.theme");
-    if btop_theme_path.exists() {
-        if let Ok(theme_content) = fs::read_to_string(&btop_theme_path) {
-            if let Some(config) = parse_btop_theme(&theme_content) {
-                editing_theme.apps.btop = Some(config);
-            }
-        }
+    if btop_theme_path.exists()
+        && let Ok(theme_content) = fs::read_to_string(&btop_theme_path)
+        && let Some(config) = parse_btop_theme(&theme_content)
+    {
+        editing_theme.apps.btop = Some(config);
     }
 
     // Load swayosd.css if the file exists
     let swayosd_css_path = theme_dir.join("swayosd.css");
-    if swayosd_css_path.exists() {
-        if let Ok(css_content) = fs::read_to_string(&swayosd_css_path) {
-            if let Some(config) = parse_swayosd_css(&css_content) {
-                editing_theme.apps.swayosd = Some(config);
-            }
-        }
+    if swayosd_css_path.exists()
+        && let Ok(css_content) = fs::read_to_string(&swayosd_css_path)
+        && let Some(config) = parse_swayosd_css(&css_content)
+    {
+        editing_theme.apps.swayosd = Some(config);
     }
 
     Ok(editing_theme)
@@ -322,10 +315,10 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     }
 
     // Update icons.theme if icons config exists
-    if let Some(ref icons_config) = theme_data.apps.icons {
-        if let Some(theme_name_val) = icons_config.get("theme_name").and_then(|v| v.as_str()) {
-            update_icons_theme(theme_name, theme_name_val)?;
-        }
+    if let Some(ref icons_config) = theme_data.apps.icons
+        && let Some(theme_name_val) = icons_config.get("theme_name").and_then(|v| v.as_str())
+    {
+        update_icons_theme(theme_name, theme_name_val)?;
     }
 
     Ok(())
@@ -521,10 +514,10 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
         }
 
         // Parse decoration section
-        if in_decoration_section {
-            if let Some(value) = trimmed.strip_prefix("rounding = ") {
-                rounding = value.parse::<i32>().ok();
-            }
+        if in_decoration_section
+            && let Some(value) = trimmed.strip_prefix("rounding = ")
+        {
+            rounding = value.parse::<i32>().ok();
         }
     }
 
@@ -856,10 +849,10 @@ fn parse_hyprlock_conf(conf_content: &str) -> Option<HyprlockConfig> {
             if let Some(end) = value.find(')') {
                 font_color = Some(value[..end].to_string());
             }
-        } else if let Some(value) = trimmed.strip_prefix("$check_color = rgb(") {
-            if let Some(end) = value.find(')') {
-                check_color = Some(value[..end].to_string());
-            }
+        } else if let Some(value) = trimmed.strip_prefix("$check_color = rgb(")
+            && let Some(end) = value.find(')')
+        {
+            check_color = Some(value[..end].to_string());
         }
     }
 
@@ -1057,53 +1050,53 @@ fn parse_btop_theme(theme_content: &str) -> Option<BtopConfig> {
         let trimmed = line.trim();
 
         // Parse theme[key]="value" format
-        if let Some(key_value) = trimmed.strip_prefix("theme[") {
-            if let Some(end_idx) = key_value.find("]=\"") {
-                let key = &key_value[..end_idx];
-                let value_part = &key_value[end_idx + 3..];
-                if let Some(end_quote) = value_part.find('"') {
-                    let value = value_part[..end_quote].to_string();
+        if let Some(key_value) = trimmed.strip_prefix("theme[")
+            && let Some(end_idx) = key_value.find("]=\"")
+        {
+            let key = &key_value[..end_idx];
+            let value_part = &key_value[end_idx + 3..];
+            if let Some(end_quote) = value_part.find('"') {
+                let value = value_part[..end_quote].to_string();
 
-                    match key {
-                        "main_bg" => main_bg = Some(value),
-                        "main_fg" => main_fg = Some(value),
-                        "title" => title = Some(value),
-                        "hi_fg" => hi_fg = Some(value),
-                        "selected_bg" => selected_bg = Some(value),
-                        "selected_fg" => selected_fg = Some(value),
-                        "inactive_fg" => inactive_fg = Some(value),
-                        "proc_misc" => proc_misc = Some(value),
-                        "cpu_box" => cpu_box = Some(value),
-                        "mem_box" => mem_box = Some(value),
-                        "net_box" => net_box = Some(value),
-                        "proc_box" => proc_box = Some(value),
-                        "div_line" => div_line = Some(value),
-                        "temp_start" => temp_start = Some(value),
-                        "temp_mid" => temp_mid = Some(value),
-                        "temp_end" => temp_end = Some(value),
-                        "cpu_start" => cpu_start = Some(value),
-                        "cpu_mid" => cpu_mid = Some(value),
-                        "cpu_end" => cpu_end = Some(value),
-                        "free_start" => free_start = Some(value),
-                        "free_mid" => free_mid = Some(value),
-                        "free_end" => free_end = Some(value),
-                        "cached_start" => cached_start = Some(value),
-                        "cached_mid" => cached_mid = Some(value),
-                        "cached_end" => cached_end = Some(value),
-                        "available_start" => available_start = Some(value),
-                        "available_mid" => available_mid = Some(value),
-                        "available_end" => available_end = Some(value),
-                        "used_start" => used_start = Some(value),
-                        "used_mid" => used_mid = Some(value),
-                        "used_end" => used_end = Some(value),
-                        "download_start" => download_start = Some(value),
-                        "download_mid" => download_mid = Some(value),
-                        "download_end" => download_end = Some(value),
-                        "upload_start" => upload_start = Some(value),
-                        "upload_mid" => upload_mid = Some(value),
-                        "upload_end" => upload_end = Some(value),
-                        _ => {}
-                    }
+                match key {
+                    "main_bg" => main_bg = Some(value),
+                    "main_fg" => main_fg = Some(value),
+                    "title" => title = Some(value),
+                    "hi_fg" => hi_fg = Some(value),
+                    "selected_bg" => selected_bg = Some(value),
+                    "selected_fg" => selected_fg = Some(value),
+                    "inactive_fg" => inactive_fg = Some(value),
+                    "proc_misc" => proc_misc = Some(value),
+                    "cpu_box" => cpu_box = Some(value),
+                    "mem_box" => mem_box = Some(value),
+                    "net_box" => net_box = Some(value),
+                    "proc_box" => proc_box = Some(value),
+                    "div_line" => div_line = Some(value),
+                    "temp_start" => temp_start = Some(value),
+                    "temp_mid" => temp_mid = Some(value),
+                    "temp_end" => temp_end = Some(value),
+                    "cpu_start" => cpu_start = Some(value),
+                    "cpu_mid" => cpu_mid = Some(value),
+                    "cpu_end" => cpu_end = Some(value),
+                    "free_start" => free_start = Some(value),
+                    "free_mid" => free_mid = Some(value),
+                    "free_end" => free_end = Some(value),
+                    "cached_start" => cached_start = Some(value),
+                    "cached_mid" => cached_mid = Some(value),
+                    "cached_end" => cached_end = Some(value),
+                    "available_start" => available_start = Some(value),
+                    "available_mid" => available_mid = Some(value),
+                    "available_end" => available_end = Some(value),
+                    "used_start" => used_start = Some(value),
+                    "used_mid" => used_mid = Some(value),
+                    "used_end" => used_end = Some(value),
+                    "download_start" => download_start = Some(value),
+                    "download_mid" => download_mid = Some(value),
+                    "download_end" => download_end = Some(value),
+                    "upload_start" => upload_start = Some(value),
+                    "upload_mid" => upload_mid = Some(value),
+                    "upload_end" => upload_end = Some(value),
+                    _ => {}
                 }
             }
         }

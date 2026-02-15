@@ -18,7 +18,7 @@ use gpui_component::{
 use std::cell::RefCell;
 
 thread_local! {
-    pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = RefCell::new(false);
+    pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Represents the currently active page in the application.
@@ -56,7 +56,7 @@ impl MainWindowView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let themes_view = cx.new(|cx| ThemesPage::new(cx));
+        let themes_view = cx.new(ThemesPage::new);
         let themes_root = cx
             .new(|cx| Root::new(themes_view.clone(), window, cx))
             .into();

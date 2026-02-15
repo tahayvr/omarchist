@@ -119,11 +119,11 @@ impl BrowserTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the chromium config
-                if let Some(ref browser_config) = self.theme_data.apps.chromium {
-                    if let Err(e) = update_chromium_config(&self.theme_name, browser_config) {
-                        self.error_message =
-                            Some(format!("Failed to update chromium config: {}", e));
-                    }
+                if let Some(ref browser_config) = self.theme_data.apps.chromium
+                    && let Err(e) = update_chromium_config(&self.theme_name, browser_config)
+                {
+                    self.error_message =
+                        Some(format!("Failed to update chromium config: {}", e));
                 }
                 self.is_saving = false;
             }

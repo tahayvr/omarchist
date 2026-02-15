@@ -1,12 +1,18 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
-    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
+    button::*, h_flex, menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem, ActiveTheme,
+    IconName, PixelsExt, Side, Sizable, TitleBar,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
 
 pub struct MainTitleBar;
+
+impl Default for MainTitleBar {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl MainTitleBar {
     pub fn new() -> Self {

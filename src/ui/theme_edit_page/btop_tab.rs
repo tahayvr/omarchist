@@ -811,10 +811,10 @@ impl BtopTab {
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
                 // Also update the btop.theme file
-                if let Some(ref btop_config) = self.theme_data.apps.btop {
-                    if let Err(e) = update_btop_theme(&self.theme_name, btop_config) {
-                        self.error_message = Some(format!("Failed to update btop.theme: {}", e));
-                    }
+                if let Some(ref btop_config) = self.theme_data.apps.btop
+                    && let Err(e) = update_btop_theme(&self.theme_name, btop_config)
+                {
+                    self.error_message = Some(format!("Failed to update btop.theme: {}", e));
                 }
                 self.is_saving = false;
             }

@@ -137,7 +137,7 @@ impl ThemeData {
 }
 
 /// Structure for editing a theme - matches custom_theme.json format
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EditingTheme {
     pub name: String,
     pub created_at: String,
@@ -146,19 +146,6 @@ pub struct EditingTheme {
     pub apps: AppConfigs,
     #[serde(skip)] // Runtime-only, not serialized to JSON
     pub is_light_theme: bool,
-}
-
-impl Default for EditingTheme {
-    fn default() -> Self {
-        Self {
-            name: String::new(),
-            created_at: String::new(),
-            modified_at: String::new(),
-            author: None,
-            apps: AppConfigs::default(),
-            is_light_theme: false, // Dark theme by default
-        }
-    }
 }
 
 /// Waybar configuration structure
@@ -510,7 +497,7 @@ impl Default for TerminalConfig {
 }
 
 /// All app configurations for a theme
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigs {
     #[serde(rename = "alacritty")]
     pub alacritty: Option<serde_json::Value>,
@@ -542,28 +529,6 @@ pub struct AppConfigs {
     pub kitty: Option<serde_json::Value>,
     #[serde(rename = "terminal")]
     pub terminal: Option<TerminalConfig>,
-}
-
-impl Default for AppConfigs {
-    fn default() -> Self {
-        Self {
-            alacritty: None,
-            waybar: None,
-            chromium: None,
-            btop: None,
-            hyprland: None,
-            hyprlock: None,
-            mako: None,
-            walker: None,
-            swayosd: None,
-            neovim: None,
-            vscode: None,
-            icons: None,
-            ghostty: None,
-            kitty: None,
-            terminal: None,
-        }
-    }
 }
 
 /// Tab identifiers

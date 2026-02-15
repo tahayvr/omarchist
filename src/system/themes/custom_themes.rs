@@ -28,12 +28,12 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
         .as_ref()
         .and_then(|m| m.created().ok())
         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
     let modified_at = metadata
         .as_ref()
         .and_then(|m| m.modified().ok())
         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-        .unwrap_or_else(|| "".to_string());
+        .unwrap_or_default();
 
     // Try to load author and apps from theme.json if present
     let theme_json_path = theme_dir.join("theme.json");
@@ -82,10 +82,10 @@ pub fn get_custom_themes() -> Result<Vec<CustomTheme>, String> {
 
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.is_dir() {
-            if let Some(theme) = load_theme_from_dir_quick(&path) {
-                themes.push(theme);
-            }
+        if path.is_dir()
+            && let Some(theme) = load_theme_from_dir_quick(&path)
+        {
+            themes.push(theme);
         }
     }
 
