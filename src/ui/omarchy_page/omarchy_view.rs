@@ -1,5 +1,5 @@
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, v_flex};
+use gpui_component::{ActiveTheme, v_flex};
 
 use crate::system::omarchy_version::check_omarchy_update;
 
@@ -94,7 +94,13 @@ impl Render for OmarchyView {
                             .text_color(theme.muted_foreground)
                             .child(format!("Version {}", self.local_version)),
                     )
-                    .child(div().text_xs().text_color(theme.green).child("Up to date"))
+                    .child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.green)
+                            .font_weight(FontWeight::BOLD)
+                            .child("Up to date"),
+                    )
             }
         };
 
@@ -105,10 +111,11 @@ impl Render for OmarchyView {
             .justify_start()
             .pt_8()
             .child(
-                Icon::empty()
-                    .path("logo/omarchy-logo.svg")
-                    .size_128()
-                    .text_color(theme.foreground),
+                img("logo/omarchy-logo.svg")
+                    .w(relative(1.)) // Full width
+                    .max_w(px(400.))
+                    .h(px(150.))
+                    .text_color(cx.theme().foreground),
             )
             .child(version_status)
     }
