@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
-    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
+    button::*, h_flex, menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem, ActiveTheme,
+    IconName, PixelsExt, Side, Sizable, TitleBar,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
@@ -35,14 +35,9 @@ impl Render for MainTitleBar {
                             .compact()
                             .ghost()
                             .cursor_pointer()
-                            .dropdown_menu(|menu: PopupMenu, window, cx| {
+                            .dropdown_menu(|menu: PopupMenu, _window, _cx| {
                                 menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
-                                    .separator()
-                                    .submenu("Appearance", window, cx, |submenu, _window, _cx| {
-                                        submenu.menu("Light", Box::new(super::app_menu::SwitchToLight))
-                                            .menu("Dark", Box::new(super::app_menu::SwitchToDark))
-                                    })
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
                             }),
@@ -100,11 +95,17 @@ impl Render for MainTitleBar {
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
                                 let font_size = cx.theme().font_size.as_f32() as i32;
+                                let is_light = cx.theme().mode == gpui_component::ThemeMode::Light;
                                 menu.label("Font Size")
                                     .check_side(Side::Right)
                                     .menu_with_check("Large", font_size == 18, Box::new(SelectFont(18)))
                                     .menu_with_check("Medium", font_size == 16, Box::new(SelectFont(16)))
                                     .menu_with_check("Small", font_size == 14, Box::new(SelectFont(14)))
+                                    .separator()
+                                    .label("Appearance")
+                                    .check_side(Side::Right)
+                                    .menu_with_check("Light", is_light, Box::new(super::app_menu::SwitchToLight))
+                                    .menu_with_check("Dark", !is_light, Box::new(super::app_menu::SwitchToDark))
                             }),
                     )
                     .child(

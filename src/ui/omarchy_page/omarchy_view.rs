@@ -105,6 +105,7 @@ impl Render for OmarchyView {
             .size_full()
             .items_center()
             .justify_start()
+            .pt_8()
             .child(
                 Icon::empty()
                     .path("logo/omarchy-logo.svg")
