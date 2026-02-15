@@ -1,11 +1,15 @@
 use gpui::*;
-use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
+use gpui_component::{ActiveTheme, button::Button, h_flex, text::TextView, v_flex};
 
-use crate::system::omarchy::omarchy_version::check_omarchy_update;
+use crate::system::omarchy::{
+    omarchy_version::check_omarchy_update, release_notes::fetch_latest_release_notes,
+};
 
 pub struct OmarchyView {
     local_version: String,
     update_available: Option<bool>,
+    latest_tag: Option<String>,
+    release_notes: Option<String>,
 }
 
 impl OmarchyView {
@@ -35,15 +39,34 @@ impl OmarchyView {
         )
         .detach();
 
+        // Spawn async task to fetch latest release notes
+        cx.spawn(
+            async move |this, cx| match fetch_latest_release_notes().await {
+                Ok((tag, notes)) => {
+                    this.update(cx, |this, _cx| {
+                        this.latest_tag = Some(tag);
+                        this.release_notes = Some(notes);
+                    })
+                    .ok();
+                }
+                Err(e) => {
+                    eprintln!("Failed to fetch release notes: {e}");
+                }
+            },
+        )
+        .detach();
+
         Self {
             local_version,
             update_available: None,
+            latest_tag: None,
+            release_notes: None,
         }
     }
 }
 
 impl Render for OmarchyView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
         let version_status = match self.update_available {
@@ -110,12 +133,58 @@ impl Render for OmarchyView {
             }
         };
 
+        let release_notes_section = if let Some(notes) = &self.release_notes {
+            let tag = self
+                .latest_tag
+                .clone()
+                .unwrap_or_else(|| "Latest".to_string());
+            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx);
+
+            v_flex()
+                .gap_2()
+                .w_full()
+                .flex_1()
+                .min_h(px(0.))
+                .child(
+                    div()
+                        .text_color(cx.theme().foreground)
+                        .font_weight(FontWeight::BOLD)
+                        .child(format!("{} Release Notes:", tag)),
+                )
+                .child(
+                    div()
+                        .id("release-notes-content")
+                        .flex_1()
+                        .p_4()
+                        .bg(cx.theme().background)
+                        .border_1()
+                        .border_color(cx.theme().border)
+                        .overflow_y_scroll()
+                        .child(markdown_view),
+                )
+        } else {
+            v_flex()
+                .gap_2()
+                .w_full()
+                .flex_1()
+                .items_center()
+                .justify_center()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child("Loading release notes..."),
+                )
+        };
+
         v_flex()
+            .id("omarchy-page")
             .gap_4()
             .size_full()
             .items_center()
             .justify_start()
             .pt_8()
+            .px_4()
             .child(
                 img("logo/omarchy-logo.svg")
                     .w(relative(1.)) // Full width
@@ -124,5 +193,6 @@ impl Render for OmarchyView {
                     .text_color(cx.theme().foreground),
             )
             .child(version_status)
+            .child(release_notes_section)
     }
 }
