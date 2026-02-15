@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    button::*, h_flex, menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem, ActiveTheme,
-    IconName, PixelsExt, Side, Sizable, TitleBar,
+    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
+    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
 };
 
 use crate::ui::menu::app_menu::SelectFont;

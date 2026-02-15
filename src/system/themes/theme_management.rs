@@ -514,9 +514,7 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
         }
 
         // Parse decoration section
-        if in_decoration_section
-            && let Some(value) = trimmed.strip_prefix("rounding = ")
-        {
+        if in_decoration_section && let Some(value) = trimmed.strip_prefix("rounding = ") {
             rounding = value.parse::<i32>().ok();
         }
     }

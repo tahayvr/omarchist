@@ -1,7 +1,7 @@
-use gpui::{div, px, IntoElement, ParentElement, Styled};
+use gpui::{IntoElement, ParentElement, Styled, div, px};
 use gpui_component::{chart::AreaChart, group_box::GroupBox, h_flex, progress::Progress, v_flex};
 
-use super::data_collector::{format_bytes, DataCollector};
+use super::data_collector::{DataCollector, format_bytes};
 
 /// System tab with detailed CPU and Memory information
 pub struct SystemTab;

@@ -129,8 +129,7 @@ impl TerminalSession {
                 smol::Timer::after(std::time::Duration::from_millis(100)).await;
                 this.update(cx, |this, cx| {
                     cx.notify();
-                    if !this.running {
-                    }
+                    if !this.running {}
                 })
                 .ok();
             }

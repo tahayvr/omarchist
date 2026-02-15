@@ -1,6 +1,6 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
-use gpui_component::{h_flex, v_flex, ActiveTheme, Root};
+use gpui_component::{ActiveTheme, Root, h_flex, v_flex};
 
 use crate::terminal::session::{TerminalSession, TerminalSize};
 use crate::terminal::view::TerminalView;
