@@ -36,7 +36,9 @@ pub async fn fetch_latest_release_notes() -> Result<(String, String), String> {
     }
 
     let tag = release.tag_name;
-    let notes = release.body.unwrap_or_else(|| "No release notes available.".to_string());
+    let notes = release
+        .body
+        .unwrap_or_else(|| "No release notes available.".to_string());
 
     Ok((tag, notes))
 }

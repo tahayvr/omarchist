@@ -3,9 +3,10 @@ use crate::system::themes::theme_management::{
 };
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
     divider::Divider,
-    h_flex, v_flex, ActiveTheme, Icon, IconName, WindowExt,
+    h_flex, v_flex,
 };
 use std::cell::RefCell;
 

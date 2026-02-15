@@ -8,9 +8,10 @@ use crate::types::themes::{BtopConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{form_section, tab_container};
 use gpui::*;
 use gpui_component::{
+    Colorize,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
     divider::Divider,
-    h_flex, v_flex, Colorize,
+    h_flex, v_flex,
 };
 
 /// Btop tab content for editing btop theme colors
