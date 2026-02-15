@@ -1,5 +1,7 @@
 use gpui::*;
-use gpui_component::{ActiveTheme, button::Button, h_flex, text::TextView, v_flex};
+use gpui_component::{
+    ActiveTheme, button::Button, h_flex, text::TextView, text::TextViewStyle, v_flex,
+};
 
 use crate::system::omarchy::{
     omarchy_version::check_omarchy_update, release_notes::fetch_latest_release_notes,
@@ -138,7 +140,22 @@ impl Render for OmarchyView {
                 .latest_tag
                 .clone()
                 .unwrap_or_else(|| "Latest".to_string());
-            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx);
+            let style = TextViewStyle::default()
+                .paragraph_gap(rems(2.0))
+                .heading_font_size(|level, base_size| {
+                    // Scale headings: H1 = 1.8x, H2 = 1.5x, H3 = 1.3x, H4+ = 1.1x
+                    let scale = match level {
+                        1 => 1.7,
+                        2 => 1.5,
+                        3 => 1.3,
+                        _ => 1.1,
+                    };
+                    base_size * scale
+                });
+
+            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx)
+                .style(style)
+                .line_height(rems(2.0));
 
             v_flex()
                 .gap_2()
@@ -160,7 +177,7 @@ impl Render for OmarchyView {
                         .border_1()
                         .border_color(cx.theme().border)
                         .overflow_y_scroll()
-                        .child(markdown_view),
+                        .child(div().w_full().h_full().child(markdown_view)),
                 )
         } else {
             v_flex()
@@ -186,11 +203,12 @@ impl Render for OmarchyView {
             .pt_8()
             .px_4()
             .child(
-                img("logo/omarchy-logo.svg")
-                    .w(relative(1.)) // Full width
-                    .max_w(px(400.))
-                    .h(px(150.))
-                    .text_color(cx.theme().foreground),
+                div().w_full().h(px(150.)).max_w(px(400.)).child(
+                    img("logo/omarchy-logo.svg")
+                        .w(relative(1.))
+                        .max_w(px(400.))
+                        .h(px(150.)),
+                ),
             )
             .child(version_status)
             .child(release_notes_section)
