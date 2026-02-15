@@ -1,9 +1,11 @@
 use crate::system::omarchy_version::get_local_omarchy_version;
+use crate::terminal::PENDING_TERMINAL_NAVIGATION;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
+use crate::ui::terminal_page::terminal_page::TerminalPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
@@ -28,6 +30,7 @@ pub enum ActivePage {
     Settings,
     About,
     Omarchy,
+    Terminal(String), // Command being run in terminal
 }
 
 pub struct MainWindowView {
@@ -41,6 +44,8 @@ pub struct MainWindowView {
     settings_root: AnyView,
     about_root: AnyView,
     omarchy_root: AnyView,
+    terminal_root: Option<AnyView>,
+    terminal_command: Option<String>,
     sidebar_collapsed: bool,
     omarchy_version: Option<String>,
 }
@@ -71,7 +76,7 @@ impl MainWindowView {
         let omarchy_version = get_local_omarchy_version()
             .ok()
             .filter(|v| v != "unknown" && !v.is_empty());
-        
+
         // Pass version to OmarchyView to avoid redundant git calls
         let omarchy_view = cx.new(|cx| OmarchyView::new(omarchy_version.clone(), cx));
         let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
@@ -87,6 +92,8 @@ impl MainWindowView {
             settings_root,
             about_root,
             omarchy_root,
+            terminal_root: None,
+            terminal_command: None,
             sidebar_collapsed: false,
             omarchy_version,
         }
@@ -111,8 +118,29 @@ impl MainWindowView {
             }
         }
 
+        // Handle Terminal page creation/update
+        if let ActivePage::Terminal(ref command) = page {
+            let should_create = self.terminal_command.as_ref() != Some(command);
+
+            if should_create {
+                let terminal_view = cx.new(|cx| TerminalPage::new(command.clone(), window, cx));
+                self.terminal_root = Some(cx.new(|cx| Root::new(terminal_view, window, cx)).into());
+                self.terminal_command = Some(command.clone());
+            }
+        }
+
         self.active_page = page;
         cx.notify();
+    }
+
+    /// Navigate to terminal page with a specific command
+    pub fn navigate_to_terminal(
+        &mut self,
+        command: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.navigate_to(ActivePage::Terminal(command), window, cx);
     }
 
     pub fn navigate_to_theme_edit(
@@ -136,6 +164,10 @@ impl MainWindowView {
             ActivePage::Settings => self.settings_root.clone(),
             ActivePage::About => self.about_root.clone(),
             ActivePage::Omarchy => self.omarchy_root.clone(),
+            ActivePage::Terminal(_) => self
+                .terminal_root
+                .clone()
+                .unwrap_or(self.themes_root.clone()),
         }
     }
 
@@ -147,6 +179,7 @@ impl MainWindowView {
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
+            (ActivePage::Terminal(a), ActivePage::Terminal(b)) => a == b,
             _ => false,
         }
     }
@@ -202,6 +235,12 @@ impl Render for MainWindowView {
                 themes_page.set_sidebar_collapsed(self.sidebar_collapsed, cx);
             });
             cx.notify();
+        }
+
+        // Check for pending terminal navigation
+        let pending_terminal = PENDING_TERMINAL_NAVIGATION.with(|nav| nav.borrow_mut().take());
+        if let Some(command) = pending_terminal {
+            self.navigate_to_terminal(command, window, cx);
         }
 
         div()
@@ -304,7 +343,9 @@ impl Render for MainWindowView {
                                                     .icon(
                                                         Icon::empty().path("logo/omarchy-icon.svg"),
                                                     )
-                                                    .active(self.is_page_active(ActivePage::Omarchy))
+                                                    .active(
+                                                        self.is_page_active(ActivePage::Omarchy),
+                                                    )
                                                     .suffix(
                                                         self.omarchy_version
                                                             .as_ref()
@@ -321,9 +362,15 @@ impl Render for MainWindowView {
                                                                 div().into_any_element()
                                                             }),
                                                     )
-                                                    .on_click(cx.listener(|this, _, window, cx| {
-                                                        this.navigate_to(ActivePage::Omarchy, window, cx);
-                                                    })),
+                                                    .on_click(cx.listener(
+                                                        |this, _, window, cx| {
+                                                            this.navigate_to(
+                                                                ActivePage::Omarchy,
+                                                                window,
+                                                                cx,
+                                                            );
+                                                        },
+                                                    )),
                                             )
                                             .child(
                                                 SidebarMenuItem::new("Toggle Sidebar")

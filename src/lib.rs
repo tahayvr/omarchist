@@ -1,6 +1,7 @@
 pub mod assets;
 pub mod shell;
 pub mod system;
+pub mod terminal;
 pub mod types;
 pub mod ui;
 

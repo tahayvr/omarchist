@@ -1,4 +1,4 @@
-use gpui::{div, Hsla, IntoElement, ParentElement, Pixels, Styled};
+use gpui::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
 use gpui_component::{chart::AreaChart, h_flex};
 
 /// A mini sparkline chart for displaying trends in small spaces

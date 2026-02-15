@@ -11,27 +11,30 @@ pub struct OmarchyView {
 impl OmarchyView {
     pub fn new(version: Option<String>, cx: &mut Context<Self>) -> Self {
         let local_version = version.unwrap_or_else(|| "unknown".to_string());
-        
+
         // Clone for the async block to avoid redundant git calls
         let version_for_check = local_version.clone();
-        
+
         // Spawn async task to check for updates
-        cx.spawn(async move |this, cx| {
-            match check_omarchy_update(&version_for_check).await {
+        cx.spawn(
+            async move |this, cx| match check_omarchy_update(&version_for_check).await {
                 Ok(update_available) => {
                     this.update(cx, |this, _cx| {
                         this.update_available = Some(update_available);
-                    }).ok();
+                    })
+                    .ok();
                 }
                 Err(e) => {
                     eprintln!("Failed to check for updates: {e}");
                     this.update(cx, |this, _cx| {
                         this.update_available = Some(false);
-                    }).ok();
+                    })
+                    .ok();
                 }
-            }
-        }).detach();
-        
+            },
+        )
+        .detach();
+
         Self {
             local_version,
             update_available: None,
@@ -42,7 +45,7 @@ impl OmarchyView {
 impl Render for OmarchyView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        
+
         let version_status = match self.update_available {
             None => {
                 // Still checking
@@ -53,13 +56,13 @@ impl Render for OmarchyView {
                         div()
                             .text_sm()
                             .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version))
+                            .child(format!("Version {}", self.local_version)),
                     )
                     .child(
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("Checking for updates...")
+                            .child("Checking for updates..."),
                     )
             }
             Some(true) => {
@@ -71,13 +74,13 @@ impl Render for OmarchyView {
                         div()
                             .text_sm()
                             .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version))
+                            .child(format!("Version {}", self.local_version)),
                     )
                     .child(
                         div()
                             .text_xs()
                             .text_color(theme.red)
-                            .child("Update available")
+                            .child("Update available"),
                     )
             }
             Some(false) => {
@@ -89,17 +92,12 @@ impl Render for OmarchyView {
                         div()
                             .text_sm()
                             .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version))
+                            .child(format!("Version {}", self.local_version)),
                     )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.green)
-                            .child("Up to date")
-                    )
+                    .child(div().text_xs().text_color(theme.green).child("Up to date"))
             }
         };
-        
+
         v_flex()
             .gap_4()
             .size_full()

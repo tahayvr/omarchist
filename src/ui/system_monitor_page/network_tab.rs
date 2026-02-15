@@ -1,13 +1,14 @@
-use gpui::{div, px, App, AppContext, IntoElement, ParentElement, Styled, Window};
+use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
 use gpui_component::{
+    ActiveTheme,
     chart::AreaChart,
     group_box::GroupBox,
     h_flex,
     table::{Column, Table, TableDelegate, TableState},
-    v_flex, ActiveTheme,
+    v_flex,
 };
 
-use super::data_collector::{format_bytes, format_bytes_speed, DataCollector, InterfaceInfo};
+use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
 
 /// Network tab with traffic visualization and interface details
 pub struct NetworkTab {
