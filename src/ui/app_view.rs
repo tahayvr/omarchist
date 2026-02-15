@@ -247,7 +247,7 @@ impl Render for MainWindowView {
         let viewport_width = window.viewport_size().width;
         let is_small_window = viewport_width < px(768.0);
         let sidebar_should_be_collapsed = is_small_window || self.sidebar_collapsed;
-        
+
         // Update themes_page with collapsed state if it changed due to resize
         self.themes_view.update(cx, |themes_page, cx| {
             themes_page.set_sidebar_collapsed(sidebar_should_be_collapsed, cx);
@@ -385,12 +385,9 @@ impl Render for MainWindowView {
                                             .child(
                                                 SidebarMenuItem::new("Toggle Sidebar")
                                                     .icon(Icon::new(IconName::PanelLeft))
-                                                    .suffix(
-                                                        Kbd::new(
-                                                            Keystroke::parse("ctrl-b").unwrap(),
-                                                        )
-                                                        .appearance(false),
-                                                    )
+                                                    .suffix(Kbd::new(
+                                                        Keystroke::parse("ctrl-b").unwrap(),
+                                                    ))
                                                     .on_click(cx.listener(|this, _, _, cx| {
                                                         this.sidebar_collapsed =
                                                             !this.sidebar_collapsed;
