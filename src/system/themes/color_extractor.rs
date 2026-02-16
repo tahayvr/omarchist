@@ -197,10 +197,14 @@ fn rgb_to_hex(color: &color_thief::Color) -> String {
     format!("#{:02X}{:02X}{:02X}", color.r, color.g, color.b)
 }
 
-/// Copy image to theme backgrounds folder
+/// Copy image to theme backgrounds folder, clearing existing backgrounds first
 pub fn copy_image_to_backgrounds(source_path: &Path, theme_name: &str) -> Result<String, String> {
-    use crate::system::themes::theme_file_ops::add_background_image;
+    use crate::system::themes::theme_file_ops::{add_background_image, clear_background_images};
 
+    // Clear existing background images first
+    clear_background_images(theme_name, false)?;
+
+    // Copy the new image
     let dest_path = add_background_image(theme_name, false, source_path)?;
     Ok(dest_path.to_string_lossy().to_string())
 }

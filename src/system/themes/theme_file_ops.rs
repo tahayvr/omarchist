@@ -160,6 +160,25 @@ pub fn remove_background_image(
     Ok(())
 }
 
+/// Clear all background images from a theme's backgrounds folder
+pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<(), String> {
+    let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
+        .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
+
+    if !backgrounds_dir.exists() {
+        return Ok(());
+    }
+
+    // List all images and delete them
+    let images = list_background_images(theme_name, is_system)?;
+    for image_path in images {
+        fs::remove_file(&image_path)
+            .map_err(|e| format!("Failed to remove background image: {}", e))?;
+    }
+
+    Ok(())
+}
+
 /// Open the backgrounds folder in Nautilus file manager
 pub fn open_backgrounds_folder(theme_name: &str, is_system: bool) -> Result<(), String> {
     let backgrounds_dir = ensure_backgrounds_dir(theme_name, is_system)?;

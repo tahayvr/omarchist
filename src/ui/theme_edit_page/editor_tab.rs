@@ -9,6 +9,7 @@ use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
+    ActiveTheme,
     input::{Input, InputEvent, InputState},
     v_flex,
 };
@@ -41,16 +42,14 @@ impl EditorTab {
         let neovim_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor("lua")
-                .line_number(true)
-                .searchable(true)
+                .line_number(false)
                 .default_value(&neovim_content)
         });
 
         let vscode_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor("json")
-                .line_number(true)
-                .searchable(true)
+                .line_number(false)
                 .default_value(&vscode_content)
         });
 
@@ -234,10 +233,10 @@ impl EditorTab {
 }
 
 impl Render for EditorTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
             .child(help_text(
-                "Edit the configuration files for Neovim and VSCode themes:",
+                "Edit the configuration files for Neovim and VSCode: themes:",
             ))
             .child(
                 v_flex()
@@ -253,15 +252,14 @@ impl Render for EditorTab {
                                     .child("Neovim (neovim.lua)"),
                             )
                             .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(gpui::rgb(0x888888))
-                                    .child("Lua configuration for Neovim theme"),
-                            )
-                            .child(
-                                div()
-                                    .h(px(300.))
-                                    .child(Input::new(&self.neovim_input).h_full()),
+                                div().bg(cx.theme().background).h(px(300.)).child(
+                                    Input::new(&self.neovim_input)
+                                        .bg(cx.theme().background)
+                                        .border_1()
+                                        .border_color(cx.theme().border)
+                                        .h_full()
+                                        .appearance(false),
+                                ),
                             ),
                     )
                     .child(
@@ -275,15 +273,14 @@ impl Render for EditorTab {
                                     .child("VSCode: (vscode.json)"),
                             )
                             .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(gpui::rgb(0x888888))
-                                    .child("JSON configuration for VSCode: theme"),
-                            )
-                            .child(
-                                div()
-                                    .h(px(200.))
-                                    .child(Input::new(&self.vscode_input).h_full()),
+                                div().bg(cx.theme().background).h(px(200.)).child(
+                                    Input::new(&self.vscode_input)
+                                        .bg(cx.theme().background)
+                                        .border_1()
+                                        .border_color(cx.theme().border)
+                                        .h_full()
+                                        .appearance(false),
+                                ),
                             ),
                     ),
             )
