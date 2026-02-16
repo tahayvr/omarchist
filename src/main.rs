@@ -1,10 +1,31 @@
 use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
 use gpui_component::{Root, Theme, ThemeSet, TitleBar};
+use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
+use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
 use std::rc::Rc;
+
+/// Convert CLI arguments to the initial ActivePage
+fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
+    match args.view {
+        Some(ViewOption::System) => ActivePage::SystemMonitor,
+        Some(ViewOption::Settings) => ActivePage::Settings,
+        Some(ViewOption::About) => ActivePage::About,
+        Some(ViewOption::Omarchy) => ActivePage::Omarchy,
+        Some(ViewOption::Themes) => {
+            // If a theme name is provided, open theme edit page
+            if let Some(ref theme_name) = args.theme {
+                ActivePage::ThemeEdit(theme_name.clone())
+            } else {
+                ActivePage::Themes
+            }
+        }
+        None => ActivePage::Themes, // Default page
+    }
+}
 
 const THEME_FILE: &str = include_str!("../ui_themes/theme.json");
 
@@ -65,9 +86,14 @@ fn load_custom_fonts(cx: &mut App) {
 }
 
 fn main() {
+    // Parse CLI arguments before starting the application
+    let cli_args = CliArgs::parse_args();
+
     let app = Application::new().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
+        // Determine initial page from CLI arguments
+        let initial_page = cli_args_to_active_page(&cli_args);
         // Ensure config directory and settings.json exist
         if let Err(e) = config_setup::ensure_config() {
             eprintln!("Failed to initialize config: {}", e);
@@ -154,7 +180,8 @@ fn main() {
             };
             let window_handle = cx.open_window(window_options, |window, cx| {
                 let title_bar = cx.new(|_| MainTitleBar::new());
-                let main_view = cx.new(|cx| MainWindowView::new(title_bar, window, cx));
+                let main_view =
+                    cx.new(|cx| MainWindowView::new(title_bar, initial_page.clone(), window, cx));
                 cx.new(|cx| Root::new(main_view, window, cx))
             })?;
 

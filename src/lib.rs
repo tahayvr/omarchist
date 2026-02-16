@@ -1,4 +1,5 @@
 pub mod assets;
+pub mod cli;
 pub mod shell;
 pub mod system;
 pub mod terminal;

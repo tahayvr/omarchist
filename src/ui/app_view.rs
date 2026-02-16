@@ -53,6 +53,7 @@ pub struct MainWindowView {
 impl MainWindowView {
     pub fn new(
         title_bar: Entity<MainTitleBar>,
+        initial_page: ActivePage,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -81,7 +82,7 @@ impl MainWindowView {
         let omarchy_view = cx.new(|cx| OmarchyView::new(omarchy_version.clone(), cx));
         let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
 
-        Self {
+        let mut view = Self {
             title_bar,
             active_page: ActivePage::Themes,
             themes_root,
@@ -96,7 +97,14 @@ impl MainWindowView {
             terminal_command: None,
             sidebar_collapsed: false,
             omarchy_version,
+        };
+
+        // Navigate to the initial page if it's not the default Themes page
+        if initial_page != ActivePage::Themes {
+            view.navigate_to(initial_page, window, cx);
         }
+
+        view
     }
 
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {
