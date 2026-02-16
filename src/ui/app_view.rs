@@ -11,8 +11,7 @@ use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
 use gpui::*;
 use gpui_component::{
-    Collapsible, Icon, IconName, Root, Side,
-    h_flex,
+    Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
 };
@@ -95,9 +94,11 @@ impl MainWindowView {
             if !version_for_check.is_empty() {
                 match check_omarchy_update(&version_for_check).await {
                     Ok(update_available) => {
-                        title_bar_for_update.update(cx, |title_bar, _cx| {
-                            title_bar.set_omarchy_update_available(update_available);
-                        }).ok();
+                        title_bar_for_update
+                            .update(cx, |title_bar, _cx| {
+                                title_bar.set_omarchy_update_available(update_available);
+                            })
+                            .ok();
                     }
                     Err(e) => {
                         eprintln!("Failed to check for Omarchy updates: {e}");
@@ -388,30 +389,28 @@ impl Render for MainWindowView {
                                 SidebarGroup::new("")
                                     .collapsed(sidebar_should_be_collapsed)
                                     .child(
-                                        SidebarMenu::new()
-                                            .cursor_pointer()
-                                            .child(
-                                                SidebarMenuItem::new("Toggle Sidebar")
-                                                    .icon(Icon::new(IconName::PanelLeft))
-                                                    .suffix(Kbd::new(
-                                                        Keystroke::parse("ctrl-b").unwrap(),
-                                                    ))
-                                                    .on_click(cx.listener(|this, _, _, cx| {
-                                                        this.sidebar_collapsed =
-                                                            !this.sidebar_collapsed;
-                                                        // Update themes page with new sidebar state
-                                                        this.themes_view.update(
-                                                            cx,
-                                                            |themes_page, cx| {
-                                                                themes_page.set_sidebar_collapsed(
-                                                                    this.sidebar_collapsed,
-                                                                    cx,
-                                                                );
-                                                            },
-                                                        );
-                                                        cx.notify();
-                                                    })),
-                                            ),
+                                        SidebarMenu::new().cursor_pointer().child(
+                                            SidebarMenuItem::new("Toggle Sidebar")
+                                                .icon(Icon::new(IconName::PanelLeft))
+                                                .suffix(Kbd::new(
+                                                    Keystroke::parse("ctrl-b").unwrap(),
+                                                ))
+                                                .on_click(cx.listener(|this, _, _, cx| {
+                                                    this.sidebar_collapsed =
+                                                        !this.sidebar_collapsed;
+                                                    // Update themes page with new sidebar state
+                                                    this.themes_view.update(
+                                                        cx,
+                                                        |themes_page, cx| {
+                                                            themes_page.set_sidebar_collapsed(
+                                                                this.sidebar_collapsed,
+                                                                cx,
+                                                            );
+                                                        },
+                                                    );
+                                                    cx.notify();
+                                                })),
+                                        ),
                                     ),
                             ),
                     )
