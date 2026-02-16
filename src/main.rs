@@ -1,6 +1,7 @@
 use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
 use gpui_component::{Root, Theme, ThemeSet, TitleBar};
 use omarchist::system::config::config_setup;
+use omarchist::system::config::hypr_setup;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
 use std::rc::Rc;
@@ -70,6 +71,11 @@ fn main() {
         // Ensure config directory and settings.json exist
         if let Err(e) = config_setup::ensure_config() {
             eprintln!("Failed to initialize config: {}", e);
+        }
+
+        // Ensure Hyprland config includes omarchist source directive
+        if let Err(e) = hypr_setup::ensure_hypr_source() {
+            eprintln!("Failed to set up Hyprland config: {}", e);
         }
 
         gpui_component::init(cx);
