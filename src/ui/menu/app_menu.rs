@@ -1,4 +1,4 @@
-use gpui::{Action, actions};
+use gpui::{actions, Action};
 
 actions!(
     app_menu,
@@ -7,6 +7,7 @@ actions!(
         Quit,
         NavigateToAbout,
         NavigateToSettings,
+        NavigateToOmarchy,
         Copy,
         Paste,
         Cut,

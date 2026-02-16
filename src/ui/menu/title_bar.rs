@@ -1,12 +1,17 @@
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, PixelsExt, Side, Sizable, TitleBar, button::*, h_flex,
-    menu::DropdownMenu, menu::PopupMenu, menu::PopupMenuItem,
+    button::*,
+    h_flex,
+    menu::{DropdownMenu, PopupMenu, PopupMenuItem},
+    ActiveTheme, Icon, IconName, PixelsExt, Side, Sizable, TitleBar,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
 
-pub struct MainTitleBar;
+pub struct MainTitleBar {
+    omarchy_update_available: Option<bool>,
+}
 
 impl Default for MainTitleBar {
     fn default() -> Self {
@@ -16,12 +21,18 @@ impl Default for MainTitleBar {
 
 impl MainTitleBar {
     pub fn new() -> Self {
-        Self
+        Self {
+            omarchy_update_available: None,
+        }
+    }
+
+    pub fn set_omarchy_update_available(&mut self, available: bool) {
+        self.omarchy_update_available = Some(available);
     }
 }
 
 impl Render for MainTitleBar {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         TitleBar::new()
             .child(
                 h_flex()
@@ -93,6 +104,33 @@ impl Render for MainTitleBar {
                     .justify_end()
                     .px_2()
                     .gap_2()
+                    .child(
+                        div()
+                            .relative()
+                            .child(
+                                Button::new("omarchy-btn")
+                                    .icon(Icon::empty().path("logo/omarchy-icon.svg"))
+                                    .small()
+                                    .ghost()
+                                    .cursor_pointer()
+                                    .on_click(|_, _, _cx| {
+                                        crate::ui::app_view::PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
+                                            *flag.borrow_mut() = true;
+                                        });
+                                    }),
+                            )
+                            .when(self.omarchy_update_available == Some(true), |this| {
+                                this.child(
+                                    div()
+                                        .absolute()
+                                        .top_0()
+                                        .right_0()
+                                        .size_2()
+                                        .rounded_full()
+                                        .bg(cx.theme().red)
+                                )
+                            })
+                    )
                     .child(
                         Button::new("settings-btn")
                             .icon(IconName::Settings2)

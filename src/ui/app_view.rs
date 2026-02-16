@@ -9,11 +9,9 @@ use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::terminal_page::terminal_page::TerminalPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
-use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Collapsible, Icon, IconName, Root, Side,
-    badge::Badge,
+    Collapsible, Icon, IconName, Root, Side,
     h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
@@ -22,6 +20,7 @@ use std::cell::RefCell;
 
 thread_local! {
     pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
+    pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
 }
 
 /// Represents the currently active page in the application.
@@ -52,8 +51,6 @@ pub struct MainWindowView {
     terminal_root: Option<AnyView>,
     terminal_command: Option<String>,
     sidebar_collapsed: bool,
-    omarchy_version: Option<String>,
-    omarchy_update_available: Option<bool>,
 }
 
 impl MainWindowView {
@@ -93,14 +90,14 @@ impl MainWindowView {
 
         // Spawn async task to check for Omarchy updates
         let version_for_check = omarchy_version.clone().unwrap_or_default();
-        cx.spawn(async move |this, cx| {
+        let title_bar_for_update = title_bar.clone();
+        cx.spawn(async move |_this, cx| {
             if !version_for_check.is_empty() {
                 match check_omarchy_update(&version_for_check).await {
                     Ok(update_available) => {
-                        this.update(cx, |this, _cx| {
-                            this.omarchy_update_available = Some(update_available);
-                        })
-                        .ok();
+                        title_bar_for_update.update(cx, |title_bar, _cx| {
+                            title_bar.set_omarchy_update_available(update_available);
+                        }).ok();
                     }
                     Err(e) => {
                         eprintln!("Failed to check for Omarchy updates: {e}");
@@ -125,8 +122,6 @@ impl MainWindowView {
             terminal_root: None,
             terminal_command: None,
             sidebar_collapsed: true,
-            omarchy_version,
-            omarchy_update_available: None,
         };
 
         // Navigate to the initial page if it's not the default Themes page
@@ -283,6 +278,18 @@ impl Render for MainWindowView {
             self.navigate_to_terminal(command, window, cx);
         }
 
+        // Check for pending Omarchy navigation from title bar
+        let pending_omarchy = PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_omarchy {
+            self.navigate_to(ActivePage::Omarchy, window, cx);
+        }
+
         // Responsive sidebar: auto-collapse on small windows (< 768px)
         let viewport_width = window.viewport_size().width;
         let is_small_window = viewport_width < px(768.0);
@@ -305,6 +312,11 @@ impl Render for MainWindowView {
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToAbout, window, cx| {
                     this.navigate_to(ActivePage::About, window, cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToOmarchy, window, cx| {
+                    this.navigate_to(ActivePage::Omarchy, window, cx);
                 },
             ))
             .on_action(cx.listener(
@@ -378,54 +390,6 @@ impl Render for MainWindowView {
                                     .child(
                                         SidebarMenu::new()
                                             .cursor_pointer()
-                                            .child(
-                                                SidebarMenuItem::new("Omarchy")
-                                                    .icon(
-                                                        Icon::empty().path("logo/omarchy-icon.svg"),
-                                                    )
-                                                    .active(
-                                                        self.is_page_active(ActivePage::Omarchy),
-                                                    )
-                                                    .suffix(
-                                                        h_flex()
-                                                            .gap_2()
-                                                            .items_center()
-                                                            .when(
-                                                                self.omarchy_update_available
-                                                                    == Some(true),
-                                                                |this| {
-                                                                    this.child(
-                                                                        Badge::new()
-                                                                            .dot()
-                                                                            .color(cx.theme().red),
-                                                                    )
-                                                                },
-                                                            )
-                                                            .when_some(
-                                                                self.omarchy_version.as_ref(),
-                                                                |this, v| {
-                                                                    this.child(
-                                                                        div()
-                                                                            .text_xs()
-                                                                            .text_color(
-                                                                                cx.theme().muted_foreground,
-                                                                            )
-                                                                            .child(v.clone()),
-                                                                    )
-                                                                },
-                                                            )
-                                                            .into_any_element(),
-                                                    )
-                                                    .on_click(cx.listener(
-                                                        |this, _, window, cx| {
-                                                            this.navigate_to(
-                                                                ActivePage::Omarchy,
-                                                                window,
-                                                                cx,
-                                                            );
-                                                        },
-                                                    )),
-                                            )
                                             .child(
                                                 SidebarMenuItem::new("Toggle Sidebar")
                                                     .icon(Icon::new(IconName::PanelLeft))
