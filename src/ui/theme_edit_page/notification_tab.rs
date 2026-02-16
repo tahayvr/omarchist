@@ -8,12 +8,14 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_mako_ini};
 use crate::types::themes::{EditingTheme, MakoConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
     button::Button,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -213,18 +215,21 @@ impl Render for NotificationTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.text_color_picker).label("Text Color")),
-                    )
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.border_color_picker).label("Border Color"),
-                        ),
-                    )
-                    .child(form_section().child(
-                        ColorPicker::new(&self.background_color_picker).label("Background Color"),
-                    )),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "mako-text",
+                        "Text Color",
+                        &self.text_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "mako-border",
+                        "Border Color",
+                        &self.border_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "mako-bg",
+                        "Background Color",
+                        &self.background_color_picker,
+                    ))),
             )
     }
 }

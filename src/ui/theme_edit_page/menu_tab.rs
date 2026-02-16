@@ -10,11 +10,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_walker_css};
 use crate::types::themes::{EditingTheme, WalkerConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -258,28 +260,42 @@ impl Render for MenuTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.background_picker).label("Background")),
-                    )
-                    .child(form_section().child(ColorPicker::new(&self.base_picker).label("Base")))
-                    .child(
-                        form_section().child(ColorPicker::new(&self.border_picker).label("Border")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-bg",
+                        "Background",
+                        &self.background_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-base",
+                        "Base",
+                        &self.base_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-border",
+                        "Border",
+                        &self.border_picker,
+                    ))),
             )
             .child(
                 // Second row of color pickers - wraps on narrow screens
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.foreground_picker).label("Foreground")),
-                    )
-                    .child(form_section().child(ColorPicker::new(&self.text_picker).label("Text")))
-                    .child(form_section().child(
-                        ColorPicker::new(&self.selected_text_picker).label("Selected Text"),
-                    )),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-fg",
+                        "Foreground",
+                        &self.foreground_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-text",
+                        "Text",
+                        &self.text_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "walker-selected",
+                        "Selected Text",
+                        &self.selected_text_picker,
+                    ))),
             )
     }
 }

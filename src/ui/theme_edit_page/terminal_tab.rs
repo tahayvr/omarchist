@@ -8,12 +8,14 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_terminal_configs};
 use crate::types::themes::{EditingTheme, TerminalConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
     button::Button,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     divider::Divider,
     h_flex, v_flex,
 };
@@ -296,14 +298,16 @@ impl Render for TerminalTab {
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.primary_bg_picker)
-                                            .label("Background"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.primary_fg_picker)
-                                            .label("Foreground"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-primary-bg",
+                                        "Background",
+                                        &self.primary_bg_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-primary-fg",
+                                        "Foreground",
+                                        &self.primary_fg_picker,
+                                    )),
                             ),
                     )
                     .child(Divider::horizontal())
@@ -321,14 +325,16 @@ impl Render for TerminalTab {
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.cursor_cursor_picker)
-                                            .label("Cursor"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.cursor_text_picker)
-                                            .label("Cursor Text"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-cursor",
+                                        "Cursor",
+                                        &self.cursor_cursor_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-cursor-text",
+                                        "Cursor Text",
+                                        &self.cursor_text_picker,
+                                    )),
                             ),
                     )
                     .child(Divider::horizontal())
@@ -346,14 +352,16 @@ impl Render for TerminalTab {
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.selection_bg_picker)
-                                            .label("Background"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.selection_fg_picker)
-                                            .label("Foreground"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-selection-bg",
+                                        "Background",
+                                        &self.selection_bg_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-selection-fg",
+                                        "Foreground",
+                                        &self.selection_fg_picker,
+                                    )),
                             ),
                     )
                     .child(Divider::horizontal())
@@ -371,31 +379,51 @@ impl Render for TerminalTab {
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.normal_black_picker).label("Black"),
-                                    )
-                                    .child(ColorPicker::new(&self.normal_red_picker).label("Red"))
-                                    .child(
-                                        ColorPicker::new(&self.normal_green_picker).label("Green"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.normal_yellow_picker)
-                                            .label("Yellow"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-black",
+                                        "Black",
+                                        &self.normal_black_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-red",
+                                        "Red",
+                                        &self.normal_red_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-green",
+                                        "Green",
+                                        &self.normal_green_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-yellow",
+                                        "Yellow",
+                                        &self.normal_yellow_picker,
+                                    )),
                             )
                             .child(
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(ColorPicker::new(&self.normal_blue_picker).label("Blue"))
-                                    .child(
-                                        ColorPicker::new(&self.normal_magenta_picker)
-                                            .label("Magenta"),
-                                    )
-                                    .child(ColorPicker::new(&self.normal_cyan_picker).label("Cyan"))
-                                    .child(
-                                        ColorPicker::new(&self.normal_white_picker).label("White"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-blue",
+                                        "Blue",
+                                        &self.normal_blue_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-magenta",
+                                        "Magenta",
+                                        &self.normal_magenta_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-cyan",
+                                        "Cyan",
+                                        &self.normal_cyan_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-normal-white",
+                                        "White",
+                                        &self.normal_white_picker,
+                                    )),
                             ),
                     )
                     .child(Divider::horizontal())
@@ -413,31 +441,51 @@ impl Render for TerminalTab {
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(
-                                        ColorPicker::new(&self.bright_black_picker).label("Black"),
-                                    )
-                                    .child(ColorPicker::new(&self.bright_red_picker).label("Red"))
-                                    .child(
-                                        ColorPicker::new(&self.bright_green_picker).label("Green"),
-                                    )
-                                    .child(
-                                        ColorPicker::new(&self.bright_yellow_picker)
-                                            .label("Yellow"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-black",
+                                        "Black",
+                                        &self.bright_black_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-red",
+                                        "Red",
+                                        &self.bright_red_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-green",
+                                        "Green",
+                                        &self.bright_green_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-yellow",
+                                        "Yellow",
+                                        &self.bright_yellow_picker,
+                                    )),
                             )
                             .child(
                                 h_flex()
                                     .gap_24()
                                     .flex_wrap()
-                                    .child(ColorPicker::new(&self.bright_blue_picker).label("Blue"))
-                                    .child(
-                                        ColorPicker::new(&self.bright_magenta_picker)
-                                            .label("Magenta"),
-                                    )
-                                    .child(ColorPicker::new(&self.bright_cyan_picker).label("Cyan"))
-                                    .child(
-                                        ColorPicker::new(&self.bright_white_picker).label("White"),
-                                    ),
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-blue",
+                                        "Blue",
+                                        &self.bright_blue_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-magenta",
+                                        "Magenta",
+                                        &self.bright_magenta_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-cyan",
+                                        "Cyan",
+                                        &self.bright_cyan_picker,
+                                    ))
+                                    .child(color_picker_with_clipboard(
+                                        "term-bright-white",
+                                        "White",
+                                        &self.bright_white_picker,
+                                    )),
                             ),
                     ),
             )

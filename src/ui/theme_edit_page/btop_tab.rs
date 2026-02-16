@@ -5,11 +5,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_btop_theme};
 use crate::types::themes::{BtopConfig, EditingTheme};
-use crate::ui::theme_edit_page::shared::{form_section, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     divider::Divider,
     h_flex, v_flex,
 };
@@ -847,10 +849,26 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.main_bg_picker).label("Background"))
-                                .child(ColorPicker::new(&self.main_fg_picker).label("Foreground"))
-                                .child(ColorPicker::new(&self.title_picker).label("Title"))
-                                .child(ColorPicker::new(&self.hi_fg_picker).label("Highlight")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-main-bg",
+                                    "Background",
+                                    &self.main_bg_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-main-fg",
+                                    "Foreground",
+                                    &self.main_fg_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-title",
+                                    "Title",
+                                    &self.title_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-hi-fg",
+                                    "Highlight",
+                                    &self.hi_fg_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -868,14 +886,16 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(
-                                    ColorPicker::new(&self.selected_bg_picker)
-                                        .label("Selected Background"),
-                                )
-                                .child(
-                                    ColorPicker::new(&self.selected_fg_picker)
-                                        .label("Selected Foreground"),
-                                ),
+                                .child(color_picker_with_clipboard(
+                                    "btop-selected-bg",
+                                    "Selected Background",
+                                    &self.selected_bg_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-selected-fg",
+                                    "Selected Foreground",
+                                    &self.selected_fg_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -893,8 +913,16 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.inactive_fg_picker).label("Inactive"))
-                                .child(ColorPicker::new(&self.proc_misc_picker).label("Proc Misc")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-inactive",
+                                    "Inactive",
+                                    &self.inactive_fg_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-proc-misc",
+                                    "Proc Misc",
+                                    &self.proc_misc_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -912,13 +940,31 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.cpu_box_picker).label("CPU Box"))
-                                .child(ColorPicker::new(&self.mem_box_picker).label("Memory Box"))
-                                .child(ColorPicker::new(&self.net_box_picker).label("Net Box"))
-                                .child(ColorPicker::new(&self.proc_box_picker).label("Proc Box"))
-                                .child(
-                                    ColorPicker::new(&self.div_line_picker).label("Divider Line"),
-                                ),
+                                .child(color_picker_with_clipboard(
+                                    "btop-cpu-box",
+                                    "CPU Box",
+                                    &self.cpu_box_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-mem-box",
+                                    "Memory Box",
+                                    &self.mem_box_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-net-box",
+                                    "Net Box",
+                                    &self.net_box_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-proc-box",
+                                    "Proc Box",
+                                    &self.proc_box_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-div-line",
+                                    "Divider Line",
+                                    &self.div_line_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -936,9 +982,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.temp_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.temp_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.temp_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-temp-start",
+                                    "Start",
+                                    &self.temp_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-temp-mid",
+                                    "Mid",
+                                    &self.temp_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-temp-end",
+                                    "End",
+                                    &self.temp_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -956,9 +1014,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.cpu_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.cpu_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.cpu_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-cpu-start",
+                                    "Start",
+                                    &self.cpu_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-cpu-mid",
+                                    "Mid",
+                                    &self.cpu_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-cpu-end",
+                                    "End",
+                                    &self.cpu_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -976,9 +1046,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.free_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.free_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.free_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-free-start",
+                                    "Start",
+                                    &self.free_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-free-mid",
+                                    "Mid",
+                                    &self.free_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-free-end",
+                                    "End",
+                                    &self.free_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -996,9 +1078,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.cached_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.cached_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.cached_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-cached-start",
+                                    "Start",
+                                    &self.cached_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-cached-mid",
+                                    "Mid",
+                                    &self.cached_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-cached-end",
+                                    "End",
+                                    &self.cached_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -1016,11 +1110,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(
-                                    ColorPicker::new(&self.available_start_picker).label("Start"),
-                                )
-                                .child(ColorPicker::new(&self.available_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.available_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-available-start",
+                                    "Start",
+                                    &self.available_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-available-mid",
+                                    "Mid",
+                                    &self.available_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-available-end",
+                                    "End",
+                                    &self.available_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -1038,9 +1142,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.used_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.used_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.used_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-used-start",
+                                    "Start",
+                                    &self.used_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-used-mid",
+                                    "Mid",
+                                    &self.used_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-used-end",
+                                    "End",
+                                    &self.used_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -1058,9 +1174,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.download_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.download_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.download_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-download-start",
+                                    "Start",
+                                    &self.download_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-download-mid",
+                                    "Mid",
+                                    &self.download_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-download-end",
+                                    "End",
+                                    &self.download_end_picker,
+                                )),
                         ),
                 )
                 .child(Divider::horizontal())
@@ -1078,9 +1206,21 @@ impl Render for BtopTab {
                             h_flex()
                                 .gap_6()
                                 .flex_wrap()
-                                .child(ColorPicker::new(&self.upload_start_picker).label("Start"))
-                                .child(ColorPicker::new(&self.upload_mid_picker).label("Mid"))
-                                .child(ColorPicker::new(&self.upload_end_picker).label("End")),
+                                .child(color_picker_with_clipboard(
+                                    "btop-upload-start",
+                                    "Start",
+                                    &self.upload_start_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-upload-mid",
+                                    "Mid",
+                                    &self.upload_mid_picker,
+                                ))
+                                .child(color_picker_with_clipboard(
+                                    "btop-upload-end",
+                                    "End",
+                                    &self.upload_end_picker,
+                                )),
                         ),
                 ),
         )

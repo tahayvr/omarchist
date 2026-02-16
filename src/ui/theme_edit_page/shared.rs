@@ -5,7 +5,10 @@
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, h_flex,
+    ActiveTheme, Colorize,
+    clipboard::Clipboard,
+    color_picker::{ColorPicker, ColorPickerState},
+    h_flex,
     input::{Input, InputState},
     label::Label,
     switch::Switch,
@@ -172,4 +175,34 @@ pub fn error_message(text: impl Into<SharedString>) -> Div {
                 .text_color(gpui::rgb(0xff0000))
                 .child(text.into()),
         )
+}
+
+/// Creates a color picker with a clipboard-enabled label that copies the hex value when clicked
+pub fn color_picker_with_clipboard(
+    id: impl Into<SharedString>,
+    label: impl Into<SharedString>,
+    picker_state: &Entity<ColorPickerState>,
+) -> impl IntoElement {
+    let picker_state_clone = picker_state.clone();
+    let label_text: SharedString = label.into();
+    let id: SharedString = id.into();
+    let clipboard_id: SharedString = format!("{}-clipboard", id).into();
+
+    v_flex()
+        .gap_2()
+        .child(
+            h_flex()
+                .gap_2()
+                .items_center()
+                .child(Label::new(label_text).text_sm())
+                .child(Clipboard::new(clipboard_id).value_fn(move |_, cx| {
+                    picker_state_clone
+                        .read(cx)
+                        .value()
+                        .map(|c| c.to_hex())
+                        .unwrap_or_default()
+                        .into()
+                })),
+        )
+        .child(ColorPicker::new(picker_state))
 }

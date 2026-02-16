@@ -6,11 +6,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_waybar_css};
 use crate::types::themes::{EditingTheme, WaybarConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -166,14 +168,16 @@ impl Render for WaybarTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.background_picker).label("Background")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.foreground_picker).label("Foreground")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "waybar-bg",
+                        "Background",
+                        &self.background_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "waybar-fg",
+                        "Foreground",
+                        &self.foreground_picker,
+                    ))),
             )
     }
 }

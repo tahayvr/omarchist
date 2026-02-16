@@ -9,11 +9,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_hyprlock_conf};
 use crate::types::themes::{EditingTheme, HyprlockConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -247,31 +249,36 @@ impl Render for LockScreenTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.color_picker).label("Background Color")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.inner_color_picker).label("Inner Color")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.outer_color_picker).label("Outer Color")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "hyprlock-bg",
+                        "Background Color",
+                        &self.color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "hyprlock-inner",
+                        "Inner Color",
+                        &self.inner_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "hyprlock-outer",
+                        "Outer Color",
+                        &self.outer_color_picker,
+                    ))),
             )
             .child(
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.font_color_picker).label("Font Color")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.check_color_picker).label("Check Color")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "hyprlock-font",
+                        "Font Color",
+                        &self.font_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "hyprlock-check",
+                        "Check Color",
+                        &self.check_color_picker,
+                    ))),
             )
     }
 }

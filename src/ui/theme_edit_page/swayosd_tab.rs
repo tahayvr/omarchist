@@ -9,11 +9,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_swayosd_css};
 use crate::types::themes::{EditingTheme, SwayosdConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -228,30 +230,36 @@ impl Render for SwayosdTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.background_color_picker).label("Background"),
-                        ),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.border_color_picker).label("Border")),
-                    )
-                    .child(
-                        form_section().child(ColorPicker::new(&self.label_picker).label("Label")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "swayosd-bg",
+                        "Background",
+                        &self.background_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "swayosd-border",
+                        "Border",
+                        &self.border_color_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "swayosd-label",
+                        "Label",
+                        &self.label_picker,
+                    ))),
             )
             .child(
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section().child(ColorPicker::new(&self.image_picker).label("Image")),
-                    )
-                    .child(
-                        form_section()
-                            .child(ColorPicker::new(&self.progress_picker).label("Progress")),
-                    ),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "swayosd-image",
+                        "Image",
+                        &self.image_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "swayosd-progress",
+                        "Progress",
+                        &self.progress_picker,
+                    ))),
             )
     }
 }

@@ -10,11 +10,13 @@
 
 use crate::system::themes::theme_management::{save_theme_data, update_hyprland_conf};
 use crate::types::themes::{EditingTheme, HyprlandConfig};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     label::Label,
@@ -401,14 +403,16 @@ impl Render for WindowsTab {
                 h_flex()
                     .gap_24()
                     .flex_wrap()
-                    .child(
-                        form_section().child(
-                            ColorPicker::new(&self.active_border_picker).label("Active Border"),
-                        ),
-                    )
-                    .child(form_section().child(
-                        ColorPicker::new(&self.inactive_border_picker).label("Inactive Border"),
-                    )),
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "active-border",
+                        "Active Border",
+                        &self.active_border_picker,
+                    )))
+                    .child(form_section().child(color_picker_with_clipboard(
+                        "inactive-border",
+                        "Inactive Border",
+                        &self.inactive_border_picker,
+                    ))),
             )
             .child(
                 // Numeric inputs row

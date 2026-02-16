@@ -6,12 +6,14 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_chromium_config};
 use crate::types::themes::{BrowserConfig, EditingTheme};
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     Colorize,
     button::Button,
-    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
 
@@ -160,9 +162,10 @@ impl Render for BrowserTab {
                             })),
                     ),
             )
-            .child(
-                form_section()
-                    .child(ColorPicker::new(&self.theme_color_picker).label("Theme Color")),
-            )
+            .child(form_section().child(color_picker_with_clipboard(
+                "browser-theme",
+                "Theme Color",
+                &self.theme_color_picker,
+            )))
     }
 }
