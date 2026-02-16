@@ -16,8 +16,8 @@ pub fn parse_config(content: &str) -> HyprlandConfig {
         }
 
         // Handle section start: "section {" or "section:subsection {"
-        if trimmed.ends_with('{') {
-            let section_def = trimmed[..trimmed.len() - 1].trim();
+        if let Some(section_def) = trimmed.strip_suffix('{') {
+            let section_def = section_def.trim();
             brace_depth += 1;
 
             if section_def.contains(':') {
@@ -59,18 +59,14 @@ pub fn parse_config(content: &str) -> HyprlandConfig {
 /// Parse a key-value pair from a line like "key = value"
 fn parse_key_value(line: &str) -> Option<(String, String)> {
     // Handle special case for col. prefix (colors)
-    if line.starts_with("col.") || line.starts_with("col:") {
-        let without_prefix = if line.starts_with("col.") {
-            &line[4..]
-        } else {
-            &line[4..]
-        };
-
-        if let Some(eq_pos) = without_prefix.find('=') {
-            let key = format!("col.{}", without_prefix[..eq_pos].trim());
-            let value = without_prefix[eq_pos + 1..].trim().to_string();
-            return Some((key, value));
-        }
+    if let Some(without_prefix) = line
+        .strip_prefix("col.")
+        .or_else(|| line.strip_prefix("col:"))
+        && let Some(eq_pos) = without_prefix.find('=')
+    {
+        let key = format!("col.{}", without_prefix[..eq_pos].trim());
+        let value = without_prefix[eq_pos + 1..].trim().to_string();
+        return Some((key, value));
     }
 
     if let Some(eq_pos) = line.find('=') {
@@ -398,9 +394,8 @@ fn apply_xwayland_setting(config: &mut XWaylandConfig, key: &str, value: &str) {
 }
 
 fn apply_opengl_setting(config: &mut OpenGlConfig, key: &str, value: &str) {
-    match key {
-        "nvidia_anti_flicker" => config.nvidia_anti_flicker = parse_bool(value),
-        _ => {}
+    if key == "nvidia_anti_flicker" {
+        config.nvidia_anti_flicker = parse_bool(value);
     }
 }
 
@@ -461,9 +456,8 @@ fn apply_ecosystem_setting(config: &mut EcosystemConfig, key: &str, value: &str)
 }
 
 fn apply_quirks_setting(config: &mut QuirksConfig, key: &str, value: &str) {
-    match key {
-        "prefer_hdr" => config.prefer_hdr = parse_int(value),
-        _ => {}
+    if key == "prefer_hdr" {
+        config.prefer_hdr = parse_int(value);
     }
 }
 

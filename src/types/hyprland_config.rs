@@ -657,33 +657,17 @@ impl Default for CursorConfig {
 }
 
 /// Ecosystem section configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EcosystemConfig {
     pub no_update_news: bool,
     pub no_donation_nag: bool,
     pub enforce_permissions: bool,
 }
 
-impl Default for EcosystemConfig {
-    fn default() -> Self {
-        Self {
-            no_update_news: false,
-            no_donation_nag: false,
-            enforce_permissions: false,
-        }
-    }
-}
-
 /// Quirks section configuration
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QuirksConfig {
     pub prefer_hdr: i32,
-}
-
-impl Default for QuirksConfig {
-    fn default() -> Self {
-        Self { prefer_hdr: 0 }
-    }
 }
 
 /// Debug section configuration

@@ -90,7 +90,7 @@ fn write_general_section(output: &mut String, config: &GeneralConfig) {
         || config.snap.border_overlap
         || config.snap.respect_gaps
     {
-        writeln!(output, "").unwrap();
+        writeln!(output).unwrap();
         writeln!(output, "    snap {{").unwrap();
         if config.snap.enabled {
             writeln!(output, "        enabled = true").unwrap();
@@ -178,7 +178,7 @@ fn write_decoration_section(output: &mut String, config: &DecorationConfig) {
         || blur.input_methods
         || blur.input_methods_ignorealpha != 0.2
     {
-        writeln!(output, "").unwrap();
+        writeln!(output).unwrap();
         writeln!(output, "    blur {{").unwrap();
         if !blur.enabled {
             writeln!(output, "        enabled = false").unwrap();
@@ -259,7 +259,7 @@ fn write_decoration_section(output: &mut String, config: &DecorationConfig) {
         || shadow.offset_y != 0.0
         || shadow.scale != 1.0
     {
-        writeln!(output, "").unwrap();
+        writeln!(output).unwrap();
         writeln!(output, "    shadow {{").unwrap();
         if !shadow.enabled {
             writeln!(output, "        enabled = false").unwrap();
@@ -440,7 +440,7 @@ fn write_input_section(output: &mut String, config: &InputConfig) {
         || touchpad.flip_y
         || touchpad.drag_3fg != 0
     {
-        writeln!(output, "").unwrap();
+        writeln!(output).unwrap();
         writeln!(output, "    touchpad {{").unwrap();
         if !touchpad.disable_while_typing {
             writeln!(output, "        disable_while_typing = false").unwrap();
