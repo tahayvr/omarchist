@@ -45,14 +45,14 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                             .child(
                                 Icon::new(Icon::empty())
                                     .path("icons/image.svg")
-                                    .size(px(48.))
+                                    .size(px(24.))
                                     .text_color(cx.theme().muted_foreground),
                             )
                             .child(
                                 div()
                                     .text_sm()
                                     .text_color(cx.theme().muted_foreground)
-                                    .child("Automatically based on an image file"),
+                                    .child("Automatically based on an image"),
                             )
                             .child(
                                 Button::new("from-image-btn")
@@ -77,7 +77,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                             .justify_center()
                             .child(
                                 Icon::new(IconName::Palette)
-                                    .size(px(48.))
+                                    .size(px(24.))
                                     .text_color(cx.theme().muted_foreground),
                             )
                             .child(
