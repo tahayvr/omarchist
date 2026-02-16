@@ -1,6 +1,6 @@
-use crate::system::themes::theme_management::{
-    create_theme_from_defaults, generate_unique_theme_name,
-};
+use std::cell::RefCell;
+use std::path::PathBuf;
+
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, WindowExt,
@@ -8,13 +8,14 @@ use gpui_component::{
     divider::Divider,
     h_flex, v_flex,
 };
-use std::cell::RefCell;
+
+use crate::system::themes::theme_generator::create_theme_from_image;
+use crate::system::themes::theme_management::{
+    create_theme_from_defaults, generate_unique_theme_name,
+};
 
 thread_local! {
-    /// Stores the theme name to navigate to after creation
     pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
-
-    /// Flag to trigger themes list refresh
     pub static PENDING_REFRESH_THEMES: RefCell<bool> = const { RefCell::new(false) };
 }
 
@@ -57,12 +58,8 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                     .label("Select Image")
                                     .cursor_pointer()
                                     .on_click(|_, window, cx| {
-                                        // TODO: Implement image-based theme creation
                                         window.close_dialog(cx);
-                                        window.push_notification(
-                                            "Image-based theme creation coming soon!",
-                                            cx,
-                                        );
+                                        open_image_picker(window, cx);
                                     }),
                             ),
                     )
@@ -93,33 +90,26 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                     .label("Create Manually")
                                     .cursor_pointer()
                                     .on_click(|_, window, cx| {
-                                        // Generate a unique theme name
                                         let theme_name = generate_unique_theme_name();
 
-                                        // Create theme from defaults
                                         match create_theme_from_defaults(&theme_name) {
                                             Ok(created_theme_name) => {
-                                                // Store theme name for navigation
                                                 PENDING_THEME_NAVIGATION.with(|nav| {
                                                     *nav.borrow_mut() =
                                                         Some(created_theme_name.clone());
                                                 });
 
-                                                // Close dialog
                                                 window.close_dialog(cx);
 
-                                                // Show success notification
                                                 let msg = format!(
                                                     "Created new theme: {}",
                                                     created_theme_name
                                                 );
                                                 window.push_notification(msg, cx);
 
-                                                // Trigger navigation via refresh
                                                 cx.refresh_windows();
                                             }
                                             Err(e) => {
-                                                // Close dialog and show error
                                                 window.close_dialog(cx);
                                                 let msg = format!("Failed to create theme: {}", e);
                                                 window.push_notification(msg, cx);
@@ -130,4 +120,61 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                     ),
             )
     });
+}
+
+fn open_image_picker(window: &mut Window, cx: &mut App) {
+    // Open file picker dialog
+    if let Some(path) = rfd::FileDialog::new()
+        .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
+        .set_title("Select an image for theme creation")
+        .pick_file()
+    {
+        // Process the image and create theme
+        process_image_and_create_theme(window, cx, path);
+    }
+}
+
+fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path: PathBuf) {
+    // Generate theme name from filename
+    let theme_name = image_path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_lowercase().replace(' ', "-"))
+        .unwrap_or_else(generate_unique_theme_name);
+
+    // Show a brief notification that we're processing
+    window.push_notification("Creating theme from image...", cx);
+
+    // Run theme creation
+    match create_theme_from_image(&image_path, &theme_name, None) {
+        Ok(created_name) => {
+            // Store theme name for navigation
+            PENDING_THEME_NAVIGATION.with(|nav| {
+                *nav.borrow_mut() = Some(created_name.clone());
+            });
+
+            // Show success notification
+            window.push_notification(format!("Created theme: {}", created_name), cx);
+
+            // Trigger navigation
+            cx.refresh_windows();
+        }
+        Err(e) => {
+            window.push_notification(format!("Failed to create theme: {}", e), cx);
+        }
+    }
+}
+
+/// Get the pending theme navigation and clear it
+pub fn take_pending_navigation() -> Option<String> {
+    PENDING_THEME_NAVIGATION.with(|nav| nav.borrow_mut().take())
+}
+
+/// Check if themes list needs refresh and clear the flag
+pub fn take_pending_refresh() -> bool {
+    PENDING_REFRESH_THEMES.with(|refresh| {
+        let value = *refresh.borrow();
+        *refresh.borrow_mut() = false;
+        value
+    })
 }
