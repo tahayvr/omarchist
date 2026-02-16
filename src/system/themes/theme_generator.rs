@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    ColorPalette, copy_image_to_backgrounds, extract_palette,
+    copy_image_to_backgrounds, extract_palette, ColorPalette,
 };
 use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
 use crate::types::themes::{
@@ -73,7 +73,7 @@ fn build_theme_from_palette(
 
     let hyprland_config = HyprlandConfig {
         active_border: strip_hash(&palette.accent),
-        inactive_border: darken_color(&palette.background, 0.2),
+        inactive_border: strip_hash(&darken_color(&palette.background, 0.2)),
         border_size: 1,
         gaps_in: 5,
         gaps_out: 10,

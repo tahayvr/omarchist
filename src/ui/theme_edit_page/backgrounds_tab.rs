@@ -9,14 +9,15 @@ use crate::system::themes::theme_file_ops::{
     add_background_image, list_background_images, remove_background_image,
 };
 use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
+use anyhow;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
-    v_flex,
+    v_flex, ActiveTheme, IconName, Sizable,
 };
+use smol;
 use std::path::PathBuf;
 
 /// Represents a background image entry
@@ -87,36 +88,54 @@ impl BackgroundsTab {
     fn add_images(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.error_message = None;
 
-        // Use rfd to pick multiple image files
-        let files = rfd::FileDialog::new()
-            .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
-            .set_title("Select Background Images")
-            .pick_files();
+        // Clone data needed for async context
+        let theme_name = self.theme_name.clone();
+        let is_system_theme = self.is_system_theme;
 
-        if let Some(paths) = files {
-            let mut added_count = 0;
-            let mut errors = Vec::new();
+        // Spawn async task to open file dialog without blocking the UI
+        cx.spawn(async move |this, cx| {
+            // Run the blocking file dialog in a background thread
+            let result = smol::unblock(|| {
+                rfd::FileDialog::new()
+                    .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
+                    .set_title("Select Background Images")
+                    .pick_files()
+            })
+            .await;
 
-            for path in paths {
-                match add_background_image(&self.theme_name, self.is_system_theme, &path) {
-                    Ok(_) => added_count += 1,
-                    Err(e) => errors.push(format!("{}: {}", path.display(), e)),
+            // Process the result back on the main thread
+            if let Some(paths) = result {
+                // Perform file operations (these are blocking I/O but should be fast)
+                let mut added_count = 0;
+                let mut errors = Vec::new();
+
+                for path in &paths {
+                    match add_background_image(&theme_name, is_system_theme, path) {
+                        Ok(_) => added_count += 1,
+                        Err(e) => errors.push(format!("{}: {}", path.display(), e)),
+                    }
                 }
+
+                // Update the component state
+                let _ = this.update(cx, |this, cx| {
+                    // Reload images to show new ones
+                    this.load_images(cx);
+
+                    // Show error if any files failed
+                    if !errors.is_empty() {
+                        this.error_message = Some(format!(
+                            "Added {} images. Failed to add: {}",
+                            added_count,
+                            errors.join("; ")
+                        ));
+                        cx.notify();
+                    }
+                });
             }
 
-            // Reload images to show new ones
-            self.load_images(cx);
-
-            // Show error if any files failed
-            if !errors.is_empty() {
-                self.error_message = Some(format!(
-                    "Added {} images. Failed to add: {}",
-                    added_count,
-                    errors.join("; ")
-                ));
-                cx.notify();
-            }
-        }
+            Ok::<_, anyhow::Error>(())
+        })
+        .detach();
     }
 
     /// Delete a background image

@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::path::PathBuf;
 
+use anyhow;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, WindowExt,
@@ -8,6 +9,7 @@ use gpui_component::{
     divider::Divider,
     h_flex, v_flex,
 };
+use smol;
 
 use crate::system::themes::theme_generator::create_theme_from_image;
 use crate::system::themes::theme_management::{
@@ -123,15 +125,30 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
 }
 
 fn open_image_picker(window: &mut Window, cx: &mut App) {
-    // Open file picker dialog
-    if let Some(path) = rfd::FileDialog::new()
-        .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
-        .set_title("Select an image for theme creation")
-        .pick_file()
-    {
-        // Process the image and create theme
-        process_image_and_create_theme(window, cx, path);
-    }
+    // Get window handle for use in async context
+    let window_handle = window.window_handle();
+
+    // Spawn async task to open file dialog without blocking the UI
+    cx.spawn(async move |cx| {
+        // Run the blocking file dialog in a background thread
+        let result = smol::unblock(|| {
+            rfd::FileDialog::new()
+                .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
+                .set_title("Select an image for theme creation")
+                .pick_file()
+        })
+        .await;
+
+        // Process the result back on the main thread
+        if let Some(path) = result {
+            let _ = window_handle.update(cx, |_view, window, cx| {
+                process_image_and_create_theme(window, cx, path);
+            });
+        }
+
+        Ok::<_, anyhow::Error>(())
+    })
+    .detach();
 }
 
 fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path: PathBuf) {
