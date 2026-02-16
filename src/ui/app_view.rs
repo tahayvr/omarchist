@@ -1,6 +1,7 @@
 use crate::system::omarchy::omarchy_version::get_local_omarchy_version;
 use crate::terminal::PENDING_TERMINAL_NAVIGATION;
 use crate::ui::about_page::about_view::AboutView;
+use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
@@ -27,6 +28,7 @@ pub enum ActivePage {
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
     SystemMonitor,
+    Configuration,
     Settings,
     About,
     Omarchy,
@@ -41,6 +43,7 @@ pub struct MainWindowView {
     theme_edit_root: Option<AnyView>,
     theme_edit_name: Option<String>,
     system_monitor_root: AnyView,
+    config_root: AnyView,
     settings_root: AnyView,
     about_root: AnyView,
     omarchy_root: AnyView,
@@ -67,6 +70,9 @@ impl MainWindowView {
             .new(|cx| Root::new(system_monitor_view, window, cx))
             .into();
 
+        let config_view = cx.new(|cx| ConfigView::new(cx));
+        let config_root = cx.new(|cx| Root::new(config_view, window, cx)).into();
+
         let settings_view = cx.new(|_| SettingsView);
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
 
@@ -90,6 +96,7 @@ impl MainWindowView {
             theme_edit_root: None,
             theme_edit_name: None,
             system_monitor_root,
+            config_root,
             settings_root,
             about_root,
             omarchy_root,
@@ -169,6 +176,7 @@ impl MainWindowView {
                 .clone()
                 .unwrap_or(self.themes_root.clone()),
             ActivePage::SystemMonitor => self.system_monitor_root.clone(),
+            ActivePage::Configuration => self.config_root.clone(),
             ActivePage::Settings => self.settings_root.clone(),
             ActivePage::About => self.about_root.clone(),
             ActivePage::Omarchy => self.omarchy_root.clone(),
@@ -184,6 +192,7 @@ impl MainWindowView {
             (ActivePage::Themes, ActivePage::Themes) => true,
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
             (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
+            (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
@@ -343,6 +352,20 @@ impl Render for MainWindowView {
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.navigate_to(
                                                         ActivePage::SystemMonitor,
+                                                        window,
+                                                        cx,
+                                                    );
+                                                })),
+                                        )
+                                        .child(
+                                            SidebarMenuItem::new("CONFIGURATION")
+                                                .icon(Icon::new(IconName::Settings))
+                                                .active(
+                                                    self.is_page_active(ActivePage::Configuration),
+                                                )
+                                                .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.navigate_to(
+                                                        ActivePage::Configuration,
                                                         window,
                                                         cx,
                                                     );
