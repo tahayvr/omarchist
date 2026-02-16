@@ -1,4 +1,4 @@
-use crate::system::omarchy::omarchy_version::get_local_omarchy_version;
+use crate::system::omarchy::omarchy_version::{check_omarchy_update, get_local_omarchy_version};
 use crate::terminal::PENDING_TERMINAL_NAVIGATION;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::config_page::config_view::ConfigView;
@@ -12,7 +12,9 @@ use crate::ui::themes_page::themes::ThemesPage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Collapsible, Icon, IconName, Root, Side, h_flex,
+    ActiveTheme, Collapsible, Icon, IconName, Root, Side,
+    badge::Badge,
+    h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
 };
@@ -51,6 +53,7 @@ pub struct MainWindowView {
     terminal_command: Option<String>,
     sidebar_collapsed: bool,
     omarchy_version: Option<String>,
+    omarchy_update_available: Option<bool>,
 }
 
 impl MainWindowView {
@@ -88,6 +91,25 @@ impl MainWindowView {
         let omarchy_view = cx.new(|cx| OmarchyView::new(omarchy_version.clone(), cx));
         let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
 
+        // Spawn async task to check for Omarchy updates
+        let version_for_check = omarchy_version.clone().unwrap_or_default();
+        cx.spawn(async move |this, cx| {
+            if !version_for_check.is_empty() {
+                match check_omarchy_update(&version_for_check).await {
+                    Ok(update_available) => {
+                        this.update(cx, |this, _cx| {
+                            this.omarchy_update_available = Some(update_available);
+                        })
+                        .ok();
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to check for Omarchy updates: {e}");
+                    }
+                }
+            }
+        })
+        .detach();
+
         let mut view = Self {
             title_bar,
             active_page: ActivePage::Themes,
@@ -104,6 +126,7 @@ impl MainWindowView {
             terminal_command: None,
             sidebar_collapsed: true,
             omarchy_version,
+            omarchy_update_available: None,
         };
 
         // Navigate to the initial page if it's not the default Themes page
@@ -388,20 +411,34 @@ impl Render for MainWindowView {
                                                         self.is_page_active(ActivePage::Omarchy),
                                                     )
                                                     .suffix(
-                                                        self.omarchy_version
-                                                            .as_ref()
-                                                            .map(|v| {
-                                                                div()
-                                                                    .text_xs()
-                                                                    .text_color(
-                                                                        cx.theme().muted_foreground,
+                                                        h_flex()
+                                                            .gap_2()
+                                                            .items_center()
+                                                            .when(
+                                                                self.omarchy_update_available
+                                                                    == Some(true),
+                                                                |this| {
+                                                                    this.child(
+                                                                        Badge::new()
+                                                                            .dot()
+                                                                            .color(cx.theme().red),
                                                                     )
-                                                                    .child(v.clone())
-                                                                    .into_any_element()
-                                                            })
-                                                            .unwrap_or_else(|| {
-                                                                div().into_any_element()
-                                                            }),
+                                                                },
+                                                            )
+                                                            .when_some(
+                                                                self.omarchy_version.as_ref(),
+                                                                |this, v| {
+                                                                    this.child(
+                                                                        div()
+                                                                            .text_xs()
+                                                                            .text_color(
+                                                                                cx.theme().muted_foreground,
+                                                                            )
+                                                                            .child(v.clone()),
+                                                                    )
+                                                                },
+                                                            )
+                                                            .into_any_element(),
                                                     )
                                                     .on_click(cx.listener(
                                                         |this, _, window, cx| {
