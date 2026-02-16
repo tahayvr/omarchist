@@ -12,10 +12,11 @@ use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container
 use anyhow;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
-    v_flex, ActiveTheme, IconName, Sizable,
+    v_flex,
 };
 use smol;
 use std::path::PathBuf;

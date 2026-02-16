@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    copy_image_to_backgrounds, extract_palette, ColorPalette,
+    ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
 use crate::types::themes::{
