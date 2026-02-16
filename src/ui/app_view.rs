@@ -16,7 +16,7 @@ use gpui_component::{
     badge::Badge,
     h_flex,
     kbd::Kbd,
-    sidebar::{Sidebar, SidebarGroup, SidebarHeader, SidebarMenu, SidebarMenuItem},
+    sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
 };
 use std::cell::RefCell;
 
@@ -326,30 +326,6 @@ impl Render for MainWindowView {
                     .child(
                         Sidebar::new(Side::Left)
                             .collapsed(sidebar_should_be_collapsed)
-                            .header(
-                                SidebarHeader::new()
-                                    .cursor_pointer()
-                                    .child(
-                                        div()
-                                            .flex()
-                                            .items_center()
-                                            .justify_center()
-                                            .size_4()
-                                            .flex_shrink_0()
-                                            .child(Icon::empty().path("icons/layout-grid.svg")),
-                                    )
-                                    .when(!sidebar_should_be_collapsed, |this| {
-                                        this.child(
-                                            h_flex()
-                                                .flex_1()
-                                                .text_sm()
-                                                .line_height(relative(1.25))
-                                                .overflow_hidden()
-                                                .text_ellipsis()
-                                                .child("Dashboard"),
-                                        )
-                                    }),
-                            )
                             .child(
                                 SidebarGroup::new("Navigation").child(
                                     SidebarMenu::new()
