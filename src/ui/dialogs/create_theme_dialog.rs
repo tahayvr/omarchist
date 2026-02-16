@@ -11,10 +11,10 @@ use gpui_component::{
 };
 use smol;
 
-use crate::system::themes::theme_generator::create_theme_from_image;
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, generate_unique_theme_name,
 };
+use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
 
 thread_local! {
     pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
@@ -159,27 +159,8 @@ fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path:
         .map(|s| s.to_lowercase().replace(' ', "-"))
         .unwrap_or_else(generate_unique_theme_name);
 
-    // Show a brief notification that we're processing
-    window.push_notification("Creating theme from image...", cx);
-
-    // Run theme creation
-    match create_theme_from_image(&image_path, &theme_name, None) {
-        Ok(created_name) => {
-            // Store theme name for navigation
-            PENDING_THEME_NAVIGATION.with(|nav| {
-                *nav.borrow_mut() = Some(created_name.clone());
-            });
-
-            // Show success notification
-            window.push_notification(format!("Created theme: {}", created_name), cx);
-
-            // Trigger navigation
-            cx.refresh_windows();
-        }
-        Err(e) => {
-            window.push_notification(format!("Failed to create theme: {}", e), cx);
-        }
-    }
+    // Open progress dialog and start async theme creation
+    open_theme_creation_progress_dialog(theme_name, image_path, window, cx);
 }
 
 /// Get the pending theme navigation and clear it
