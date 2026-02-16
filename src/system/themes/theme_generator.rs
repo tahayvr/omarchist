@@ -1,14 +1,66 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    ColorPalette, copy_image_to_backgrounds, extract_palette,
+    copy_image_to_backgrounds, extract_palette, ColorPalette,
 };
-use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
+use crate::system::themes::theme_management::{
+    create_theme_from_defaults, save_theme_data, update_icons_theme,
+};
 use crate::types::themes::{
     BrowserConfig, BtopConfig, EditingTheme, HyprlandConfig, HyprlockConfig, MakoConfig,
     SwayosdConfig, TerminalConfig, TerminalCursor, TerminalPalette, TerminalPrimary,
     TerminalSelection, WalkerConfig, WaybarConfig,
 };
+
+/// Available icon themes mapped to their representative colors (RGB)
+const ICON_THEMES: &[(&str, (u8, u8, u8))] = &[
+    ("Yaru-red", (233, 32, 32)),     // Red (#e92020)
+    ("Yaru-blue", (32, 143, 233)),   // Blue (#208fe9)
+    ("Yaru-olive", (99, 107, 47)),   // Olive (#636B2F)
+    ("Yaru-yellow", (233, 186, 32)), // Yellow (#e9ba20)
+    ("Yaru-purple", (94, 39, 80)),   // Purple (#5e2750)
+    ("Yaru-magenta", (255, 0, 255)), // Magenta (#FF00FF)
+    ("Yaru-sage", (18, 61, 24)),     // Sage (#123d18)
+];
+
+/// Calculate Euclidean distance between two RGB colors
+fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
+    let dr = (c1.0 as f32 - c2.0 as f32).powi(2);
+    let dg = (c1.1 as f32 - c2.1 as f32).powi(2);
+    let db = (c1.2 as f32 - c2.2 as f32).powi(2);
+    (dr + dg + db).sqrt()
+}
+
+/// Convert hex color to RGB tuple
+fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() != 6 {
+        return None;
+    }
+    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+    Some((r, g, b))
+}
+
+/// Select the best matching icon theme based on the accent color
+fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
+    let accent_rgb = match hex_to_rgb(accent_hex) {
+        Some(rgb) => rgb,
+        None => return "Yaru-blue", // Default fallback
+    };
+
+    // Find the closest color match among all available themes
+    ICON_THEMES
+        .iter()
+        .min_by(|(_, c1), (_, c2)| {
+            let d1 = color_distance(accent_rgb, *c1);
+            let d2 = color_distance(accent_rgb, *c2);
+            d1.partial_cmp(&d2).unwrap()
+        })
+        .map(|(name, _)| *name)
+        .unwrap_or("Yaru-blue")
+}
 
 /// Progress callback for theme generation
 pub type ProgressCallback = Box<dyn Fn(&str) + Send>;
@@ -117,6 +169,17 @@ fn build_theme_from_palette(
         progress: adjust_brightness(&palette.foreground, -0.3),
     };
 
+    // Select the best matching icon theme based on accent color
+    let icon_theme_name = select_icon_theme(&palette.accent, palette.is_light_theme);
+
+    // Save the icons.theme file directly
+    let _ = update_icons_theme(theme_name, icon_theme_name);
+
+    // Create icons config for the theme data
+    let icons_config = serde_json::json!({
+        "theme_name": icon_theme_name
+    });
+
     Ok(EditingTheme {
         name: theme_name.to_string(),
         created_at: now.clone(),
@@ -134,7 +197,7 @@ fn build_theme_from_palette(
             swayosd: Some(swayosd_config),
             neovim: None,
             vscode: None,
-            icons: None,
+            icons: Some(icons_config),
             ghostty: None,
             kitty: None,
             terminal: Some(terminal_config),
