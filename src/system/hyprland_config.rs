@@ -1,6 +1,7 @@
 use crate::types::hyprland_config::HyprlandConfig;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 pub mod parser;
 pub mod writer;
@@ -36,12 +37,24 @@ impl HyprlandConfigManager {
         })
     }
 
-    /// Save the current configuration to disk
+    /// Save the current configuration to disk and reload Hyprland
     pub fn save(&self) -> Result<(), String> {
         let content = writer::write_config(&self.config);
         fs::write(&self.config_path, content)
             .map_err(|e| format!("Failed to write config file: {}", e))?;
+
+        // Reload Hyprland to apply changes
+        Self::reload_hyprland();
+
         Ok(())
+    }
+
+    /// Trigger Hyprland to reload its configuration
+    fn reload_hyprland() {
+        // Run hyprctl reload in background - don't block on it
+        std::thread::spawn(|| {
+            let _ = Command::new("hyprctl").arg("reload").output();
+        });
     }
 
     /// Get a reference to the current configuration

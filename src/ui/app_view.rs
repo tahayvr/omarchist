@@ -102,7 +102,7 @@ impl MainWindowView {
             omarchy_root,
             terminal_root: None,
             terminal_command: None,
-            sidebar_collapsed: false,
+            sidebar_collapsed: true,
             omarchy_version,
         };
 

@@ -43,9 +43,9 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            border_size: 1,
+            border_size: 2,
             gaps_in: 5,
-            gaps_out: 20,
+            gaps_out: 10,
             float_gaps: 0,
             gaps_workspaces: 0,
             layout: "dwindle".to_string(),

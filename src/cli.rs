@@ -23,16 +23,12 @@ pub struct CliArgs {
 /// Available view options for the initial page
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewOption {
-    /// Themes gallery page
     Themes,
-    /// System monitor page
     System,
-    /// Settings page
     Settings,
-    /// About page
     About,
-    /// Omarchy info page
     Omarchy,
+    Config,
 }
 
 impl CliArgs {

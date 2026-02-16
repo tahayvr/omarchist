@@ -32,7 +32,7 @@ impl ThemeGrid {
             themes,
             filter,
             cards,
-            sidebar_collapsed: false,
+            sidebar_collapsed: true,
         }
     }
 
