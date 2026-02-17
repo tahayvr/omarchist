@@ -1,0 +1,24 @@
+/**
+ * Inline Icons
+ * -------------------------------------------------------------------------- */
+
+.icon-inline {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  margin: 0 0.25em;
+  vertical-align: -0.2em;
+  line-height: 1;
+}
+
+.icon-inline-copy {
+  background-color: currentColor;
+  -webkit-mask: url("../../theming/images/copy.svg") no-repeat center / contain;
+  mask: url("../../theming/images/copy.svg") no-repeat center / contain;
+}
+
+.icon-inline-more {
+  background-color: currentColor;
+  -webkit-mask: url("../../theming/images/more.svg") no-repeat center / contain;
+  mask: url("../../theming/images/more.svg") no-repeat center / contain;
+}

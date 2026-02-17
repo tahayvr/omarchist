@@ -1,0 +1,16 @@
+:root {
+	--vp-font-family-base: 'Open Sans', sans-serif; /* normal text font */
+	--vp-font-family-mono: 'JetBrains Mono', monospace; /* code font */
+}
+
+@font-face {
+	font-family: 'JetBrains Mono';
+	src: url(/fonts/JetBrainsMono.ttf) format('truetype');
+}
+
+@font-face {
+	font-family: 'Open Sans';
+	font-style: normal;
+	font-weight: 400;
+	src: url(/fonts/OpenSans-VariableFont.ttf) format('truetype');
+}

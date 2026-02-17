@@ -25,3 +25,7 @@
 # Scripts
 !justfile
 !update-version
+
+# Documentation
+!docs/**
+!docs/
