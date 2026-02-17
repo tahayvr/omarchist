@@ -4,6 +4,7 @@ alias u := update
 alias b := build
 alias c := check
 alias r := run
+alias d := docs
 
 # Run app
 run:
@@ -22,3 +23,6 @@ update VER:
 # Build the project
 build:
     cargo build --release
+
+docs VER:
+    cd docs/ && bun run docs:{{ VER }}
