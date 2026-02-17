@@ -1,15 +1,15 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    ColorPalette, copy_image_to_backgrounds, extract_palette,
+    copy_image_to_backgrounds, extract_palette, ColorPalette,
 };
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
 };
 use crate::types::themes::{
     BrowserConfig, BtopConfig, EditingTheme, HyprlandConfig, HyprlockConfig, MakoConfig,
-    SwayosdConfig, TerminalConfig, TerminalCursor, TerminalPalette, TerminalPrimary,
-    TerminalSelection, WalkerConfig, WaybarConfig,
+    SwayosdConfig, TerminalConfig, TerminalCursor, TerminalPrimary, TerminalSelection,
+    WalkerConfig, WaybarConfig,
 };
 
 /// Available icon themes mapped to their representative colors (RGB)
@@ -208,18 +208,6 @@ fn build_theme_from_palette(
 
 /// Build terminal configuration from palette
 fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
-    // Generate bright variants by lightening normal colors
-    let bright = TerminalPalette {
-        black: lighten_color(&palette.terminal.black, 0.15),
-        red: lighten_color(&palette.terminal.red, 0.15),
-        green: lighten_color(&palette.terminal.green, 0.15),
-        yellow: lighten_color(&palette.terminal.yellow, 0.15),
-        blue: lighten_color(&palette.terminal.blue, 0.15),
-        magenta: lighten_color(&palette.terminal.magenta, 0.15),
-        cyan: lighten_color(&palette.terminal.cyan, 0.15),
-        white: lighten_color(&palette.terminal.white, 0.1),
-    };
-
     TerminalConfig {
         primary: TerminalPrimary {
             background: palette.background.clone(),
@@ -234,7 +222,7 @@ fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
             foreground: palette.foreground.clone(),
         },
         normal: palette.terminal.clone(),
-        bright,
+        bright: palette.bright.clone(),
     }
 }
 
