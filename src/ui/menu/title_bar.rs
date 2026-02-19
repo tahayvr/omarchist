@@ -158,6 +158,7 @@ impl Render for MainTitleBar {
                             .small()
                             .ghost()
                             .cursor_pointer()
+                            .tooltip("Star the repo")
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist-rs")
                             }),
