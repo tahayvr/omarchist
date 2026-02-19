@@ -2,6 +2,7 @@ use crate::system::themes::custom_themes::get_custom_themes;
 use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::{CustomTheme, SysTheme};
 use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     scroll::ScrollableElement,
@@ -9,9 +10,19 @@ use gpui_component::{
     v_flex,
 };
 
+/// Which part of the themes page has focus
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ThemesFocus {
+    Tabs,
+    Grid,
+}
+
 pub struct ThemesPage {
     active_tab: usize,
     theme_grid: Entity<ThemeGrid>,
+    focus: ThemesFocus,
+    /// Whether the content area has global focus
+    has_global_focus: bool,
 }
 
 impl ThemesPage {
@@ -36,6 +47,94 @@ impl ThemesPage {
         Self {
             active_tab: 0,
             theme_grid,
+            focus: ThemesFocus::Tabs,
+            has_global_focus: false,
+        }
+    }
+
+    /// Set whether the content area has global focus
+    pub fn set_global_focus(&mut self, has_focus: bool, cx: &mut Context<Self>) {
+        self.has_global_focus = has_focus;
+        cx.notify();
+    }
+
+    /// Handle NextItem (Down arrow)
+    pub fn handle_next_item(&mut self, cx: &mut Context<Self>) {
+        match self.focus {
+            ThemesFocus::Tabs => {
+                // Move focus to grid
+                self.focus = ThemesFocus::Grid;
+                cx.notify();
+            }
+            ThemesFocus::Grid => {
+                self.theme_grid.update(cx, |grid, cx| {
+                    grid.move_down(cx);
+                });
+            }
+        }
+    }
+
+    /// Handle PrevItem (Up arrow)
+    pub fn handle_prev_item(&mut self, cx: &mut Context<Self>) {
+        match self.focus {
+            ThemesFocus::Tabs => {
+                // Already at top
+            }
+            ThemesFocus::Grid => {
+                self.theme_grid.update(cx, |grid, cx| {
+                    grid.move_up(cx);
+                });
+            }
+        }
+    }
+
+    /// Handle SelectNext (Right arrow)
+    pub fn handle_select_next(&mut self, cx: &mut Context<Self>) {
+        match self.focus {
+            ThemesFocus::Tabs => {
+                if self.active_tab < 1 {
+                    self.active_tab += 1;
+                    cx.notify();
+                }
+            }
+            ThemesFocus::Grid => {
+                self.theme_grid.update(cx, |grid, cx| {
+                    grid.move_right(cx);
+                });
+            }
+        }
+    }
+
+    /// Handle SelectPrev (Left arrow)
+    pub fn handle_select_prev(&mut self, cx: &mut Context<Self>) {
+        match self.focus {
+            ThemesFocus::Tabs => {
+                if self.active_tab > 0 {
+                    self.active_tab -= 1;
+                    cx.notify();
+                }
+            }
+            ThemesFocus::Grid => {
+                self.theme_grid.update(cx, |grid, cx| {
+                    grid.move_left(cx);
+                });
+            }
+        }
+    }
+
+    /// Handle Activate (Enter/Space)
+    pub fn handle_activate(&mut self, cx: &mut Context<Self>) {
+        match self.focus {
+            ThemesFocus::Tabs => {
+                // Move focus to grid
+                self.focus = ThemesFocus::Grid;
+                cx.notify();
+            }
+            ThemesFocus::Grid => {
+                self.theme_grid.update(cx, |grid, cx| {
+                    grid.activate_focused(cx);
+                });
+            }
         }
     }
 
@@ -101,6 +200,20 @@ impl Render for ThemesPage {
             grid.set_filter(Some(filter));
         });
 
+        // Update grid with current focus state
+        let grid_has_focus = self.focus == ThemesFocus::Grid;
+        self.theme_grid.update(cx, |grid, _cx| {
+            grid.set_has_focus(grid_has_focus);
+        });
+
+        let tabs_has_focus = self.has_global_focus && self.focus == ThemesFocus::Tabs;
+        let grid_has_focus = self.has_global_focus && self.focus == ThemesFocus::Grid;
+
+        // Update grid with current focus state
+        self.theme_grid.update(cx, |grid, _cx| {
+            grid.set_has_focus(grid_has_focus);
+        });
+
         v_flex()
             .id("themes-page")
             .size_full()
@@ -108,16 +221,20 @@ impl Render for ThemesPage {
             .overflow_x_hidden()
             .gap_4()
             .child(
-                TabBar::new("theme-tabs")
-                    // .segmented()
-                    .cursor_pointer()
-                    .selected_index(self.active_tab)
-                    .on_click(cx.listener(|view, index, _, cx| {
-                        view.active_tab = *index;
-                        cx.notify();
-                    }))
-                    .child(Tab::new().label("System Themes"))
-                    .child(Tab::new().label("Custom Themes")),
+                div()
+                    .when(tabs_has_focus, |this| this.bg(gpui::rgb(0x3a3a3a)))
+                    .child(
+                        TabBar::new("theme-tabs")
+                            // .segmented()
+                            .cursor_pointer()
+                            .selected_index(self.active_tab)
+                            .on_click(cx.listener(|view, index, _, cx| {
+                                view.active_tab = *index;
+                                cx.notify();
+                            }))
+                            .child(Tab::new().label("System Themes"))
+                            .child(Tab::new().label("Custom Themes")),
+                    ),
             )
             .child(self.theme_grid.clone())
     }

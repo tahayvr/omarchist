@@ -1,4 +1,5 @@
 use crate::types::themes::SysTheme;
+use crate::ui::keyboard_nav::ListNavigationState;
 use crate::ui::themes_page::theme_card::ThemeCard;
 use gpui::*;
 
@@ -18,10 +19,15 @@ pub struct ThemeGrid {
     filter: Option<ThemeFilter>,
     cards: Vec<Entity<ThemeCard>>,
     sidebar_collapsed: bool,
+    /// Whether the grid currently has focus
+    has_focus: bool,
+    /// Navigation state for keyboard control
+    nav_state: ListNavigationState,
 }
 
 impl ThemeGrid {
     pub fn new(cx: &mut Context<Self>, themes: Vec<SysTheme>, filter: Option<ThemeFilter>) -> Self {
+        let item_count = themes.len();
         let cards = themes
             .iter()
             .enumerate()
@@ -33,6 +39,75 @@ impl ThemeGrid {
             filter,
             cards,
             sidebar_collapsed: true,
+            has_focus: false,
+            nav_state: ListNavigationState::new(item_count, 3), // Default to 3 columns
+        }
+    }
+
+    pub fn set_has_focus(&mut self, has_focus: bool) {
+        self.has_focus = has_focus;
+        if has_focus && self.nav_state.focused_index.is_none() && self.nav_state.item_count > 0 {
+            self.nav_state.focus_first();
+        }
+    }
+
+    /// Move focus up
+    pub fn move_up(&mut self, cx: &mut Context<Self>) {
+        if self.nav_state.move_up() {
+            cx.notify();
+        }
+    }
+
+    /// Move focus down
+    pub fn move_down(&mut self, cx: &mut Context<Self>) {
+        if self.nav_state.move_down() {
+            cx.notify();
+        }
+    }
+
+    /// Move focus left
+    pub fn move_left(&mut self, cx: &mut Context<Self>) {
+        if self.nav_state.move_left() {
+            cx.notify();
+        }
+    }
+
+    /// Move focus right
+    pub fn move_right(&mut self, cx: &mut Context<Self>) {
+        if self.nav_state.move_right() {
+            cx.notify();
+        }
+    }
+
+    /// Activate the currently focused item
+    pub fn activate_focused(&mut self, cx: &mut Context<Self>) {
+        if let Some(filtered_idx) = self.nav_state.focused_index {
+            // Get filtered indices to map to actual index
+            let filtered_indices: Vec<usize> = match &self.filter {
+                Some(ThemeFilter::Custom) => self
+                    .themes
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, theme)| theme.is_custom)
+                    .map(|(idx, _)| idx)
+                    .collect(),
+                Some(ThemeFilter::System) => self
+                    .themes
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, theme)| !theme.is_custom)
+                    .map(|(idx, _)| idx)
+                    .collect(),
+                None => (0..self.themes.len()).collect(),
+            };
+
+            if let Some(&actual_idx) = filtered_indices.get(filtered_idx)
+                && let Some(card) = self.cards.get(actual_idx)
+            {
+                card.update(cx, |card, _cx| {
+                    card.activate();
+                });
+            }
         }
     }
 
@@ -47,6 +122,7 @@ impl ThemeGrid {
     /// Update themes and recreate cards
     pub fn update_themes(&mut self, themes: Vec<SysTheme>, cx: &mut Context<Self>) {
         self.themes = themes;
+        self.nav_state.item_count = self.themes.len();
         // Recreate cards for new themes
         self.cards = self
             .themes
@@ -94,6 +170,9 @@ impl Render for ThemeGrid {
         };
         let image_height = px((card_width * 9.0 / 16.0).max(0.0));
 
+        // Update navigation state with current column count
+        self.nav_state.columns = column_count.max(1);
+
         // Get filtered card indices
         let filtered_indices: Vec<usize> = match &self.filter {
             Some(ThemeFilter::Custom) => self
@@ -113,11 +192,19 @@ impl Render for ThemeGrid {
             None => (0..self.themes.len()).collect(),
         };
 
-        // Update image height for all visible cards
-        for &idx in &filtered_indices {
-            if let Some(card) = self.cards.get(idx) {
+        // Update navigation state item count to filtered count
+        self.nav_state.item_count = filtered_indices.len();
+
+        // Calculate which filtered index is focused
+        let focused_filtered_index = self.nav_state.focused_index;
+
+        // Update image height and focus state for all visible cards
+        for (filtered_idx, &actual_idx) in filtered_indices.iter().enumerate() {
+            if let Some(card) = self.cards.get(actual_idx) {
+                let is_focused = focused_filtered_index == Some(filtered_idx) && self.has_focus;
                 card.update(cx, |card, _cx| {
                     card.set_image_height(image_height);
+                    card.set_focused(is_focused);
                 });
             }
         }

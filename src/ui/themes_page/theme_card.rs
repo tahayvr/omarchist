@@ -14,6 +14,7 @@ pub struct ThemeCard {
     theme: SysTheme,
     image_height: Pixels,
     index: usize,
+    is_focused: bool,
 }
 
 impl ThemeCard {
@@ -22,11 +23,27 @@ impl ThemeCard {
             theme,
             image_height,
             index,
+            is_focused: false,
         }
     }
 
     pub fn set_image_height(&mut self, height: Pixels) {
         self.image_height = height;
+    }
+
+    pub fn set_focused(&mut self, focused: bool) {
+        self.is_focused = focused;
+    }
+
+    pub fn activate(&mut self) {
+        // Apply the theme when activated via keyboard
+        let dir = self.theme.dir.clone();
+        smol::spawn(async move {
+            if let Err(e) = apply_theme(dir).await {
+                eprintln!("Failed to apply theme: {}", e);
+            }
+        })
+        .detach();
     }
 }
 
@@ -77,7 +94,11 @@ impl Render for ThemeCard {
             .border_1()
             .border_color(theme.border)
             .rounded(theme.radius)
-            .bg(theme.background)
+            .bg(if self.is_focused {
+                gpui::rgb(0x2a2a2a).into()
+            } else {
+                theme.background
+            })
             .child(
                 div()
                     .p_3()

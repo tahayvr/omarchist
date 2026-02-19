@@ -2,6 +2,7 @@ pub mod about_page;
 pub mod app_view;
 pub mod config_page;
 pub mod dialogs;
+pub mod keyboard_nav;
 pub mod menu;
 pub mod omarchy_page;
 pub mod settings_page;

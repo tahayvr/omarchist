@@ -12,7 +12,16 @@ actions!(
         Paste,
         Cut,
         RefreshTheme,
-        ToggleSidebar
+        ToggleSidebar,
+        // Keyboard navigation actions
+        NextFocus,
+        PrevFocus,
+        NextItem,
+        PrevItem,
+        ActivateItem,
+        EscapeFocus,
+        SelectNext,
+        SelectPrev
     ]
 );
 actions!(appearance, [SwitchToLight, SwitchToDark]);
