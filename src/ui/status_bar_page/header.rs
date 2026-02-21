@@ -41,6 +41,8 @@ impl StatusBarHeader {
 
     /// Reload the profile list from disk and select the given profile name.
     /// Called after a new profile is created.
+    /// NOTE: updates the existing entity in-place — never replaces it, so any
+    /// external subscriptions (e.g. in StatusBarView) stay valid.
     pub fn reload_and_select(
         &mut self,
         profile_name: &str,
@@ -62,20 +64,13 @@ impl StatusBarHeader {
             .collect();
 
         self.profile_names = profile_names;
-        self.profile_select.update(cx, |state, cx| {
-            state.set_selected_value(&SharedString::from(items[select_index].clone()), window, cx);
-        });
 
-        // Rebuild the select with the new items by replacing the entity
-        let new_select = cx.new(|cx| {
-            SelectState::new(
-                items,
-                Some(IndexPath::default().row(select_index)),
-                window,
-                cx,
-            )
+        // Update items and selection in-place — keeps the entity identity stable
+        let selected = items[select_index].clone();
+        self.profile_select.update(cx, |state, cx| {
+            state.set_items(items, window, cx);
+            state.set_selected_value(&selected, window, cx);
         });
-        self.profile_select = new_select;
     }
 
     /// Returns the currently selected profile name, if any.
