@@ -1,16 +1,13 @@
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     select::{Select, SelectState},
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
+use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::list_waybar_profiles;
-
-#[derive(Clone, PartialEq, Action)]
-#[action(no_json)]
-pub struct ReloadStatusBar;
 
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
@@ -90,9 +87,11 @@ impl Render for StatusBarHeader {
                     .icon(Icon::new(IconName::LoaderCircle))
                     .ghost()
                     .small()
-                    .tooltip("Refresh status bar")
-                    .on_click(|_, window, cx| {
-                        window.dispatch_action(Box::new(ReloadStatusBar), cx);
+                    .tooltip("Refresh Status Bar")
+                    .on_click(|_, _, _| {
+                        if let Err(e) = restart_waybar() {
+                            eprintln!("Failed to restart waybar: {e}");
+                        }
                     }),
             )
     }

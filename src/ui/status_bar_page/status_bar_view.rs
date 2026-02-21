@@ -3,7 +3,7 @@ use gpui_component::{select::SelectEvent, v_flex};
 
 use crate::system::waybar::list_waybar_profiles;
 use crate::ui::status_bar_page::design_area::DesignArea;
-use crate::ui::status_bar_page::header::{ReloadStatusBar, StatusBarHeader};
+use crate::ui::status_bar_page::header::StatusBarHeader;
 
 pub struct StatusBarView {
     header: Entity<StatusBarHeader>,
@@ -54,22 +54,11 @@ impl StatusBarView {
 }
 
 impl Render for StatusBarView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .id("status-bar-page")
             .size_full()
             .gap_4()
-            .on_action(cx.listener(|this, _: &ReloadStatusBar, _window, cx| {
-                let profile_name = this
-                    .header
-                    .read(cx)
-                    .selected_profile(cx)
-                    .unwrap_or("omarchy-default")
-                    .to_string();
-                this.design_area.update(cx, |area, cx| {
-                    area.switch_profile(&profile_name, cx);
-                });
-            }))
             .child(self.header.clone())
             .child(self.design_area.clone())
     }
