@@ -6,6 +6,7 @@ pub mod keyboard_nav;
 pub mod menu;
 pub mod omarchy_page;
 pub mod settings_page;
+pub mod status_bar_page;
 pub mod system_monitor_page;
 pub mod terminal_page;
 pub mod theme_edit_page;

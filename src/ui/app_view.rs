@@ -6,6 +6,7 @@ use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
+use crate::ui::status_bar_page::status_bar_view::StatusBarView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::terminal_page::terminal_page::TerminalPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
@@ -33,6 +34,7 @@ pub enum ActivePage {
     SystemMonitor,
     Configuration,
     Settings,
+    StatusBar,
     About,
     Omarchy,
     Terminal(String), // Command being run in terminal
@@ -48,6 +50,7 @@ pub struct MainWindowView {
     system_monitor_root: AnyView,
     config_root: AnyView,
     settings_root: AnyView,
+    status_bar_root: AnyView,
     about_root: AnyView,
     omarchy_root: AnyView,
     terminal_root: Option<AnyView>,
@@ -81,6 +84,11 @@ impl MainWindowView {
 
         let settings_view = cx.new(|_| SettingsView);
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
+
+        let status_bar_view = cx.new(|_| StatusBarView);
+        let status_bar_root = cx
+            .new(|cx| Root::new(status_bar_view, window, cx))
+            .into();
 
         let about_view = cx.new(|_| AboutView);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
@@ -128,6 +136,7 @@ impl MainWindowView {
             system_monitor_root,
             config_root,
             settings_root,
+            status_bar_root,
             about_root,
             omarchy_root,
             terminal_root: None,
@@ -209,6 +218,7 @@ impl MainWindowView {
             ActivePage::SystemMonitor => self.system_monitor_root.clone(),
             ActivePage::Configuration => self.config_root.clone(),
             ActivePage::Settings => self.settings_root.clone(),
+            ActivePage::StatusBar => self.status_bar_root.clone(),
             ActivePage::About => self.about_root.clone(),
             ActivePage::Omarchy => self.omarchy_root.clone(),
             ActivePage::Terminal(_) => self
@@ -225,6 +235,7 @@ impl MainWindowView {
             (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
+            (ActivePage::StatusBar, ActivePage::StatusBar) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
             (ActivePage::Terminal(a), ActivePage::Terminal(b)) => a == b,
@@ -237,6 +248,7 @@ impl MainWindowView {
         match index {
             0 => ActivePage::Themes,
             1 => ActivePage::Configuration,
+            2 => ActivePage::StatusBar,
             _ => ActivePage::Themes,
         }
     }
@@ -549,9 +561,24 @@ impl Render for MainWindowView {
                                                     self.is_page_active(ActivePage::Configuration)
                                                         || self.is_sidebar_item_focused(1),
                                                 )
-                                                .on_click(cx.listener(|this, _, window, cx| {
+                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
+                                                        window,
+                                                        cx,
+                                                    );
+                                                })),
+                                        )
+                                        .child(
+                                            SidebarMenuItem::new("STATUS BAR")
+                                                .icon(Icon::new(IconName::PanelBottom))
+                                                .active(
+                                                    self.is_page_active(ActivePage::StatusBar)
+                                                        || self.is_sidebar_item_focused(2),
+                                                )
+                                                .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.navigate_to(
+                                                        ActivePage::StatusBar,
                                                         window,
                                                         cx,
                                                     );
