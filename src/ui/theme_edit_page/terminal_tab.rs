@@ -252,7 +252,179 @@ impl TerminalTab {
 }
 
 impl Render for TerminalTab {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let wide = window.viewport_size().width >= px(1000.0);
+
+        // Cursor Colors section
+        let cursor_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Cursor Colors"),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-cursor",
+                        "Cursor",
+                        &self.cursor_cursor_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-cursor-text",
+                        "Cursor Text",
+                        &self.cursor_text_picker,
+                    )),
+            );
+
+        // Selection Colors section
+        let selection_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Selection Colors"),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-selection-bg",
+                        "Background",
+                        &self.selection_bg_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-selection-fg",
+                        "Foreground",
+                        &self.selection_fg_picker,
+                    )),
+            );
+
+        // Normal Colors section
+        let normal_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Normal Colors"),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-normal-black",
+                        "Black",
+                        &self.normal_black_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-red",
+                        "Red",
+                        &self.normal_red_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-green",
+                        "Green",
+                        &self.normal_green_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-yellow",
+                        "Yellow",
+                        &self.normal_yellow_picker,
+                    )),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-normal-blue",
+                        "Blue",
+                        &self.normal_blue_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-magenta",
+                        "Magenta",
+                        &self.normal_magenta_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-cyan",
+                        "Cyan",
+                        &self.normal_cyan_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-normal-white",
+                        "White",
+                        &self.normal_white_picker,
+                    )),
+            );
+
+        // Bright Colors section
+        let bright_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Bright Colors"),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-bright-black",
+                        "Black",
+                        &self.bright_black_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-red",
+                        "Red",
+                        &self.bright_red_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-green",
+                        "Green",
+                        &self.bright_green_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-yellow",
+                        "Yellow",
+                        &self.bright_yellow_picker,
+                    )),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "term-bright-blue",
+                        "Blue",
+                        &self.bright_blue_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-magenta",
+                        "Magenta",
+                        &self.bright_magenta_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-cyan",
+                        "Cyan",
+                        &self.bright_cyan_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "term-bright-white",
+                        "White",
+                        &self.bright_white_picker,
+                    )),
+            );
+
         tab_container()
             .child(
                 h_flex()
@@ -284,7 +456,7 @@ impl Render for TerminalTab {
             .child(
                 v_flex()
                     .gap_6()
-                    // Primary Colors Section
+                    // Primary Colors — full width
                     .child(
                         form_section()
                             .gap_4()
@@ -311,183 +483,39 @@ impl Render for TerminalTab {
                             ),
                     )
                     .child(Divider::horizontal())
-                    // Cursor Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Cursor Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-cursor",
-                                        "Cursor",
-                                        &self.cursor_cursor_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-cursor-text",
-                                        "Cursor Text",
-                                        &self.cursor_text_picker,
-                                    )),
-                            ),
-                    )
+                    // Cursor + Selection — 2 cols on wide, stacked on narrow
+                    .child(if wide {
+                        div()
+                            .grid()
+                            .grid_cols(2)
+                            .gap_6()
+                            .child(cursor_section)
+                            .child(selection_section)
+                    } else {
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_6()
+                            .child(cursor_section)
+                            .child(selection_section)
+                    })
                     .child(Divider::horizontal())
-                    // Selection Colors Section
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Selection Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-selection-bg",
-                                        "Background",
-                                        &self.selection_bg_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-selection-fg",
-                                        "Foreground",
-                                        &self.selection_fg_picker,
-                                    )),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Normal Colors Section (Row 1)
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Normal Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-black",
-                                        "Black",
-                                        &self.normal_black_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-red",
-                                        "Red",
-                                        &self.normal_red_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-green",
-                                        "Green",
-                                        &self.normal_green_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-yellow",
-                                        "Yellow",
-                                        &self.normal_yellow_picker,
-                                    )),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-blue",
-                                        "Blue",
-                                        &self.normal_blue_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-magenta",
-                                        "Magenta",
-                                        &self.normal_magenta_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-cyan",
-                                        "Cyan",
-                                        &self.normal_cyan_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-normal-white",
-                                        "White",
-                                        &self.normal_white_picker,
-                                    )),
-                            ),
-                    )
-                    .child(Divider::horizontal())
-                    // Bright Colors Section (Row 1)
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Bright Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-black",
-                                        "Black",
-                                        &self.bright_black_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-red",
-                                        "Red",
-                                        &self.bright_red_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-green",
-                                        "Green",
-                                        &self.bright_green_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-yellow",
-                                        "Yellow",
-                                        &self.bright_yellow_picker,
-                                    )),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-blue",
-                                        "Blue",
-                                        &self.bright_blue_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-magenta",
-                                        "Magenta",
-                                        &self.bright_magenta_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-cyan",
-                                        "Cyan",
-                                        &self.bright_cyan_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-bright-white",
-                                        "White",
-                                        &self.bright_white_picker,
-                                    )),
-                            ),
-                    ),
+                    // Normal + Bright — 2 cols on wide, stacked on narrow
+                    .child(if wide {
+                        div()
+                            .grid()
+                            .grid_cols(2)
+                            .gap_6()
+                            .child(normal_section)
+                            .child(bright_section)
+                    } else {
+                        div()
+                            .flex()
+                            .flex_col()
+                            .gap_6()
+                            .child(normal_section)
+                            .child(bright_section)
+                    }),
             )
     }
 }

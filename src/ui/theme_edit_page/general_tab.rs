@@ -266,7 +266,7 @@ impl Render for GeneralTab {
 
         tab_container()
             .child(
-                // Theme Name Section with Rename button - wraps on narrow screens
+                // Theme Name Section with Rename button
                 form_section()
                     .child(
                         Label::new("Theme Name")
@@ -277,7 +277,11 @@ impl Render for GeneralTab {
                         h_flex()
                             .gap_2()
                             .flex_wrap()
-                            .child(Input::new(&self.name_input).cleanable(true))
+                            .child(
+                                div()
+                                    .w_80()
+                                    .child(Input::new(&self.name_input).cleanable(true)),
+                            )
                             .child(
                                 Button::new("rename-btn")
                                     .label("Rename")
@@ -298,21 +302,19 @@ impl Render for GeneralTab {
                             .text_sm()
                             .text_color(cx.theme().muted_foreground),
                     )
-                    .child(Input::new(&self.author_input).cleanable(true)),
+                    .child(
+                        div()
+                            .w_80()
+                            .child(Input::new(&self.author_input).cleanable(true)),
+                    ),
             )
             .child(
                 // Accent Color Section
-                form_section()
-                    .child(
-                        Label::new("Accent Color")
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground),
-                    )
-                    .child(color_picker_with_clipboard(
-                        "accent-color",
-                        "Accent",
-                        &self.accent_picker,
-                    )),
+                form_section().child(color_picker_with_clipboard(
+                    "accent-color",
+                    "Accent Color",
+                    &self.accent_picker,
+                )),
             )
             .child(
                 // Light Mode Toggle Section
