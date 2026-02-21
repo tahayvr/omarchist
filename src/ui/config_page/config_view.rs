@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    setting::{NumberFieldOptions, SettingGroup, SettingItem, SettingPage, Settings},
     Sizable as _, Size,
+    setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -14,8 +14,6 @@ pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
     // Cached keyboard layouts for the dropdown (value, label)
     keyboard_layouts: Vec<(SharedString, SharedString)>,
-    // This counter is incremented whenever config changes to force re-render
-    _update_counter: u32,
 }
 
 impl ConfigView {
@@ -50,7 +48,6 @@ impl ConfigView {
         Self {
             config_manager: Rc::new(RefCell::new(config_manager)),
             keyboard_layouts,
-            _update_counter: 0,
         }
     }
 
@@ -61,24 +58,24 @@ impl ConfigView {
     {
         self.config_manager.borrow_mut().update(f);
         let _ = self.config_manager.borrow().save();
-        self._update_counter += 1;
         cx.notify();
     }
 }
 
 impl Render for ConfigView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Clone self reference for use in closures
         let view = cx.entity().clone();
 
         Settings::new("hyprland-config")
             .sidebar_width(px(220.0))
             .with_group_variant(gpui_component::group_box::GroupBoxVariant::Normal)
             .with_size(Size::default())
-            .page(self.create_general_page(&view))
-            .page(self.create_appearance_page(&view))
-            .page(self.create_input_page(&view))
-            .page(self.create_misc_page(&view))
+            .pages(vec![
+                self.create_general_page(&view),
+                self.create_appearance_page(&view),
+                self.create_input_page(&view),
+                self.create_misc_page(&view),
+            ])
     }
 }
 
@@ -95,7 +92,7 @@ impl ConfigView {
                         SettingItem::new("Border Size", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 10.0,
@@ -118,7 +115,7 @@ impl ConfigView {
                         SettingItem::new("Resize on Border", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().general.resize_on_border,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -140,7 +137,7 @@ impl ConfigView {
                         SettingItem::new("Gaps In", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 100.0,
@@ -163,7 +160,7 @@ impl ConfigView {
                         SettingItem::new("Gaps Out", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 100.0,
@@ -186,7 +183,7 @@ impl ConfigView {
                         SettingItem::new("Gaps Workspaces", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 100.0,
@@ -211,7 +208,7 @@ impl ConfigView {
                     SettingItem::new("Layout", {
                         let cm = cm.clone();
                         let view = view.clone();
-                        gpui_component::setting::SettingField::dropdown(
+                        SettingField::dropdown(
                             vec![
                                 ("dwindle".into(), "Dwindle".into()),
                                 ("master".into(), "Master".into()),
@@ -242,7 +239,7 @@ impl ConfigView {
                     SettingItem::new("Rounding", {
                         let cm = cm.clone();
                         let view = view.clone();
-                        gpui_component::setting::SettingField::number_input(
+                        SettingField::number_input(
                             NumberFieldOptions {
                                 min: 0.0,
                                 max: 50.0,
@@ -269,7 +266,7 @@ impl ConfigView {
                         SettingItem::new("Active Opacity", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 1.0,
@@ -292,7 +289,7 @@ impl ConfigView {
                         SettingItem::new("Inactive Opacity", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 0.0,
                                     max: 1.0,
@@ -319,7 +316,7 @@ impl ConfigView {
                         SettingItem::new("Enable Blur", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().decoration.blur.enabled,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -337,7 +334,7 @@ impl ConfigView {
                         SettingItem::new("Blur Size", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 1.0,
                                     max: 20.0,
@@ -360,7 +357,7 @@ impl ConfigView {
                         SettingItem::new("Blur Passes", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 1.0,
                                     max: 5.0,
@@ -395,7 +392,7 @@ impl ConfigView {
                             let cm = cm.clone();
                             let view = view.clone();
                             let layouts = self.keyboard_layouts.clone();
-                            gpui_component::setting::SettingField::dropdown(
+                            SettingField::dropdown(
                                 layouts,
                                 move |_cx| cm.borrow().get().input.kb_layout.clone().into(),
                                 move |value, cx| {
@@ -414,7 +411,7 @@ impl ConfigView {
                         SettingItem::new("Repeat Rate", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 1.0,
                                     max: 100.0,
@@ -437,7 +434,7 @@ impl ConfigView {
                         SettingItem::new("Repeat Delay", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: 100.0,
                                     max: 2000.0,
@@ -464,7 +461,7 @@ impl ConfigView {
                         SettingItem::new("Sensitivity", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
+                            SettingField::number_input(
                                 NumberFieldOptions {
                                     min: -1.0,
                                     max: 1.0,
@@ -485,7 +482,7 @@ impl ConfigView {
                         SettingItem::new("Natural Scroll", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().input.natural_scroll,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -501,7 +498,7 @@ impl ConfigView {
                         SettingItem::new("Left Handed", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().input.left_handed,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -521,7 +518,7 @@ impl ConfigView {
                         SettingItem::new("Disable While Typing", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().input.touchpad.disable_while_typing,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -539,7 +536,7 @@ impl ConfigView {
                         SettingItem::new("Tap to Click", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().input.touchpad.tap_to_click,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -557,7 +554,7 @@ impl ConfigView {
                         SettingItem::new("Natural Scroll", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
+                            SettingField::switch(
                                 move |_cx| cm.borrow().get().input.touchpad.natural_scroll,
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {
@@ -584,7 +581,7 @@ impl ConfigView {
                     SettingItem::new("VFR", {
                         let cm = cm.clone();
                         let view = view.clone();
-                        gpui_component::setting::SettingField::switch(
+                        SettingField::switch(
                             move |_cx| cm.borrow().get().misc.vfr,
                             move |value, cx| {
                                 view.update(cx, |this, cx| {

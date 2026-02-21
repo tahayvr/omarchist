@@ -359,11 +359,6 @@ impl MainWindowView {
 
 impl Render for MainWindowView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Request focus on first render
-        if !self.focus_handle.is_focused(window) {
-            self.focus_handle.focus(window);
-        }
-
         // Check for pending theme navigation
         let pending_theme = crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION
             .with(|nav| nav.borrow_mut().take());
