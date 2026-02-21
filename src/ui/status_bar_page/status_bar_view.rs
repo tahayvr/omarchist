@@ -6,12 +6,17 @@ use crate::ui::status_bar_page::header::StatusBarHeader;
 
 pub struct StatusBarView {
     header: Entity<StatusBarHeader>,
+    design_area: Entity<DesignArea>,
 }
 
 impl StatusBarView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let header = cx.new(|cx| StatusBarHeader::new(window, cx));
-        Self { header }
+        let design_area = cx.new(|cx| DesignArea::new("omarchy-default", cx));
+        Self {
+            header,
+            design_area,
+        }
     }
 }
 
@@ -22,6 +27,6 @@ impl Render for StatusBarView {
             .size_full()
             .gap_4()
             .child(self.header.clone())
-            .child(DesignArea)
+            .child(self.design_area.clone())
     }
 }
