@@ -71,7 +71,7 @@ impl Render for ConfigView {
         // Clone self reference for use in closures
         let view = cx.entity().clone();
 
-        Settings::new(("hyprland-config", self._update_counter))
+        Settings::new("hyprland-config")
             .sidebar_width(px(220.0))
             .with_group_variant(gpui_component::group_box::GroupBoxVariant::Normal)
             .with_size(Size::default())
