@@ -2,7 +2,7 @@
 	"version": "1.1.0",
 	"settings": {
 		"font_size": "small",
-		"auto_apply_theme": true
+		"auto_apply_theme": false
 	},
 	"metadata": {
 		"created_at": "{{CREATED_AT}}",
