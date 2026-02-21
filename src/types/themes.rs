@@ -143,7 +143,7 @@ impl ThemeData {
 }
 
 /// Structure for editing a theme - matches omarchist.json format
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditingTheme {
     #[serde(default = "default_version")]
     pub version: String,
@@ -156,6 +156,21 @@ pub struct EditingTheme {
     pub colors: ColorsConfig,
     #[serde(skip)] // Runtime-only, not serialized to JSON
     pub is_light_theme: bool,
+}
+
+impl Default for EditingTheme {
+    fn default() -> Self {
+        Self {
+            version: "1.0.0".to_string(),
+            name: String::new(),
+            created_at: String::new(),
+            modified_at: String::new(),
+            author: None,
+            apps: AppConfigs::default(),
+            colors: ColorsConfig::default(),
+            is_light_theme: false,
+        }
+    }
 }
 
 /// Colors configuration for colors.toml
@@ -557,7 +572,7 @@ impl Default for TerminalConfig {
 /// All app configurations for a theme
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigs {
-    #[serde(rename = "alacritty")]
+    #[serde(rename = "alacritty", skip_serializing_if = "Option::is_none")]
     pub alacritty: Option<serde_json::Value>,
     #[serde(rename = "waybar")]
     pub waybar: Option<WaybarConfig>,
@@ -581,9 +596,9 @@ pub struct AppConfigs {
     pub vscode: Option<serde_json::Value>,
     #[serde(rename = "icons")]
     pub icons: Option<serde_json::Value>,
-    #[serde(rename = "ghostty")]
+    #[serde(rename = "ghostty", skip_serializing_if = "Option::is_none")]
     pub ghostty: Option<serde_json::Value>,
-    #[serde(rename = "kitty")]
+    #[serde(rename = "kitty", skip_serializing_if = "Option::is_none")]
     pub kitty: Option<serde_json::Value>,
     #[serde(rename = "terminal")]
     pub terminal: Option<TerminalConfig>,

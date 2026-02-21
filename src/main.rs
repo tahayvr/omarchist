@@ -182,8 +182,6 @@ fn main() {
             KeyBinding::new("up", app_menu::PrevItem, Some("MainWindow")),
             KeyBinding::new("right", app_menu::SelectNext, Some("MainWindow")),
             KeyBinding::new("left", app_menu::SelectPrev, Some("MainWindow")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("MainWindow")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("MainWindow")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("MainWindow")),
         ]);
 

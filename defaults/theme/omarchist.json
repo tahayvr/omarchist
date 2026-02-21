@@ -81,7 +81,7 @@
 			"progress": "#8A8A8D"
 		},
 		"vscode": {
-			"raw_config": "{\n  \"name\": \"Matte Black\",\n  \"extension\": \"TahaYVR.matteblack\"\n}"
+			"raw_config": "{\n  \"name\": \"Sunset Drive\",\n  \"extension\": \"TahaYVR.sunset-drive\"\n}"
 		},
 		"walker": {
 			"background": "#0F0F19",
@@ -126,7 +126,8 @@
 				"foreground": "#EDEDFE"
 			},
 			"selection": {
-				"background": "#202034"
+				"background": "#202034",
+				"foreground": "#EDEDFE"
 			}
 		}
 	},
