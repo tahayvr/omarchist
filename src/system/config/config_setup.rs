@@ -1,7 +1,7 @@
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsSchema {
@@ -13,12 +13,46 @@ pub struct SettingsSchema {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsConfig {
     pub font_size: String,
+    #[serde(default)]
+    pub auto_apply_theme: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Metadata {
     pub created_at: String,
     pub last_modified: String,
+}
+
+/// Recursively copy a directory and all its contents
+/// This is a shared utility function used by other config modules
+pub fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
+    // Create destination directory
+    fs::create_dir_all(dst)
+        .map_err(|e| format!("Failed to create directory '{}': {}", dst.display(), e))?;
+
+    // Read source directory entries
+    let entries = fs::read_dir(src)
+        .map_err(|e| format!("Failed to read directory '{}': {}", src.display(), e))?;
+
+    for entry in entries {
+        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
+        let path = entry.path();
+        let file_name = path
+            .file_name()
+            .ok_or_else(|| "Invalid file name".to_string())?;
+        let dest_path = dst.join(file_name);
+
+        if path.is_dir() {
+            // Recursively copy subdirectory
+            copy_directory_recursive(&path, &dest_path)?;
+        } else {
+            // Copy file
+            fs::copy(&path, &dest_path)
+                .map_err(|e| format!("Failed to copy file '{}': {}", path.display(), e))?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Ensures the omarchist config directory exists with all default files
@@ -78,37 +112,6 @@ pub fn ensure_config() -> Result<(), String> {
     Ok(())
 }
 
-/// Recursively copy a directory and all its contents
-fn copy_directory_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
-    // Create destination directory
-    fs::create_dir_all(dst)
-        .map_err(|e| format!("Failed to create directory '{}': {}", dst.display(), e))?;
-
-    // Read source directory entries
-    let entries = fs::read_dir(src)
-        .map_err(|e| format!("Failed to read directory '{}': {}", src.display(), e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-        let path = entry.path();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| "Invalid file name".to_string())?;
-        let dest_path = dst.join(file_name);
-
-        if path.is_dir() {
-            // Recursively copy subdirectory
-            copy_directory_recursive(&path, &dest_path)?;
-        } else {
-            // Copy file
-            fs::copy(&path, &dest_path)
-                .map_err(|e| format!("Failed to copy file '{}': {}", path.display(), e))?;
-        }
-    }
-
-    Ok(())
-}
-
 /// Gets the omarchist config directory path (~/.config/omarchist)
 fn get_config_dir() -> Result<PathBuf, String> {
     let home_dir =
@@ -118,7 +121,7 @@ fn get_config_dir() -> Result<PathBuf, String> {
 }
 
 /// Validates that the settings.json file matches the expected schema
-fn validate_settings(settings_path: &std::path::Path) -> Result<(), String> {
+fn validate_settings(settings_path: &Path) -> Result<(), String> {
     let content = fs::read_to_string(settings_path)
         .map_err(|e| format!("Failed to read settings.json: {}", e))?;
 
@@ -260,7 +263,7 @@ fn is_version_older(user_version: &str, default_version: &str) -> Result<bool, S
 
 /// Determines whether to update settings.json or keep it
 fn should_update_settings(
-    settings_path: &std::path::Path,
+    settings_path: &Path,
     default_version: &str,
 ) -> Result<UpdateAction, String> {
     let content = fs::read_to_string(settings_path)
@@ -276,7 +279,7 @@ fn should_update_settings(
 }
 
 /// Replaces the settings.json file with the default version
-fn replace_settings_file(settings_path: &std::path::Path) -> Result<(), String> {
+fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
     let default_path = PathBuf::from("defaults/omarchist/settings.json");
     fs::copy(&default_path, settings_path)
         .map_err(|e| format!("Failed to copy settings.json from defaults: {}", e))?;
@@ -295,6 +298,6 @@ fn replace_settings_file(settings_path: &std::path::Path) -> Result<(), String> 
 }
 
 /// Copies settings.json from defaults when it doesn't exist
-fn copy_settings_from_default(settings_path: &std::path::Path) -> Result<(), String> {
+fn copy_settings_from_default(settings_path: &Path) -> Result<(), String> {
     replace_settings_file(settings_path)
 }
