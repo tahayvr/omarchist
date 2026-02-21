@@ -713,3 +713,43 @@ impl Default for DebugConfig {
         }
     }
 }
+
+/// Catalog of keyboard models, layouts, variants, and options sourced from `base.lst`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardCatalog {
+    pub models: Vec<KeyboardModel>,
+    pub layouts: Vec<KeyboardLayout>,
+    pub option_groups: Vec<KeyboardOptionGroup>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardModel {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardLayout {
+    pub name: String,
+    pub description: String,
+    pub variants: Vec<KeyboardVariant>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardVariant {
+    pub name: String,
+    pub description: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOptionGroup {
+    pub name: String,
+    pub description: String,
+    pub options: Vec<KeyboardOption>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct KeyboardOption {
+    pub name: String,
+    pub description: String,
+}

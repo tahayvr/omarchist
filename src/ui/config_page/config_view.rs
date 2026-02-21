@@ -1,17 +1,19 @@
 use gpui::*;
 use gpui_component::{
-    Sizable as _, Size,
     setting::{NumberFieldOptions, SettingGroup, SettingItem, SettingPage, Settings},
+    Sizable as _, Size,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::system::hyprland_config::HyprlandConfigManager;
-use crate::types::hyprland_config::HyprlandConfig;
+use crate::types::hyprland_config::*;
 
 /// Main configuration view using gpui-component Settings API
 pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
+    // Cached keyboard layouts for the dropdown (value, label)
+    keyboard_layouts: Vec<(SharedString, SharedString)>,
     // This counter is incremented whenever config changes to force re-render
     _update_counter: u32,
 }
@@ -27,8 +29,27 @@ impl ConfigView {
             }
         };
 
+        // Preload keyboard layouts
+        let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
+        let mut keyboard_layouts = Vec::new();
+        match catalog {
+            Ok(c) => {
+                for layout in c.layouts {
+                    keyboard_layouts.push((
+                        layout.name.clone().into(),
+                        format!("{} ({})", layout.description, layout.name).into(),
+                    ));
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to load keyboard catalog: {}", e);
+                keyboard_layouts.push(("us".into(), "English (US) (us)".into()));
+            }
+        }
+
         Self {
             config_manager: Rc::new(RefCell::new(config_manager)),
+            keyboard_layouts,
             _update_counter: 0,
         }
     }
@@ -373,7 +394,9 @@ impl ConfigView {
                         SettingItem::new("Keyboard Layout", {
                             let cm = cm.clone();
                             let view = view.clone();
-                            gpui_component::setting::SettingField::input(
+                            let layouts = self.keyboard_layouts.clone();
+                            gpui_component::setting::SettingField::dropdown(
+                                layouts,
                                 move |_cx| cm.borrow().get().input.kb_layout.clone().into(),
                                 move |value, cx| {
                                     view.update(cx, |this, cx| {

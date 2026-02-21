@@ -1,10 +1,11 @@
+pub mod keyboard;
+pub mod parser;
+pub mod writer;
+
 use crate::types::hyprland_config::HyprlandConfig;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-
-pub mod parser;
-pub mod writer;
 
 const CONFIG_DIR: &str = ".config/omarchist/hyprland";
 const CONFIG_FILE: &str = "hyprland.conf";
