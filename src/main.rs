@@ -3,6 +3,7 @@ use gpui_component::{Root, Theme, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
+use omarchist::system::config::waybar_setup;
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
@@ -103,6 +104,11 @@ fn main() {
         // Ensure Hyprland config includes omarchist source directive
         if let Err(e) = hypr_setup::ensure_hypr_source() {
             eprintln!("Failed to set up Hyprland config: {}", e);
+        }
+
+        // Ensure waybar config directory exists
+        if let Err(e) = waybar_setup::ensure_waybar_config() {
+            eprintln!("Failed to set up waybar config: {}", e);
         }
 
         gpui_component::init(cx);

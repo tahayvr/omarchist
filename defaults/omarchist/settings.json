@@ -1,7 +1,8 @@
 {
 	"version": "1.1.0",
 	"settings": {
-		"font_size": "small"
+		"font_size": "small",
+		"auto_apply_theme": true
 	},
 	"metadata": {
 		"created_at": "{{CREATED_AT}}",
