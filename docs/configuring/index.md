@@ -18,6 +18,7 @@ Configure window borders, gaps, and layout.
 - **Resize on Border**: Enable resizing windows by dragging on borders.
 - **Gaps In**: Space between windows.
 - **Gaps Out**: Space between windows and screen edges.
+- **Gaps Workspaces**: Gaps between workspaces. Stacks with gaps out.
 - **Layout**: Choose between **Dwindle** or **Master** window layouts.
 
 ### Appearance
@@ -49,19 +50,10 @@ Configure keyboard, mouse, and touchpad settings.
 - **Tap to Click**: Tap on touchpad to click.
 - **Natural Scroll**: Invert touchpad scrolling.
 
-### Gestures
-
-Configure touchpad gestures for workspace switching.
-
-- **Swipe Distance**: Pixels to swipe for workspace change.
-- **Invert Direction**: Reverse swipe direction.
-- **Create New Workspace**: Create new workspace when swiping past last.
-
 ### Miscellaneous
 
 Additional settings.
 
-- **Disable Logo**: Hide the Hyprland logo on desktop.
 - **VFR**: Variable refresh rate to save battery.
 
 ## Auto-Save

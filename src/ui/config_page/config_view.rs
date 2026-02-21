@@ -57,7 +57,6 @@ impl Render for ConfigView {
             .page(self.create_general_page(&view))
             .page(self.create_appearance_page(&view))
             .page(self.create_input_page(&view))
-            .page(self.create_gestures_page(&view))
             .page(self.create_misc_page(&view))
     }
 }
@@ -161,6 +160,29 @@ impl ConfigView {
                             .default_value(10.0)
                         })
                         .description("Gaps between windows and monitor edges"),
+                    )
+                    .item(
+                        SettingItem::new("Gaps Workspaces", {
+                            let cm = cm.clone();
+                            let view = view.clone();
+                            gpui_component::setting::SettingField::number_input(
+                                NumberFieldOptions {
+                                    min: 0.0,
+                                    max: 100.0,
+                                    step: 1.0,
+                                },
+                                move |_cx| cm.borrow().get().general.gaps_workspaces as f64,
+                                move |value, cx| {
+                                    view.update(cx, |this, cx| {
+                                        this.update_config(cx, |c| {
+                                            c.general.gaps_workspaces = value as i32
+                                        });
+                                    });
+                                },
+                            )
+                            .default_value(0.0)
+                        })
+                        .description("Gaps between workspaces. Stacks with gaps out"),
                     ),
             )
             .group(
@@ -529,120 +551,28 @@ impl ConfigView {
             )
     }
 
-    fn create_gestures_page(&self, view: &Entity<Self>) -> SettingPage {
-        let cm = self.config_manager.clone();
-
-        SettingPage::new("Gestures")
-            .description("Touchpad gesture settings")
-            .group(
-                SettingGroup::new()
-                    .title("Workspace Swipe")
-                    .item(
-                        SettingItem::new("Swipe Distance", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            gpui_component::setting::SettingField::number_input(
-                                NumberFieldOptions {
-                                    min: 100.0,
-                                    max: 1000.0,
-                                    step: 50.0,
-                                },
-                                move |_cx| {
-                                    cm.borrow().get().gestures.workspace_swipe_distance as f64
-                                },
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| {
-                                            c.gestures.workspace_swipe_distance = value as i32
-                                        });
-                                    });
-                                },
-                            )
-                            .default_value(300.0)
-                        })
-                        .description("Distance in pixels for workspace swipe gesture"),
-                    )
-                    .item(
-                        SettingItem::new("Invert Direction", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
-                                move |_cx| cm.borrow().get().gestures.workspace_swipe_invert,
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| {
-                                            c.gestures.workspace_swipe_invert = value
-                                        });
-                                    });
-                                },
-                            )
-                            .default_value(true)
-                        })
-                        .description("Invert swipe direction"),
-                    )
-                    .item(
-                        SettingItem::new("Create New Workspace", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
-                                move |_cx| cm.borrow().get().gestures.workspace_swipe_create_new,
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| {
-                                            c.gestures.workspace_swipe_create_new = value
-                                        });
-                                    });
-                                },
-                            )
-                            .default_value(true)
-                        })
-                        .description("Create new workspace when swiping past last workspace"),
-                    ),
-            )
-    }
-
     fn create_misc_page(&self, view: &Entity<Self>) -> SettingPage {
         let cm = self.config_manager.clone();
 
         SettingPage::new("Miscellaneous")
             .description("Miscellaneous settings")
             .group(
-                SettingGroup::new()
-                    .title("General")
-                    .item(
-                        SettingItem::new("Disable Logo", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
-                                move |_cx| cm.borrow().get().misc.disable_hyprland_logo,
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| {
-                                            c.misc.disable_hyprland_logo = value
-                                        });
-                                    });
-                                },
-                            )
-                            .default_value(false)
-                        })
-                        .description("Disable the Hyprland logo/anime background"),
-                    )
-                    .item(
-                        SettingItem::new("VFR", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            gpui_component::setting::SettingField::switch(
-                                move |_cx| cm.borrow().get().misc.vfr,
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| c.misc.vfr = value);
-                                    });
-                                },
-                            )
-                            .default_value(true)
-                        })
-                        .description("Variable refresh rate (saves battery)"),
-                    ),
+                SettingGroup::new().title("General").item(
+                    SettingItem::new("VFR", {
+                        let cm = cm.clone();
+                        let view = view.clone();
+                        gpui_component::setting::SettingField::switch(
+                            move |_cx| cm.borrow().get().misc.vfr,
+                            move |value, cx| {
+                                view.update(cx, |this, cx| {
+                                    this.update_config(cx, |c| c.misc.vfr = value);
+                                });
+                            },
+                        )
+                        .default_value(true)
+                    })
+                    .description("Variable refresh rate (saves battery)"),
+                ),
             )
     }
 }
