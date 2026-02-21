@@ -6,7 +6,7 @@ outline: deep
 
 Omarchist gives you a Theme Designer to create and customize themes for your desktop environment.
 
-You find your themes in the **Custom Themes** tab on the Themes page. System themes appear in the **System Themes** tab.
+You find your themes in the **Custom Themes** tab on the Themes page. System themes and other non-omarchist themes appear in the **System Themes** tab.
 
 ## Create a Theme
 
@@ -27,6 +27,7 @@ Set basic information about your theme.
 - **Theme Name**: The name appears in your theme list.
 - **Author**: Enter your name or handle.
 - **Light Mode**: Toggle this if you create a light theme. This ensures proper contrast and text colors.
+- **Accent Color**: This color is used by Omarchy to make themes for various apps.
 
 ### Terminal
 
@@ -134,3 +135,51 @@ Omarchist saves your theme automatically when you make changes. You do not need 
 ### View Themes
 
 After saving, your theme appears in the **Custom Themes** tab on the Themes page. Click the theme card to apply it to your desktop.
+
+## Theme Manifest
+
+Every theme created with Omarchist contains an `omarchist.json` file. This file serves as a manifest and identifies the theme as an Omarchist-created theme.
+
+### What the Manifest Contains
+
+The manifest stores:
+
+- **Version**: The manifest format version
+- **Name**: Theme name
+- **Created At**: Creation timestamp
+- **Modified At**: Last modification timestamp
+- **Author**: Theme creator name
+- **Colors**: Color palette definitions
+- **App Configurations**: Settings for individual applications
+
+Themes with an `omarchist.json` file are considered Omarchist-managed.
+
+::: warning Do Not Edit Manually
+Never edit the `omarchist.json` file directly. Use the Theme Designer to make changes. Manual edits may corrupt the theme.
+:::
+
+### Theme Structure
+
+A complete theme folder contains:
+
+```
+~/.config/omarchy/themes/my-theme/
+├── omarchist.json          # Theme manifest (do not edit)
+├── colors.toml             # Color definitions
+├── alacritty.toml          # Alacritty terminal config
+├── ghostty.conf            # Ghostty terminal config
+├── kitty.conf              # Kitty terminal config
+├── hyprland.conf           # Hyprland window settings
+├── hyprlock.conf           # Hyprlock screen lock
+├── waybar.css              # Waybar styling
+├── walker.css              # Walker launcher styling
+├── mako.ini                # Mako notifications
+├── btop.theme              # Btop system monitor
+├── swayosd.css             # SwayOSD styling
+├── icons.theme             # Icon theme reference
+├── neovim.lua              # Neovim configuration
+├── vscode.json             # VSCode: theme reference
+├── chromium.theme          # Chromium theme color
+└── backgrounds/            # Wallpaper images
+    └── *.png
+```

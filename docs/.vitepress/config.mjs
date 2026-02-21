@@ -74,7 +74,8 @@ export default defineConfig({
 				text: 'GETTING STARTED',
 				items: [
 					{ text: 'Introduction', link: '/' },
-					{ text: 'Installation', link: '/#installation' }
+					{ text: 'Installation', link: '/#installation' },
+					{ text: 'CLI', link: '/cli' }
 				]
 			},
 			{
@@ -86,8 +87,12 @@ export default defineConfig({
 				]
 			},
 			{
-				text: 'CONFIGURING',
-				items: [{ text: 'Overview', link: '/configuring/' }]
+				text: 'CONFIGURATION',
+				items: [{ text: 'Hyprland', link: '/configuration/' }]
+			},
+			{
+				text: 'TOOLS'
+				// items: [{ text: 'System Monitor', link: '/system-monitor' }]
 			}
 		],
 
