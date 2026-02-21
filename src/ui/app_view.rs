@@ -85,7 +85,7 @@ impl MainWindowView {
         let settings_view = cx.new(|_| SettingsView);
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
 
-        let status_bar_view = cx.new(|_| StatusBarView);
+        let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
         let status_bar_root = cx
             .new(|cx| Root::new(status_bar_view, window, cx))
             .into();

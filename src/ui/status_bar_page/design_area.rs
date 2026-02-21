@@ -1,5 +1,5 @@
 use gpui::*;
-use gpui_component::{v_flex, ActiveTheme};
+use gpui_component::{ActiveTheme, v_flex};
 
 #[derive(IntoElement)]
 pub struct DesignArea;
@@ -14,6 +14,5 @@ impl RenderOnce for DesignArea {
             .p_4()
             .border_1()
             .border_color(theme.border)
-            .rounded_md()
     }
 }
