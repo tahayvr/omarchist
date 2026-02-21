@@ -2,6 +2,7 @@ use gpui::*;
 use gpui_component::{select::SelectEvent, v_flex};
 
 use crate::system::waybar::list_waybar_profiles;
+use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navigation;
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
 
@@ -32,7 +33,6 @@ impl StatusBarView {
             &select_entity,
             move |_this, _select, event: &SelectEvent<Vec<SharedString>>, cx| {
                 if let SelectEvent::Confirm(Some(_)) = event {
-                    // Read the newly selected profile name from the header
                     let profile_name = header_ref
                         .read(cx)
                         .selected_profile(cx)
@@ -54,7 +54,17 @@ impl StatusBarView {
 }
 
 impl Render for StatusBarView {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // After a new profile is created, reload the header and switch to it
+        if let Some(new_profile) = take_pending_profile_navigation() {
+            self.header.update(cx, |header, cx| {
+                header.reload_and_select(&new_profile, window, cx);
+            });
+            self.design_area.update(cx, |area, cx| {
+                area.switch_profile(&new_profile, cx);
+            });
+        }
+
         v_flex()
             .id("status-bar-page")
             .size_full()

@@ -1,13 +1,14 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     select::{Select, SelectState},
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::list_waybar_profiles;
+use crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog;
 
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
@@ -36,6 +37,45 @@ impl StatusBarHeader {
             profile_select,
             profile_names,
         }
+    }
+
+    /// Reload the profile list from disk and select the given profile name.
+    /// Called after a new profile is created.
+    pub fn reload_and_select(
+        &mut self,
+        profile_name: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut profile_names = list_waybar_profiles();
+        profile_names.sort();
+        if profile_names.is_empty() {
+            profile_names.push("omarchy-default".to_string());
+        }
+
+        let target = profile_name.to_string();
+        let select_index = profile_names.iter().position(|n| n == &target).unwrap_or(0);
+
+        let items: Vec<SharedString> = profile_names
+            .iter()
+            .map(|n| SharedString::from(n.clone()))
+            .collect();
+
+        self.profile_names = profile_names;
+        self.profile_select.update(cx, |state, cx| {
+            state.set_selected_value(&SharedString::from(items[select_index].clone()), window, cx);
+        });
+
+        // Rebuild the select with the new items by replacing the entity
+        let new_select = cx.new(|cx| {
+            SelectState::new(
+                items,
+                Some(IndexPath::default().row(select_index)),
+                window,
+                cx,
+            )
+        });
+        self.profile_select = new_select;
     }
 
     /// Returns the currently selected profile name, if any.
@@ -79,7 +119,9 @@ impl Render for StatusBarHeader {
                             .ghost()
                             .small()
                             .tooltip("Add profile")
-                            .on_click(|_, _, _| {}),
+                            .on_click(|_, window, cx| {
+                                open_create_waybar_profile_dialog(window, cx);
+                            }),
                     ),
             )
             .child(
@@ -87,7 +129,7 @@ impl Render for StatusBarHeader {
                     .icon(Icon::new(IconName::LoaderCircle))
                     .ghost()
                     .small()
-                    .tooltip("Refresh Status Bar")
+                    .tooltip("Restart waybar")
                     .on_click(|_, _, _| {
                         if let Err(e) = restart_waybar() {
                             eprintln!("Failed to restart waybar: {e}");

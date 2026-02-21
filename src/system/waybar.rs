@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
@@ -439,6 +440,60 @@ fn replace_module_array(src: &str, key: &str, values: &[&str]) -> Option<String>
     result.push_str(&new_array);
     result.push_str(&src[close_pos + 1..]);
     Some(result)
+}
+
+/// Create a new waybar profile by copying the omarchy-default files from the
+/// bundled defaults directory. Returns the profile name on success.
+pub fn create_waybar_profile(profile_name: &str) -> Result<String, String> {
+    let name = profile_name.trim();
+    if name.is_empty() {
+        return Err("Profile name cannot be empty".to_string());
+    }
+
+    // Destination: ~/.config/omarchist/waybar/profiles/<name>
+    let dest = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles")
+        .join(name);
+
+    if dest.exists() {
+        return Err(format!("A profile named \"{}\" already exists", name));
+    }
+
+    // Source: defaults/omarchist/waybar/profiles/omarchy-default (relative to cwd)
+    let src = PathBuf::from("defaults/omarchist/waybar/profiles/omarchy-default");
+    if !src.exists() {
+        return Err(format!("Default profile source not found at {:?}", src));
+    }
+
+    copy_dir_recursive(&src, &dest)?;
+
+    Ok(name.to_string())
+}
+
+/// Recursively copy all files and directories from src to dst.
+fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
+    fs::create_dir_all(dst).map_err(|e| format!("Failed to create directory {:?}: {}", dst, e))?;
+
+    for entry in
+        fs::read_dir(src).map_err(|e| format!("Failed to read directory {:?}: {}", src, e))?
+    {
+        let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+
+        if src_path.is_dir() {
+            copy_dir_recursive(&src_path, &dst_path)?;
+        } else {
+            fs::copy(&src_path, &dst_path)
+                .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", src_path, dst_path, e))?;
+        }
+    }
+
+    Ok(())
 }
 
 /// Load and parse the waybar config for a given profile name.
