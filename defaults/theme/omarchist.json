@@ -1,0 +1,147 @@
+{
+	"version": "1.0.0",
+	"name": "{{THEME_NAME}}",
+	"created_at": "{{CREATED_AT}}",
+	"modified_at": "{{MODIFIED_AT}}",
+	"author": "{{AUTHOR}}",
+	"apps": {
+		"btop": {
+			"available_end": "#FF3366",
+			"available_mid": "#FF66F6",
+			"available_start": "#00F59B",
+			"cached_end": "#FF3366",
+			"cached_mid": "#FF66F6",
+			"cached_start": "#00F59B",
+			"cpu_box": "#6e6e92",
+			"cpu_end": "#FF3366",
+			"cpu_mid": "#FF66F6",
+			"cpu_start": "#00F59B",
+			"div_line": "#6e6e92",
+			"download_end": "#FF3366",
+			"download_mid": "#FF66F6",
+			"download_start": "#00F59B",
+			"free_end": "#FF3366",
+			"free_mid": "#FF66F6",
+			"free_start": "#00F59B",
+			"hi_fg": "#33A1FF",
+			"inactive_fg": "#333333",
+			"main_bg": "#0F0F19",
+			"main_fg": "#EDEDFE",
+			"mem_box": "#6e6e92",
+			"net_box": "#6e6e92",
+			"proc_box": "#6e6e92",
+			"proc_misc": "#8a8a8d",
+			"selected_bg": "#f59e0b",
+			"selected_fg": "#EDEDFE",
+			"temp_end": "#FF3366",
+			"temp_mid": "#FF66F6",
+			"temp_start": "#00F59B",
+			"title": "#6e6e92",
+			"upload_end": "#FF3366",
+			"upload_mid": "#FF66F6",
+			"upload_start": "#00F59B",
+			"used_end": "#FF3366",
+			"used_mid": "#FF66F6",
+			"used_start": "#00F59B"
+		},
+		"chromium": {
+			"theme_color": "#0F0F19"
+		},
+		"hyprland": {
+			"active_border": "6e6e92",
+			"inactive_border": "5C5C5E"
+		},
+		"hyprlock": {
+			"check_color": "255,234,0,1.0",
+			"color": "15,15,25,1.0",
+			"font_color": "255,102,245,1.0",
+			"inner_color": "15,15,25,1.0",
+			"outer_color": "51,160,255,1.0"
+		},
+		"icons": {
+			"theme_name": "Yaru-magenta"
+		},
+		"mako": {
+			"background_color": "#0F0F19",
+			"border_color": "#00F59B",
+			"text_color": "#EDEDFE"
+		},
+		"neovim": {
+			"lazy": false,
+			"priority": 1000,
+			"raw_config": "return {\n  { \"tahayvr/sunset-drive.nvim\", lazy = false, priority = 1000 },\n  {\n\t\t\"LazyVim/LazyVim\",\n\t\topts = {\n\t\t\tcolorscheme = \"sunsetdrive\",\n\t\t},\n\t},\n}",
+			"theme_name": "matteblack",
+			"theme_repo": "tahayvr/matteblack.nvim"
+		},
+		"swayosd": {
+			"background_color": "#0F0F19",
+			"border_color": "#33A1FF",
+			"image": "#8A8A8D",
+			"label": "#8A8A8D",
+			"progress": "#8A8A8D"
+		},
+		"vscode": {
+			"raw_config": "{\n  \"name\": \"Matte Black\",\n  \"extension\": \"TahaYVR.matteblack\"\n}"
+		},
+		"walker": {
+			"background": "#0F0F19",
+			"base": "#0F0F19",
+			"border": "#33A1FF",
+			"foreground": "#EDEDFE",
+			"selected_text": "#FF66F6",
+			"text": "#EDEDFE"
+		},
+		"waybar": {
+			"background": "#0F0F19",
+			"foreground": "#EDEDFE"
+		},
+		"terminal": {
+			"bright": {
+				"black": "#181824",
+				"blue": "#5a9eff",
+				"cyan": "#80ffff",
+				"green": "#57f8bd",
+				"magenta": "#ff99ff",
+				"red": "#ff9a8f",
+				"white": "#F8F8FF",
+				"yellow": "#ffff80"
+			},
+			"cursor": {
+				"cursor": "#EDEDFE",
+				"text": "#0F0F19"
+			},
+			"normal": {
+				"black": "#0A0A12",
+				"blue": "#33A1FF",
+				"cyan": "#3CFFED",
+				"green": "#00F59B",
+				"magenta": "#FF66F6",
+				"red": "#FF3366",
+				"white": "#EDEDFE",
+				"yellow": "#FFEA00"
+			},
+			"primary": {
+				"background": "#0F0F19",
+				"dim_foreground": "#8C8CB8",
+				"foreground": "#EDEDFE"
+			},
+			"selection": {
+				"background": "#202034"
+			}
+		}
+	},
+	"colors": {
+		"primary": {
+			"background": "#0f0f19",
+			"foreground": "#ededfe"
+		},
+		"terminal": {
+			"red": "#ff3366",
+			"green": "#00f59b",
+			"yellow": "#ffea00",
+			"blue": "#33a1ff",
+			"magenta": "#ff66f6",
+			"cyan": "#3cffed"
+		}
+	}
+}

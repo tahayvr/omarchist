@@ -58,6 +58,7 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
     };
 
     Some(CustomTheme {
+        version: "1.0.0".to_string(),
         name: dir_name.to_string(),
         image,
         created_at,

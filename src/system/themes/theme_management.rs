@@ -63,7 +63,7 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     // Copy all files from defaults/theme to the new theme directory
     copy_theme_files(&defaults_dir, &new_theme_dir)?;
 
-    // Update custom_theme.json with the theme name and timestamps
+    // Update omarchist.json with the theme name and timestamps
     update_theme_metadata(&new_theme_dir, theme_name)?;
 
     Ok(theme_name.to_string())
@@ -103,9 +103,9 @@ fn copy_theme_files(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Update the custom_theme.json with actual metadata
+/// Update the omarchist.json with actual metadata
 fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), String> {
-    let json_path = theme_dir.join("custom_theme.json");
+    let json_path = theme_dir.join("omarchist.json");
 
     if !json_path.exists() {
         return Ok(()); // File doesn't exist, skip
@@ -114,7 +114,7 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
     let now = Utc::now().to_rfc3339();
 
     let content = fs::read_to_string(&json_path)
-        .map_err(|e| format!("Failed to read custom_theme.json: {}", e))?;
+        .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
 
     let updated_content = content
         .replace("{{THEME_NAME}}", theme_name)
@@ -123,7 +123,7 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
         .replace("{{AUTHOR}}", "");
 
     fs::write(&json_path, updated_content)
-        .map_err(|e| format!("Failed to write custom_theme.json: {}", e))?;
+        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
 
     Ok(())
 }
@@ -139,13 +139,13 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         return Err(format!("Theme '{}' not found", theme_name));
     }
 
-    // Read custom_theme.json
-    let json_path = theme_dir.join("custom_theme.json");
+    // Read omarchist.json
+    let json_path = theme_dir.join("omarchist.json");
     let mut editing_theme: EditingTheme = if json_path.exists() {
         let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read custom_theme.json: {}", e))?;
+            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
         serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse custom_theme.json: {}", e))?
+            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?
     } else {
         EditingTheme::default()
     };
@@ -266,13 +266,13 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     let mut updated_theme = theme_data.clone();
     updated_theme.modified_at = Utc::now().to_rfc3339();
 
-    // Write to custom_theme.json
-    let json_path = theme_dir.join("custom_theme.json");
+    // Write to omarchist.json
+    let json_path = theme_dir.join("omarchist.json");
     let json_content = serde_json::to_string_pretty(&updated_theme)
         .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
 
     fs::write(&json_path, json_content)
-        .map_err(|e| format!("Failed to write custom_theme.json: {}", e))?;
+        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
 
     // Manage light.mode file
     update_light_mode_file(&theme_dir, theme_data.is_light_theme)?;
@@ -421,20 +421,20 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
 
     fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to rename theme: {}", e))?;
 
-    // Update the name in custom_theme.json
-    let json_path = new_path.join("custom_theme.json");
+    // Update the name in omarchist.json
+    let json_path = new_path.join("omarchist.json");
     if json_path.exists() {
         let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read custom_theme.json: {}", e))?;
+            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
         let mut theme: EditingTheme = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse custom_theme.json: {}", e))?;
+            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?;
         theme.name = new_name.to_string();
         theme.modified_at = Utc::now().to_rfc3339();
 
         let updated_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
         fs::write(&json_path, updated_content)
-            .map_err(|e| format!("Failed to write custom_theme.json: {}", e))?;
+            .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
     }
 
     Ok(())
@@ -468,13 +468,8 @@ pub fn update_waybar_css(theme_name: &str, config: &WaybarConfig) -> Result<(), 
 fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
     let mut active_border = None;
     let mut inactive_border = None;
-    let mut border_size = None;
-    let mut gaps_in = None;
-    let mut gaps_out = None;
-    let mut rounding = None;
 
     let mut in_general_section = false;
-    let mut in_decoration_section = false;
 
     for line in conf_content.lines() {
         let trimmed = line.trim();
@@ -484,13 +479,8 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
             in_general_section = true;
             continue;
         }
-        if trimmed == "decoration {" {
-            in_decoration_section = true;
-            continue;
-        }
         if trimmed == "}" {
             in_general_section = false;
-            in_decoration_section = false;
             continue;
         }
 
@@ -504,36 +494,15 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
                 if let Some(end) = value.find(')') {
                     inactive_border = Some(value[..end].to_string());
                 }
-            } else if let Some(value) = trimmed.strip_prefix("border_size = ") {
-                border_size = value.parse::<i32>().ok();
-            } else if let Some(value) = trimmed.strip_prefix("gaps_in = ") {
-                gaps_in = value.parse::<i32>().ok();
-            } else if let Some(value) = trimmed.strip_prefix("gaps_out = ") {
-                gaps_out = value.parse::<i32>().ok();
             }
-        }
-
-        // Parse decoration section
-        if in_decoration_section && let Some(value) = trimmed.strip_prefix("rounding = ") {
-            rounding = value.parse::<i32>().ok();
         }
     }
 
     // Create config if we have at least some values
-    if active_border.is_some()
-        || inactive_border.is_some()
-        || border_size.is_some()
-        || gaps_in.is_some()
-        || gaps_out.is_some()
-        || rounding.is_some()
-    {
+    if active_border.is_some() || inactive_border.is_some() {
         Some(HyprlandConfig {
             active_border: active_border.unwrap_or_else(|| "6e6e92".to_string()),
             inactive_border: inactive_border.unwrap_or_else(|| "5C5C5E".to_string()),
-            border_size: border_size.unwrap_or(1),
-            gaps_in: gaps_in.unwrap_or(5),
-            gaps_out: gaps_out.unwrap_or(10),
-            rounding: rounding.unwrap_or(0),
         })
     } else {
         None
@@ -551,15 +520,11 @@ pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result
         return Err(format!("Theme '{}' not found", theme_name));
     }
 
-    // Generate the conf content
+    // Generate the conf content with only colors
     let conf_content = format!(
-        "general {{\n    col.active_border = rgb({})\n    col.inactive_border = rgb({})\n    border_size = {}\n    gaps_in = {}\n    gaps_out = {}\n}}\n\ndecoration {{\n    rounding = {}\n}}\n",
+        "general {{\n    col.active_border = rgb({})\n    col.inactive_border = rgb({})\n}}\n",
         config.active_border,
-        config.inactive_border,
-        config.border_size,
-        config.gaps_in,
-        config.gaps_out,
-        config.rounding
+        config.inactive_border
     );
 
     // Write to hyprland.conf

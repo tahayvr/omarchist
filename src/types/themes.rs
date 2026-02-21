@@ -22,6 +22,8 @@ pub struct SysTheme {
 /// Custom theme data structure from backend
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomTheme {
+    #[serde(default = "default_version")]
+    pub version: String,
     pub name: String,
     pub image: String,
     pub created_at: String,
@@ -29,6 +31,10 @@ pub struct CustomTheme {
     pub author: Option<String>,
     pub apps: serde_json::Value,
     pub colors: Option<ThemeColors>,
+}
+
+fn default_version() -> String {
+    "1.0.0".to_string()
 }
 
 /// Theme colors structure
@@ -136,9 +142,11 @@ impl ThemeData {
     }
 }
 
-/// Structure for editing a theme - matches custom_theme.json format
+/// Structure for editing a theme - matches omarchist.json format
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EditingTheme {
+    #[serde(default = "default_version")]
+    pub version: String,
     pub name: String,
     pub created_at: String,
     pub modified_at: String,
@@ -169,10 +177,6 @@ impl Default for WaybarConfig {
 pub struct HyprlandConfig {
     pub active_border: String,   // Hex color (without #, e.g., "6e6e92")
     pub inactive_border: String, // Hex color (without #, e.g., "5C5C5E")
-    pub border_size: i32,
-    pub gaps_in: i32,
-    pub gaps_out: i32,
-    pub rounding: i32,
 }
 
 impl Default for HyprlandConfig {
@@ -180,10 +184,6 @@ impl Default for HyprlandConfig {
         Self {
             active_border: "6e6e92".to_string(),
             inactive_border: "5C5C5E".to_string(),
-            border_size: 1,
-            gaps_in: 5,
-            gaps_out: 10,
-            rounding: 0,
         }
     }
 }

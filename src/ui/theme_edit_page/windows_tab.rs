@@ -1,12 +1,8 @@
 //! Windows tab for theme editing (Hyprland window settings)
 //!
-//! Provides UI for editing Hyprland window settings:
+//! Provides UI for editing Hyprland window border colors:
 //! - Active border color
 //! - Inactive border color
-//! - Border size (NumberInput)
-//! - Gaps in (NumberInput)
-//! - Gaps out (NumberInput)
-//! - Rounding (NumberInput)
 
 use crate::system::themes::theme_management::{save_theme_data, update_hyprland_conf};
 use crate::types::themes::{EditingTheme, HyprlandConfig};
@@ -18,8 +14,6 @@ use gpui_component::{
     Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
-    input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
-    label::Label,
 };
 
 /// Windows tab content for editing Hyprland window settings
@@ -28,10 +22,6 @@ pub struct WindowsTab {
     theme_data: EditingTheme,
     active_border_picker: Entity<ColorPickerState>,
     inactive_border_picker: Entity<ColorPickerState>,
-    border_size_input: Entity<InputState>,
-    gaps_in_input: Entity<InputState>,
-    gaps_out_input: Entity<InputState>,
-    rounding_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
 }
@@ -68,40 +58,11 @@ impl WindowsTab {
         let inactive_border_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(inactive_border_color));
 
-        // Create number input states
-        let border_size_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("0")
-                .default_value(hyprland_config.border_size.to_string())
-        });
-
-        let gaps_in_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("0")
-                .default_value(hyprland_config.gaps_in.to_string())
-        });
-
-        let gaps_out_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("0")
-                .default_value(hyprland_config.gaps_out.to_string())
-        });
-
-        let rounding_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder("0")
-                .default_value(hyprland_config.rounding.to_string())
-        });
-
         let tab = Self {
             theme_name,
             theme_data,
             active_border_picker,
             inactive_border_picker,
-            border_size_input,
-            gaps_in_input,
-            gaps_out_input,
-            rounding_input,
             is_saving: false,
             error_message: None,
         };
@@ -136,190 +97,6 @@ impl WindowsTab {
                     });
                     this.save(window, cx);
                 }
-            },
-        )
-        .detach();
-
-        // Subscribe to border size input changes (text input)
-        cx.subscribe_in(
-            &tab.border_size_input,
-            window,
-            |this, _input, event: &InputEvent, _window, cx| {
-                if let InputEvent::Change = event {
-                    let value = this.border_size_input.read(cx).value().to_string();
-                    if let Ok(num) = value.parse::<i32>() {
-                        this.update_hyprland_config(|config| {
-                            config.border_size = num;
-                        });
-                        cx.notify();
-                    }
-                }
-            },
-        )
-        .detach();
-
-        // Subscribe to border size step buttons (increment/decrement)
-        cx.subscribe_in(
-            &tab.border_size_input,
-            window,
-            |this, state, event: &NumberInputEvent, window, cx| {
-                let NumberInputEvent::Step(action) = event;
-                let current = this
-                    .theme_data
-                    .apps
-                    .hyprland
-                    .as_ref()
-                    .map(|h| h.border_size)
-                    .unwrap_or(1);
-                let new_val = match action {
-                    StepAction::Increment => current + 1,
-                    StepAction::Decrement => current.saturating_sub(1),
-                };
-                state.update(cx, |input, cx| {
-                    input.set_value(new_val.to_string(), window, cx);
-                });
-                this.update_hyprland_config(|config| {
-                    config.border_size = new_val;
-                });
-                this.save(window, cx);
-            },
-        )
-        .detach();
-
-        // Subscribe to gaps in input changes (text input)
-        cx.subscribe_in(
-            &tab.gaps_in_input,
-            window,
-            |this, _input, event: &InputEvent, _window, cx| {
-                if let InputEvent::Change = event {
-                    let value = this.gaps_in_input.read(cx).value().to_string();
-                    if let Ok(num) = value.parse::<i32>() {
-                        this.update_hyprland_config(|config| {
-                            config.gaps_in = num;
-                        });
-                        cx.notify();
-                    }
-                }
-            },
-        )
-        .detach();
-
-        // Subscribe to gaps in step buttons
-        cx.subscribe_in(
-            &tab.gaps_in_input,
-            window,
-            |this, state, event: &NumberInputEvent, window, cx| {
-                let NumberInputEvent::Step(action) = event;
-                let current = this
-                    .theme_data
-                    .apps
-                    .hyprland
-                    .as_ref()
-                    .map(|h| h.gaps_in)
-                    .unwrap_or(5);
-                let new_val = match action {
-                    StepAction::Increment => current + 1,
-                    StepAction::Decrement => current.saturating_sub(1),
-                };
-                state.update(cx, |input, cx| {
-                    input.set_value(new_val.to_string(), window, cx);
-                });
-                this.update_hyprland_config(|config| {
-                    config.gaps_in = new_val;
-                });
-                this.save(window, cx);
-            },
-        )
-        .detach();
-
-        // Subscribe to gaps out input changes (text input)
-        cx.subscribe_in(
-            &tab.gaps_out_input,
-            window,
-            |this, _input, event: &InputEvent, _window, cx| {
-                if let InputEvent::Change = event {
-                    let value = this.gaps_out_input.read(cx).value().to_string();
-                    if let Ok(num) = value.parse::<i32>() {
-                        this.update_hyprland_config(|config| {
-                            config.gaps_out = num;
-                        });
-                        cx.notify();
-                    }
-                }
-            },
-        )
-        .detach();
-
-        // Subscribe to gaps out step buttons
-        cx.subscribe_in(
-            &tab.gaps_out_input,
-            window,
-            |this, state, event: &NumberInputEvent, window, cx| {
-                let NumberInputEvent::Step(action) = event;
-                let current = this
-                    .theme_data
-                    .apps
-                    .hyprland
-                    .as_ref()
-                    .map(|h| h.gaps_out)
-                    .unwrap_or(10);
-                let new_val = match action {
-                    StepAction::Increment => current + 1,
-                    StepAction::Decrement => current.saturating_sub(1),
-                };
-                state.update(cx, |input, cx| {
-                    input.set_value(new_val.to_string(), window, cx);
-                });
-                this.update_hyprland_config(|config| {
-                    config.gaps_out = new_val;
-                });
-                this.save(window, cx);
-            },
-        )
-        .detach();
-
-        // Subscribe to rounding input changes (text input)
-        cx.subscribe_in(
-            &tab.rounding_input,
-            window,
-            |this, _input, event: &InputEvent, _window, cx| {
-                if let InputEvent::Change = event {
-                    let value = this.rounding_input.read(cx).value().to_string();
-                    if let Ok(num) = value.parse::<i32>() {
-                        this.update_hyprland_config(|config| {
-                            config.rounding = num;
-                        });
-                        cx.notify();
-                    }
-                }
-            },
-        )
-        .detach();
-
-        // Subscribe to rounding step buttons
-        cx.subscribe_in(
-            &tab.rounding_input,
-            window,
-            |this, state, event: &NumberInputEvent, window, cx| {
-                let NumberInputEvent::Step(action) = event;
-                let current = this
-                    .theme_data
-                    .apps
-                    .hyprland
-                    .as_ref()
-                    .map(|h| h.rounding)
-                    .unwrap_or(0);
-                let new_val = match action {
-                    StepAction::Increment => current + 1,
-                    StepAction::Decrement => current.saturating_sub(1),
-                };
-                state.update(cx, |input, cx| {
-                    input.set_value(new_val.to_string(), window, cx);
-                });
-                this.update_hyprland_config(|config| {
-                    config.rounding = new_val;
-                });
-                this.save(window, cx);
             },
         )
         .detach();
@@ -413,46 +190,6 @@ impl Render for WindowsTab {
                         "Inactive Border",
                         &self.inactive_border_picker,
                     ))),
-            )
-            .child(
-                // Numeric inputs row
-                h_flex()
-                    .gap_12()
-                    .flex_wrap()
-                    .child(
-                        form_section()
-                            .child(Label::new("Border Size").text_sm())
-                            .child(
-                                div()
-                                    .w(px(120.))
-                                    .child(NumberInput::new(&self.border_size_input)),
-                            ),
-                    )
-                    .child(
-                        form_section().child(Label::new("Gaps In").text_sm()).child(
-                            div()
-                                .w(px(120.))
-                                .child(NumberInput::new(&self.gaps_in_input)),
-                        ),
-                    )
-                    .child(
-                        form_section()
-                            .child(Label::new("Gaps Out").text_sm())
-                            .child(
-                                div()
-                                    .w(px(120.))
-                                    .child(NumberInput::new(&self.gaps_out_input)),
-                            ),
-                    )
-                    .child(
-                        form_section()
-                            .child(Label::new("Rounding").text_sm())
-                            .child(
-                                div()
-                                    .w(px(120.))
-                                    .child(NumberInput::new(&self.rounding_input)),
-                            ),
-                    ),
             )
     }
 }
