@@ -831,7 +831,249 @@ impl BtopTab {
 }
 
 impl Render for BtopTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let wide = window.viewport_size().width >= px(1000.0);
+
+        // Temperature Graph section
+        let temp_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Temperature Graph"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-temp-start",
+                        "Start",
+                        &self.temp_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-temp-mid",
+                        "Mid",
+                        &self.temp_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-temp-end",
+                        "End",
+                        &self.temp_end_picker,
+                    )),
+            );
+
+        // CPU Graph section
+        let cpu_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("CPU Graph"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-cpu-start",
+                        "Start",
+                        &self.cpu_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-cpu-mid",
+                        "Mid",
+                        &self.cpu_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-cpu-end",
+                        "End",
+                        &self.cpu_end_picker,
+                    )),
+            );
+
+        // Free Meter section
+        let free_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Free Meter"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-free-start",
+                        "Start",
+                        &self.free_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-free-mid",
+                        "Mid",
+                        &self.free_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-free-end",
+                        "End",
+                        &self.free_end_picker,
+                    )),
+            );
+
+        // Cached Meter section
+        let cached_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Cached Meter"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-cached-start",
+                        "Start",
+                        &self.cached_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-cached-mid",
+                        "Mid",
+                        &self.cached_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-cached-end",
+                        "End",
+                        &self.cached_end_picker,
+                    )),
+            );
+
+        // Available Meter section
+        let available_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Available Meter"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-available-start",
+                        "Start",
+                        &self.available_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-available-mid",
+                        "Mid",
+                        &self.available_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-available-end",
+                        "End",
+                        &self.available_end_picker,
+                    )),
+            );
+
+        // Used Meter section
+        let used_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Used Meter"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-used-start",
+                        "Start",
+                        &self.used_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-used-mid",
+                        "Mid",
+                        &self.used_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-used-end",
+                        "End",
+                        &self.used_end_picker,
+                    )),
+            );
+
+        // Download Graph section
+        let download_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Download Graph"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-download-start",
+                        "Start",
+                        &self.download_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-download-mid",
+                        "Mid",
+                        &self.download_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-download-end",
+                        "End",
+                        &self.download_end_picker,
+                    )),
+            );
+
+        // Upload Graph section
+        let upload_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Upload Graph"),
+            )
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "btop-upload-start",
+                        "Start",
+                        &self.upload_start_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-upload-mid",
+                        "Mid",
+                        &self.upload_mid_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "btop-upload-end",
+                        "End",
+                        &self.upload_end_picker,
+                    )),
+            );
+
         tab_container().child(
             v_flex()
                 .gap_6()
@@ -968,261 +1210,74 @@ impl Render for BtopTab {
                         ),
                 )
                 .child(Divider::horizontal())
-                // Temperature Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Temperature Graph"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-temp-start",
-                                    "Start",
-                                    &self.temp_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-temp-mid",
-                                    "Mid",
-                                    &self.temp_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-temp-end",
-                                    "End",
-                                    &self.temp_end_picker,
-                                )),
-                        ),
-                )
+                // Gradient sections — 2 cols on wide screens, stacked on narrow
+                // Row 1: Temperature + CPU
+                .child(if wide {
+                    div()
+                        .grid()
+                        .grid_cols(2)
+                        .gap_6()
+                        .child(temp_section)
+                        .child(cpu_section)
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_6()
+                        .child(temp_section)
+                        .child(cpu_section)
+                })
                 .child(Divider::horizontal())
-                // CPU Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("CPU Graph"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-cpu-start",
-                                    "Start",
-                                    &self.cpu_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-cpu-mid",
-                                    "Mid",
-                                    &self.cpu_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-cpu-end",
-                                    "End",
-                                    &self.cpu_end_picker,
-                                )),
-                        ),
-                )
+                // Row 2: Free + Cached
+                .child(if wide {
+                    div()
+                        .grid()
+                        .grid_cols(2)
+                        .gap_6()
+                        .child(free_section)
+                        .child(cached_section)
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_6()
+                        .child(free_section)
+                        .child(cached_section)
+                })
                 .child(Divider::horizontal())
-                // Free Meter Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Free Meter"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-free-start",
-                                    "Start",
-                                    &self.free_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-free-mid",
-                                    "Mid",
-                                    &self.free_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-free-end",
-                                    "End",
-                                    &self.free_end_picker,
-                                )),
-                        ),
-                )
+                // Row 3: Available + Used
+                .child(if wide {
+                    div()
+                        .grid()
+                        .grid_cols(2)
+                        .gap_6()
+                        .child(available_section)
+                        .child(used_section)
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_6()
+                        .child(available_section)
+                        .child(used_section)
+                })
                 .child(Divider::horizontal())
-                // Cached Meter Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Cached Meter"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-cached-start",
-                                    "Start",
-                                    &self.cached_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-cached-mid",
-                                    "Mid",
-                                    &self.cached_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-cached-end",
-                                    "End",
-                                    &self.cached_end_picker,
-                                )),
-                        ),
-                )
-                .child(Divider::horizontal())
-                // Available Meter Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Available Meter"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-available-start",
-                                    "Start",
-                                    &self.available_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-available-mid",
-                                    "Mid",
-                                    &self.available_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-available-end",
-                                    "End",
-                                    &self.available_end_picker,
-                                )),
-                        ),
-                )
-                .child(Divider::horizontal())
-                // Used Meter Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Used Meter"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-used-start",
-                                    "Start",
-                                    &self.used_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-used-mid",
-                                    "Mid",
-                                    &self.used_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-used-end",
-                                    "End",
-                                    &self.used_end_picker,
-                                )),
-                        ),
-                )
-                .child(Divider::horizontal())
-                // Download Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Download Graph"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-download-start",
-                                    "Start",
-                                    &self.download_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-download-mid",
-                                    "Mid",
-                                    &self.download_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-download-end",
-                                    "End",
-                                    &self.download_end_picker,
-                                )),
-                        ),
-                )
-                .child(Divider::horizontal())
-                // Upload Gradient Section
-                .child(
-                    form_section()
-                        .gap_4()
-                        .child(
-                            div()
-                                .text_lg()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .child("Upload Graph"),
-                        )
-                        .child(
-                            h_flex()
-                                .gap_6()
-                                .flex_wrap()
-                                .child(color_picker_with_clipboard(
-                                    "btop-upload-start",
-                                    "Start",
-                                    &self.upload_start_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-upload-mid",
-                                    "Mid",
-                                    &self.upload_mid_picker,
-                                ))
-                                .child(color_picker_with_clipboard(
-                                    "btop-upload-end",
-                                    "End",
-                                    &self.upload_end_picker,
-                                )),
-                        ),
-                ),
+                // Row 4: Download + Upload
+                .child(if wide {
+                    div()
+                        .grid()
+                        .grid_cols(2)
+                        .gap_6()
+                        .child(download_section)
+                        .child(upload_section)
+                } else {
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap_6()
+                        .child(download_section)
+                        .child(upload_section)
+                }),
         )
     }
 }
