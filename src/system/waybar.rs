@@ -319,6 +319,128 @@ fn strip_jsonc_comments(src: &str) -> String {
     out
 }
 
+/// Save the current module order back to the config.jsonc file for a profile.
+///
+/// Only the `modules-left`, `modules-center`, and `modules-right` arrays are
+/// rewritten. All other keys, comments, and module config blocks are preserved
+/// exactly as they appear in the file.
+pub fn save_waybar_config(config: &WaybarConfig) -> Result<(), String> {
+    let config_path = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles")
+        .join(&config.profile_name)
+        .join("config.jsonc");
+
+    let raw =
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
+
+    let keys_and_modules = [
+        (
+            "modules-left",
+            config
+                .modules_left
+                .iter()
+                .map(|m| m.key.as_str())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "modules-center",
+            config
+                .modules_center
+                .iter()
+                .map(|m| m.key.as_str())
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "modules-right",
+            config
+                .modules_right
+                .iter()
+                .map(|m| m.key.as_str())
+                .collect::<Vec<_>>(),
+        ),
+    ];
+
+    let mut result = raw;
+    for (json_key, module_keys) in &keys_and_modules {
+        result = replace_module_array(&result, json_key, module_keys)
+            .ok_or_else(|| format!("Could not find \"{}\" in config", json_key))?;
+    }
+
+    fs::write(&config_path, result).map_err(|e| format!("Failed to write config: {}", e))
+}
+
+/// Replace a JSON array value for the given key in a JSONC string, preserving
+/// all surrounding content, comments, and formatting.
+///
+/// Matches: `"<key>": [... anything up to the closing `]` ...]`
+/// The replacement array is written as a compact single-line JSON array.
+fn replace_module_array(src: &str, key: &str, values: &[&str]) -> Option<String> {
+    // Build compact JSON array: ["a", "b", "c"]
+    let new_array = {
+        let items: Vec<String> = values
+            .iter()
+            .map(|v| format!("\"{}\"", v.replace('"', "\\\"")))
+            .collect();
+        format!("[{}]", items.join(", "))
+    };
+
+    // Find the key in the source, then locate its array value and replace it.
+    // We search for `"<key>"` followed by `:` (possibly with whitespace/newlines)
+    // then the opening `[`. We track bracket depth to find the matching `]`.
+    let key_pat = format!("\"{}\"", key);
+    let key_pos = src.find(key_pat.as_str())?;
+
+    // Find `:` after the key
+    let after_key = &src[key_pos + key_pat.len()..];
+    let colon_offset = after_key.find(':')?;
+    let after_colon = &after_key[colon_offset + 1..];
+
+    // Find opening `[`
+    let bracket_offset = after_colon.find('[')?;
+
+    // Absolute position of `[`
+    let open_pos = key_pos + key_pat.len() + colon_offset + 1 + bracket_offset;
+
+    // Walk forward from `[` to find the matching `]`, respecting strings
+    let mut depth = 0usize;
+    let mut in_str = false;
+    let mut close_pos = None;
+    let mut chars = src[open_pos..].char_indices().peekable();
+    while let Some((i, ch)) = chars.next() {
+        if in_str {
+            if ch == '\\' {
+                chars.next(); // skip escaped char
+            } else if ch == '"' {
+                in_str = false;
+            }
+        } else {
+            match ch {
+                '"' => in_str = true,
+                '[' => depth += 1,
+                ']' => {
+                    depth -= 1;
+                    if depth == 0 {
+                        close_pos = Some(open_pos + i);
+                        break;
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    let close_pos = close_pos?;
+    let mut result = String::with_capacity(src.len());
+    result.push_str(&src[..open_pos]);
+    result.push_str(&new_array);
+    result.push_str(&src[close_pos + 1..]);
+    Some(result)
+}
+
 /// Load and parse the waybar config for a given profile name.
 pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
     let config_path = dirs::home_dir()?

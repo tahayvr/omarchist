@@ -1,7 +1,9 @@
 use gpui::*;
 use gpui_component::{h_flex, v_flex, ActiveTheme};
 
-use crate::system::waybar::{load_waybar_config, WaybarConfig, WaybarModule, WaybarZone};
+use crate::system::waybar::{
+    load_waybar_config, save_waybar_config, WaybarConfig, WaybarModule, WaybarZone,
+};
 use crate::ui::status_bar_page::waybar_item::{render_module_chip, DragWaybarModule};
 
 pub struct WaybarPreview {
@@ -18,7 +20,8 @@ impl WaybarPreview {
         self.config = load_waybar_config(profile_name);
     }
 
-    /// Move a module from (src_zone, src_index) to (dst_zone, dst_index) within the config.
+    /// Move a module from (src_zone, src_index) to (dst_zone, dst_index) within the config,
+    /// then persist the new order to disk immediately.
     pub fn move_module(
         &mut self,
         src_zone: &WaybarZone,
@@ -65,6 +68,13 @@ impl WaybarPreview {
                 };
                 let insert_at = dst_index.min(dst.len());
                 dst.insert(insert_at, module);
+            }
+        }
+
+        // Persist the new order to disk
+        if let Some(cfg) = self.config.as_ref() {
+            if let Err(e) = save_waybar_config(cfg) {
+                eprintln!("Failed to save waybar config: {}", e);
             }
         }
     }

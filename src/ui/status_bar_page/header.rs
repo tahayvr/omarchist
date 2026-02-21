@@ -6,19 +6,52 @@ use gpui_component::{
     ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
+use crate::system::waybar::list_waybar_profiles;
+
+#[derive(Clone, PartialEq, Action)]
+#[action(no_json)]
+pub struct ReloadStatusBar;
+
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
+    /// Raw profile names in the same order as the select items
+    pub profile_names: Vec<String>,
 }
 
 impl StatusBarHeader {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let profiles: Vec<SharedString> =
-            vec!["Omarchy Default".into(), "Work".into(), "Gaming".into()];
+        let mut profile_names = list_waybar_profiles();
+        // Sort for stable ordering; ensure at least one fallback entry
+        profile_names.sort();
+        if profile_names.is_empty() {
+            profile_names.push("omarchy-default".to_string());
+        }
+
+        let items: Vec<SharedString> = profile_names
+            .iter()
+            .map(|n| SharedString::from(n.clone()))
+            .collect();
 
         let profile_select =
-            cx.new(|cx| SelectState::new(profiles, Some(IndexPath::default()), window, cx));
+            cx.new(|cx| SelectState::new(items, Some(IndexPath::default()), window, cx));
 
-        Self { profile_select }
+        Self {
+            profile_select,
+            profile_names,
+        }
+    }
+
+    /// Returns the currently selected profile name, if any.
+    pub fn selected_profile<'a>(&'a self, cx: &'a App) -> Option<&'a str> {
+        self.profile_select
+            .read(cx)
+            .selected_value()
+            .map(|s| s.as_ref())
+    }
+
+    /// Returns the underlying select entity so callers can subscribe to changes.
+    pub fn select_entity(&self) -> Entity<SelectState<Vec<SharedString>>> {
+        self.profile_select.clone()
     }
 }
 
@@ -58,7 +91,9 @@ impl Render for StatusBarHeader {
                     .ghost()
                     .small()
                     .tooltip("Refresh status bar")
-                    .on_click(|_, _, _| {}),
+                    .on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(ReloadStatusBar), cx);
+                    }),
             )
     }
 }
