@@ -236,8 +236,7 @@ impl MainWindowView {
     fn page_from_sidebar_index(&self, index: usize) -> ActivePage {
         match index {
             0 => ActivePage::Themes,
-            1 => ActivePage::SystemMonitor,
-            2 => ActivePage::Configuration,
+            1 => ActivePage::Configuration,
             _ => ActivePage::Themes,
         }
     }
@@ -544,26 +543,11 @@ impl Render for MainWindowView {
                                                 })),
                                         )
                                         .child(
-                                            SidebarMenuItem::new("SYSTEM MONITOR")
-                                                .icon(Icon::new(IconName::ChartPie))
-                                                .active(
-                                                    self.is_page_active(ActivePage::SystemMonitor)
-                                                        || self.is_sidebar_item_focused(1),
-                                                )
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.navigate_to(
-                                                        ActivePage::SystemMonitor,
-                                                        window,
-                                                        cx,
-                                                    );
-                                                })),
-                                        )
-                                        .child(
                                             SidebarMenuItem::new("CONFIGURATION")
                                                 .icon(Icon::new(IconName::Settings))
                                                 .active(
                                                     self.is_page_active(ActivePage::Configuration)
-                                                        || self.is_sidebar_item_focused(2),
+                                                        || self.is_sidebar_item_focused(1),
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.navigate_to(
