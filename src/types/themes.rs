@@ -152,8 +152,66 @@ pub struct EditingTheme {
     pub modified_at: String,
     pub author: Option<String>,
     pub apps: AppConfigs,
+    #[serde(default)]
+    pub colors: ColorsConfig,
     #[serde(skip)] // Runtime-only, not serialized to JSON
     pub is_light_theme: bool,
+}
+
+/// Colors configuration for colors.toml
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ColorsConfig {
+    pub accent: String,
+    pub cursor: String,
+    pub foreground: String,
+    pub background: String,
+    pub selection_foreground: String,
+    pub selection_background: String,
+    pub color0: String,
+    pub color1: String,
+    pub color2: String,
+    pub color3: String,
+    pub color4: String,
+    pub color5: String,
+    pub color6: String,
+    pub color7: String,
+    pub color8: String,
+    pub color9: String,
+    pub color10: String,
+    pub color11: String,
+    pub color12: String,
+    pub color13: String,
+    pub color14: String,
+    pub color15: String,
+}
+
+impl Default for ColorsConfig {
+    fn default() -> Self {
+        Self {
+            accent: "#33A1FF".to_string(),
+            cursor: "#EDEDFE".to_string(),
+            foreground: "#EDEDFE".to_string(),
+            background: "#0F0F19".to_string(),
+            selection_foreground: "#EDEDFE".to_string(),
+            selection_background: "#202034".to_string(),
+            color0: "#0A0A12".to_string(),
+            color1: "#FF3366".to_string(),
+            color2: "#00F59B".to_string(),
+            color3: "#FFEA00".to_string(),
+            color4: "#33A1FF".to_string(),
+            color5: "#FF66F6".to_string(),
+            color6: "#3CFFED".to_string(),
+            color7: "#EDEDFE".to_string(),
+            color8: "#181824".to_string(),
+            color9: "#ff9a8f".to_string(),
+            color10: "#57f8bd".to_string(),
+            color11: "#ffff80".to_string(),
+            color12: "#5a9eff".to_string(),
+            color13: "#ff99ff".to_string(),
+            color14: "#80ffff".to_string(),
+            color15: "#F8F8FF".to_string(),
+        }
+    }
 }
 
 /// Waybar configuration structure

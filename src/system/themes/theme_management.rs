@@ -1,6 +1,6 @@
 use crate::types::themes::{
-    BrowserConfig, BtopConfig, EditingTheme, HyprlandConfig, HyprlockConfig, MakoConfig,
-    SwayosdConfig, TerminalConfig, WalkerConfig, WaybarConfig,
+    BrowserConfig, BtopConfig, ColorsConfig, EditingTheme, HyprlandConfig, HyprlockConfig,
+    MakoConfig, SwayosdConfig, TerminalConfig, WalkerConfig, WaybarConfig,
 };
 use chrono::Utc;
 use std::fs;
@@ -292,6 +292,9 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 
     if let Some(ref terminal_config) = theme_data.apps.terminal {
         update_terminal_configs(theme_name, terminal_config)?;
+        // Also update colors.toml based on terminal colors
+        let colors = colors_config_from_terminal(terminal_config, &theme_data.colors.accent);
+        update_colors_toml(theme_name, &colors)?;
     }
 
     if let Some(ref chromium_config) = theme_data.apps.chromium {
@@ -486,14 +489,14 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
 
         // Parse general section
         if in_general_section {
-            if let Some(value) = trimmed.strip_prefix("col.active_border = rgb(") {
-                if let Some(end) = value.find(')') {
-                    active_border = Some(value[..end].to_string());
-                }
-            } else if let Some(value) = trimmed.strip_prefix("col.inactive_border = rgb(") {
-                if let Some(end) = value.find(')') {
-                    inactive_border = Some(value[..end].to_string());
-                }
+            if let Some(value) = trimmed.strip_prefix("col.active_border = rgb(")
+                && let Some(end) = value.find(')')
+            {
+                active_border = Some(value[..end].to_string());
+            } else if let Some(value) = trimmed.strip_prefix("col.inactive_border = rgb(")
+                && let Some(end) = value.find(')')
+            {
+                inactive_border = Some(value[..end].to_string());
             }
         }
     }
@@ -523,8 +526,7 @@ pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result
     // Generate the conf content with only colors
     let conf_content = format!(
         "general {{\n    col.active_border = rgb({})\n    col.inactive_border = rgb({})\n}}\n",
-        config.active_border,
-        config.inactive_border
+        config.active_border, config.inactive_border
     );
 
     // Write to hyprland.conf
@@ -1320,4 +1322,101 @@ pub fn update_swayosd_css(theme_name: &str, config: &SwayosdConfig) -> Result<()
     fs::write(&css_path, css_content).map_err(|e| format!("Failed to write swayosd.css: {}", e))?;
 
     Ok(())
+}
+
+/// Update the colors.toml file with the given colors config
+pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<(), String> {
+    let themes_dir = get_custom_themes_dir()
+        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+
+    let theme_dir = themes_dir.join(theme_name);
+
+    if !theme_dir.exists() {
+        return Err(format!("Theme '{}' not found", theme_name));
+    }
+
+    // Generate the TOML content
+    let toml_content = format!(
+        r#"accent = "{}"
+cursor = "{}"
+foreground = "{}"
+background = "{}"
+selection_foreground = "{}"
+selection_background = "{}"
+
+color0 = "{}"
+color1 = "{}"
+color2 = "{}"
+color3 = "{}"
+color4 = "{}"
+color5 = "{}"
+color6 = "{}"
+color7 = "{}"
+color8 = "{}"
+color9 = "{}"
+color10 = "{}"
+color11 = "{}"
+color12 = "{}"
+color13 = "{}"
+color14 = "{}"
+color15 = "{}"
+"#,
+        colors.accent,
+        colors.cursor,
+        colors.foreground,
+        colors.background,
+        colors.selection_foreground,
+        colors.selection_background,
+        colors.color0,
+        colors.color1,
+        colors.color2,
+        colors.color3,
+        colors.color4,
+        colors.color5,
+        colors.color6,
+        colors.color7,
+        colors.color8,
+        colors.color9,
+        colors.color10,
+        colors.color11,
+        colors.color12,
+        colors.color13,
+        colors.color14,
+        colors.color15,
+    );
+
+    // Write to colors.toml
+    let toml_path = theme_dir.join("colors.toml");
+    fs::write(&toml_path, toml_content)
+        .map_err(|e| format!("Failed to write colors.toml: {}", e))?;
+
+    Ok(())
+}
+
+/// Generate ColorsConfig from TerminalConfig
+pub fn colors_config_from_terminal(terminal: &TerminalConfig, accent: &str) -> ColorsConfig {
+    ColorsConfig {
+        accent: accent.to_string(),
+        cursor: terminal.cursor.cursor.clone(),
+        foreground: terminal.primary.foreground.clone(),
+        background: terminal.primary.background.clone(),
+        selection_foreground: terminal.selection.foreground.clone(),
+        selection_background: terminal.selection.background.clone(),
+        color0: terminal.normal.black.clone(),
+        color1: terminal.normal.red.clone(),
+        color2: terminal.normal.green.clone(),
+        color3: terminal.normal.yellow.clone(),
+        color4: terminal.normal.blue.clone(),
+        color5: terminal.normal.magenta.clone(),
+        color6: terminal.normal.cyan.clone(),
+        color7: terminal.normal.white.clone(),
+        color8: terminal.bright.black.clone(),
+        color9: terminal.bright.red.clone(),
+        color10: terminal.bright.green.clone(),
+        color11: terminal.bright.yellow.clone(),
+        color12: terminal.bright.blue.clone(),
+        color13: terminal.bright.magenta.clone(),
+        color14: terminal.bright.cyan.clone(),
+        color15: terminal.bright.white.clone(),
+    }
 }

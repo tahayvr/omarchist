@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    copy_image_to_backgrounds, extract_palette, ColorPalette,
+    ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
@@ -176,6 +176,32 @@ fn build_theme_from_palette(
         "theme_name": icon_theme_name
     });
 
+    // Build colors config from terminal config and palette accent
+    let colors_config = crate::types::themes::ColorsConfig {
+        accent: palette.accent.clone(),
+        cursor: terminal_config.cursor.cursor.clone(),
+        foreground: terminal_config.primary.foreground.clone(),
+        background: terminal_config.primary.background.clone(),
+        selection_foreground: terminal_config.selection.foreground.clone(),
+        selection_background: terminal_config.selection.background.clone(),
+        color0: terminal_config.normal.black.clone(),
+        color1: terminal_config.normal.red.clone(),
+        color2: terminal_config.normal.green.clone(),
+        color3: terminal_config.normal.yellow.clone(),
+        color4: terminal_config.normal.blue.clone(),
+        color5: terminal_config.normal.magenta.clone(),
+        color6: terminal_config.normal.cyan.clone(),
+        color7: terminal_config.normal.white.clone(),
+        color8: terminal_config.bright.black.clone(),
+        color9: terminal_config.bright.red.clone(),
+        color10: terminal_config.bright.green.clone(),
+        color11: terminal_config.bright.yellow.clone(),
+        color12: terminal_config.bright.blue.clone(),
+        color13: terminal_config.bright.magenta.clone(),
+        color14: terminal_config.bright.cyan.clone(),
+        color15: terminal_config.bright.white.clone(),
+    };
+
     Ok(EditingTheme {
         version: "1.0.0".to_string(),
         name: theme_name.to_string(),
@@ -199,6 +225,7 @@ fn build_theme_from_palette(
             kitty: None,
             terminal: Some(terminal_config),
         },
+        colors: colors_config,
         is_light_theme: palette.is_light_theme,
     })
 }

@@ -3,15 +3,21 @@
 //! Provides UI for editing basic theme metadata:
 //! - Theme name
 //! - Author
+//! - Accent color
 //! - Light/Dark theme toggle (manages light.mode file)
 
-use crate::system::themes::theme_management::{rename_theme, save_theme_data};
+use crate::system::themes::theme_management::{
+    colors_config_from_terminal, rename_theme, save_theme_data, update_colors_toml,
+};
 use crate::types::themes::EditingTheme;
-use crate::ui::theme_edit_page::shared::{error_message, form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Sizable,
+    ActiveTheme, Colorize, Disableable, Sizable,
     button::Button,
+    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
@@ -24,6 +30,7 @@ pub struct GeneralTab {
     original_theme_name: String, // Used for saving - folder name doesn't change on rename
     name_input: Entity<InputState>,
     author_input: Entity<InputState>,
+    accent_picker: Entity<ColorPickerState>,
     is_saving: bool,
     error_message: Option<String>,
 }
@@ -51,11 +58,18 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
+        // Create accent color picker
+        let accent_color =
+            Self::hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
+        let accent_picker =
+            cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
+
         let tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
+            accent_picker,
             is_saving: false,
             error_message: None,
         };
@@ -94,7 +108,35 @@ impl GeneralTab {
         )
         .detach();
 
+        // Subscribe to accent color picker changes
+        cx.subscribe_in(
+            &tab.accent_picker,
+            window,
+            |this, _picker, event: &ColorPickerEvent, window, cx| {
+                if let ColorPickerEvent::Change(Some(color)) = event {
+                    let hex = color.to_hex();
+                    this.theme_data.colors.accent = hex;
+                    this.save_with_colors_update(window, cx);
+                }
+            },
+        )
+        .detach();
+
         tab
+    }
+
+    /// Convert hex color string (#RRGGBB) to Hsla
+    fn hex_to_hsla(hex: &str) -> Option<Hsla> {
+        let hex = hex.trim_start_matches('#');
+        if hex.len() != 6 {
+            return None;
+        }
+
+        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
+        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
+        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
+
+        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     /// Get the current theme data
@@ -123,6 +165,47 @@ impl GeneralTab {
         // The new name is stored in theme_data.name but we save to the original folder
         match save_theme_data(&self.original_theme_name, &self.theme_data) {
             Ok(()) => {
+                self.is_saving = false;
+            }
+            Err(e) => {
+                self.is_saving = false;
+                self.error_message = Some(e);
+            }
+        }
+
+        cx.notify();
+    }
+
+    /// Save the theme data and update colors.toml with new accent
+    fn save_with_colors_update(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_saving {
+            return;
+        }
+
+        // Don't save if theme name is empty
+        if self.original_theme_name.is_empty() {
+            self.error_message = Some("Theme name cannot be empty".to_string());
+            cx.notify();
+            return;
+        }
+
+        self.is_saving = true;
+        self.error_message = None;
+        cx.notify();
+
+        // Save theme data
+        match save_theme_data(&self.original_theme_name, &self.theme_data) {
+            Ok(()) => {
+                // Also update colors.toml with new accent color
+                if let Some(ref terminal_config) = self.theme_data.apps.terminal {
+                    let colors = colors_config_from_terminal(
+                        terminal_config,
+                        &self.theme_data.colors.accent,
+                    );
+                    if let Err(e) = update_colors_toml(&self.original_theme_name, &colors) {
+                        self.error_message = Some(format!("Failed to update colors.toml: {}", e));
+                    }
+                }
                 self.is_saving = false;
             }
             Err(e) => {
@@ -216,6 +299,20 @@ impl Render for GeneralTab {
                             .text_color(cx.theme().muted_foreground),
                     )
                     .child(Input::new(&self.author_input).cleanable(true)),
+            )
+            .child(
+                // Accent Color Section
+                form_section()
+                    .child(
+                        Label::new("Accent Color")
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground),
+                    )
+                    .child(color_picker_with_clipboard(
+                        "accent-color",
+                        "Accent",
+                        &self.accent_picker,
+                    )),
             )
             .child(
                 // Light Mode Toggle Section
