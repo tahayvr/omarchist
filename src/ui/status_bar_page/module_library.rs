@@ -3,6 +3,7 @@ use gpui_component::{
     ActiveTheme, IndexPath, Sizable, StyledExt, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
+    scroll::ScrollableElement,
     select::{Select, SelectState},
     v_flex,
 };
@@ -34,7 +35,6 @@ impl LibraryRow {
 }
 
 /// Opens the module library sheet.
-///
 /// `profile_name` — the currently active profile.
 /// `preview`      — the `WaybarPreview` entity to reload after a module is added.
 pub fn open_module_library(
@@ -55,7 +55,7 @@ pub fn open_module_library(
     window.open_sheet(cx, move |sheet, _, _| {
         sheet
             .title(div().text_sm().font_semibold().child("Add Module"))
-            .size(px(480.))
+            .size(px(550.))
             .child(LibrarySheetContent {
                 profile_name: profile_name.clone(),
                 preview: preview.clone(),
@@ -64,16 +64,12 @@ pub fn open_module_library(
     });
 }
 
-// ---------------------------------------------------------------------------
 // Static module list — leaking is fine; it's a program-lifetime constant.
-// ---------------------------------------------------------------------------
 fn module_library_static() -> &'static [LibraryModule] {
     Box::leak(module_library().into_boxed_slice())
 }
 
-// ---------------------------------------------------------------------------
 // The stateless render-once component that populates the sheet.
-// ---------------------------------------------------------------------------
 #[derive(IntoElement)]
 struct LibrarySheetContent {
     profile_name: String,
@@ -176,15 +172,16 @@ impl RenderOnce for LibrarySheetContent {
                     .child(div().flex_shrink_0().child(zone_select))
                     .child(div().flex_shrink_0().child(add_btn));
 
-                category_rows.push(row_el.into_any());
+                category_rows.push(row_el.into_any_element());
             }
 
             sections.push(
                 v_flex()
                     .gap_0()
                     .child(header)
+                    .overflow_y_scrollbar()
                     .children(category_rows)
-                    .into_any(),
+                    .into_any_element(),
             );
         }
 

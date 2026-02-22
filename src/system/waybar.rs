@@ -887,6 +887,8 @@ pub struct LibraryModule {
     pub description: &'static str,
     /// Category for grouping
     pub category: &'static str,
+    /// Icon character displayed in the library panel
+    pub icon: &'static str,
     /// Default JSON config block inserted when the module is added.
     /// Use `null` (JSON null) for modules with no useful defaults.
     pub default_config: &'static str,
@@ -901,6 +903,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "CPU",
             description: "CPU usage percentage",
             category: "System",
+            icon: "󰍛",
             default_config: r#"{"interval": 5, "format": "󰍛 {usage}%"}"#,
         },
         LibraryModule {
@@ -908,6 +911,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Memory",
             description: "RAM usage with swap info",
             category: "System",
+            icon: "󰘚",
             default_config: r#"{"interval": 5, "format": " {used:0.1f}G/{total:0.1f}G", "format-icons": ["", "", ""]}"#,
         },
         LibraryModule {
@@ -915,6 +919,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Battery",
             description: "Battery level and charging state",
             category: "System",
+            icon: "󰁹",
             default_config: r#"{"interval": 30, "states": {"critical": 15, "warning": 30}, "format": "{icon} {capacity}%", "format-charging": " {capacity}%", "format-plugged": " {capacity}%", "format-icons": ["", "", "", "", ""], "tooltip-format": "{capacity}% - {time}"}"#,
         },
         LibraryModule {
@@ -922,6 +927,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Temperature",
             description: "CPU / GPU temperature (requires hwmon-path)",
             category: "System",
+            icon: "",
             default_config: r#"{"interval": 5, "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input", "critical-threshold": 80, "format": " {temperatureC}°C", "format-critical": " {temperatureC}°C"}"#,
         },
         LibraryModule {
@@ -929,6 +935,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Disk",
             description: "Disk usage for a path with tooltip",
             category: "System",
+            icon: "󰋊",
             default_config: r#"{"interval": 30, "format": "󰋊 {percentage_used}%", "path": "/", "tooltip-format": "{used}/{total} used on {path}"}"#,
         },
         LibraryModule {
@@ -936,6 +943,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Backlight",
             description: "Screen brightness with device auto-detection",
             category: "System",
+            icon: "󰃠",
             default_config: r#"{"format": "{icon} {percent}%", "format-icons": ["󰃞", "󰃟", "󰃠"], "on-scroll-up": "light -A 5", "on-scroll-down": "light -U 5"}"#,
         },
         // ── Time ────────────────────────────────────────────────────────────
@@ -944,21 +952,24 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Clock",
             description: "Date and time",
             category: "Time",
+            icon: "󰥔",
             default_config: r#"{"format": "{:%H:%M}", "tooltip-format": "{:%A %d %B %Y}"}"#,
         },
         // ── Audio ───────────────────────────────────────────────────────────
         LibraryModule {
             key: "pulseaudio",
             name: "PulseAudio",
-            description: "Volume control (PulseAudio / PipeWire) with bluetooth support",
+            description: "Volume control with bluetooth support",
             category: "Audio",
+            icon: "󰕾",
             default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-bluetooth": " {volume}%", "format-bluetooth-muted": " 󰝟", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"], "bluetooth": ["󰥰"]}, "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle", "on-click-right": "pavucontrol", "tooltip-format": "{volume}% {desc}"}"#,
         },
         LibraryModule {
             key: "wireplumber",
             name: "WirePlumber",
-            description: "Volume control (WirePlumber PipeWire) with bluetooth",
+            description: "Volume control with bluetooth",
             category: "Audio",
+            icon: "󰕾",
             default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-bluetooth": " {volume}%", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"], "bluetooth": ["󰥰"]}, "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "on-click-right": "pavucontrol", "tooltip-format": "{volume}% {node_name}"}"#,
         },
         // ── Network ─────────────────────────────────────────────────────────
@@ -967,6 +978,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Network",
             description: "Wi-Fi / Ethernet status with tooltips",
             category: "Network",
+            icon: "󰤨",
             default_config: r#"{"format-wifi": "󰤨 {signalStrength}%", "format-ethernet": "󰈀 {ipaddr}", "format-disconnected": "󰤭", "format-linked": "󰈀 {ifname}", "format-alt": "{ifname}: {ipaddr}/{cidr}", "tooltip-format-wifi": "{essid} ({signalStrength}%)", "tooltip-format-ethernet": "{ifname}: {ipaddr}/{cidr}", "on-click": "nm-connection-editor", "on-click-right": "foot nmtui"}"#,
         },
         LibraryModule {
@@ -974,6 +986,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Bluetooth",
             description: "Bluetooth status",
             category: "Network",
+            icon: "󰂯",
             default_config: r#"{"format": "󰂯", "format-connected": "󰂱 {device_alias}", "format-disabled": "󰂲"}"#,
         },
         // ── Hyprland ────────────────────────────────────────────────────────
@@ -982,6 +995,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Workspaces",
             description: "Hyprland workspace switcher with icons",
             category: "Hyprland",
+            icon: "",
             default_config: r#"{"format": "{name}:{icon}", "format-icons": {"1": "", "2": "", "3": "", "4": "", "5": "", "active": "󱓻", "default": ""}, "all-outputs": false, "sort-by": "number"}"#,
         },
         LibraryModule {
@@ -989,6 +1003,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Active Window",
             description: "Title of the focused window with class support",
             category: "Hyprland",
+            icon: "",
             default_config: r#"{"format": "{title}", "max-length": 50, "separate-outputs": true, "rewrite": {"(.*) — Mozilla Firefox": "🌎 $1", "(.*) - fish": "> [$1]"}}"#,
         },
         LibraryModule {
@@ -996,6 +1011,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Submap",
             description: "Active Hyprland key submap mode",
             category: "Hyprland",
+            icon: "✌️",
             default_config: r#"{"format": "✌️ {}", "max-length": 20, "always-on": false, "default-submap": "Default"}"#,
         },
         LibraryModule {
@@ -1003,6 +1019,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Language",
             description: "Active keyboard language / layout",
             category: "Hyprland",
+            icon: "󰌌",
             default_config: r#"{"format": "󰌌 {short}"}"#,
         },
         // ── Utilities ───────────────────────────────────────────────────────
@@ -1011,6 +1028,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "System Tray",
             description: "System tray icon area",
             category: "Utilities",
+            icon: "󱊔",
             default_config: r#"{"spacing": 4}"#,
         },
         LibraryModule {
@@ -1018,6 +1036,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Keyboard State",
             description: "Caps/Num/Scroll lock indicators",
             category: "Utilities",
+            icon: "󰌌",
             default_config: r#"{"numlock": true, "capslock": true, "scrolllock": false, "format": "{name} {icon}", "format-icons": {"locked": "", "unlocked": ""}}"#,
         },
         LibraryModule {
@@ -1025,6 +1044,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             name: "Idle Inhibitor",
             description: "Prevent screen from sleeping",
             category: "Utilities",
+            icon: "󰅶",
             default_config: r#"{"format": "{icon}", "format-icons": {"activated": "󰅶", "deactivated": "󰾪"}, "tooltip-format-activated": "Screen will stay on", "tooltip-format-deactivated": "Screen will sleep normally", "timeout": 0}"#,
         },
     ]
