@@ -25,3 +25,10 @@ clap = { version = "4.5.58", features = ["derive"] }
 image = { version = "0.25.9", features = ["png", "jpeg", "webp"] }
 color-thief = "0.2.2"
 palette = "0.7.6"
+
+[profile.release]
+opt-level = 'z'     # Optimize for size
+lto = true          # Enable Link-Time Optimization
+codegen-units = 1   # Reduce parallel code generation units
+panic = 'abort'     # Abort on panic instead of unwinding
+strip = true        # Automatically strip symbols from the binary
