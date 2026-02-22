@@ -7,17 +7,42 @@ use crate::system::waybar::{
 use crate::ui::status_bar_page::waybar_item::{render_module_chip, DragWaybarModule};
 
 pub struct WaybarPreview {
+    pub profile_name: String,
     pub config: Option<WaybarConfig>,
 }
 
 impl WaybarPreview {
     pub fn new(profile_name: &str) -> Self {
         let config = load_waybar_config(profile_name);
-        Self { config }
+        Self {
+            profile_name: profile_name.to_string(),
+            config,
+        }
     }
 
     pub fn reload(&mut self, profile_name: &str) {
+        self.profile_name = profile_name.to_string();
         self.config = load_waybar_config(profile_name);
+    }
+
+    /// Remove the module at (zone, index) from the config and persist immediately.
+    pub fn remove_module(&mut self, zone: &WaybarZone, index: usize) {
+        let Some(cfg) = self.config.as_mut() else {
+            return;
+        };
+        let modules = match zone {
+            WaybarZone::Left => &mut cfg.modules_left,
+            WaybarZone::Center => &mut cfg.modules_center,
+            WaybarZone::Right => &mut cfg.modules_right,
+        };
+        if index < modules.len() {
+            modules.remove(index);
+        }
+        if let Some(cfg) = self.config.as_ref()
+            && let Err(e) = save_waybar_config(cfg)
+        {
+            eprintln!("Failed to save waybar config after remove: {}", e);
+        }
     }
 
     /// Move a module from (src_zone, src_index) to (dst_zone, dst_index) within the config,
@@ -72,10 +97,10 @@ impl WaybarPreview {
         }
 
         // Persist the new order to disk
-        if let Some(cfg) = self.config.as_ref() {
-            if let Err(e) = save_waybar_config(cfg) {
-                eprintln!("Failed to save waybar config: {}", e);
-            }
+        if let Some(cfg) = self.config.as_ref()
+            && let Err(e) = save_waybar_config(cfg)
+        {
+            eprintln!("Failed to save waybar config: {}", e);
         }
     }
 }
@@ -84,13 +109,15 @@ fn render_zone(
     entity: Entity<WaybarPreview>,
     zone: WaybarZone,
     modules: Vec<WaybarModule>,
+    profile_name: &str,
     cx: &mut App,
 ) -> AnyElement {
     let chips: Vec<AnyElement> = modules
         .iter()
         .enumerate()
         .map(|(i, module)| {
-            let chip = render_module_chip(module, zone.clone(), i, cx);
+            let chip =
+                render_module_chip(module, zone.clone(), i, profile_name, entity.clone(), cx);
             let zone_drop = zone.clone();
             let entity_drop = entity.clone();
 
@@ -183,12 +210,14 @@ impl Render for WaybarPreview {
         let left = config.modules_left.clone();
         let center = config.modules_center.clone();
         let right = config.modules_right.clone();
+        let profile_name = self.profile_name.clone();
 
         let entity = cx.entity().clone();
 
-        let left_zone = render_zone(entity.clone(), WaybarZone::Left, left, cx);
-        let center_zone = render_zone(entity.clone(), WaybarZone::Center, center, cx);
-        let right_zone = render_zone(entity.clone(), WaybarZone::Right, right, cx);
+        let left_zone = render_zone(entity.clone(), WaybarZone::Left, left, &profile_name, cx);
+        let center_zone =
+            render_zone(entity.clone(), WaybarZone::Center, center, &profile_name, cx);
+        let right_zone = render_zone(entity.clone(), WaybarZone::Right, right, &profile_name, cx);
 
         v_flex()
             .w_full()

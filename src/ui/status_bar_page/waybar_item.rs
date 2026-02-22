@@ -6,6 +6,8 @@ use gpui_component::{
 };
 
 use crate::system::waybar::{WaybarModule, WaybarZone};
+use crate::ui::status_bar_page::module_editor::request_module_edit;
+use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
 /// Drag payload — carries the source zone and index of the dragged module
 #[derive(Clone, Debug)]
@@ -46,13 +48,15 @@ pub fn render_module_chip(
     module: &WaybarModule,
     zone: WaybarZone,
     index: usize,
+    profile_name: &str,
+    preview: Entity<WaybarPreview>,
     cx: &mut App,
 ) -> AnyElement {
     let theme = cx.theme();
     let label = module.label.clone();
     let icon = module.icon.clone();
     let drag_payload = DragWaybarModule {
-        zone,
+        zone: zone.clone(),
         index,
         label: label.clone(),
     };
@@ -67,6 +71,12 @@ pub fn render_module_chip(
     } else {
         icon.clone()
     };
+
+    let zone_for_remove = zone.clone();
+    let preview_for_remove = preview.clone();
+
+    let profile_for_edit = profile_name.to_string();
+    let module_key_for_edit = module.key.clone();
 
     div()
         .id(SharedString::from(format!(
@@ -94,9 +104,26 @@ pub fn render_module_chip(
             })
         })
         .context_menu(move |menu, _, _| {
-            menu.item(PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu)).disabled(true))
-                .separator()
-                .item(PopupMenuItem::new("Remove from bar").disabled(true))
+            let p = profile_for_edit.clone();
+            let mk = module_key_for_edit.clone();
+            menu.item(
+                PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu)).on_click(
+                    move |_event, _window, _cx| {
+                        request_module_edit(p.clone(), mk.clone());
+                    },
+                ),
+            )
+            .separator()
+            .item({
+                let preview = preview_for_remove.clone();
+                let zone = zone_for_remove.clone();
+                PopupMenuItem::new("Remove from bar").on_click(move |_event, _window, cx| {
+                    preview.update(cx, |this, cx| {
+                        this.remove_module(&zone, index);
+                        cx.notify();
+                    });
+                })
+            })
         })
         .into_any()
 }

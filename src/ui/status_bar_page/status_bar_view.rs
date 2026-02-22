@@ -23,15 +23,16 @@ impl StatusBarView {
             .unwrap_or_else(|| "omarchy-default".to_string());
 
         let header = cx.new(|cx| StatusBarHeader::new(window, cx));
-        let design_area = cx.new(|cx| DesignArea::new(&initial_profile, cx));
+        let design_area = cx.new(|cx| DesignArea::new(&initial_profile, window, cx));
 
         // Subscribe to profile selection changes
         let select_entity = header.read(cx).select_entity();
         let design_area_ref = design_area.clone();
         let header_ref = header.clone();
-        let subscription = cx.subscribe(
+        let subscription = cx.subscribe_in(
             &select_entity,
-            move |_this, _select, event: &SelectEvent<Vec<SharedString>>, cx| {
+            window,
+            move |_this, _select, event: &SelectEvent<Vec<SharedString>>, window, cx| {
                 if let SelectEvent::Confirm(Some(_)) = event {
                     let profile_name = header_ref
                         .read(cx)
@@ -39,7 +40,7 @@ impl StatusBarView {
                         .unwrap_or("omarchy-default")
                         .to_string();
                     design_area_ref.update(cx, |area, cx| {
-                        area.switch_profile(&profile_name, cx);
+                        area.switch_profile(&profile_name, window, cx);
                     });
                 }
             },
@@ -61,7 +62,7 @@ impl Render for StatusBarView {
                 header.reload_and_select(&new_profile, window, cx);
             });
             self.design_area.update(cx, |area, cx| {
-                area.switch_profile(&new_profile, cx);
+                area.switch_profile(&new_profile, window, cx);
             });
         }
 

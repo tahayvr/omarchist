@@ -625,5 +625,6 @@ impl Render for MainWindowView {
                     ),
             )
             .children(Root::render_dialog_layer(window, cx))
+            .children(Root::render_sheet_layer(window, cx))
     }
 }
