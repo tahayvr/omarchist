@@ -1,14 +1,19 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
+    menu::{DropdownMenu, PopupMenu, PopupMenuItem},
     select::{Select, SelectState},
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::list_waybar_profiles;
 use crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog;
+use crate::ui::dialogs::manage_waybar_profile_dialogs::{
+    open_delete_waybar_profile_dialog, open_duplicate_waybar_profile_dialog,
+    open_rename_waybar_profile_dialog,
+};
 
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
@@ -91,6 +96,21 @@ impl Render for StatusBarHeader {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
+        // Capture current profile for the more-options context menu
+        let current_profile = self
+            .profile_select
+            .read(cx)
+            .selected_value()
+            .map(|s| s.to_string())
+            .unwrap_or_default();
+
+        let profile_for_rename = current_profile.clone();
+        let profile_for_duplicate = current_profile.clone();
+        let profile_for_delete = current_profile.clone();
+
+        // Determine if deleting is allowed (need > 1 profile)
+        let can_delete = self.profile_names.len() > 1;
+
         h_flex()
             .w_full()
             .p_4()
@@ -116,6 +136,54 @@ impl Render for StatusBarHeader {
                             .tooltip("Add profile")
                             .on_click(|_, window, cx| {
                                 open_create_waybar_profile_dialog(window, cx);
+                            }),
+                    )
+                    // More-options button — left-click opens dropdown menu
+                    .child(
+                        Button::new("more-profile-options-btn")
+                            .icon(Icon::new(IconName::Ellipsis))
+                            .ghost()
+                            .small()
+                            .tooltip("More options")
+                            .dropdown_menu(move |menu: PopupMenu, _, _| {
+                                let p_rename = profile_for_rename.clone();
+                                let p_dup = profile_for_duplicate.clone();
+                                let p_del = profile_for_delete.clone();
+
+                                let menu = menu
+                                    .item(PopupMenuItem::new("Rename profile").on_click(
+                                        move |_, window, cx| {
+                                            open_rename_waybar_profile_dialog(
+                                                p_rename.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                    .item(PopupMenuItem::new("Duplicate profile").on_click(
+                                        move |_, window, cx| {
+                                            open_duplicate_waybar_profile_dialog(
+                                                p_dup.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                    .separator();
+
+                                if can_delete {
+                                    menu.item(PopupMenuItem::new("Delete profile").on_click(
+                                        move |_, window, cx| {
+                                            open_delete_waybar_profile_dialog(
+                                                p_del.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                } else {
+                                    menu.item(PopupMenuItem::new("Delete profile").disabled(true))
+                                }
                             }),
                     ),
             )

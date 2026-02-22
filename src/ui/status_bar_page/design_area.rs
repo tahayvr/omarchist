@@ -1,12 +1,13 @@
 use gpui::prelude::FluentBuilder as _;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants as _},
-    h_flex, v_flex, ActiveTheme, IconName, Sizable,
+    h_flex, v_flex,
 };
 
 use crate::ui::status_bar_page::bar_settings::BarSettingsPanel;
-use crate::ui::status_bar_page::module_editor::{take_pending_module_edit, ModuleEditorPanel};
+use crate::ui::status_bar_page::module_editor::{ModuleEditorPanel, take_pending_module_edit};
 use crate::ui::status_bar_page::module_library::ModuleLibraryPanel;
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 

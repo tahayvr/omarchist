@@ -738,6 +738,106 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<()
     Ok(())
 }
 
+/// Rename an existing waybar profile directory.
+///
+/// Returns the new profile name on success. Fails if:
+/// - `new_name` is empty or already exists
+/// - the source directory does not exist
+pub fn rename_waybar_profile(old_name: &str, new_name: &str) -> Result<String, String> {
+    let new = new_name.trim();
+    if new.is_empty() {
+        return Err("Profile name cannot be empty".to_string());
+    }
+
+    let profiles_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles");
+
+    let src = profiles_dir.join(old_name);
+    let dst = profiles_dir.join(new);
+
+    if !src.exists() {
+        return Err(format!("Profile \"{}\" not found", old_name));
+    }
+    if dst.exists() {
+        return Err(format!("A profile named \"{}\" already exists", new));
+    }
+
+    fs::rename(&src, &dst).map_err(|e| format!("Failed to rename profile: {}", e))?;
+
+    Ok(new.to_string())
+}
+
+/// Duplicate an existing waybar profile into a new directory.
+///
+/// Returns the new profile name on success. Fails if `new_name` already exists.
+pub fn duplicate_waybar_profile(source_name: &str, new_name: &str) -> Result<String, String> {
+    let new = new_name.trim();
+    if new.is_empty() {
+        return Err("Profile name cannot be empty".to_string());
+    }
+
+    let profiles_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles");
+
+    let src = profiles_dir.join(source_name);
+    let dst = profiles_dir.join(new);
+
+    if !src.exists() {
+        return Err(format!("Profile \"{}\" not found", source_name));
+    }
+    if dst.exists() {
+        return Err(format!("A profile named \"{}\" already exists", new));
+    }
+
+    copy_dir_recursive(&src, &dst)?;
+
+    Ok(new.to_string())
+}
+
+/// Delete a waybar profile directory.
+///
+/// Returns the name of a remaining profile to switch to, or `None` if no profiles
+/// remain. Refuses to delete the profile if it is the only one left.
+pub fn delete_waybar_profile(profile_name: &str) -> Result<Option<String>, String> {
+    let profiles_dir = dirs::home_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles");
+
+    let target = profiles_dir.join(profile_name);
+    if !target.exists() {
+        return Err(format!("Profile \"{}\" not found", profile_name));
+    }
+
+    // Guard: don't delete the last profile
+    let remaining: Vec<String> = list_waybar_profiles()
+        .into_iter()
+        .filter(|n| n != profile_name)
+        .collect();
+
+    if remaining.is_empty() {
+        return Err("Cannot delete the last profile".to_string());
+    }
+
+    fs::remove_dir_all(&target)
+        .map_err(|e| format!("Failed to delete profile: {}", e))?;
+
+    // Return the first remaining profile (sorted) so the caller can switch to it
+    let mut sorted = remaining;
+    sorted.sort();
+    Ok(sorted.into_iter().next())
+}
+
 /// Load and parse the waybar config for a given profile name.
 pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
     let config_path = dirs::home_dir()?

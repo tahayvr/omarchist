@@ -3,6 +3,9 @@ use gpui_component::{select::SelectEvent, v_flex};
 
 use crate::system::waybar::list_waybar_profiles;
 use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navigation;
+use crate::ui::dialogs::manage_waybar_profile_dialogs::{
+    take_pending_profile_management, ProfileManagementResult,
+};
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
 
@@ -63,6 +66,21 @@ impl Render for StatusBarView {
             });
             self.design_area.update(cx, |area, cx| {
                 area.switch_profile(&new_profile, window, cx);
+            });
+        }
+
+        // After rename / duplicate / delete, update header and design area
+        if let Some(result) = take_pending_profile_management() {
+            let active_profile = match result {
+                ProfileManagementResult::Renamed { new_name } => new_name,
+                ProfileManagementResult::Duplicated { new_name } => new_name,
+                ProfileManagementResult::Deleted { switch_to } => switch_to,
+            };
+            self.header.update(cx, |header, cx| {
+                header.reload_and_select(&active_profile, window, cx);
+            });
+            self.design_area.update(cx, |area, cx| {
+                area.switch_profile(&active_profile, window, cx);
             });
         }
 
