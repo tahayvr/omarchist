@@ -227,6 +227,7 @@ impl Render for WaybarPreview {
         v_flex()
             .w_full()
             .flex_1()
+            .mb_4()
             .gap_4()
             .child(
                 div()

@@ -1,13 +1,13 @@
+use gpui::prelude::FluentBuilder as _;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants as _},
-    h_flex, v_flex,
+    h_flex, v_flex, ActiveTheme, IconName, Sizable,
 };
 
 use crate::ui::status_bar_page::bar_settings::BarSettingsPanel;
-use crate::ui::status_bar_page::module_editor::{ModuleEditorPanel, take_pending_module_edit};
-use crate::ui::status_bar_page::module_library::open_module_library;
+use crate::ui::status_bar_page::module_editor::{take_pending_module_edit, ModuleEditorPanel};
+use crate::ui::status_bar_page::module_library::ModuleLibraryPanel;
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
 pub struct DesignArea {
@@ -15,6 +15,7 @@ pub struct DesignArea {
     preview: Entity<WaybarPreview>,
     bar_settings: Entity<BarSettingsPanel>,
     module_editor: Entity<ModuleEditorPanel>,
+    module_library: Entity<ModuleLibraryPanel>,
 }
 
 impl DesignArea {
@@ -29,11 +30,18 @@ impl DesignArea {
             let n = name.clone();
             cx.new(|cx| ModuleEditorPanel::new(&n, window, cx))
         };
+        let module_library = {
+            let n = name.clone();
+            let p = preview.clone();
+            let lib = ModuleLibraryPanel::new(&n, p, window, cx);
+            cx.new(|_| lib)
+        };
         Self {
             profile_name: name,
             preview,
             bar_settings,
             module_editor,
+            module_library,
         }
     }
 
@@ -53,6 +61,9 @@ impl DesignArea {
         self.module_editor.update(cx, |editor, _| {
             editor.switch_profile(profile_name);
         });
+        self.module_library.update(cx, |lib, _| {
+            lib.switch_profile(profile_name);
+        });
     }
 }
 
@@ -71,17 +82,17 @@ impl Render for DesignArea {
         }
 
         let theme = cx.theme();
-
-        let profile = self.profile_name.clone();
-        let preview_entity = self.preview.clone();
+        let library_entity = self.module_library.clone();
+        let library_open = self.module_library.read(cx).is_open();
 
         let add_module_btn = Button::new("add-module-btn")
             .icon(IconName::Plus)
             .label("Add Module")
             .small()
-            .ghost()
-            .on_click(move |_, window: &mut Window, cx| {
-                open_module_library(profile.clone(), preview_entity.clone(), window, cx);
+            .when(library_open, |b: Button| b.primary())
+            .when(!library_open, |b: Button| b.ghost())
+            .on_click(move |_, _window: &mut Window, cx| {
+                library_entity.update(cx, |lib, cx| lib.toggle(cx));
             });
 
         v_flex()
@@ -94,7 +105,9 @@ impl Render for DesignArea {
             .rounded_md()
             .child(h_flex().w_full().justify_end().child(add_module_btn))
             .child(self.preview.clone())
+            .child(self.module_library.clone())
             .child(self.module_editor.clone())
+            .child(div().flex_1())
             .child(self.bar_settings.clone())
     }
 }
