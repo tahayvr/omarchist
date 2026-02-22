@@ -88,11 +88,14 @@ export default defineConfig({
 			},
 			{
 				text: 'CONFIGURATION',
-				items: [{ text: 'Hyprland', link: '/configuration/' }]
+				items: [
+					{ text: 'Hyprland', link: '/configuration/' },
+					{ text: 'Status Bar', link: '/status-bar' }
+				]
 			},
 			{
-				text: 'TOOLS'
-				// items: [{ text: 'System Monitor', link: '/system-monitor' }]
+				text: 'TOOLS',
+				items: [{ text: 'System Monitor', link: '/system-monitor' }]
 			}
 		],
 
