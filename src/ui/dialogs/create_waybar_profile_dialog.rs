@@ -3,10 +3,11 @@ use std::cell::RefCell;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Disableable, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputState},
-    v_flex, ActiveTheme, Disableable, WindowExt,
+    v_flex,
 };
 
 use crate::system::waybar::create_waybar_profile;

@@ -1,10 +1,10 @@
 use gpui::*;
-use gpui_component::{h_flex, v_flex, ActiveTheme};
+use gpui_component::{ActiveTheme, h_flex, v_flex};
 
 use crate::system::waybar::{
-    load_waybar_config, save_waybar_config, WaybarConfig, WaybarModule, WaybarZone,
+    WaybarConfig, WaybarModule, WaybarZone, load_waybar_config, save_waybar_config,
 };
-use crate::ui::status_bar_page::waybar_item::{render_module_chip, DragWaybarModule};
+use crate::ui::status_bar_page::waybar_item::{DragWaybarModule, render_module_chip};
 
 pub struct WaybarPreview {
     pub profile_name: String,
@@ -215,8 +215,13 @@ impl Render for WaybarPreview {
         let entity = cx.entity().clone();
 
         let left_zone = render_zone(entity.clone(), WaybarZone::Left, left, &profile_name, cx);
-        let center_zone =
-            render_zone(entity.clone(), WaybarZone::Center, center, &profile_name, cx);
+        let center_zone = render_zone(
+            entity.clone(),
+            WaybarZone::Center,
+            center,
+            &profile_name,
+            cx,
+        );
         let right_zone = render_zone(entity.clone(), WaybarZone::Right, right, &profile_name, cx);
 
         v_flex()

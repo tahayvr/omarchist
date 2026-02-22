@@ -34,18 +34,11 @@ pub fn get_bar_settings(profile_name: &str) -> Option<BarSettings> {
     let stripped = strip_jsonc_comments(&raw);
     let json: serde_json::Value = serde_json::from_str(&stripped).ok()?;
 
-    let str_field = |key: &str| -> Option<String> {
-        json.get(key)?.as_str().map(|s| s.to_string())
-    };
-    let u32_field = |key: &str| -> Option<u32> {
-        json.get(key)?.as_u64().map(|v| v as u32)
-    };
-    let i32_field = |key: &str| -> Option<i32> {
-        json.get(key)?.as_i64().map(|v| v as i32)
-    };
-    let bool_field = |key: &str| -> Option<bool> {
-        json.get(key)?.as_bool()
-    };
+    let str_field =
+        |key: &str| -> Option<String> { json.get(key)?.as_str().map(|s| s.to_string()) };
+    let u32_field = |key: &str| -> Option<u32> { json.get(key)?.as_u64().map(|v| v as u32) };
+    let i32_field = |key: &str| -> Option<i32> { json.get(key)?.as_i64().map(|v| v as i32) };
+    let bool_field = |key: &str| -> Option<bool> { json.get(key)?.as_bool() };
 
     // Waybar supports both `margin` (single value) and `margin-top/right/bottom/left`.
     // We prefer the per-side keys; fall back to the unified `margin` key for all sides.
@@ -87,14 +80,13 @@ pub fn set_bar_setting(
         .join(profile_name)
         .join("config.jsonc");
 
-    let raw = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config: {}", e))?;
+    let raw =
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
 
     let new_raw = replace_top_level_value(&raw, key, value)
         .ok_or_else(|| format!("Could not locate or insert key \"{}\" in config", key))?;
 
-    fs::write(&config_path, new_raw)
-        .map_err(|e| format!("Failed to write config: {}", e))
+    fs::write(&config_path, new_raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
 /// Replace (or insert) a top-level scalar key-value pair in a JSONC string.
@@ -103,11 +95,7 @@ pub fn set_bar_setting(
 /// 1. If the key already exists, replace its value in-place.
 /// 2. If the key does not exist, insert it before the first `modules-` key
 ///    (or just before the closing `}` of the root object).
-fn replace_top_level_value(
-    src: &str,
-    key: &str,
-    value: &serde_json::Value,
-) -> Option<String> {
+fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> Option<String> {
     let value_str = value.to_string();
     let key_pat = format!("\"{}\"", key);
 
@@ -145,7 +133,7 @@ fn replace_top_level_value(
         pos
     } else {
         // Fall back: find the last `}` in the file
-        src.rfind('}')? 
+        src.rfind('}')?
     };
 
     let mut result = String::with_capacity(src.len() + insert_line.len());
@@ -787,7 +775,7 @@ pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
 /// List all available profile names from `~/.config/omarchist/waybar/profiles/`
 pub fn list_waybar_profiles() -> Vec<String> {
     let Some(home) = dirs::home_dir() else {
-         return vec![];
+        return vec![];
     };
     let profiles_dir = home
         .join(".config")
@@ -855,12 +843,12 @@ pub fn set_module_config_field(
         .join(profile_name)
         .join("config.jsonc");
 
-    let raw = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config: {}", e))?;
+    let raw =
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
 
     let stripped = strip_jsonc_comments(&raw);
-    let mut json: serde_json::Value = serde_json::from_str(&stripped)
-        .map_err(|e| format!("Failed to parse config: {}", e))?;
+    let mut json: serde_json::Value =
+        serde_json::from_str(&stripped).map_err(|e| format!("Failed to parse config: {}", e))?;
 
     // Ensure the module block exists as an object, then set the field
     let block = json
@@ -881,8 +869,7 @@ pub fn set_module_config_field(
     let new_raw = serde_json::to_string_pretty(&json)
         .map_err(|e| format!("Failed to serialise config: {}", e))?;
 
-    fs::write(&config_path, new_raw)
-        .map_err(|e| format!("Failed to write config: {}", e))
+    fs::write(&config_path, new_raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
 // ---------------------------------------------------------------------------
@@ -919,37 +906,37 @@ pub fn module_library() -> Vec<LibraryModule> {
         LibraryModule {
             key: "memory",
             name: "Memory",
-            description: "RAM usage",
+            description: "RAM usage with swap info",
             category: "System",
-            default_config: r#"{"interval": 5, "format": " {used:0.1f}G"}"#,
+            default_config: r#"{"interval": 5, "format": " {used:0.1f}G/{total:0.1f}G", "format-icons": ["", "", ""]}"#,
         },
         LibraryModule {
             key: "battery",
             name: "Battery",
             description: "Battery level and charging state",
             category: "System",
-            default_config: r#"{"interval": 30, "format": "{icon} {capacity}%", "format-icons": ["", "", "", "", ""]}"#,
+            default_config: r#"{"interval": 30, "states": {"critical": 15, "warning": 30}, "format": "{icon} {capacity}%", "format-charging": " {capacity}%", "format-plugged": " {capacity}%", "format-icons": ["", "", "", "", ""], "tooltip-format": "{capacity}% - {time}"}"#,
         },
         LibraryModule {
             key: "temperature",
             name: "Temperature",
-            description: "CPU / GPU temperature",
+            description: "CPU / GPU temperature (requires hwmon-path)",
             category: "System",
-            default_config: r#"{"interval": 5, "format": " {temperatureC}°C"}"#,
+            default_config: r#"{"interval": 5, "hwmon-path": "/sys/class/hwmon/hwmon2/temp1_input", "critical-threshold": 80, "format": " {temperatureC}°C", "format-critical": " {temperatureC}°C"}"#,
         },
         LibraryModule {
             key: "disk",
             name: "Disk",
-            description: "Disk usage for a path",
+            description: "Disk usage for a path with tooltip",
             category: "System",
-            default_config: r#"{"interval": 30, "format": "󰋊 {percentage_used}%", "path": "/"}"#,
+            default_config: r#"{"interval": 30, "format": "󰋊 {percentage_used}%", "path": "/", "tooltip-format": "{used}/{total} used on {path}"}"#,
         },
         LibraryModule {
             key: "backlight",
             name: "Backlight",
-            description: "Screen brightness",
+            description: "Screen brightness with device auto-detection",
             category: "System",
-            default_config: r#"{"format": "{icon} {percent}%", "format-icons": ["󰃞", "󰃟", "󰃠"]}"#,
+            default_config: r#"{"format": "{icon} {percent}%", "format-icons": ["󰃞", "󰃟", "󰃠"], "on-scroll-up": "light -A 5", "on-scroll-down": "light -U 5"}"#,
         },
         // ── Time ────────────────────────────────────────────────────────────
         LibraryModule {
@@ -963,24 +950,24 @@ pub fn module_library() -> Vec<LibraryModule> {
         LibraryModule {
             key: "pulseaudio",
             name: "PulseAudio",
-            description: "Volume control (PulseAudio / PipeWire)",
+            description: "Volume control (PulseAudio / PipeWire) with bluetooth support",
             category: "Audio",
-            default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"]}}"#,
+            default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-bluetooth": " {volume}%", "format-bluetooth-muted": " 󰝟", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"], "bluetooth": ["󰥰"]}, "on-click": "pactl set-sink-mute @DEFAULT_SINK@ toggle", "on-click-right": "pavucontrol", "tooltip-format": "{volume}% {desc}"}"#,
         },
         LibraryModule {
             key: "wireplumber",
             name: "WirePlumber",
-            description: "Volume control (WirePlumber)",
+            description: "Volume control (WirePlumber PipeWire) with bluetooth",
             category: "Audio",
-            default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-icons": ["󰕿", "󰖀", "󰕾"]}"#,
+            default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-bluetooth": " {volume}%", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"], "bluetooth": ["󰥰"]}, "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "on-click-right": "pavucontrol", "tooltip-format": "{volume}% {node_name}"}"#,
         },
         // ── Network ─────────────────────────────────────────────────────────
         LibraryModule {
             key: "network",
             name: "Network",
-            description: "Wi-Fi / Ethernet status",
+            description: "Wi-Fi / Ethernet status with tooltips",
             category: "Network",
-            default_config: r#"{"format-wifi": "󰤨 {signalStrength}%", "format-ethernet": "󰈀", "format-disconnected": "󰤭"}"#,
+            default_config: r#"{"format-wifi": "󰤨 {signalStrength}%", "format-ethernet": "󰈀 {ipaddr}", "format-disconnected": "󰤭", "format-linked": "󰈀 {ifname}", "format-alt": "{ifname}: {ipaddr}/{cidr}", "tooltip-format-wifi": "{essid} ({signalStrength}%)", "tooltip-format-ethernet": "{ifname}: {ipaddr}/{cidr}", "on-click": "nm-connection-editor", "on-click-right": "foot nmtui"}"#,
         },
         LibraryModule {
             key: "bluetooth",
@@ -993,23 +980,23 @@ pub fn module_library() -> Vec<LibraryModule> {
         LibraryModule {
             key: "hyprland/workspaces",
             name: "Workspaces",
-            description: "Hyprland workspace switcher",
+            description: "Hyprland workspace switcher with icons",
             category: "Hyprland",
-            default_config: r#"{"format": "{icon}", "format-icons": {"default": "", "active": "󱓻"}}"#,
+            default_config: r#"{"format": "{name}:{icon}", "format-icons": {"1": "", "2": "", "3": "", "4": "", "5": "", "active": "󱓻", "default": ""}, "all-outputs": false, "sort-by": "number"}"#,
         },
         LibraryModule {
             key: "hyprland/window",
             name: "Active Window",
-            description: "Title of the focused window",
+            description: "Title of the focused window with class support",
             category: "Hyprland",
-            default_config: r#"{"format": "{title}", "max-length": 50}"#,
+            default_config: r#"{"format": "{title}", "max-length": 50, "separate-outputs": true, "rewrite": {"(.*) — Mozilla Firefox": "🌎 $1", "(.*) - fish": "> [$1]"}}"#,
         },
         LibraryModule {
             key: "hyprland/submap",
             name: "Submap",
-            description: "Active Hyprland key submap",
+            description: "Active Hyprland key submap mode",
             category: "Hyprland",
-            default_config: r#"{"format": "󰌌 {}", "max-length": 20}"#,
+            default_config: r#"{"format": "✌️ {}", "max-length": 20, "always-on": false, "default-submap": "Default"}"#,
         },
         LibraryModule {
             key: "hyprland/language",
@@ -1029,16 +1016,16 @@ pub fn module_library() -> Vec<LibraryModule> {
         LibraryModule {
             key: "keyboard-state",
             name: "Keyboard State",
-            description: "Caps/Num lock indicators",
+            description: "Caps/Num/Scroll lock indicators",
             category: "Utilities",
-            default_config: r#"{"numlock": true, "capslock": true, "format": "{name} {icon}", "format-icons": {"locked": "", "unlocked": ""}}"#,
+            default_config: r#"{"numlock": true, "capslock": true, "scrolllock": false, "format": "{name} {icon}", "format-icons": {"locked": "", "unlocked": ""}}"#,
         },
         LibraryModule {
             key: "idle-inhibitor",
             name: "Idle Inhibitor",
             description: "Prevent screen from sleeping",
             category: "Utilities",
-            default_config: r#"{"format": "{icon}", "format-icons": {"activated": "󰅶", "deactivated": "󰾪"}}"#,
+            default_config: r#"{"format": "{icon}", "format-icons": {"activated": "󰅶", "deactivated": "󰾪"}, "tooltip-format-activated": "Screen will stay on", "tooltip-format-deactivated": "Screen will sleep normally", "timeout": 0}"#,
         },
     ]
 }
@@ -1065,8 +1052,8 @@ pub fn add_module_to_zone(
         .join(profile_name)
         .join("config.jsonc");
 
-    let raw = fs::read_to_string(&config_path)
-        .map_err(|e| format!("Failed to read config: {}", e))?;
+    let raw =
+        fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
 
     // Step 1: append key to zone array
     let zone_key = match zone {
@@ -1099,8 +1086,7 @@ pub fn add_module_to_zone(
         raw
     };
 
-    fs::write(&config_path, raw)
-        .map_err(|e| format!("Failed to write config: {}", e))
+    fs::write(&config_path, raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
 /// Append `module_key` as a new string entry at the end of a zone array

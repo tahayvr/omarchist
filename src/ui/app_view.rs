@@ -86,9 +86,7 @@ impl MainWindowView {
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
 
         let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
-        let status_bar_root = cx
-            .new(|cx| Root::new(status_bar_view, window, cx))
-            .into();
+        let status_bar_root = cx.new(|cx| Root::new(status_bar_view, window, cx)).into();
 
         let about_view = cx.new(|_| AboutView);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
@@ -561,7 +559,7 @@ impl Render for MainWindowView {
                                                     self.is_page_active(ActivePage::Configuration)
                                                         || self.is_sidebar_item_focused(1),
                                                 )
-                                                 .on_click(cx.listener(|this, _, window, cx| {
+                                                .on_click(cx.listener(|this, _, window, cx| {
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
                                                         window,

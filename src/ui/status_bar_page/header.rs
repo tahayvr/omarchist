@@ -1,9 +1,9 @@
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     select::{Select, SelectState},
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;

@@ -1,12 +1,13 @@
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, IndexPath, Sizable, StyledExt, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
     select::{Select, SelectState},
-    v_flex, ActiveTheme, IndexPath, Sizable, StyledExt, WindowExt,
+    v_flex,
 };
 
-use crate::system::waybar::{add_module_to_zone, module_library, LibraryModule, WaybarZone};
+use crate::system::waybar::{LibraryModule, WaybarZone, add_module_to_zone, module_library};
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
 const ZONES: &[&str] = &["Left", "Center", "Right"];

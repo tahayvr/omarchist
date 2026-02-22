@@ -1,13 +1,13 @@
 use gpui::*;
 use gpui_component::{
-    h_flex,
+    ActiveTheme, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
     select::{Select, SelectEvent, SelectState},
-    v_flex, ActiveTheme, Icon, IconName, IndexPath, Sizable, StyledExt,
+    v_flex,
 };
 
-use crate::system::waybar::{get_bar_settings, set_bar_setting, BarSettings};
+use crate::system::waybar::{BarSettings, get_bar_settings, set_bar_setting};
 
 /// Collapsible panel that exposes bar-level settings (position, height, layer, etc.)
 pub struct BarSettingsPanel {

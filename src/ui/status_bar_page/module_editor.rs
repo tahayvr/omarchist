@@ -2,10 +2,10 @@ use std::cell::RefCell;
 
 use gpui::*;
 use gpui_component::{
-    h_flex,
+    ActiveTheme, Icon, IconName, Sizable, StyledExt, h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
-    v_flex, ActiveTheme, Icon, IconName, Sizable, StyledExt,
+    v_flex,
 };
 
 use crate::system::waybar::{get_module_config, set_module_config_field};
