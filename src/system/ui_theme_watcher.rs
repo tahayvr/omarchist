@@ -26,35 +26,26 @@ fn get_omarchy_current_theme_dir() -> Option<PathBuf> {
     )
 }
 
+// `~/.config/omarchy/current/theme.name`
 fn get_active_omarchy_theme_name() -> Option<String> {
-    let theme_dir = get_omarchy_current_theme_dir()?;
-    let entries = std::fs::read_dir(&theme_dir).ok()?;
-
-    for entry in entries.flatten() {
-        let name = entry.file_name().to_string_lossy().to_string();
-        // Skip hidden files
-        if name.starts_with('.') {
-            continue;
-        }
-        let path = entry.path();
-        // The active theme is a symlink to the theme folder or a directory.
-        if path.is_dir() || path.is_symlink() {
-            return Some(name);
-        }
+    let home = dirs::home_dir()?;
+    let name_file = home
+        .join(".config")
+        .join("omarchy")
+        .join("current")
+        .join("theme.name");
+    let name = std::fs::read_to_string(&name_file).ok()?;
+    let trimmed = name.trim().to_string();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(trimmed)
     }
-    None
 }
 
-// `~/.config/omarchy/themes/<name>/colors.toml`
-fn get_colors_toml_path(theme_name: &str) -> Option<PathBuf> {
-    let home = dirs::home_dir()?;
-    Some(
-        home.join(".config")
-            .join("omarchy")
-            .join("themes")
-            .join(theme_name)
-            .join("colors.toml"),
-    )
+// `~/.config/omarchy/current/theme/colors.toml`
+fn get_colors_toml_path() -> Option<PathBuf> {
+    Some(get_omarchy_current_theme_dir()?.join("colors.toml"))
 }
 
 fn parse_colors_toml(path: &PathBuf) -> Option<HashMap<String, String>> {
@@ -384,8 +375,8 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
 
 // Loads the omarchy current theme from `colors.toml` and applies it to the UI.
 pub fn load_and_apply_omarchy_theme(cx: &mut App) {
-    if let Some(theme_name) = get_active_omarchy_theme_name()
-        && let Some(colors_path) = get_colors_toml_path(&theme_name)
+    let theme_name = get_active_omarchy_theme_name().unwrap_or_else(|| "omarchy".to_string());
+    if let Some(colors_path) = get_colors_toml_path()
         && let Some(colors) = parse_colors_toml(&colors_path)
     {
         let config = build_theme_config(&colors, &theme_name);

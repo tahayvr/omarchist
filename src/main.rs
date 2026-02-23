@@ -1,5 +1,5 @@
 use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
-use gpui_component::{Root, Theme, ThemeSet, TitleBar};
+use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
@@ -59,8 +59,8 @@ fn apply_embedded_themes(cx: &mut App) {
         Theme::global_mut(cx).dark_theme = Rc::new(theme);
     }
 
-    let mode = Theme::global(cx).mode;
-    Theme::change(mode, None, cx);
+    // Default to dark mode as fallback when omarchy theme is unavailable.
+    Theme::change(ThemeMode::Dark, None, cx);
 }
 
 fn load_custom_fonts(cx: &mut App) {
@@ -97,6 +97,7 @@ fn main() {
     app.run(move |cx| {
         // Determine initial page from CLI arguments
         let initial_page = cli_args_to_active_page(&cli_args);
+
         // Ensure config directory and settings.json exist
         if let Err(e) = config_setup::ensure_config() {
             eprintln!("Failed to initialize config: {}", e);
