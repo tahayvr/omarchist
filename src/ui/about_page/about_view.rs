@@ -57,7 +57,7 @@ impl Render for AboutView {
                             .cursor_pointer()
                             .large()
                             .on_click(|_, _, cx| {
-                                cx.open_url("https://github.com/tahayvr/omarchist-rs")
+                                cx.open_url("https://github.com/tahayvr/omarchist")
                             }),
                     )
                     .child(
