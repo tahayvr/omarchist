@@ -19,6 +19,8 @@ use gpui_component::{
 };
 use std::cell::RefCell;
 
+use crate::system::ui_theme_watcher;
+
 const KEY_CONTEXT: &str = "MainWindow";
 
 thread_local! {
@@ -434,6 +436,19 @@ impl Render for MainWindowView {
         });
         if pending_omarchy {
             self.navigate_to(ActivePage::Omarchy, window, cx);
+        }
+
+        // Check for pending UI theme hot-reload
+        let pending_ui_theme_reload = ui_theme_watcher::PENDING_UI_THEME_RELOAD.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_ui_theme_reload {
+            ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+            cx.refresh_windows();
         }
 
         // Responsive sidebar: auto-collapse on small windows (< 768px)

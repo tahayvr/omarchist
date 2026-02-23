@@ -4,6 +4,7 @@ use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
 use omarchist::system::config::waybar_setup;
+use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
@@ -114,8 +115,10 @@ fn main() {
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
-
-        gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
+        // Apply the omarchy current theme immediately at startup, falling back to embedded theme
+        ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+        // Start watching for theme switches
+        ui_theme_watcher::spawn_ui_theme_watcher(cx);
 
         // Load and apply saved font size from settings (after theme change to override default)
         if let Ok(font_size_str) = config_setup::get_font_size() {

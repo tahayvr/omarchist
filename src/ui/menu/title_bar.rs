@@ -1,10 +1,10 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Icon, IconName, PixelsExt, Side, Sizable, TitleBar,
     button::*,
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
-    ActiveTheme, Icon, IconName, PixelsExt, Side, Sizable, TitleBar,
 };
 
 use crate::ui::menu::app_menu::SelectFont;
