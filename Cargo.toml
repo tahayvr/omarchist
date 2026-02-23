@@ -11,6 +11,15 @@ license = "Apache-2.0"
 keywords = ["omarchy", "themes", "hyprland", "waybar"]
 categories = ["config"]
 
+# Explicitly include what the build needs
+include = [
+    "src/**",
+    "assets/**",
+    "defaults/**",
+    "ui_themes/**",
+    "Cargo.toml",
+    "README.md",
+]
 
 [dependencies]
 gpui = { version = "0.2.2" }
