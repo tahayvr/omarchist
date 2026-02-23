@@ -5,6 +5,7 @@
 !.gitignore
 !Cargo.toml
 !Cargo.lock
+!LICENSE
 
 # Source code
 !src/

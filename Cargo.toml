@@ -2,6 +2,15 @@
 name = "omarchist"
 version = "0.3.0"
 edition = "2024"
+description = "A GUI app for Omarchy Linux."
+documentation = "https://omarchist.com"
+readme = "README.md"
+homepage = "https://omarchist.com"
+repository = "https://github.com/tahayvr/omarchist"
+license = "Apache-2.0"
+keywords = ["omarchy", "themes", "hyprland", "waybar"]
+categories = ["config"]
+
 
 [dependencies]
 gpui = { version = "0.2.2" }
