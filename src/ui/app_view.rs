@@ -81,7 +81,7 @@ impl MainWindowView {
             .new(|cx| Root::new(system_monitor_view, window, cx))
             .into();
 
-        let config_view = cx.new(ConfigView::new);
+        let config_view = cx.new(|cx| ConfigView::new(window, cx));
         let config_root = cx.new(|cx| Root::new(config_view, window, cx)).into();
 
         let settings_view = cx.new(|_| SettingsView);

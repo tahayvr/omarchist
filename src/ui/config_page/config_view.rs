@@ -1,6 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    Sizable as _, Size,
+    IndexPath, Sizable as _, Size,
+    select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
     setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
 use std::cell::RefCell;
@@ -9,49 +10,92 @@ use std::rc::Rc;
 use crate::system::hyprland_config::HyprlandConfigManager;
 use crate::types::hyprland_config::*;
 
-/// Main configuration view using gpui-component Settings API
+#[derive(Clone, Debug)]
+struct KeyboardLayoutItem {
+    value: SharedString,
+    // The human-readable label
+    label: SharedString,
+}
+
+impl SelectItem for KeyboardLayoutItem {
+    type Value = SharedString;
+
+    fn title(&self) -> SharedString {
+        self.label.clone()
+    }
+
+    fn value(&self) -> &SharedString {
+        &self.value
+    }
+}
+
 pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
-    // Cached keyboard layouts for the dropdown (value, label)
-    keyboard_layouts: Vec<(SharedString, SharedString)>,
+    keyboard_layout_select: Entity<SelectState<SearchableVec<KeyboardLayoutItem>>>,
 }
 
 impl ConfigView {
-    pub fn new(_cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let config_manager = match HyprlandConfigManager::load() {
             Ok(manager) => manager,
             Err(e) => {
                 eprintln!("Failed to load Hyprland config: {}", e);
-                // This will panic if it fails, but we have no other option
                 HyprlandConfigManager::load().expect("Failed to create default config")
             }
         };
 
-        // Preload keyboard layouts
+        // Build keyboard layout items
         let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
-        let mut keyboard_layouts = Vec::new();
-        match catalog {
-            Ok(c) => {
-                for layout in c.layouts {
-                    keyboard_layouts.push((
-                        layout.name.clone().into(),
-                        format!("{} ({})", layout.description, layout.name).into(),
-                    ));
-                }
-            }
+        let mut layout_items: Vec<KeyboardLayoutItem> = match catalog {
+            Ok(c) => c
+                .layouts
+                .into_iter()
+                .map(|l| KeyboardLayoutItem {
+                    value: l.name.clone().into(),
+                    label: l.description.clone().into(),
+                })
+                .collect(),
             Err(e) => {
                 eprintln!("Failed to load keyboard catalog: {}", e);
-                keyboard_layouts.push(("us".into(), "English (US) (us)".into()));
+                vec![KeyboardLayoutItem {
+                    value: "us".into(),
+                    label: "English (US)".into(),
+                }]
             }
-        }
+        };
+        layout_items.sort_by(|a, b| a.label.cmp(&b.label));
+
+        // Find the index of the currently active layout
+        let current_kb = config_manager.get().input.kb_layout.clone();
+        let initial_index = layout_items
+            .iter()
+            .position(|item| item.value.as_ref() == current_kb.as_str())
+            .map(|i| IndexPath::default().row(i));
+
+        let delegate = SearchableVec::new(layout_items);
+        let keyboard_layout_select =
+            cx.new(|cx| SelectState::new(delegate, initial_index, window, cx).searchable(true));
+
+        let config_manager_rc = Rc::new(RefCell::new(config_manager));
+
+        cx.subscribe_in(
+            &keyboard_layout_select,
+            window,
+            |this, _select, event: &SelectEvent<SearchableVec<KeyboardLayoutItem>>, _window, cx| {
+                if let SelectEvent::Confirm(Some(value)) = event {
+                    let layout = value.to_string();
+                    this.update_config(cx, |c| c.input.kb_layout = layout);
+                }
+            },
+        )
+        .detach();
 
         Self {
-            config_manager: Rc::new(RefCell::new(config_manager)),
-            keyboard_layouts,
+            config_manager: config_manager_rc,
+            keyboard_layout_select,
         }
     }
 
-    /// Update config and trigger UI refresh
     fn update_config<F>(&mut self, cx: &mut Context<Self>, f: F)
     where
         F: FnOnce(&mut HyprlandConfig),
@@ -389,21 +433,12 @@ impl ConfigView {
                     .title("Keyboard")
                     .item(
                         SettingItem::new("Keyboard Layout", {
-                            let cm = cm.clone();
-                            let view = view.clone();
-                            let layouts = self.keyboard_layouts.clone();
-                            SettingField::dropdown(
-                                layouts,
-                                move |_cx| cm.borrow().get().input.kb_layout.clone().into(),
-                                move |value, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| {
-                                            c.input.kb_layout = value.to_string()
-                                        });
-                                    });
-                                },
-                            )
-                            .default_value("us")
+                            let select_entity = self.keyboard_layout_select.clone();
+                            SettingField::render(move |_opts, _window, _cx| {
+                                Select::new(&select_entity)
+                                    .search_placeholder("Search layouts...")
+                                    .small()
+                            })
                         })
                         .description("Keyboard layout (e.g., us, de, fr)"),
                     )
