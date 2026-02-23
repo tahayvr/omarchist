@@ -4,9 +4,11 @@ import { defineConfig } from 'vitepress';
 export default defineConfig({
 	title: 'Omarchist Docs',
 	description: 'Documentation for Omarchist. A GUI app for managing & theming Omarchy Linux.',
+	base: '/docs/',
+	cleanUrls: true,
 	head: [
 		['link', { rel: 'icon', href: '/images/icon.png' }],
-		['link', { rel: 'canonical', href: 'https://omarchist.com' }],
+		['link', { rel: 'canonical', href: 'https://omarchist.com/docs/' }],
 
 		// Basic SEO
 		[
@@ -22,7 +24,7 @@ export default defineConfig({
 
 		// Open Graph / Facebook
 		['meta', { property: 'og:type', content: 'website' }],
-		['meta', { property: 'og:url', content: 'https://omarchist.com' }],
+		['meta', { property: 'og:url', content: 'https://omarchist.com/docs/' }],
 		[
 			'meta',
 			{
