@@ -23,8 +23,6 @@ pub struct Metadata {
     pub last_modified: String,
 }
 
-/// Recursively copy a directory and all its contents
-/// This is a shared utility function used by other config modules
 pub fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     // Create destination directory
     fs::create_dir_all(dst)
@@ -43,10 +41,8 @@ pub fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
         let dest_path = dst.join(file_name);
 
         if path.is_dir() {
-            // Recursively copy subdirectory
             copy_directory_recursive(&path, &dest_path)?;
         } else {
-            // Copy file
             fs::copy(&path, &dest_path)
                 .map_err(|e| format!("Failed to copy file '{}': {}", path.display(), e))?;
         }
@@ -55,10 +51,6 @@ pub fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Ensures the omarchist config directory exists with all default files
-/// If the directory doesn't exist, copies the entire defaults/omarchist folder
-/// If it exists but settings.json version is older than the default, replaces it
-/// Returns Ok(()) on success, or an error message on failure
 pub fn ensure_config() -> Result<(), String> {
     let config_dir = get_config_dir()?;
 
@@ -75,11 +67,9 @@ pub fn ensure_config() -> Result<(), String> {
                         "Updating settings.json from older version to {}",
                         default_version
                     );
-                    // Replace settings.json with default
                     replace_settings_file(&settings_path)?;
                 }
                 UpdateAction::Keep => {
-                    // Just validate the schema
                     validate_settings(&settings_path)?;
                 }
             }
@@ -87,10 +77,13 @@ pub fn ensure_config() -> Result<(), String> {
             // settings.json doesn't exist, copy it from defaults
             copy_settings_from_default(&settings_path)?;
         }
+
+        // Hyprland errors if the sourced file is missing.
+        ensure_hyprland_conf(&config_dir)?;
+
         return Ok(());
     }
 
-    // Copy the entire defaults/omarchist folder to ~/.config/omarchist
     let defaults_dir = PathBuf::from("defaults/omarchist");
     copy_directory_recursive(&defaults_dir, &config_dir)?;
 
@@ -112,7 +105,6 @@ pub fn ensure_config() -> Result<(), String> {
     Ok(())
 }
 
-/// Gets the omarchist config directory path (~/.config/omarchist)
 fn get_config_dir() -> Result<PathBuf, String> {
     let home_dir =
         dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
@@ -120,7 +112,6 @@ fn get_config_dir() -> Result<PathBuf, String> {
     Ok(home_dir.join(".config").join("omarchist"))
 }
 
-/// Validates that the settings.json file matches the expected schema
 fn validate_settings(settings_path: &Path) -> Result<(), String> {
     let content = fs::read_to_string(settings_path)
         .map_err(|e| format!("Failed to read settings.json: {}", e))?;
@@ -148,12 +139,10 @@ fn validate_settings(settings_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Gets the path to the settings.json file
 pub fn get_settings_path() -> Result<PathBuf, String> {
     get_config_dir().map(|dir| dir.join("settings.json"))
 }
 
-/// Reads the current settings
 pub fn read_settings() -> Result<SettingsSchema, String> {
     let path = get_settings_path()?;
     let content =
@@ -162,7 +151,6 @@ pub fn read_settings() -> Result<SettingsSchema, String> {
     serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))
 }
 
-/// Saves settings to the config file
 pub fn save_settings(settings: &SettingsSchema) -> Result<(), String> {
     let path = get_settings_path()?;
     let content = serde_json::to_string_pretty(settings)
@@ -173,8 +161,7 @@ pub fn save_settings(settings: &SettingsSchema) -> Result<(), String> {
     Ok(())
 }
 
-/// Updates the font_size setting and saves to disk
-/// font_size should be one of: "small", "medium", "large"
+// font_size should be one of: "small", "medium", "large"
 pub fn update_font_size(font_size: &str) -> Result<(), String> {
     let mut settings = read_settings()?;
 
@@ -197,19 +184,17 @@ pub fn update_font_size(font_size: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Gets the current font_size setting
 pub fn get_font_size() -> Result<String, String> {
     let settings = read_settings()?;
     Ok(settings.settings.font_size)
 }
 
-/// Represents whether to update or keep the settings file
+// whether to update or keep the settings file
 enum UpdateAction {
     Update,
     Keep,
 }
 
-/// Gets the version from the default settings.json
 fn get_default_settings_version() -> Result<String, String> {
     let default_path = PathBuf::from("defaults/omarchist/settings.json");
     let content = fs::read_to_string(&default_path)
@@ -219,8 +204,6 @@ fn get_default_settings_version() -> Result<String, String> {
     Ok(settings.version)
 }
 
-/// Parses a semver version string into comparable components
-/// Returns (major, minor, patch) or an error if invalid
 fn parse_version(version: &str) -> Result<(u32, u32, u32), String> {
     // Remove 'v' prefix if present
     let version = version.trim_start_matches('v');
@@ -246,8 +229,7 @@ fn parse_version(version: &str) -> Result<(u32, u32, u32), String> {
     Ok((major, minor, patch))
 }
 
-/// Compares two version strings
-/// Returns true if user_version is older than default_version
+// Compares two version strings
 fn is_version_older(user_version: &str, default_version: &str) -> Result<bool, String> {
     let user = parse_version(user_version)?;
     let default = parse_version(default_version)?;
@@ -261,7 +243,6 @@ fn is_version_older(user_version: &str, default_version: &str) -> Result<bool, S
     Ok(user.2 < default.2)
 }
 
-/// Determines whether to update settings.json or keep it
 fn should_update_settings(
     settings_path: &Path,
     default_version: &str,
@@ -278,7 +259,6 @@ fn should_update_settings(
     }
 }
 
-/// Replaces the settings.json file with the default version
 fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
     let default_path = PathBuf::from("defaults/omarchist/settings.json");
     fs::copy(&default_path, settings_path)
@@ -297,7 +277,28 @@ fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Copies settings.json from defaults when it doesn't exist
+// Copies settings.json from defaults when it doesn't exist
 fn copy_settings_from_default(settings_path: &Path) -> Result<(), String> {
     replace_settings_file(settings_path)
+}
+
+fn ensure_hyprland_conf(config_dir: &Path) -> Result<(), String> {
+    let hypr_dir = config_dir.join("hyprland");
+    let hypr_conf = hypr_dir.join("hyprland.conf");
+
+    if hypr_conf.exists() {
+        return Ok(());
+    }
+
+    // Create the hyprland directory if it doesn't exist yet
+    fs::create_dir_all(&hypr_dir)
+        .map_err(|e| format!("Failed to create hyprland config directory: {}", e))?;
+
+    let default_conf = PathBuf::from("defaults/omarchist/hyprland/hyprland.conf");
+    fs::copy(&default_conf, &hypr_conf)
+        .map_err(|e| format!("Failed to copy default hyprland.conf: {}", e))?;
+
+    println!("Copied default hyprland.conf to: {}", hypr_conf.display());
+
+    Ok(())
 }

@@ -66,7 +66,7 @@ impl Render for AboutView {
                             .ghost()
                             .cursor_pointer()
                             .large()
-                            .on_click(|_, _, cx| cx.open_url("https://www.omarchist.com")),
+                            .on_click(|_, _, cx| cx.open_url("https://www.omarchist.com/docs/")),
                     ),
             )
     }
