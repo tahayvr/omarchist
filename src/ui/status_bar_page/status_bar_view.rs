@@ -4,7 +4,7 @@ use gpui_component::{select::SelectEvent, v_flex};
 use crate::system::waybar::list_waybar_profiles;
 use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navigation;
 use crate::ui::dialogs::manage_waybar_profile_dialogs::{
-    take_pending_profile_management, ProfileManagementResult,
+    ProfileManagementResult, take_pending_profile_management,
 };
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
@@ -17,7 +17,6 @@ pub struct StatusBarView {
 
 impl StatusBarView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // Determine initial profile (first one on disk, else fallback)
         let mut profiles = list_waybar_profiles();
         profiles.sort();
         let initial_profile = profiles
@@ -28,7 +27,6 @@ impl StatusBarView {
         let header = cx.new(|cx| StatusBarHeader::new(window, cx));
         let design_area = cx.new(|cx| DesignArea::new(&initial_profile, window, cx));
 
-        // Subscribe to profile selection changes
         let select_entity = header.read(cx).select_entity();
         let design_area_ref = design_area.clone();
         let header_ref = header.clone();

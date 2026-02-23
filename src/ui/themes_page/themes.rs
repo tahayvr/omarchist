@@ -1,6 +1,6 @@
-use crate::system::themes::custom_themes::get_custom_themes;
+use crate::system::themes::custom_themes::get_user_themes;
 use crate::system::themes::system_themes::get_system_themes;
-use crate::types::themes::{CustomTheme, SysTheme};
+use crate::types::themes::ThemeOrigin;
 use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -10,7 +10,7 @@ use gpui_component::{
     v_flex,
 };
 
-/// Which part of the themes page has focus
+// Which part of the themes page has focus
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ThemesFocus {
     Tabs,
@@ -21,28 +21,13 @@ pub struct ThemesPage {
     active_tab: usize,
     theme_grid: Entity<ThemeGrid>,
     focus: ThemesFocus,
-    /// Whether the content area has global focus
     has_global_focus: bool,
 }
 
 impl ThemesPage {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let mut themes = Vec::new();
-
-        // Load system themes
-        if let Ok(system_themes) = get_system_themes() {
-            themes.extend(system_themes);
-        }
-
-        // Load custom themes and convert to SysTheme
-        if let Ok(custom_themes) = get_custom_themes() {
-            for custom_theme in custom_themes {
-                let sys_theme = Self::custom_theme_to_sys_theme(custom_theme);
-                themes.push(sys_theme);
-            }
-        }
-
-        let theme_grid = cx.new(|cx| ThemeGrid::new(cx, themes.clone(), None));
+        let themes = Self::load_all_themes();
+        let theme_grid = cx.new(|cx| ThemeGrid::new(cx, themes));
 
         Self {
             active_tab: 0,
@@ -52,17 +37,14 @@ impl ThemesPage {
         }
     }
 
-    /// Set whether the content area has global focus
     pub fn set_global_focus(&mut self, has_focus: bool, cx: &mut Context<Self>) {
         self.has_global_focus = has_focus;
         cx.notify();
     }
 
-    /// Handle NextItem (Down arrow)
     pub fn handle_next_item(&mut self, cx: &mut Context<Self>) {
         match self.focus {
             ThemesFocus::Tabs => {
-                // Move focus to grid
                 self.focus = ThemesFocus::Grid;
                 cx.notify();
             }
@@ -74,12 +56,9 @@ impl ThemesPage {
         }
     }
 
-    /// Handle PrevItem (Up arrow)
     pub fn handle_prev_item(&mut self, cx: &mut Context<Self>) {
         match self.focus {
-            ThemesFocus::Tabs => {
-                // Already at top
-            }
+            ThemesFocus::Tabs => {}
             ThemesFocus::Grid => {
                 self.theme_grid.update(cx, |grid, cx| {
                     grid.move_up(cx);
@@ -88,7 +67,6 @@ impl ThemesPage {
         }
     }
 
-    /// Handle SelectNext (Right arrow)
     pub fn handle_select_next(&mut self, cx: &mut Context<Self>) {
         match self.focus {
             ThemesFocus::Tabs => {
@@ -105,7 +83,6 @@ impl ThemesPage {
         }
     }
 
-    /// Handle SelectPrev (Left arrow)
     pub fn handle_select_prev(&mut self, cx: &mut Context<Self>) {
         match self.focus {
             ThemesFocus::Tabs => {
@@ -122,11 +99,9 @@ impl ThemesPage {
         }
     }
 
-    /// Handle Activate (Enter/Space)
     pub fn handle_activate(&mut self, cx: &mut Context<Self>) {
         match self.focus {
             ThemesFocus::Tabs => {
-                // Move focus to grid
                 self.focus = ThemesFocus::Grid;
                 cx.notify();
             }
@@ -138,78 +113,47 @@ impl ThemesPage {
         }
     }
 
-    /// Refresh the themes list - reload from disk
     pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
-        let mut themes = Vec::new();
-
-        // Load system themes
-        if let Ok(system_themes) = get_system_themes() {
-            themes.extend(system_themes);
-        }
-
-        // Load custom themes and convert to SysTheme
-        if let Ok(custom_themes) = get_custom_themes() {
-            for custom_theme in custom_themes {
-                let sys_theme = Self::custom_theme_to_sys_theme(custom_theme);
-                themes.push(sys_theme);
-            }
-        }
-
-        // Update the theme grid with new themes
+        let themes = Self::load_all_themes();
         self.theme_grid.update(cx, |grid, cx| {
             grid.update_themes(themes, cx);
         });
-
         cx.notify();
     }
 
-    fn custom_theme_to_sys_theme(custom_theme: CustomTheme) -> SysTheme {
-        SysTheme {
-            dir: custom_theme.name.clone(),
-            title: crate::system::themes::custom_themes::dir_to_title(&custom_theme.name),
-            description: format!(
-                "Custom theme by {}",
-                custom_theme.author.as_deref().unwrap_or("Unknown")
-            ),
-            image: custom_theme.image,
-            is_system: false,
-            is_custom: true,
-            colors: custom_theme.colors,
-        }
-    }
-}
-
-impl ThemesPage {
     pub fn set_sidebar_collapsed(&mut self, collapsed: bool, cx: &mut Context<Self>) {
         self.theme_grid.update(cx, |grid, _| {
             grid.set_sidebar_collapsed(collapsed);
         });
+    }
+
+    fn load_all_themes() -> Vec<crate::types::themes::ThemeEntry> {
+        let mut themes = Vec::new();
+        if let Ok(system) = get_system_themes() {
+            themes.extend(system);
+        }
+        if let Ok(user) = get_user_themes() {
+            themes.extend(user);
+        }
+        themes
     }
 }
 
 impl Render for ThemesPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let filter = match self.active_tab {
-            0 => ThemeFilter::System,
-            1 => ThemeFilter::Custom,
-            _ => ThemeFilter::System,
+            0 => ThemeFilter::All,
+            1 => ThemeFilter::Only(ThemeOrigin::Omarchist),
+            _ => ThemeFilter::All,
         };
 
-        // Update the theme grid's filter
         self.theme_grid.update(cx, |grid, _| {
-            grid.set_filter(Some(filter));
-        });
-
-        // Update grid with current focus state
-        let grid_has_focus = self.focus == ThemesFocus::Grid;
-        self.theme_grid.update(cx, |grid, _cx| {
-            grid.set_has_focus(grid_has_focus);
+            grid.set_filter(filter);
         });
 
         let tabs_has_focus = self.has_global_focus && self.focus == ThemesFocus::Tabs;
         let grid_has_focus = self.has_global_focus && self.focus == ThemesFocus::Grid;
 
-        // Update grid with current focus state
         self.theme_grid.update(cx, |grid, _cx| {
             grid.set_has_focus(grid_has_focus);
         });
@@ -225,15 +169,14 @@ impl Render for ThemesPage {
                     .when(tabs_has_focus, |this| this.bg(gpui::rgb(0x3a3a3a)))
                     .child(
                         TabBar::new("theme-tabs")
-                            // .segmented()
                             .cursor_pointer()
                             .selected_index(self.active_tab)
                             .on_click(cx.listener(|view, index, _, cx| {
                                 view.active_tab = *index;
                                 cx.notify();
                             }))
-                            .child(Tab::new().label("System Themes"))
-                            .child(Tab::new().label("Custom Themes")),
+                            .child(Tab::new().label("All Themes"))
+                            .child(Tab::new().label("Omarchist Themes")),
                     ),
             )
             .child(self.theme_grid.clone())

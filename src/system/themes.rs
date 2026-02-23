@@ -6,3 +6,4 @@ pub mod system_themes;
 pub mod theme_file_ops;
 pub mod theme_generator;
 pub mod theme_management;
+pub mod utils;

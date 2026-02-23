@@ -1,6 +1,6 @@
 use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
-use crate::types::themes::SysTheme;
+use crate::types::themes::ThemeEntry;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
@@ -11,14 +11,14 @@ use smol;
 use std::path::PathBuf;
 
 pub struct ThemeCard {
-    theme: SysTheme,
+    theme: ThemeEntry,
     image_height: Pixels,
     index: usize,
     is_focused: bool,
 }
 
 impl ThemeCard {
-    pub fn new(theme: SysTheme, image_height: Pixels, index: usize) -> Self {
+    pub fn new(theme: ThemeEntry, image_height: Pixels, index: usize) -> Self {
         Self {
             theme,
             image_height,
@@ -36,7 +36,6 @@ impl ThemeCard {
     }
 
     pub fn activate(&mut self) {
-        // Apply the theme when activated via keyboard
         let dir = self.theme.dir.clone();
         smol::spawn(async move {
             if let Err(e) = apply_theme(dir).await {
@@ -47,7 +46,7 @@ impl ThemeCard {
     }
 }
 
-/// Parse hex color string (#RRGGBB) to Hsla
+// Parse hex to Hsla
 fn parse_hex_color(hex: &str) -> Option<Hsla> {
     let hex = hex.trim_start_matches('#');
     if hex.len() != 6 {
@@ -61,7 +60,6 @@ fn parse_hex_color(hex: &str) -> Option<Hsla> {
     Some(rgb(u32::from_be_bytes([0, r, g, b])).into())
 }
 
-/// color palette display with theme colors
 fn color_palette_display(colors: &crate::types::themes::ThemeColors) -> Div {
     let all_colors = [
         (&colors.primary.background, "bg"),
@@ -114,9 +112,10 @@ impl Render for ThemeCard {
                             .child(self.theme.title.clone()),
                     )
                     .child({
-                        let is_custom = self.theme.is_custom;
+                        let is_editable = self.theme.origin.is_editable();
+                        let is_deletable = self.theme.origin.is_deletable();
+                        let is_system = matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
                         let theme_dir_clone = self.theme.dir.clone();
-                        let is_system = self.theme.is_system;
                         Button::new(("menu", self.index))
                             .icon(IconName::EllipsisVertical)
                             .xsmall()
@@ -129,15 +128,13 @@ impl Render for ThemeCard {
                                 menu.item(
                                     PopupMenuItem::new("Open Folder")
                                         .on_click(move |_event, _window, _cx| {
-                                            // Open theme folder in Nautilus
                                             let _ = open_theme_folder(&theme_dir_open, is_system);
                                         }),
                                 )
-                                .when(is_custom, |this| {
+                                .when(is_editable, |this| {
                                     this.item(
                                         PopupMenuItem::new("Edit Theme")
                                             .on_click(move |_event, _window, cx| {
-                                                // Store theme name for navigation
                                                 crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION.with(|nav| {
                                                     *nav.borrow_mut() = Some(theme_dir_edit.clone());
                                                 });
@@ -146,14 +143,12 @@ impl Render for ThemeCard {
                                     )
                                 })
                                 .separator()
-                                .when(is_custom, |this| {
+                                .when(is_deletable, |this| {
                                     this.item(
                                         PopupMenuItem::new("Delete Theme")
                                             .on_click(move |_event, _window, cx| {
-                                                // Delete the theme folder
                                                 match delete_theme(&theme_dir_delete, is_system) {
                                                     Ok(()) => {
-                                                        // Trigger themes refresh
                                                         crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
                                                             *flag.borrow_mut() = true;
                                                         });
@@ -171,7 +166,7 @@ impl Render for ThemeCard {
             )
             .child(div().h(px(1.)).bg(theme.border))
             .child(
-                // Image / preview container - 16:9 aspect ratio
+                // Image 16:9 aspect ratio
                 div()
                     .w(self.image_height / 9.0 * 16.0)
                     .h(self.image_height)
@@ -186,7 +181,6 @@ impl Render for ThemeCard {
                         this.child(img(path).w_full().h_full().object_fit(ObjectFit::Cover))
                     })
                     .when(self.theme.image.is_empty(), |this| {
-                        // Display a vertical color palette preview
                         this.when_some(self.theme.colors.as_ref(), |this, colors| {
                             this.child(color_palette_display(colors))
                         })
@@ -210,7 +204,7 @@ impl Render for ThemeCard {
                     .p_3()
                     .bg(theme.background)
                     .child({
-                        if self.theme.is_custom {
+                        if self.theme.origin.is_editable() {
                             let theme_dir = self.theme.dir.clone();
                             Button::new(("edit", self.index))
                                 .label("Edit")

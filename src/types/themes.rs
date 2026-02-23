@@ -1,31 +1,51 @@
 use serde::{Deserialize, Serialize};
 
-/// Represents the active tab in the themes page
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThemeTab {
+// Where a theme comes from determines what actions are available on it.
+//
+// - `System`    — shipped with Omarchy, read-only (`~/.local/share/omarchy/themes/`)
+// - `Omarchist` — created with this app, fully editable (`~/.config/omarchy/themes/`, has `omarchist.json`)
+// - `Community` — installed by the user from an external source, not editable here (`~/.config/omarchy/themes/`, no `omarchist.json`)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ThemeOrigin {
     System,
-    Custom,
+    Omarchist,
+    Community,
 }
 
-/// System theme data structure from backend
+impl ThemeOrigin {
+    pub fn badge_text(&self) -> &'static str {
+        match self {
+            ThemeOrigin::System => "System",
+            ThemeOrigin::Omarchist => "Omarchist",
+            ThemeOrigin::Community => "Community",
+        }
+    }
+
+    pub fn is_editable(&self) -> bool {
+        matches!(self, ThemeOrigin::Omarchist)
+    }
+
+    pub fn is_deletable(&self) -> bool {
+        matches!(self, ThemeOrigin::Omarchist | ThemeOrigin::Community)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SysTheme {
+pub struct ThemeEntry {
     pub dir: String,
     pub title: String,
-    pub description: String,
-    pub image: String, // Absolute file path or empty
-    pub is_system: bool,
-    pub is_custom: bool,
+    pub origin: ThemeOrigin,
+    pub image: String,
     pub colors: Option<ThemeColors>,
 }
 
-/// Custom theme data structure from backend
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CustomTheme {
+pub struct RawUserTheme {
     #[serde(default = "default_version")]
     pub version: String,
     pub name: String,
     pub image: String,
+    pub origin: ThemeOrigin,
     pub created_at: String,
     pub modified_at: String,
     pub author: Option<String>,
@@ -33,25 +53,36 @@ pub struct CustomTheme {
     pub colors: Option<ThemeColors>,
 }
 
+impl RawUserTheme {
+    pub fn into_entry(self, title: String) -> ThemeEntry {
+        ThemeEntry {
+            dir: self.name,
+            title,
+            origin: self.origin,
+            image: self.image,
+            colors: self.colors,
+        }
+    }
+}
+
 fn default_version() -> String {
     "1.0.0".to_string()
 }
 
-/// Theme colors structure
+// Theme colors structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeColors {
     pub primary: PrimaryColors,
     pub terminal: TerminalColors,
 }
 
-/// Primary colors (background and foreground)
+// Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrimaryColors {
-    pub background: String, // Hex color
-    pub foreground: String, // Hex color
+    pub background: String,
+    pub foreground: String,
 }
 
-/// Terminal colors (8 standard colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalColors {
     pub black: String,
@@ -62,84 +93,6 @@ pub struct TerminalColors {
     pub magenta: String,
     pub cyan: String,
     pub white: String,
-}
-
-/// Unified theme representation for UI
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ThemeData {
-    System(SysTheme),
-    Custom(CustomTheme),
-}
-
-impl ThemeData {
-    pub fn dir(&self) -> &str {
-        match self {
-            ThemeData::System(theme) => &theme.dir,
-            ThemeData::Custom(theme) => &theme.name,
-        }
-    }
-
-    pub fn title(&self) -> &str {
-        match self {
-            ThemeData::System(theme) => &theme.title,
-            ThemeData::Custom(theme) => &theme.name,
-        }
-    }
-
-    pub fn image(&self) -> Option<&str> {
-        match self {
-            ThemeData::System(theme) => {
-                if theme.image.is_empty() {
-                    None
-                } else {
-                    Some(&theme.image)
-                }
-            }
-            ThemeData::Custom(theme) => {
-                if theme.image.is_empty() {
-                    None
-                } else {
-                    Some(&theme.image)
-                }
-            }
-        }
-    }
-
-    pub fn colors(&self) -> Option<&ThemeColors> {
-        match self {
-            ThemeData::System(theme) => theme.colors.as_ref(),
-            ThemeData::Custom(theme) => theme.colors.as_ref(),
-        }
-    }
-
-    pub fn is_system(&self) -> bool {
-        match self {
-            ThemeData::System(theme) => theme.is_system,
-            ThemeData::Custom(_) => false,
-        }
-    }
-
-    pub fn is_custom(&self) -> bool {
-        match self {
-            ThemeData::System(theme) => theme.is_custom,
-            ThemeData::Custom(_) => true,
-        }
-    }
-
-    pub fn badge_text(&self) -> &str {
-        match self {
-            ThemeData::System(theme) => {
-                if theme.is_system {
-                    "System"
-                } else if theme.is_custom {
-                    "Custom"
-                } else {
-                    "Community"
-                }
-            }
-            ThemeData::Custom(_) => "Custom",
-        }
-    }
 }
 
 /// Structure for editing a theme - matches omarchist.json format
@@ -229,11 +182,11 @@ impl Default for ColorsConfig {
     }
 }
 
-/// Waybar configuration structure
+/// Waybar configuration structure - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaybarConfig {
-    pub background: String, // Hex color
-    pub foreground: String, // Hex color
+    pub background: String,
+    pub foreground: String,
 }
 
 impl Default for WaybarConfig {
@@ -245,11 +198,12 @@ impl Default for WaybarConfig {
     }
 }
 
-/// Hyprland window configuration structure
+// Hyprland window configuration structure
+// Hex color (without #, e.g., "6e6e92")
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HyprlandConfig {
-    pub active_border: String,   // Hex color (without #, e.g., "6e6e92")
-    pub inactive_border: String, // Hex color (without #, e.g., "5C5C5E")
+    pub active_border: String,
+    pub inactive_border: String,
 }
 
 impl Default for HyprlandConfig {
@@ -261,15 +215,15 @@ impl Default for HyprlandConfig {
     }
 }
 
-/// Walker menu configuration structure
+/// Walker menu configuration structure - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkerConfig {
-    pub background: String,    // Hex color
-    pub base: String,          // Hex color
-    pub border: String,        // Hex color
-    pub foreground: String,    // Hex color
-    pub text: String,          // Hex color
-    pub selected_text: String, // Hex color
+    pub background: String,
+    pub base: String,
+    pub border: String,
+    pub foreground: String,
+    pub text: String,
+    pub selected_text: String,
 }
 
 impl Default for WalkerConfig {
@@ -285,10 +239,10 @@ impl Default for WalkerConfig {
     }
 }
 
-/// Browser (Chromium) configuration structure
+/// Browser (Chromium) config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserConfig {
-    pub theme_color: String, // Hex color for browser theme
+    pub theme_color: String,
 }
 
 impl Default for BrowserConfig {
@@ -299,14 +253,14 @@ impl Default for BrowserConfig {
     }
 }
 
-/// Hyprlock configuration structure
+/// Hyprlock config - Hex color (rgb format: 0f0f19)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HyprlockConfig {
-    pub color: String,       // Hex color (rgb format: 0f0f19)
-    pub inner_color: String, // Hex color (rgb format: 0f0f19)
-    pub outer_color: String, // Hex color (rgb format: 33a0ff)
-    pub font_color: String,  // Hex color (rgb format: ff66f5)
-    pub check_color: String, // Hex color (rgb format: ffea00)
+    pub color: String,
+    pub inner_color: String,
+    pub outer_color: String,
+    pub font_color: String,
+    pub check_color: String,
 }
 
 impl Default for HyprlockConfig {
@@ -321,12 +275,12 @@ impl Default for HyprlockConfig {
     }
 }
 
-/// Mako notification configuration structure
+/// Mako notification config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MakoConfig {
-    pub text_color: String,       // Hex color (#EDEDFE)
-    pub border_color: String,     // Hex color (#00F59B)
-    pub background_color: String, // Hex color (#0F0F19)
+    pub text_color: String,
+    pub border_color: String,
+    pub background_color: String,
 }
 
 impl Default for MakoConfig {
@@ -339,14 +293,14 @@ impl Default for MakoConfig {
     }
 }
 
-/// SwayOSD configuration structure
+/// SwayOSD config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwayosdConfig {
-    pub background_color: String, // Hex color (#0F0F19)
-    pub border_color: String,     // Hex color (#33A1FF)
-    pub label: String,            // Hex color (#8A8A8D)
-    pub image: String,            // Hex color (#8A8A8D)
-    pub progress: String,         // Hex color (#8A8A8D)
+    pub background_color: String,
+    pub border_color: String,
+    pub label: String,
+    pub image: String,
+    pub progress: String,
 }
 
 impl Default for SwayosdConfig {
@@ -361,53 +315,43 @@ impl Default for SwayosdConfig {
     }
 }
 
-/// Btop configuration structure for activity monitor colors
+/// Btop config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BtopConfig {
-    // Main colors
-    pub main_bg: String,     // Main background
-    pub main_fg: String,     // Main text color
-    pub title: String,       // Title color for boxes
-    pub hi_fg: String,       // Highlight color for keyboard shortcuts
-    pub selected_bg: String, // Background of selected item in processes
-    pub selected_fg: String, // Foreground of selected item in processes
-    pub inactive_fg: String, // Color of inactive/disabled text
-    pub proc_misc: String,   // Misc colors for processes box
-    // Box outline colors
-    pub cpu_box: String,  // Cpu box outline color
-    pub mem_box: String,  // Memory/disks box outline color
-    pub net_box: String,  // Net up/down box outline color
-    pub proc_box: String, // Processes box outline color
-    pub div_line: String, // Box divider line color
-    // Gradient colors - Temperature
+    pub main_bg: String,
+    pub main_fg: String,
+    pub title: String,
+    pub hi_fg: String,
+    pub selected_bg: String,
+    pub selected_fg: String,
+    pub inactive_fg: String,
+    pub proc_misc: String,
+    pub cpu_box: String,
+    pub mem_box: String,
+    pub net_box: String,
+    pub proc_box: String,
+    pub div_line: String,
     pub temp_start: String,
     pub temp_mid: String,
     pub temp_end: String,
-    // Gradient colors - CPU
     pub cpu_start: String,
     pub cpu_mid: String,
     pub cpu_end: String,
-    // Gradient colors - Free meter
     pub free_start: String,
     pub free_mid: String,
     pub free_end: String,
-    // Gradient colors - Cached meter
     pub cached_start: String,
     pub cached_mid: String,
     pub cached_end: String,
-    // Gradient colors - Available meter
     pub available_start: String,
     pub available_mid: String,
     pub available_end: String,
-    // Gradient colors - Used meter
     pub used_start: String,
     pub used_mid: String,
     pub used_end: String,
-    // Gradient colors - Download
     pub download_start: String,
     pub download_mid: String,
     pub download_end: String,
-    // Gradient colors - Upload
     pub upload_start: String,
     pub upload_mid: String,
     pub upload_end: String,

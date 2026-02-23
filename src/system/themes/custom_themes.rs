@@ -1,16 +1,18 @@
 use super::parse_colors::{parse_alacritty_toml, parse_colors_toml};
 use super::preview_img::find_preview_image;
+use super::utils::dir_to_title;
 
-use crate::types::themes::CustomTheme;
+use crate::types::themes::{RawUserTheme, ThemeEntry, ThemeOrigin};
 use std::fs;
 use std::path::{Path, PathBuf};
 
-fn get_custom_themes_dir() -> Option<PathBuf> {
+pub fn get_user_themes_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))
 }
 
-fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
+fn load_theme_from_dir(theme_dir: &Path) -> Option<RawUserTheme> {
     let dir_name = theme_dir.file_name()?.to_str()?;
+
     let colors_path = theme_dir.join("colors.toml");
     let alacritty_path = theme_dir.join("alacritty.toml");
     let colors = if colors_path.exists() {
@@ -20,9 +22,16 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
     } else {
         None
     };
+
     let image = find_preview_image(theme_dir).unwrap_or_default();
 
-    // Get created_at and modified_at from directory metadata
+    // Themes with omarchist.json were created by this app; everything else is Community.
+    let origin = if theme_dir.join("omarchist.json").exists() {
+        ThemeOrigin::Omarchist
+    } else {
+        ThemeOrigin::Community
+    };
+
     let metadata = fs::metadata(theme_dir).ok();
     let created_at = metadata
         .as_ref()
@@ -35,7 +44,6 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
         .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
         .unwrap_or_default();
 
-    // Try to load author and apps from theme.json if present
     let theme_json_path = theme_dir.join("theme.json");
     let (author, apps) = if theme_json_path.exists() {
         match fs::read_to_string(&theme_json_path) {
@@ -45,10 +53,7 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
                     .get("author")
                     .and_then(|a| a.as_str())
                     .map(|s| s.to_string());
-                let apps = v
-                    .get("apps")
-                    .cloned()
-                    .unwrap_or_else(|| serde_json::Value::Null);
+                let apps = v.get("apps").cloned().unwrap_or(serde_json::Value::Null);
                 (author, apps)
             }
             Err(_) => (None, serde_json::Value::Null),
@@ -57,10 +62,11 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
         (None, serde_json::Value::Null)
     };
 
-    Some(CustomTheme {
+    Some(RawUserTheme {
         version: "1.0.0".to_string(),
         name: dir_name.to_string(),
         image,
+        origin,
         created_at,
         modified_at,
         author,
@@ -69,49 +75,29 @@ fn load_theme_from_dir_quick(theme_dir: &Path) -> Option<CustomTheme> {
     })
 }
 
-pub fn get_custom_themes() -> Result<Vec<CustomTheme>, String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+// Scan `~/.config/omarchy/themes/`
+pub fn get_user_themes() -> Result<Vec<ThemeEntry>, String> {
+    let themes_dir = get_user_themes_dir()
+        .ok_or_else(|| "Could not determine user themes directory".to_string())?;
 
     if !themes_dir.exists() {
         return Ok(Vec::new());
     }
 
-    let mut themes = Vec::new();
     let entries =
         fs::read_dir(&themes_dir).map_err(|e| format!("Failed to read themes directory: {e}"))?;
 
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.is_dir()
-            && let Some(theme) = load_theme_from_dir_quick(&path)
-        {
-            themes.push(theme);
-        }
-    }
+    let mut themes: Vec<ThemeEntry> = entries
+        .flatten()
+        .filter(|e| e.path().is_dir())
+        .filter_map(|e| load_theme_from_dir(&e.path()))
+        .map(|raw| {
+            let title = dir_to_title(&raw.name);
+            raw.into_entry(title)
+        })
+        .collect();
 
-    themes.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
+    themes.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
 
     Ok(themes)
-}
-
-/// Convert directory name to a nice display title
-pub fn dir_to_title(dir_name: &str) -> String {
-    let mut title = String::with_capacity(dir_name.len() + 10);
-    let mut capitalize_next = true;
-
-    for ch in dir_name.chars() {
-        match ch {
-            '-' | '_' => {
-                title.push(' ');
-                capitalize_next = true;
-            }
-            c if capitalize_next => {
-                title.extend(c.to_uppercase());
-                capitalize_next = false;
-            }
-            c => title.push(c),
-        }
-    }
-    title
 }

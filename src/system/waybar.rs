@@ -3,8 +3,7 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
-/// Top-level bar settings read from / written to a profile's config.jsonc.
-/// All fields are `Option` so that absent keys remain absent on save.
+// All fields are `Option` so that absent keys remain absent on save.
 #[derive(Debug, Clone, Default)]
 pub struct BarSettings {
     pub position: Option<String>,
@@ -20,7 +19,7 @@ pub struct BarSettings {
     pub margin_left: Option<i32>,
 }
 
-/// Read the top-level bar settings from a profile's config.jsonc.
+// from a profile's config.jsonc.
 pub fn get_bar_settings(profile_name: &str) -> Option<BarSettings> {
     let config_path = dirs::home_dir()?
         .join(".config")
@@ -62,10 +61,7 @@ pub fn get_bar_settings(profile_name: &str) -> Option<BarSettings> {
     })
 }
 
-/// Write a single top-level key into the profile's config.jsonc, preserving
-/// all other content, comments and formatting.
-///
-/// `value` is a JSON-serialized string (e.g. `"\"top\""`, `"26"`, `"true"`).
+// `value` is a JSON-serialized string (e.g. `"\"top\""`, `"26"`, `"true"`).
 pub fn set_bar_setting(
     profile_name: &str,
     key: &str,
@@ -89,17 +85,14 @@ pub fn set_bar_setting(
     fs::write(&config_path, new_raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
-/// Replace (or insert) a top-level scalar key-value pair in a JSONC string.
-///
-/// Strategy:
-/// 1. If the key already exists, replace its value in-place.
-/// 2. If the key does not exist, insert it before the first `modules-` key
-///    (or just before the closing `}` of the root object).
+// 1. If the key already exists, replace its value in-place.
+// 2. If the key does not exist, insert it before the first `modules-` key
+//    (or just before the closing `}` of the root object).
 fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> Option<String> {
     let value_str = value.to_string();
     let key_pat = format!("\"{}\"", key);
 
-    // ---- Case 1: key already present — replace its scalar value in-place ----
+    // Case 1: key already present
     if let Some(key_pos) = src.find(key_pat.as_str()) {
         // Find `:` after the key
         let after_key = &src[key_pos + key_pat.len()..];
@@ -107,7 +100,6 @@ fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> O
         let after_colon_start = key_pos + key_pat.len() + colon_offset + 1;
         let after_colon = &src[after_colon_start..];
 
-        // Skip whitespace to find the start of the value
         let value_start_offset = after_colon
             .chars()
             .take_while(|c| c.is_whitespace())
@@ -115,7 +107,7 @@ fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> O
             .sum::<usize>();
         let value_abs_start = after_colon_start + value_start_offset;
 
-        // Find the end of the value — walk char-by-char respecting strings/nesting
+        // Find the end of the value
         let value_abs_end = find_value_end(src, value_abs_start)?;
 
         let mut result = String::with_capacity(src.len());
@@ -125,14 +117,12 @@ fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> O
         return Some(result);
     }
 
-    // ---- Case 2: key absent — insert before first `modules-` key or closing `}` ----
+    // Case 2: key absent
     let insert_line = format!("  \"{}\": {},\n", key, value_str);
 
-    // Find "modules-left" as the insertion anchor
     let anchor = if let Some(pos) = find_top_level_key(src, "modules-left") {
         pos
     } else {
-        // Fall back: find the last `}` in the file
         src.rfind('}')?
     };
 
@@ -143,9 +133,6 @@ fn replace_top_level_value(src: &str, key: &str, value: &serde_json::Value) -> O
     Some(result)
 }
 
-/// Find the byte position of a top-level key (`"key":`) in a JSONC string,
-/// respecting strings and nested objects/arrays so we don't match keys inside
-/// module config blocks.
 fn find_top_level_key(src: &str, key: &str) -> Option<usize> {
     let key_pat = format!("\"{}\"", key);
     let mut depth = 0usize;
@@ -185,16 +172,12 @@ fn find_top_level_key(src: &str, key: &str) -> Option<usize> {
     None
 }
 
-/// Find the byte index of the character just past the end of the JSON value
-/// that starts at `start` in `src`. Handles strings, arrays, objects, and
-/// plain scalars (numbers, booleans, null) terminated by `,`, `\n`, `}`, or `]`.
 fn find_value_end(src: &str, start: usize) -> Option<usize> {
     let tail = &src[start..];
     let first_char = tail.chars().next()?;
 
     match first_char {
         '"' => {
-            // String — walk until closing unescaped `"`
             let mut i = 1usize;
             let bytes = tail.as_bytes();
             while i < bytes.len() {
@@ -210,7 +193,6 @@ fn find_value_end(src: &str, start: usize) -> Option<usize> {
             None
         }
         '{' | '[' => {
-            // Object / array — track depth
             let open = first_char;
             let close = if open == '{' { '}' } else { ']' };
             let mut depth = 0usize;
@@ -218,7 +200,7 @@ fn find_value_end(src: &str, start: usize) -> Option<usize> {
             for (i, ch) in tail.char_indices() {
                 if in_s {
                     if ch == '\\' {
-                        continue; // next char is escaped — handled by not flipping in_s
+                        continue;
                     } else if ch == '"' {
                         in_s = false;
                     }
@@ -239,7 +221,6 @@ fn find_value_end(src: &str, start: usize) -> Option<usize> {
             None
         }
         _ => {
-            // Scalar (number, bool, null) — ends at `,` `}` `]` or newline
             let end = tail
                 .find(|c: char| [',', '}', ']', '\n'].contains(&c))
                 .unwrap_or(tail.len());
@@ -248,7 +229,6 @@ fn find_value_end(src: &str, start: usize) -> Option<usize> {
     }
 }
 
-/// The three zones of the waybar
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum WaybarZone {
     Left,
@@ -256,17 +236,13 @@ pub enum WaybarZone {
     Right,
 }
 
-/// A single module entry in the waybar config
+// A single module entry
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaybarModule {
-    /// The raw key from the config (e.g. "hyprland/workspaces", "custom/omarchy", "clock")
     pub key: String,
-    /// Human-readable display label derived from the key
     pub label: String,
-    /// Icon character(s) extracted from the module's format/format-icons fields.
-    /// Empty string if none could be determined.
+    // Icon char extracted from the module's format/format-icons fields.
     pub icon: String,
-    /// Which zone this module belongs to
     pub zone: WaybarZone,
 }
 
@@ -282,7 +258,6 @@ impl WaybarModule {
     }
 }
 
-/// Derive a short display label from a waybar module key
 fn module_label(key: &str) -> String {
     let base = key
         .strip_prefix("custom/")
@@ -302,19 +277,15 @@ fn module_label(key: &str) -> String {
         .join(" ")
 }
 
-/// Extract a representative icon string from a module's JSON config block.
 fn extract_icon(key: &str, root: &serde_json::Value) -> String {
-    // group/* modules: look up the expand-icon child or first module child
     if let Some(group_key) = key.strip_prefix("group/") {
-        // Try the group's own config block first
-        if let Some(block) = root.get(key) {
-            // modules list inside the group
-            if let Some(modules) = block.get("modules").and_then(|v| v.as_array()) {
-                for child_key in modules.iter().filter_map(|v| v.as_str()) {
-                    let child_icon = extract_icon(child_key, root);
-                    if !child_icon.is_empty() {
-                        return child_icon;
-                    }
+        if let Some(block) = root.get(key)
+            && let Some(modules) = block.get("modules").and_then(|v| v.as_array())
+        {
+            for child_key in modules.iter().filter_map(|v| v.as_str()) {
+                let child_icon = extract_icon(child_key, root);
+                if !child_icon.is_empty() {
+                    return child_icon;
                 }
             }
         }
@@ -344,7 +315,7 @@ fn extract_icon(key: &str, root: &serde_json::Value) -> String {
     builtin_icon(key)
 }
 
-/// Resolve a `format` string to a display character.
+// Resolve a `format` string to a display character.
 fn resolve_format(fmt: &str, block: Option<&serde_json::Value>) -> String {
     // Strip HTML-style <span ...>...</span> tags, keep inner text
     let stripped = strip_span_tags(fmt);
@@ -366,8 +337,8 @@ fn resolve_format(fmt: &str, block: Option<&serde_json::Value>) -> String {
     stripped.trim().to_string()
 }
 
-/// Strip `<span ...>...</span>` wrapper tags from a format string,
-/// keeping the inner characters. Also un-escapes `\uXXXX` sequences.
+// Strip `<span ...>...</span>` wrapper tags from a format string,
+// keeping the inner characters. Also un-escapes `\uXXXX` sequences.
 fn strip_span_tags(s: &str) -> String {
     // Remove <span ...> and </span>
     let mut result = String::new();
@@ -387,7 +358,7 @@ fn strip_span_tags(s: &str) -> String {
     unescape_unicode(&result)
 }
 
-/// Convert `\uXXXX` escape sequences in a string to the actual Unicode chars.
+// Convert `\uXXXX` escape sequences in a string to the actual Unicode chars.
 fn unescape_unicode(s: &str) -> String {
     let mut result = String::new();
     let mut chars = s.chars().peekable();
@@ -413,7 +384,7 @@ fn unescape_unicode(s: &str) -> String {
     result
 }
 
-/// Extract a non-empty icon string from a single JSON value (string or array of strings).
+// Extract a non-empty icon string from a single JSON value (string or array of strings).
 fn icon_from_value(v: &serde_json::Value) -> Option<String> {
     if let Some(arr) = v.as_array() {
         return arr
@@ -427,7 +398,7 @@ fn icon_from_value(v: &serde_json::Value) -> Option<String> {
         .map(|s| s.to_string())
 }
 
-/// Get the first non-empty icon from `format-icons`, whether it's a string, array, or keyed object.
+// Get the first non-empty icon from `format-icons`, whether it's a string, array, or keyed object.
 fn first_format_icon(block: Option<&serde_json::Value>) -> Option<String> {
     let icons = block?.get("format-icons")?;
 
@@ -829,8 +800,7 @@ pub fn delete_waybar_profile(profile_name: &str) -> Result<Option<String>, Strin
         return Err("Cannot delete the last profile".to_string());
     }
 
-    fs::remove_dir_all(&target)
-        .map_err(|e| format!("Failed to delete profile: {}", e))?;
+    fs::remove_dir_all(&target).map_err(|e| format!("Failed to delete profile: {}", e))?;
 
     // Return the first remaining profile (sorted) so the caller can switch to it
     let mut sorted = remaining;

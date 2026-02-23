@@ -3,46 +3,36 @@ use std::cell::RefCell;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Disableable, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputState},
-    v_flex, ActiveTheme, Disableable, WindowExt,
+    v_flex,
 };
 
 use crate::system::waybar::{
     delete_waybar_profile, duplicate_waybar_profile, rename_waybar_profile,
 };
 
-// ---------------------------------------------------------------------------
-// Shared thread-local: result of any profile management operation
-// ---------------------------------------------------------------------------
-
 // After a rename/duplicate/delete, the new "active" profile name is stored here
-// (for delete, it's the profile to switch to; for rename/duplicate, it's the new name).
+// for delete, it's the profile to switch to; for rename/duplicate, it's the new name.
 thread_local! {
     pub static PENDING_PROFILE_MANAGEMENT: RefCell<Option<ProfileManagementResult>> =
         const { RefCell::new(None) };
 }
 
-/// The outcome of a profile management action.
+// The outcome of a profile management action.
 #[derive(Debug, Clone)]
 pub enum ProfileManagementResult {
-    /// Profile was renamed; the new name is the active profile.
     Renamed { new_name: String },
-    /// Profile was duplicated; switch to the new copy.
     Duplicated { new_name: String },
-    /// Profile was deleted; switch to this surviving profile.
     Deleted { switch_to: String },
 }
 
-/// Take (and clear) the pending result.
+// Take (and clear) the pending result.
 pub fn take_pending_profile_management() -> Option<ProfileManagementResult> {
     PENDING_PROFILE_MANAGEMENT.with(|p| p.borrow_mut().take())
 }
-
-// ---------------------------------------------------------------------------
-// Rename dialog
-// ---------------------------------------------------------------------------
 
 pub fn open_rename_waybar_profile_dialog(
     current_profile: String,
@@ -170,10 +160,6 @@ impl RenderOnce for RenameProfileForm {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Duplicate dialog
-// ---------------------------------------------------------------------------
-
 pub fn open_duplicate_waybar_profile_dialog(
     source_profile: String,
     window: &mut Window,
@@ -299,10 +285,6 @@ impl RenderOnce for DuplicateProfileForm {
             )
     }
 }
-
-// ---------------------------------------------------------------------------
-// Delete dialog (confirmation)
-// ---------------------------------------------------------------------------
 
 pub fn open_delete_waybar_profile_dialog(profile_name: String, window: &mut Window, cx: &mut App) {
     window.open_dialog(cx, move |dialog, _, _| {

@@ -1,10 +1,10 @@
 use gpui::*;
 use gpui_component::{
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
     select::{Select, SelectState},
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;
@@ -17,7 +17,7 @@ use crate::ui::dialogs::manage_waybar_profile_dialogs::{
 
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
-    /// Raw profile names in the same order as the select items
+    // Raw profile names in the same order as the select items
     pub profile_names: Vec<String>,
 }
 
@@ -44,10 +44,7 @@ impl StatusBarHeader {
         }
     }
 
-    /// Reload the profile list from disk and select the given profile name.
-    /// Called after a new profile is created.
-    /// NOTE: updates the existing entity in-place — never replaces it, so any
-    /// external subscriptions (e.g. in StatusBarView) stay valid.
+    // NOTE: updates the existing entity in-place — never replaces it, so any
     pub fn reload_and_select(
         &mut self,
         profile_name: &str,
@@ -70,7 +67,6 @@ impl StatusBarHeader {
 
         self.profile_names = profile_names;
 
-        // Update items and selection in-place — keeps the entity identity stable
         let selected = items[select_index].clone();
         self.profile_select.update(cx, |state, cx| {
             state.set_items(items, window, cx);
@@ -78,7 +74,6 @@ impl StatusBarHeader {
         });
     }
 
-    /// Returns the currently selected profile name, if any.
     pub fn selected_profile<'a>(&'a self, cx: &'a App) -> Option<&'a str> {
         self.profile_select
             .read(cx)
@@ -86,7 +81,7 @@ impl StatusBarHeader {
             .map(|s| s.as_ref())
     }
 
-    /// Returns the underlying select entity so callers can subscribe to changes.
+    // Returns the underlying select entity so callers can subscribe to changes.
     pub fn select_entity(&self) -> Entity<SelectState<Vec<SharedString>>> {
         self.profile_select.clone()
     }
@@ -96,7 +91,6 @@ impl Render for StatusBarHeader {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
 
-        // Capture current profile for the more-options context menu
         let current_profile = self
             .profile_select
             .read(cx)
@@ -138,7 +132,6 @@ impl Render for StatusBarHeader {
                                 open_create_waybar_profile_dialog(window, cx);
                             }),
                     )
-                    // More-options button — left-click opens dropdown menu
                     .child(
                         Button::new("more-profile-options-btn")
                             .icon(Icon::new(IconName::Ellipsis))
