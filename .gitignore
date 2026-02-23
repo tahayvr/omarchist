@@ -6,6 +6,7 @@
 !Cargo.toml
 !Cargo.lock
 !LICENSE
+!README.md
 
 # Source code
 !src/

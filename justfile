@@ -25,4 +25,4 @@ build:
     cargo build --release
 
 docs VER:
-    cd docs/ && bun run docs:{{ VER }}
+    cd docs/ && bun run docs:{{ VER }} 2>/dev/null || true
