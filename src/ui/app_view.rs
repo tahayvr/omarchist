@@ -256,6 +256,7 @@ impl MainWindowView {
     /// Navigate to the currently focused sidebar item
     fn activate_focused_sidebar_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let page = self.page_from_sidebar_index(self.focus_state.sidebar_index);
+        self.focus_state.focused_section = FocusedSection::Content;
         self.navigate_to(page, window, cx);
     }
 
@@ -560,6 +561,8 @@ impl Render for MainWindowView {
                                                         || self.is_sidebar_item_focused(0),
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.focus_state.sidebar_index = 0;
+                                                    this.focus_state.focused_section = FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Themes,
                                                         window,
@@ -575,6 +578,8 @@ impl Render for MainWindowView {
                                                         || self.is_sidebar_item_focused(1),
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.focus_state.sidebar_index = 1;
+                                                    this.focus_state.focused_section = FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
                                                         window,
@@ -590,6 +595,8 @@ impl Render for MainWindowView {
                                                         || self.is_sidebar_item_focused(2),
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.focus_state.sidebar_index = 2;
+                                                    this.focus_state.focused_section = FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::StatusBar,
                                                         window,

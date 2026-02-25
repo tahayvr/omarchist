@@ -20,7 +20,7 @@ pub struct FocusState {
 impl FocusState {
     pub fn new() -> Self {
         Self {
-            focused_section: FocusedSection::Sidebar,
+            focused_section: FocusedSection::Content,
             sidebar_index: 0,
             sidebar_count: 3, // Themes, Configuration, Status Bar
         }
