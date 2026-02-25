@@ -1,8 +1,8 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
     menu::{ContextMenuExt, PopupMenuItem},
     tooltip::Tooltip,
+    ActiveTheme,
 };
 
 use crate::system::waybar::{WaybarModule, WaybarZone};
@@ -107,11 +107,12 @@ pub fn render_module_chip(
             let p = profile_for_edit.clone();
             let mk = module_key_for_edit.clone();
             menu.item(
-                PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu)).on_click(
-                    move |_event, _window, _cx| {
+                // TODO: Module editing is disabled for now — re-enable when the feature is ready
+                PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu))
+                    .disabled(true)
+                    .on_click(move |_event, _window, _cx| {
                         request_module_edit(p.clone(), mk.clone());
-                    },
-                ),
+                    }),
             )
             .separator()
             .item({

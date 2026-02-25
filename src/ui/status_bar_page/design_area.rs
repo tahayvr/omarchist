@@ -1,13 +1,16 @@
-use gpui::prelude::FluentBuilder as _;
+// TODO: Re-enable when Add Module feature is ready
+// use gpui::prelude::FluentBuilder as _;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable,
-    button::{Button, ButtonVariants as _},
-    h_flex, v_flex,
+    // button::{Button, ButtonVariants as _},
+    // h_flex,
+    v_flex,
+    ActiveTheme,
+    // IconName, Sizable,
 };
 
 use crate::ui::status_bar_page::bar_settings::BarSettingsPanel;
-use crate::ui::status_bar_page::module_editor::{ModuleEditorPanel, take_pending_module_edit};
+use crate::ui::status_bar_page::module_editor::{take_pending_module_edit, ModuleEditorPanel};
 use crate::ui::status_bar_page::module_library::ModuleLibraryPanel;
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
@@ -83,18 +86,20 @@ impl Render for DesignArea {
         }
 
         let theme = cx.theme();
-        let library_entity = self.module_library.clone();
-        let library_open = self.module_library.read(cx).is_open();
+        // TODO: Re-enable when Add Module feature is ready
+        // let library_entity = self.module_library.clone();
+        // let library_open = self.module_library.read(cx).is_open();
 
-        let add_module_btn = Button::new("add-module-btn")
-            .icon(IconName::Plus)
-            .label("Add Module")
-            .small()
-            .when(library_open, |b: Button| b.primary())
-            .when(!library_open, |b: Button| b.ghost())
-            .on_click(move |_, _window: &mut Window, cx| {
-                library_entity.update(cx, |lib, cx| lib.toggle(cx));
-            });
+        // TODO: Add Module button is disabled for now — re-enable when the feature is ready
+        // let add_module_btn = Button::new("add-module-btn")
+        //     .icon(IconName::Plus)
+        //     .label("Add Module")
+        //     .small()
+        //     .when(library_open, |b: Button| b.primary())
+        //     .when(!library_open, |b: Button| b.ghost())
+        //     .on_click(move |_, _window: &mut Window, cx| {
+        //         library_entity.update(cx, |lib, cx| lib.toggle(cx));
+        //     });
 
         v_flex()
             .w_full()
@@ -104,7 +109,7 @@ impl Render for DesignArea {
             .border_1()
             .border_color(theme.border)
             .rounded_md()
-            .child(h_flex().w_full().justify_end().child(add_module_btn))
+            // .child(h_flex().w_full().justify_end().child(add_module_btn))
             .child(self.preview.clone())
             .child(self.module_library.clone())
             .child(self.module_editor.clone())
