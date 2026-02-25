@@ -143,7 +143,7 @@ fn render_zone(
     let entity_end = entity.clone();
 
     let trail_drop = div()
-        .w(px(12.))
+        .w(px(4.))
         .h_full()
         .min_h(px(24.))
         .drag_over::<DragWaybarModule>(|style, _, _, cx| {

@@ -88,13 +88,12 @@ pub fn render_module_chip(
         .py_1()
         .rounded_md()
         .cursor_grab()
-        .text_sm()
         .bg(theme.secondary)
         .text_color(theme.secondary_foreground)
         .border_1()
         .border_color(theme.border)
         .hover(|s| s.bg(theme.secondary_hover))
-        .child(display)
+        .child(div().text_lg().line_height(relative(1.0)).child(display))
         .tooltip(move |window, cx| Tooltip::new(label_for_tooltip.clone()).build(window, cx))
         .on_drag(drag_payload, move |payload, _offset, _window, cx| {
             cx.stop_propagation();
