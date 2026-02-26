@@ -1,5 +1,4 @@
 use crate::system::omarchy::omarchy_version::{check_omarchy_update, get_local_omarchy_version};
-use crate::terminal::PENDING_TERMINAL_NAVIGATION;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::keyboard_nav::{FocusState, FocusedSection};
@@ -8,7 +7,6 @@ use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::status_bar_page::status_bar_view::StatusBarView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
-use crate::ui::terminal_page::terminal_page::TerminalPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
 use gpui::*;
@@ -41,7 +39,6 @@ pub enum ActivePage {
     StatusBar,
     About,
     Omarchy,
-    Terminal(String), // Command being run in terminal
 }
 
 pub struct MainWindowView {
@@ -59,8 +56,6 @@ pub struct MainWindowView {
     status_bar_view: Entity<StatusBarView>,
     about_root: AnyView,
     omarchy_root: AnyView,
-    terminal_root: Option<AnyView>,
-    terminal_command: Option<String>,
     sidebar_collapsed: bool,
     /// Keyboard navigation focus state
     focus_state: FocusState,
@@ -157,8 +152,6 @@ impl MainWindowView {
             status_bar_view,
             about_root,
             omarchy_root,
-            terminal_root: None,
-            terminal_command: None,
             sidebar_collapsed: true,
             focus_state: FocusState {
                 focused_section: FocusedSection::Sidebar,
@@ -195,37 +188,8 @@ impl MainWindowView {
             }
         }
 
-        // Handle Terminal page creation/update
-        if let ActivePage::Terminal(ref command) = page {
-            let should_create = self.terminal_command.as_ref() != Some(command);
-
-            if should_create {
-                let terminal_view = cx.new(|cx| TerminalPage::new(command.clone(), window, cx));
-                self.terminal_root = Some(cx.new(|cx| Root::new(terminal_view, window, cx)).into());
-                self.terminal_command = Some(command.clone());
-            }
-        }
-
-        // Keep sidebar index in sync with the active page
-        self.focus_state.sidebar_index = match &page {
-            ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
-            ActivePage::Configuration => 1,
-            ActivePage::StatusBar => 2,
-            _ => self.focus_state.sidebar_index,
-        };
-
         self.active_page = page;
         cx.notify();
-    }
-
-    /// Navigate to terminal page with a specific command
-    pub fn navigate_to_terminal(
-        &mut self,
-        command: String,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.navigate_to(ActivePage::Terminal(command), window, cx);
     }
 
     pub fn navigate_to_theme_edit(
@@ -251,10 +215,6 @@ impl MainWindowView {
             ActivePage::StatusBar => self.status_bar_root.clone(),
             ActivePage::About => self.about_root.clone(),
             ActivePage::Omarchy => self.omarchy_root.clone(),
-            ActivePage::Terminal(_) => self
-                .terminal_root
-                .clone()
-                .unwrap_or(self.themes_root.clone()),
         }
     }
 
@@ -269,7 +229,6 @@ impl MainWindowView {
             (ActivePage::StatusBar, ActivePage::StatusBar) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
-            (ActivePage::Terminal(a), ActivePage::Terminal(b)) => a == b,
             _ => false,
         }
     }
@@ -558,12 +517,6 @@ impl Render for MainWindowView {
                 themes_page.set_sidebar_collapsed(self.sidebar_collapsed, cx);
             });
             cx.notify();
-        }
-
-        // Check for pending terminal navigation
-        let pending_terminal = PENDING_TERMINAL_NAVIGATION.with(|nav| nav.borrow_mut().take());
-        if let Some(command) = pending_terminal {
-            self.navigate_to_terminal(command, window, cx);
         }
 
         // Check for pending Omarchy navigation from title bar

@@ -37,8 +37,6 @@ sysinfo = "0.38.1"
 battery = "0.7.8"
 rfd = "0.17.2"
 isahc = { version = "1.7.2", features = ["json"] }
-alacritty_terminal = "0.25"
-parking_lot = "0.12.5"
 clap = { version = "4.5.58", features = ["derive"] }
 image = { version = "0.25.9", features = ["png", "jpeg", "webp"] }
 color-thief = "0.2.2"
