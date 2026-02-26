@@ -90,10 +90,14 @@ impl Render for ThemeCard {
         v_flex()
             .w_full()
             .border_1()
-            .border_color(theme.border)
+            .border_color(if self.is_focused {
+                theme.ring
+            } else {
+                theme.border
+            })
             .rounded(theme.radius)
             .bg(if self.is_focused {
-                gpui::rgb(0x2a2a2a).into()
+                theme.secondary
             } else {
                 theme.background
             })

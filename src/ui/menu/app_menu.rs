@@ -21,7 +21,15 @@ actions!(
         ActivateItem,
         EscapeFocus,
         SelectNext,
-        SelectPrev
+        SelectPrev,
+        // Page navigation shortcuts
+        NavigateToThemes,
+        NavigateToConfig,
+        NavigateToStatusBar,
+        // Theme edit actions
+        ThemeEditNextTab,
+        ThemeEditPrevTab,
+        NavigateBack,
     ]
 );
 actions!(appearance, [SwitchToLight, SwitchToDark]);

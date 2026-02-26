@@ -1,8 +1,8 @@
 use gpui::*;
 use gpui_component::{
+    ActiveTheme,
     menu::{ContextMenuExt, PopupMenuItem},
     tooltip::Tooltip,
-    ActiveTheme,
 };
 
 use crate::system::waybar::{WaybarModule, WaybarZone};

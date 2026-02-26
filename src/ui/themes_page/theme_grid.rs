@@ -50,10 +50,13 @@ impl ThemeGrid {
         }
     }
 
-    // Move focus up
-    pub fn move_up(&mut self, cx: &mut Context<Self>) {
+    // Move focus up — returns true if focus actually moved, false if already at top
+    pub fn move_up(&mut self, cx: &mut Context<Self>) -> bool {
         if self.nav_state.move_up() {
             cx.notify();
+            true
+        } else {
+            false
         }
     }
 
@@ -94,6 +97,11 @@ impl ThemeGrid {
 
     pub fn set_sidebar_collapsed(&mut self, collapsed: bool) {
         self.sidebar_collapsed = collapsed;
+    }
+
+    /// Clear keyboard focus from the grid (no item highlighted)
+    pub fn clear_focus(&mut self) {
+        self.nav_state.focused_index = None;
     }
 
     pub fn set_filter(&mut self, filter: ThemeFilter) {

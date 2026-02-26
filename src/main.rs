@@ -179,6 +179,10 @@ fn main() {
             KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
             KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
             KeyBinding::new("ctrl-b", app_menu::ToggleSidebar, None),
+            // Global page navigation shortcuts
+            KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
+            KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
+            KeyBinding::new("ctrl-3", app_menu::NavigateToStatusBar, None),
             // Keyboard navigation bindings - using MainWindow context
             KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
@@ -189,6 +193,20 @@ fn main() {
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("MainWindow")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("MainWindow")),
             KeyBinding::new("space", app_menu::ActivateItem, Some("MainWindow")),
+            // Theme edit page navigation
+            KeyBinding::new("right", app_menu::ThemeEditNextTab, Some("ThemeEditPage")),
+            KeyBinding::new("left", app_menu::ThemeEditPrevTab, Some("ThemeEditPage")),
+            KeyBinding::new(
+                "ctrl-right",
+                app_menu::ThemeEditNextTab,
+                Some("ThemeEditPage"),
+            ),
+            KeyBinding::new(
+                "ctrl-left",
+                app_menu::ThemeEditPrevTab,
+                Some("ThemeEditPage"),
+            ),
+            KeyBinding::new("escape", app_menu::NavigateBack, Some("ThemeEditPage")),
         ]);
 
         cx.spawn(async move |cx| {

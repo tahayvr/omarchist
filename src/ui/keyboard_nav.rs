@@ -227,18 +227,3 @@ impl Default for ListNavigationState {
         Self::new(0, 1)
     }
 }
-
-/// Extension trait for applying focus styles
-pub trait FocusStyleExt {
-    fn focus_ring(self, is_focused: bool) -> Self;
-}
-
-impl FocusStyleExt for Div {
-    fn focus_ring(self, is_focused: bool) -> Self {
-        if is_focused {
-            self.bg(gpui::rgb(0x2a2a2a))
-        } else {
-            self
-        }
-    }
-}

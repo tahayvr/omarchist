@@ -24,6 +24,8 @@ use gpui_component::{
     v_flex,
 };
 
+const KEY_CONTEXT: &str = "ThemeEditPage";
+
 /// Action to navigate back to themes page
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
@@ -44,6 +46,7 @@ pub struct SaveTheme;
 pub struct ThemeEditPage {
     theme_name: String,
     active_tab: usize,
+    tab_count: usize,
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
     waybar_tab: Entity<WaybarTab>,
@@ -58,6 +61,7 @@ pub struct ThemeEditPage {
     btop_tab: Entity<BtopTab>,
     swayosd_tab: Entity<SwayosdTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
+    focus_handle: FocusHandle,
 }
 
 impl ThemeEditPage {
@@ -126,9 +130,16 @@ impl ThemeEditPage {
         let backgrounds_tab =
             cx.new(|cx| BackgroundsTab::new(theme_name.clone(), is_system, window, cx));
 
+        let tab_count = ThemeEditTab::all().len();
+
+        // Create focus handle and request focus immediately
+        let focus_handle = cx.focus_handle();
+        focus_handle.focus(window);
+
         Self {
             theme_name,
             active_tab: 0,
+            tab_count,
             error_message: None,
             general_tab,
             waybar_tab,
@@ -143,6 +154,7 @@ impl ThemeEditPage {
             btop_tab,
             swayosd_tab,
             backgrounds_tab,
+            focus_handle,
         }
     }
 
@@ -158,6 +170,20 @@ impl ThemeEditPage {
         crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
             *flag.borrow_mut() = true;
         });
+    }
+
+    fn next_tab(&mut self, cx: &mut Context<Self>) {
+        if self.active_tab < self.tab_count.saturating_sub(1) {
+            self.active_tab += 1;
+            cx.notify();
+        }
+    }
+
+    fn prev_tab(&mut self, cx: &mut Context<Self>) {
+        if self.active_tab > 0 {
+            self.active_tab -= 1;
+            cx.notify();
+        }
     }
 
     fn render_tab_content(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
@@ -232,10 +258,27 @@ impl Render for ThemeEditPage {
 
         v_flex()
             .id("theme-edit-page")
+            .key_context(KEY_CONTEXT)
+            .track_focus(&self.focus_handle)
             .size_full()
             .bg(theme.background)
             .gap_4()
             .overflow_x_hidden()
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::ThemeEditNextTab, _window, cx| {
+                    this.next_tab(cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::ThemeEditPrevTab, _window, cx| {
+                    this.prev_tab(cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateBack, window, cx| {
+                    this.navigate_back(window, cx);
+                },
+            ))
             .child(
                 // Back button + Tabs row - wraps on narrow screens
                 h_flex()

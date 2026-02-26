@@ -23,6 +23,8 @@ use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
+const SIDEBAR_ITEM_COUNT: usize = 3;
+
 thread_local! {
     pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
     pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
@@ -123,8 +125,16 @@ impl MainWindowView {
         })
         .detach();
 
-        // Create focus handle for keyboard navigation
+        // Create focus handle for keyboard navigation and request focus immediately
         let focus_handle = cx.focus_handle();
+        focus_handle.focus(window);
+
+        let initial_sidebar_index = match &initial_page {
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
+            ActivePage::Configuration => 1,
+            ActivePage::StatusBar => 2,
+            _ => 0,
+        };
 
         let mut view = Self {
             title_bar,
@@ -142,7 +152,11 @@ impl MainWindowView {
             terminal_root: None,
             terminal_command: None,
             sidebar_collapsed: true,
-            focus_state: FocusState::with_section(FocusedSection::Sidebar),
+            focus_state: FocusState {
+                focused_section: FocusedSection::Sidebar,
+                sidebar_index: initial_sidebar_index,
+                sidebar_count: SIDEBAR_ITEM_COUNT,
+            },
             focus_handle,
         };
 
@@ -183,6 +197,14 @@ impl MainWindowView {
                 self.terminal_command = Some(command.clone());
             }
         }
+
+        // Keep sidebar index in sync with the active page
+        self.focus_state.sidebar_index = match &page {
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
+            ActivePage::Configuration => 1,
+            ActivePage::StatusBar => 2,
+            _ => self.focus_state.sidebar_index,
+        };
 
         self.active_page = page;
         cx.notify();
@@ -231,6 +253,7 @@ impl MainWindowView {
     fn is_page_active(&self, page: ActivePage) -> bool {
         match (&self.active_page, &page) {
             (ActivePage::Themes, ActivePage::Themes) => true,
+            (ActivePage::ThemeEdit(_), ActivePage::Themes) => true, // ThemeEdit is under Themes in sidebar
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
             (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
@@ -268,13 +291,27 @@ impl MainWindowView {
 
     /// Handle NextFocus action (Tab)
     fn handle_next_focus(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        self.focus_state.next_section();
+        match self.focus_state.focused_section {
+            FocusedSection::Sidebar => {
+                self.focus_state.focused_section = FocusedSection::Content;
+            }
+            FocusedSection::Content => {
+                self.focus_state.focused_section = FocusedSection::Sidebar;
+            }
+        }
         cx.notify();
     }
 
     /// Handle PrevFocus action (Shift+Tab)
     fn handle_prev_focus(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        self.focus_state.prev_section();
+        match self.focus_state.focused_section {
+            FocusedSection::Sidebar => {
+                self.focus_state.focused_section = FocusedSection::Content;
+            }
+            FocusedSection::Content => {
+                self.focus_state.focused_section = FocusedSection::Sidebar;
+            }
+        }
         cx.notify();
     }
 
@@ -286,7 +323,10 @@ impl MainWindowView {
                 cx.notify();
             }
             FocusedSection::Content => {
-                if self.active_page == ActivePage::Themes {
+                if matches!(
+                    self.active_page,
+                    ActivePage::Themes | ActivePage::ThemeEdit(_)
+                ) {
                     self.themes_view.update(cx, |page, cx| {
                         page.handle_next_item(cx);
                     });
@@ -303,7 +343,10 @@ impl MainWindowView {
                 cx.notify();
             }
             FocusedSection::Content => {
-                if self.active_page == ActivePage::Themes {
+                if matches!(
+                    self.active_page,
+                    ActivePage::Themes | ActivePage::ThemeEdit(_)
+                ) {
                     self.themes_view.update(cx, |page, cx| {
                         page.handle_prev_item(cx);
                     });
@@ -313,12 +356,10 @@ impl MainWindowView {
     }
 
     /// Handle SelectNext action (Right arrow)
-    fn handle_select_next(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn handle_select_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
-                // Move to content
-                self.focus_state.focused_section = FocusedSection::Content;
-                cx.notify();
+                self.activate_focused_sidebar_item(window, cx);
             }
             FocusedSection::Content => {
                 if self.active_page == ActivePage::Themes {
@@ -338,9 +379,20 @@ impl MainWindowView {
             }
             FocusedSection::Content => {
                 if self.active_page == ActivePage::Themes {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.handle_select_prev(cx);
-                    });
+                    let themes_focus = self.themes_view.read(cx).current_focus();
+                    if themes_focus == crate::ui::themes_page::themes::ThemesFocus::Tabs {
+                        // At the tabs level — move focus back to sidebar
+                        self.focus_state.focused_section = FocusedSection::Sidebar;
+                        cx.notify();
+                    } else {
+                        self.themes_view.update(cx, |page, cx| {
+                            page.handle_select_prev(cx);
+                        });
+                    }
+                } else {
+                    // Non-themes page: left arrow moves focus to sidebar
+                    self.focus_state.focused_section = FocusedSection::Sidebar;
+                    cx.notify();
                 }
             }
         }
@@ -364,8 +416,22 @@ impl MainWindowView {
 
     /// Handle EscapeFocus action
     fn handle_escape_focus(&mut self, cx: &mut Context<Self>) {
-        self.focus_state.focused_section = FocusedSection::Sidebar;
-        cx.notify();
+        match self.focus_state.focused_section {
+            FocusedSection::Content => {
+                // Escape from content moves focus to sidebar
+                self.focus_state.focused_section = FocusedSection::Sidebar;
+                // Also reset themes page focus back to tabs level
+                if self.active_page == ActivePage::Themes {
+                    self.themes_view.update(cx, |page, cx| {
+                        page.reset_focus(cx);
+                    });
+                }
+                cx.notify();
+            }
+            FocusedSection::Sidebar => {
+                // Already at sidebar, do nothing
+            }
+        }
     }
 }
 
@@ -464,9 +530,6 @@ impl Render for MainWindowView {
             themes_page.set_global_focus(content_has_focus, cx);
         });
 
-        // Check if this view has focus
-        let _has_focus = self.focus_handle.is_focused(window);
-
         div()
             .id("main-window-root")
             .key_context(KEY_CONTEXT)
@@ -497,6 +560,28 @@ impl Render for MainWindowView {
                         }
                     })
                     .detach();
+                },
+            ))
+            // Global page shortcuts
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToThemes, window, cx| {
+                    this.focus_state.sidebar_index = 0;
+                    this.focus_state.focused_section = FocusedSection::Content;
+                    this.navigate_to(ActivePage::Themes, window, cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToConfig, window, cx| {
+                    this.focus_state.sidebar_index = 1;
+                    this.focus_state.focused_section = FocusedSection::Content;
+                    this.navigate_to(ActivePage::Configuration, window, cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToStatusBar, window, cx| {
+                    this.focus_state.sidebar_index = 2;
+                    this.focus_state.focused_section = FocusedSection::Content;
+                    this.navigate_to(ActivePage::StatusBar, window, cx);
                 },
             ))
             // Keyboard navigation actions
@@ -562,7 +647,8 @@ impl Render for MainWindowView {
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.focus_state.sidebar_index = 0;
-                                                    this.focus_state.focused_section = FocusedSection::Content;
+                                                    this.focus_state.focused_section =
+                                                        FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Themes,
                                                         window,
@@ -579,7 +665,8 @@ impl Render for MainWindowView {
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.focus_state.sidebar_index = 1;
-                                                    this.focus_state.focused_section = FocusedSection::Content;
+                                                    this.focus_state.focused_section =
+                                                        FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
                                                         window,
@@ -596,7 +683,8 @@ impl Render for MainWindowView {
                                                 )
                                                 .on_click(cx.listener(|this, _, window, cx| {
                                                     this.focus_state.sidebar_index = 2;
-                                                    this.focus_state.focused_section = FocusedSection::Content;
+                                                    this.focus_state.focused_section =
+                                                        FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::StatusBar,
                                                         window,

@@ -5,6 +5,7 @@ use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
+    ActiveTheme,
     scroll::ScrollableElement,
     tab::{Tab, TabBar},
     v_flex,
@@ -12,7 +13,7 @@ use gpui_component::{
 
 // Which part of the themes page has focus
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum ThemesFocus {
+pub enum ThemesFocus {
     Tabs,
     Grid,
 }
@@ -42,6 +43,20 @@ impl ThemesPage {
         cx.notify();
     }
 
+    /// Return the current internal focus level
+    pub fn current_focus(&self) -> ThemesFocus {
+        self.focus
+    }
+
+    /// Reset focus back to the Tabs level (called when Escape is pressed from the content area)
+    pub fn reset_focus(&mut self, cx: &mut Context<Self>) {
+        self.focus = ThemesFocus::Tabs;
+        self.theme_grid.update(cx, |grid, _cx| {
+            grid.clear_focus();
+        });
+        cx.notify();
+    }
+
     pub fn handle_next_item(&mut self, cx: &mut Context<Self>) {
         match self.focus {
             ThemesFocus::Tabs => {
@@ -60,9 +75,12 @@ impl ThemesPage {
         match self.focus {
             ThemesFocus::Tabs => {}
             ThemesFocus::Grid => {
-                self.theme_grid.update(cx, |grid, cx| {
-                    grid.move_up(cx);
-                });
+                // If we can't move up (already at top row), move focus back to tabs
+                let moved = self.theme_grid.update(cx, |grid, cx| grid.move_up(cx));
+                if !moved {
+                    self.focus = ThemesFocus::Tabs;
+                    cx.notify();
+                }
             }
         }
     }
@@ -158,6 +176,8 @@ impl Render for ThemesPage {
             grid.set_has_focus(grid_has_focus);
         });
 
+        let secondary_bg = cx.theme().secondary;
+
         v_flex()
             .id("themes-page")
             .size_full()
@@ -166,7 +186,7 @@ impl Render for ThemesPage {
             .gap_4()
             .child(
                 div()
-                    .when(tabs_has_focus, |this| this.bg(gpui::rgb(0x3a3a3a)))
+                    .when(tabs_has_focus, move |this| this.bg(secondary_bg))
                     .child(
                         TabBar::new("theme-tabs")
                             .cursor_pointer()
