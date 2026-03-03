@@ -32,6 +32,7 @@ impl SelectItem for KeyboardLayoutItem {
 pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
     keyboard_layout_select: Entity<SelectState<SearchableVec<KeyboardLayoutItem>>>,
+    pub focus_handle: FocusHandle,
 }
 
 impl ConfigView {
@@ -93,6 +94,7 @@ impl ConfigView {
         Self {
             config_manager: config_manager_rc,
             keyboard_layout_select,
+            focus_handle: cx.focus_handle(),
         }
     }
 
@@ -110,16 +112,22 @@ impl Render for ConfigView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let view = cx.entity().clone();
 
-        Settings::new("hyprland-config")
-            .sidebar_width(px(220.0))
-            .with_group_variant(gpui_component::group_box::GroupBoxVariant::Normal)
-            .with_size(Size::default())
-            .pages(vec![
-                self.create_general_page(&view),
-                self.create_appearance_page(&view),
-                self.create_input_page(&view),
-                self.create_misc_page(&view),
-            ])
+        div()
+            .id("config-view-root")
+            .track_focus(&self.focus_handle)
+            .size_full()
+            .child(
+                Settings::new("hyprland-config")
+                    .sidebar_width(px(220.0))
+                    .with_group_variant(gpui_component::group_box::GroupBoxVariant::Normal)
+                    .with_size(Size::default())
+                    .pages(vec![
+                        self.create_general_page(&view),
+                        self.create_appearance_page(&view),
+                        self.create_input_page(&view),
+                        self.create_misc_page(&view),
+                    ]),
+            )
     }
 }
 

@@ -1,3 +1,4 @@
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, IndexPath, Sizable,
@@ -19,6 +20,9 @@ pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
     // Raw profile names in the same order as the select items
     pub profile_names: Vec<String>,
+    /// Which header item currently has keyboard focus (set by parent StatusBarView)
+    /// 0 = Profile Select, 1 = Add Profile, 2 = More Options, 3 = Restart Waybar
+    pub focused_item: Option<usize>,
 }
 
 impl StatusBarHeader {
@@ -41,6 +45,7 @@ impl StatusBarHeader {
         Self {
             profile_select,
             profile_names,
+            focused_item: None,
         }
     }
 
@@ -90,6 +95,8 @@ impl StatusBarHeader {
 impl Render for StatusBarHeader {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let ring = theme.ring;
+        let focused = self.focused_item;
 
         let current_profile = self
             .profile_select
@@ -120,77 +127,106 @@ impl Render for StatusBarHeader {
                     .child(
                         div()
                             .w(px(200.))
+                            .rounded_md()
+                            .when(focused == Some(0), move |this: gpui::Div| {
+                                this.border_2().border_color(ring)
+                            })
                             .child(Select::new(&self.profile_select).small()),
                     )
                     .child(
-                        Button::new("add-profile")
-                            .icon(Icon::new(IconName::Plus))
-                            .ghost()
-                            .small()
-                            .tooltip("Add profile")
-                            .on_click(|_, window, cx| {
-                                open_create_waybar_profile_dialog(window, cx);
-                            }),
+                        div()
+                            .rounded_md()
+                            .when(focused == Some(1), move |this: gpui::Div| {
+                                this.border_2().border_color(ring)
+                            })
+                            .child(
+                                Button::new("add-profile")
+                                    .icon(Icon::new(IconName::Plus))
+                                    .ghost()
+                                    .small()
+                                    .tooltip("Add profile")
+                                    .on_click(|_, window, cx| {
+                                        open_create_waybar_profile_dialog(window, cx);
+                                    }),
+                            ),
                     )
                     .child(
-                        Button::new("more-profile-options-btn")
-                            .icon(Icon::new(IconName::Ellipsis))
-                            .ghost()
-                            .small()
-                            .tooltip("More options")
-                            .dropdown_menu(move |menu: PopupMenu, _, _| {
-                                let p_rename = profile_for_rename.clone();
-                                let p_dup = profile_for_duplicate.clone();
-                                let p_del = profile_for_delete.clone();
+                        div()
+                            .rounded_md()
+                            .when(focused == Some(2), move |this: gpui::Div| {
+                                this.border_2().border_color(ring)
+                            })
+                            .child(
+                                Button::new("more-profile-options-btn")
+                                    .icon(Icon::new(IconName::Ellipsis))
+                                    .ghost()
+                                    .small()
+                                    .tooltip("More options")
+                                    .dropdown_menu(move |menu: PopupMenu, _, _| {
+                                        let p_rename = profile_for_rename.clone();
+                                        let p_dup = profile_for_duplicate.clone();
+                                        let p_del = profile_for_delete.clone();
 
-                                let menu = menu
-                                    .item(PopupMenuItem::new("Rename profile").on_click(
-                                        move |_, window, cx| {
-                                            open_rename_waybar_profile_dialog(
-                                                p_rename.clone(),
-                                                window,
-                                                cx,
-                                            );
-                                        },
-                                    ))
-                                    .item(PopupMenuItem::new("Duplicate profile").on_click(
-                                        move |_, window, cx| {
-                                            open_duplicate_waybar_profile_dialog(
-                                                p_dup.clone(),
-                                                window,
-                                                cx,
-                                            );
-                                        },
-                                    ))
-                                    .separator();
+                                        let menu = menu
+                                            .item(PopupMenuItem::new("Rename profile").on_click(
+                                                move |_, window, cx| {
+                                                    open_rename_waybar_profile_dialog(
+                                                        p_rename.clone(),
+                                                        window,
+                                                        cx,
+                                                    );
+                                                },
+                                            ))
+                                            .item(PopupMenuItem::new("Duplicate profile").on_click(
+                                                move |_, window, cx| {
+                                                    open_duplicate_waybar_profile_dialog(
+                                                        p_dup.clone(),
+                                                        window,
+                                                        cx,
+                                                    );
+                                                },
+                                            ))
+                                            .separator();
 
-                                if can_delete {
-                                    menu.item(PopupMenuItem::new("Delete profile").on_click(
-                                        move |_, window, cx| {
-                                            open_delete_waybar_profile_dialog(
-                                                p_del.clone(),
-                                                window,
-                                                cx,
-                                            );
-                                        },
-                                    ))
-                                } else {
-                                    menu.item(PopupMenuItem::new("Delete profile").disabled(true))
-                                }
-                            }),
+                                        if can_delete {
+                                            menu.item(
+                                                PopupMenuItem::new("Delete profile").on_click(
+                                                    move |_, window, cx| {
+                                                        open_delete_waybar_profile_dialog(
+                                                            p_del.clone(),
+                                                            window,
+                                                            cx,
+                                                        );
+                                                    },
+                                                ),
+                                            )
+                                        } else {
+                                            menu.item(
+                                                PopupMenuItem::new("Delete profile").disabled(true),
+                                            )
+                                        }
+                                    }),
+                            ),
                     ),
             )
             .child(
-                Button::new("refresh-status-bar")
-                    .icon(Icon::new(IconName::LoaderCircle))
-                    .ghost()
-                    .small()
-                    .tooltip("Restart waybar")
-                    .on_click(|_, _, _| {
-                        if let Err(e) = restart_waybar() {
-                            eprintln!("Failed to restart waybar: {e}");
-                        }
-                    }),
+                div()
+                    .rounded_md()
+                    .when(focused == Some(3), move |this: gpui::Div| {
+                        this.border_2().border_color(ring)
+                    })
+                    .child(
+                        Button::new("refresh-status-bar")
+                            .icon(Icon::new(IconName::LoaderCircle))
+                            .ghost()
+                            .small()
+                            .tooltip("Restart waybar")
+                            .on_click(|_, _, _| {
+                                if let Err(e) = restart_waybar() {
+                                    eprintln!("Failed to restart waybar: {e}");
+                                }
+                            }),
+                    ),
             )
     }
 }

@@ -13,7 +13,12 @@ pub struct StatusBarView {
     header: Entity<StatusBarHeader>,
     design_area: Entity<DesignArea>,
     _select_subscription: Subscription,
+    /// Which header item is keyboard-focused (None = no keyboard focus)
+    /// 0 = Profile Select, 1 = Add Profile, 2 = More Options, 3 = Restart Waybar
+    pub focused_header_item: Option<usize>,
 }
+
+const HEADER_ITEM_COUNT: usize = 4;
 
 impl StatusBarView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -51,12 +56,55 @@ impl StatusBarView {
             header,
             design_area,
             _select_subscription: subscription,
+            focused_header_item: None,
         }
+    }
+
+    pub fn cycle_next(&mut self, cx: &mut Context<Self>) {
+        self.focused_header_item = Some(match self.focused_header_item {
+            None => 0,
+            Some(i) => (i + 1) % HEADER_ITEM_COUNT,
+        });
+        cx.notify();
+    }
+
+    pub fn cycle_prev(&mut self, cx: &mut Context<Self>) {
+        self.focused_header_item = Some(match self.focused_header_item {
+            None => HEADER_ITEM_COUNT - 1,
+            Some(0) => HEADER_ITEM_COUNT - 1,
+            Some(i) => i - 1,
+        });
+        cx.notify();
+    }
+
+    pub fn reset_focus(&mut self, cx: &mut Context<Self>) {
+        self.focused_header_item = None;
+        cx.notify();
+    }
+
+    pub fn enter_focus(&mut self, cx: &mut Context<Self>) {
+        self.focused_header_item = Some(0);
+        cx.notify();
+    }
+
+    /// Returns true if focus is at the first item (or none), so left arrow should go to sidebar
+    pub fn at_first_or_none(&self) -> bool {
+        matches!(self.focused_header_item, None | Some(0))
+    }
+
+    /// Returns a clone of the header entity so callers can access profile_select
+    pub fn header_entity(&self) -> Entity<StatusBarHeader> {
+        self.header.clone()
     }
 }
 
 impl Render for StatusBarView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Sync keyboard focus state to the header for visual rendering
+        let focused_header_item = self.focused_header_item;
+        self.header.update(cx, |header, _| {
+            header.focused_item = focused_header_item;
+        });
         // After a new profile is created, reload the header and switch to it
         if let Some(new_profile) = take_pending_profile_navigation() {
             self.header.update(cx, |header, cx| {

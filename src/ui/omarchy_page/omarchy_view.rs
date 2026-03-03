@@ -1,3 +1,4 @@
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, button::Button, h_flex, text::TextView, text::TextViewStyle, v_flex,
@@ -6,19 +7,23 @@ use gpui_component::{
 use crate::system::omarchy::{
     omarchy_version::check_omarchy_update, release_notes::fetch_latest_release_notes,
 };
+use crate::ui::menu::app_menu;
+
+const KEY_CONTEXT: &str = "OmarchyView";
 
 pub struct OmarchyView {
     local_version: String,
     update_available: Option<bool>,
     latest_tag: Option<String>,
     release_notes: Option<String>,
+    focus_handle: FocusHandle,
+    /// Whether the Update button is keyboard-focused (only relevant when update_available == Some(true))
+    update_btn_focused: bool,
 }
 
 impl OmarchyView {
     pub fn new(version: Option<String>, cx: &mut Context<Self>) -> Self {
-        let local_version = version.unwrap_or_else(|| "unknown".to_string());
-
-        // Clone for the async block to avoid redundant git calls
+        let local_version = version.unwrap_or_else(|| "unknown".to_string()); // Clone for the async block to avoid redundant git calls
         let version_for_check = local_version.clone();
 
         // Spawn async task to check for updates
@@ -63,6 +68,8 @@ impl OmarchyView {
             update_available: None,
             latest_tag: None,
             release_notes: None,
+            focus_handle: cx.focus_handle(),
+            update_btn_focused: false,
         }
     }
 }
@@ -70,6 +77,9 @@ impl OmarchyView {
 impl Render for OmarchyView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let update_available = self.update_available == Some(true);
+        let update_btn_focused = self.update_btn_focused && update_available;
+        let focused_border = theme.ring;
 
         let version_status = match self.update_available {
             None => {
@@ -111,7 +121,16 @@ impl Render for OmarchyView {
                                     .text_color(theme.red)
                                     .child("Update available"),
                             )
-                            .child(Button::new("update-omarchy")),
+                            .child(
+                                div()
+                                    .rounded_md()
+                                    .when(update_btn_focused, move |this: gpui::Div| {
+                                        this.border_2().border_color(focused_border)
+                                    })
+                                    .child(Button::new("update-omarchy").on_click(|_, _, cx| {
+                                        cx.open_url("https://github.com/tahayvr/omarchy/releases");
+                                    })),
+                            ),
                     )
             }
             Some(false) => {
@@ -196,12 +215,37 @@ impl Render for OmarchyView {
 
         v_flex()
             .id("omarchy-page")
+            .key_context(KEY_CONTEXT)
+            .track_focus(&self.focus_handle)
             .gap_4()
             .size_full()
             .items_center()
             .justify_start()
             .pt_8()
             .px_4()
+            .on_action(cx.listener(|this, _: &app_menu::NextFocus, _window, cx| {
+                if this.update_available == Some(true) {
+                    this.update_btn_focused = true;
+                    cx.notify();
+                }
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::PrevFocus, _window, cx| {
+                if this.update_available == Some(true) {
+                    this.update_btn_focused = true;
+                    cx.notify();
+                }
+            }))
+            .on_action(
+                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
+                    if this.update_btn_focused {
+                        cx.open_url("https://github.com/tahayvr/omarchy/releases");
+                    }
+                }),
+            )
+            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
+                this.update_btn_focused = false;
+                cx.notify();
+            }))
             .child(
                 div()
                     // set to specific dimensions of Omarchy logo

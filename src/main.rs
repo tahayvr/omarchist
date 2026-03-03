@@ -207,6 +207,18 @@ fn main() {
                 Some("ThemeEditPage"),
             ),
             KeyBinding::new("escape", app_menu::NavigateBack, Some("ThemeEditPage")),
+            // About page keyboard navigation
+            KeyBinding::new("tab", app_menu::NextFocus, Some("AboutView")),
+            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("AboutView")),
+            KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
+            KeyBinding::new("space", app_menu::ActivateItem, Some("AboutView")),
+            KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
+            // Omarchy page keyboard navigation
+            KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
+            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),
+            KeyBinding::new("enter", app_menu::ActivateItem, Some("OmarchyView")),
+            KeyBinding::new("space", app_menu::ActivateItem, Some("OmarchyView")),
+            KeyBinding::new("escape", app_menu::EscapeFocus, Some("OmarchyView")),
         ]);
 
         cx.spawn(async move |cx| {

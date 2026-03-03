@@ -53,8 +53,10 @@ pub struct MainWindowView {
     theme_edit_name: Option<String>,
     system_monitor_root: AnyView,
     config_root: AnyView,
+    config_view: Entity<ConfigView>,
     settings_root: AnyView,
     status_bar_root: AnyView,
+    status_bar_view: Entity<StatusBarView>,
     about_root: AnyView,
     omarchy_root: AnyView,
     terminal_root: Option<AnyView>,
@@ -84,15 +86,19 @@ impl MainWindowView {
             .into();
 
         let config_view = cx.new(|cx| ConfigView::new(window, cx));
-        let config_root = cx.new(|cx| Root::new(config_view, window, cx)).into();
+        let config_root = cx
+            .new(|cx| Root::new(config_view.clone(), window, cx))
+            .into();
 
         let settings_view = cx.new(|_| SettingsView);
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
 
         let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
-        let status_bar_root = cx.new(|cx| Root::new(status_bar_view, window, cx)).into();
+        let status_bar_root = cx
+            .new(|cx| Root::new(status_bar_view.clone(), window, cx))
+            .into();
 
-        let about_view = cx.new(|_| AboutView);
+        let about_view = cx.new(AboutView::new);
         let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
 
         // Get Omarchy version once (silently fail if unavailable)
@@ -145,8 +151,10 @@ impl MainWindowView {
             theme_edit_name: None,
             system_monitor_root,
             config_root,
+            config_view,
             settings_root,
             status_bar_root,
+            status_bar_view,
             about_root,
             omarchy_root,
             terminal_root: None,
@@ -290,26 +298,50 @@ impl MainWindowView {
     }
 
     /// Handle NextFocus action (Tab)
-    fn handle_next_focus(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn handle_next_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
                 self.focus_state.focused_section = FocusedSection::Content;
+                // When entering the Status Bar content, start focus on the first header item
+                if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.enter_focus(cx));
+                }
+                // When entering the Config content, focus the config view so Settings handles nav
+                if self.active_page == ActivePage::Configuration {
+                    self.config_view.read(cx).focus_handle.clone().focus(window);
+                }
             }
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
+                // Clear StatusBar internal focus when leaving content
+                if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
+                }
             }
         }
         cx.notify();
     }
 
     /// Handle PrevFocus action (Shift+Tab)
-    fn handle_prev_focus(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn handle_prev_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
                 self.focus_state.focused_section = FocusedSection::Content;
+                // When entering Status Bar content via Shift+Tab, start at the last item
+                if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.cycle_prev(cx));
+                }
+                // When entering the Config content, focus the config view
+                if self.active_page == ActivePage::Configuration {
+                    self.config_view.read(cx).focus_handle.clone().focus(window);
+                }
             }
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
+                // Clear StatusBar internal focus when leaving content
+                if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
+                }
             }
         }
         cx.notify();
@@ -366,6 +398,8 @@ impl MainWindowView {
                     self.themes_view.update(cx, |page, cx| {
                         page.handle_select_next(cx);
                     });
+                } else if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.cycle_next(cx));
                 }
             }
         }
@@ -389,8 +423,17 @@ impl MainWindowView {
                             page.handle_select_prev(cx);
                         });
                     }
+                } else if self.active_page == ActivePage::StatusBar {
+                    if self.status_bar_view.read(cx).at_first_or_none() {
+                        // At first item or no item — move focus back to sidebar
+                        self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
+                        self.focus_state.focused_section = FocusedSection::Sidebar;
+                        cx.notify();
+                    } else {
+                        self.status_bar_view.update(cx, |v, cx| v.cycle_prev(cx));
+                    }
                 } else {
-                    // Non-themes page: left arrow moves focus to sidebar
+                    // Non-themes/statusbar page: left arrow moves focus to sidebar
                     self.focus_state.focused_section = FocusedSection::Sidebar;
                     cx.notify();
                 }
@@ -409,6 +452,32 @@ impl MainWindowView {
                     self.themes_view.update(cx, |page, cx| {
                         page.handle_activate(cx);
                     });
+                } else if self.active_page == ActivePage::StatusBar {
+                    let focused_item = self.status_bar_view.read(cx).focused_header_item;
+                    match focused_item {
+                        Some(0) => {
+                            // Focus the profile Select so it handles keyboard navigation
+                            let header = self.status_bar_view.read(cx).header_entity();
+                            let select = header.read(cx).select_entity();
+                            // Clone the focus handle before calling focus to avoid borrow conflict
+                            let fh = {
+                                use gpui::Focusable;
+                                select.read(cx).focus_handle(cx).clone()
+                            };
+                            fh.focus(window);
+                        }
+                        Some(1) => {
+                            // Add profile
+                            crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog(window, cx);
+                        }
+                        Some(3) => {
+                            // Restart waybar
+                            if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
+                                eprintln!("Failed to restart waybar: {e}");
+                            }
+                        }
+                        _ => {}
+                    }
                 }
             }
         }
@@ -425,6 +494,10 @@ impl MainWindowView {
                     self.themes_view.update(cx, |page, cx| {
                         page.reset_focus(cx);
                     });
+                }
+                // Reset status bar internal focus
+                if self.active_page == ActivePage::StatusBar {
+                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
                 }
                 cx.notify();
             }
