@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    ColorPalette, copy_image_to_backgrounds, extract_palette,
+    ColorPalette, ImageType, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
@@ -12,7 +12,7 @@ use crate::types::themes::{
     WalkerConfig, WaybarConfig,
 };
 
-/// Available icon themes mapped to their representative colors (RGB)
+// Available icon themes mapped to their representative colors (RGB)
 const ICON_THEMES: &[(&str, (u8, u8, u8))] = &[
     ("Yaru-red", (233, 32, 32)),     // Red (#e92020)
     ("Yaru-blue", (32, 143, 233)),   // Blue (#208fe9)
@@ -23,7 +23,7 @@ const ICON_THEMES: &[(&str, (u8, u8, u8))] = &[
     ("Yaru-sage", (18, 61, 24)),     // Sage (#123d18)
 ];
 
-/// Calculate Euclidean distance between two RGB colors
+// Calculate Euclidean distance between two RGB colors
 fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
     let dr = (c1.0 as f32 - c2.0 as f32).powi(2);
     let dg = (c1.1 as f32 - c2.1 as f32).powi(2);
@@ -31,7 +31,7 @@ fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
     (dr + dg + db).sqrt()
 }
 
-/// Convert hex color to RGB tuple
+// Convert hex color to RGB tuple
 fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
     let hex = hex.trim_start_matches('#');
     if hex.len() != 6 {
@@ -43,7 +43,7 @@ fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
     Some((r, g, b))
 }
 
-/// Select the best matching icon theme based on the accent color
+// Select the best matching icon theme based on the accent color
 fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
     let accent_rgb = match hex_to_rgb(accent_hex) {
         Some(rgb) => rgb,
@@ -62,10 +62,10 @@ fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
         .unwrap_or("Yaru-blue")
 }
 
-/// Progress callback for theme generation
+// Progress callback for theme generation
 pub type ProgressCallback = Box<dyn Fn(&str) + Send>;
 
-/// Create a complete theme from an image
+// Create a complete theme from an image
 pub fn create_theme_from_image(
     image_path: &Path,
     theme_name: &str,
@@ -105,7 +105,7 @@ pub fn create_theme_from_image(
     Ok(theme_name.to_string())
 }
 
-/// Build a complete EditingTheme from a color palette
+// Build a complete EditingTheme from a color palette
 fn build_theme_from_palette(
     palette: &ColorPalette,
     theme_name: &str,
@@ -125,7 +125,8 @@ fn build_theme_from_palette(
 
     let hyprland_config = HyprlandConfig {
         active_border: strip_hash(&palette.accent),
-        inactive_border: strip_hash(&darken_color(&palette.background, 0.2)),
+        // Use a very subtle darkening so inactive borders remain visible
+        inactive_border: strip_hash(&darken_color(&palette.background, 0.08)),
     };
 
     let walker_config = WalkerConfig {
@@ -134,7 +135,8 @@ fn build_theme_from_palette(
         border: palette.accent.clone(),
         foreground: palette.foreground.clone(),
         text: palette.foreground.clone(),
-        selected_text: palette.terminal.magenta.clone(),
+        // Cyan is universally distinct and rarely clashes with the accent
+        selected_text: palette.terminal.cyan.clone(),
     };
 
     let browser_config = BrowserConfig {
@@ -230,7 +232,6 @@ fn build_theme_from_palette(
     })
 }
 
-/// Build terminal configuration from palette
 fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
     TerminalConfig {
         primary: TerminalPrimary {
@@ -242,7 +243,8 @@ fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
             text: palette.background.clone(),
         },
         selection: TerminalSelection {
-            background: adjust_brightness(&palette.accent, -0.3),
+            // Slightly lighter background variant → clean highlight that never clashes
+            background: adjust_brightness(&palette.background, 0.12),
             foreground: palette.foreground.clone(),
         },
         normal: palette.terminal.clone(),
@@ -250,11 +252,25 @@ fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
     }
 }
 
-/// Build btop configuration from palette
 fn build_btop_config(palette: &ColorPalette) -> BtopConfig {
     let bg = &palette.background;
     let fg = &palette.foreground;
     let accent = &palette.accent;
+
+    // Choose gradient colors based on image type.
+    // Monochrome themes lack vivid green/red terminal colors so use neutral fg-based gradients.
+    let (grad_start, grad_mid, grad_end) = match palette.image_type {
+        ImageType::Monochrome => (
+            adjust_brightness(fg, 0.15),
+            accent.clone(),
+            adjust_brightness(fg, -0.25),
+        ),
+        _ => (
+            palette.terminal.green.clone(),
+            accent.clone(),
+            palette.terminal.red.clone(),
+        ),
+    };
 
     BtopConfig {
         main_bg: bg.clone(),
@@ -270,40 +286,37 @@ fn build_btop_config(palette: &ColorPalette) -> BtopConfig {
         net_box: adjust_brightness(fg, -0.4),
         proc_box: adjust_brightness(fg, -0.4),
         div_line: adjust_brightness(fg, -0.4),
-        // Gradient from green -> blue-ish accent -> red
-        temp_start: palette.terminal.green.clone(),
-        temp_mid: accent.clone(),
-        temp_end: palette.terminal.red.clone(),
-        cpu_start: palette.terminal.green.clone(),
-        cpu_mid: accent.clone(),
-        cpu_end: palette.terminal.red.clone(),
-        free_start: palette.terminal.green.clone(),
-        free_mid: accent.clone(),
-        free_end: palette.terminal.red.clone(),
-        cached_start: palette.terminal.green.clone(),
-        cached_mid: accent.clone(),
-        cached_end: palette.terminal.red.clone(),
-        available_start: palette.terminal.green.clone(),
-        available_mid: accent.clone(),
-        available_end: palette.terminal.red.clone(),
-        used_start: palette.terminal.green.clone(),
-        used_mid: accent.clone(),
-        used_end: palette.terminal.red.clone(),
-        download_start: palette.terminal.green.clone(),
-        download_mid: accent.clone(),
-        download_end: palette.terminal.red.clone(),
-        upload_start: palette.terminal.green.clone(),
-        upload_mid: accent.clone(),
-        upload_end: palette.terminal.red.clone(),
+        temp_start: grad_start.clone(),
+        temp_mid: grad_mid.clone(),
+        temp_end: grad_end.clone(),
+        cpu_start: grad_start.clone(),
+        cpu_mid: grad_mid.clone(),
+        cpu_end: grad_end.clone(),
+        free_start: grad_start.clone(),
+        free_mid: grad_mid.clone(),
+        free_end: grad_end.clone(),
+        cached_start: grad_start.clone(),
+        cached_mid: grad_mid.clone(),
+        cached_end: grad_end.clone(),
+        available_start: grad_start.clone(),
+        available_mid: grad_mid.clone(),
+        available_end: grad_end.clone(),
+        used_start: grad_start.clone(),
+        used_mid: grad_mid.clone(),
+        used_end: grad_end.clone(),
+        download_start: grad_start.clone(),
+        download_mid: grad_mid.clone(),
+        download_end: grad_end.clone(),
+        upload_start: grad_start,
+        upload_mid: grad_mid,
+        upload_end: grad_end,
     }
 }
 
-/// Strip # from hex color
 fn strip_hash(hex: &str) -> String {
     hex.trim_start_matches('#').to_string()
 }
 
-/// Lighten a hex color by a percentage (0.0 - 1.0)
 fn lighten_color(hex: &str, amount: f32) -> String {
     let hex = hex.trim_start_matches('#');
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
@@ -317,7 +330,6 @@ fn lighten_color(hex: &str, amount: f32) -> String {
     format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
 }
 
-/// Darken a hex color by a percentage
 fn darken_color(hex: &str, amount: f32) -> String {
     let hex = hex.trim_start_matches('#');
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
@@ -331,7 +343,7 @@ fn darken_color(hex: &str, amount: f32) -> String {
     format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
 }
 
-/// Adjust brightness: positive = lighten, negative = darken
+// Adjust brightness: positive = lighten, negative = darken
 fn adjust_brightness(hex: &str, amount: f32) -> String {
     if amount >= 0.0 {
         lighten_color(hex, amount)
