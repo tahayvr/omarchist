@@ -1,15 +1,17 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
     select::{Select, SelectState},
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;
-use crate::system::waybar::list_waybar_profiles;
+use crate::system::waybar::{
+    has_original_waybar_backup, list_waybar_profiles, restore_original_waybar_config,
+};
 use crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog;
 use crate::ui::dialogs::manage_waybar_profile_dialogs::{
     open_delete_waybar_profile_dialog, open_duplicate_waybar_profile_dialog,
@@ -49,7 +51,7 @@ impl StatusBarHeader {
         }
     }
 
-    // NOTE: updates the existing entity in-place — never replaces it, so any
+    // updates the existing entity in-place — never replaces it
     pub fn reload_and_select(
         &mut self,
         profile_name: &str,
@@ -108,9 +110,11 @@ impl Render for StatusBarHeader {
         let profile_for_rename = current_profile.clone();
         let profile_for_duplicate = current_profile.clone();
         let profile_for_delete = current_profile.clone();
+        let profile_for_restart = current_profile.clone();
 
         // Determine if deleting is allowed (need > 1 profile)
         let can_delete = self.profile_names.len() > 1;
+        let can_restore = has_original_waybar_backup();
 
         h_flex()
             .w_full()
@@ -224,9 +228,88 @@ impl Render for StatusBarHeader {
                             .on_click(|_, _, _| {
                                 if let Err(e) = restart_waybar() {
                                     eprintln!("Failed to restart waybar: {e}");
+                            .tooltip("More options")
+                            .dropdown_menu(move |menu: PopupMenu, _, _| {
+                                let p_rename = profile_for_rename.clone();
+                                let p_dup = profile_for_duplicate.clone();
+                                let p_del = profile_for_delete.clone();
+
+                                let menu = menu
+                                    .item(PopupMenuItem::new("Rename profile").on_click(
+                                        move |_, window, cx| {
+                                            open_rename_waybar_profile_dialog(
+                                                p_rename.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                    .item(PopupMenuItem::new("Duplicate profile").on_click(
+                                        move |_, window, cx| {
+                                            open_duplicate_waybar_profile_dialog(
+                                                p_dup.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                    .separator();
+
+                                let menu = if can_delete {
+                                    menu.item(PopupMenuItem::new("Delete profile").on_click(
+                                        move |_, window, cx| {
+                                            open_delete_waybar_profile_dialog(
+                                                p_del.clone(),
+                                                window,
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                } else {
+                                    menu.item(PopupMenuItem::new("Delete profile").disabled(true))
+                                };
+
+                                let menu = menu.separator();
+
+                                if can_restore {
+                                    menu.item(
+                                        PopupMenuItem::new("Restore original config").on_click(
+                                            move |_, _, _| {
+                                                if let Err(e) = restore_original_waybar_config() {
+                                                    eprintln!(
+                                                        "Failed to restore original waybar config: {e}"
+                                                    );
+                                                }
+                                                if let Err(e) = restart_waybar() {
+                                                    eprintln!("Failed to restart waybar: {e}");
+                                                }
+                                            },
+                                        ),
+                                    )
+                                } else {
+                                    menu.item(
+                                        PopupMenuItem::new("Restore original config")
+                                            .disabled(true),
+                                    )
                                 }
                             }),
                     ),
+            )
+
+            .child(
+                Button::new("refresh-status-bar")
+                    .icon(Icon::new(IconName::LoaderCircle))
+                    .ghost()
+                    .small()
+                    .tooltip("Restart waybar")
+                    .on_click(move |_, _, _| {
+                        if let Err(e) = crate::system::waybar::apply_waybar_profile(&profile_for_restart) {
+                            eprintln!("Failed to apply waybar profile: {e}");
+                        }
+                        if let Err(e) = restart_waybar() {
+                            eprintln!("Failed to restart waybar: {e}");
+                        }
+                    }),
             )
     }
 }

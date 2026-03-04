@@ -1,13 +1,23 @@
 use gpui::*;
 use gpui_component::{select::SelectEvent, v_flex};
 
-use crate::system::waybar::list_waybar_profiles;
+use crate::shell::waybar_sh_commands::restart_waybar;
+use crate::system::waybar::{apply_waybar_profile, list_waybar_profiles};
 use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navigation;
 use crate::ui::dialogs::manage_waybar_profile_dialogs::{
     ProfileManagementResult, take_pending_profile_management,
 };
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
+
+fn apply_and_restart(profile_name: &str) {
+    if let Err(e) = apply_waybar_profile(profile_name) {
+        eprintln!("Failed to apply waybar profile \"{}\": {e}", profile_name);
+    }
+    if let Err(e) = restart_waybar() {
+        eprintln!("Failed to restart waybar: {e}");
+    }
+}
 
 pub struct StatusBarView {
     header: Entity<StatusBarHeader>,
@@ -29,6 +39,9 @@ impl StatusBarView {
             .cloned()
             .unwrap_or_else(|| "omarchy-default".to_string());
 
+        // is always in sync when the page is first opened.
+        apply_and_restart(&initial_profile);
+
         let header = cx.new(|cx| StatusBarHeader::new(window, cx));
         let design_area = cx.new(|cx| DesignArea::new(&initial_profile, window, cx));
 
@@ -45,6 +58,7 @@ impl StatusBarView {
                         .selected_profile(cx)
                         .unwrap_or("omarchy-default")
                         .to_string();
+                    apply_and_restart(&profile_name);
                     design_area_ref.update(cx, |area, cx| {
                         area.switch_profile(&profile_name, window, cx);
                     });
@@ -107,6 +121,7 @@ impl Render for StatusBarView {
         });
         // After a new profile is created, reload the header and switch to it
         if let Some(new_profile) = take_pending_profile_navigation() {
+            apply_and_restart(&new_profile);
             self.header.update(cx, |header, cx| {
                 header.reload_and_select(&new_profile, window, cx);
             });
@@ -122,6 +137,7 @@ impl Render for StatusBarView {
                 ProfileManagementResult::Duplicated { new_name } => new_name,
                 ProfileManagementResult::Deleted { switch_to } => switch_to,
             };
+            apply_and_restart(&active_profile);
             self.header.update(cx, |header, cx| {
                 header.reload_and_select(&active_profile, window, cx);
             });

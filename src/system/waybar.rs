@@ -864,12 +864,100 @@ pub fn list_waybar_profiles() -> Vec<String> {
         .unwrap_or_default()
 }
 
-// ---------------------------------------------------------------------------
-// Module config helpers
-// ---------------------------------------------------------------------------
+// Apply / backup / restore
 
-/// Return the JSON config block for a module key within a profile's config.jsonc.
-/// Returns `serde_json::Value::Null` if the module has no config block.
+fn original_waybar_backup_dir() -> Option<std::path::PathBuf> {
+    dirs::home_dir().map(|h| {
+        h.join(".config")
+            .join("omarchist")
+            .join("waybar")
+            .join("backup-original")
+    })
+}
+
+pub fn has_original_waybar_backup() -> bool {
+    original_waybar_backup_dir()
+        .map(|p| p.exists())
+        .unwrap_or(false)
+}
+
+/// Takes a one-time backup of ~/.config/waybar
+fn backup_original_waybar_config() -> Result<(), String> {
+    let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
+
+    let live_waybar = home.join(".config").join("waybar");
+    if !live_waybar.exists() {
+        // Nothing to back up.
+        return Ok(());
+    }
+
+    let backup_dir = original_waybar_backup_dir()
+        .ok_or_else(|| "Could not determine backup directory".to_string())?;
+
+    if backup_dir.exists() {
+        // Backup already taken — never overwrite it.
+        return Ok(());
+    }
+
+    copy_dir_recursive(&live_waybar, &backup_dir)
+        .map_err(|e| format!("Failed to back up original waybar config: {}", e))
+}
+
+/// Copies a profile's files from ~/.config/omarchist/waybar/profiles/<name>/
+/// into ~/.config/waybar/, replacing whatever is there.
+///
+/// On the very first call this also backs up the user's original config to
+/// ~/.config/omarchist/waybar/backup-original (only if not already backed up).
+pub fn apply_waybar_profile(profile_name: &str) -> Result<(), String> {
+    backup_original_waybar_config()?;
+
+    let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
+
+    let profile_dir = home
+        .join(".config")
+        .join("omarchist")
+        .join("waybar")
+        .join("profiles")
+        .join(profile_name);
+
+    if !profile_dir.exists() {
+        return Err(format!("Profile \"{}\" not found", profile_name));
+    }
+
+    let live_waybar = home.join(".config").join("waybar");
+
+    if live_waybar.exists() {
+        fs::remove_dir_all(&live_waybar)
+            .map_err(|e| format!("Failed to clear ~/.config/waybar: {}", e))?;
+    }
+
+    copy_dir_recursive(&profile_dir, &live_waybar)
+        .map_err(|e| format!("Failed to apply profile \"{}\": {}", profile_name, e))
+}
+
+pub fn restore_original_waybar_config() -> Result<(), String> {
+    let backup_dir = original_waybar_backup_dir()
+        .ok_or_else(|| "Could not determine backup directory".to_string())?;
+
+    if !backup_dir.exists() {
+        return Err("No original waybar backup found".to_string());
+    }
+
+    let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
+
+    let live_waybar = home.join(".config").join("waybar");
+
+    if live_waybar.exists() {
+        fs::remove_dir_all(&live_waybar)
+            .map_err(|e| format!("Failed to clear ~/.config/waybar: {}", e))?;
+    }
+
+    copy_dir_recursive(&backup_dir, &live_waybar)
+        .map_err(|e| format!("Failed to restore original waybar config: {}", e))
+}
+
+// Module config helpers
+
 pub fn get_module_config(profile_name: &str, module_key: &str) -> serde_json::Value {
     let Some(config_path) = dirs::home_dir().map(|h| {
         h.join(".config")
@@ -895,9 +983,6 @@ pub fn get_module_config(profile_name: &str, module_key: &str) -> serde_json::Va
         .unwrap_or(serde_json::Value::Null)
 }
 
-/// Write (or create) a single key inside a module's config block in the profile's
-/// config.jsonc file.  The top-level structure is preserved; only the named field
-/// inside the module's object is replaced / inserted.
 pub fn set_module_config_field(
     profile_name: &str,
     module_key: &str,
@@ -933,18 +1018,13 @@ pub fn set_module_config_field(
         return Err(format!("Module \"{}\" config is not an object", module_key));
     }
 
-    // Re-serialise without comments (acceptable — the file was already read and
-    // parsed; comments are lost, but this is a known trade-off for field-level edits).
-    // We write pretty JSON so the file stays human-readable.
     let new_raw = serde_json::to_string_pretty(&json)
         .map_err(|e| format!("Failed to serialise config: {}", e))?;
 
     fs::write(&config_path, new_raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
-// ---------------------------------------------------------------------------
 // Module Library — curated list of addable modules
-// ---------------------------------------------------------------------------
 
 /// A single entry in the module library.
 #[derive(Debug, Clone)]
@@ -953,11 +1033,8 @@ pub struct LibraryModule {
     pub key: &'static str,
     /// Short display name
     pub name: &'static str,
-    /// One-line description shown in the library panel
     pub description: &'static str,
-    /// Category for grouping
     pub category: &'static str,
-    /// Icon character displayed in the library panel
     pub icon: &'static str,
     /// Default JSON config block inserted when the module is added.
     /// Use `null` (JSON null) for modules with no useful defaults.
@@ -967,7 +1044,7 @@ pub struct LibraryModule {
 /// The curated library of known Waybar modules.
 pub fn module_library() -> Vec<LibraryModule> {
     vec![
-        // ── System ──────────────────────────────────────────────────────────
+        // System
         LibraryModule {
             key: "cpu",
             name: "CPU",
@@ -1016,7 +1093,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             icon: "󰃠",
             default_config: r#"{"format": "{icon} {percent}%", "format-icons": ["󰃞", "󰃟", "󰃠"], "on-scroll-up": "light -A 5", "on-scroll-down": "light -U 5"}"#,
         },
-        // ── Time ────────────────────────────────────────────────────────────
+        // Time
         LibraryModule {
             key: "clock",
             name: "Clock",
@@ -1025,7 +1102,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             icon: "󰥔",
             default_config: r#"{"format": "{:%H:%M}", "tooltip-format": "{:%A %d %B %Y}"}"#,
         },
-        // ── Audio ───────────────────────────────────────────────────────────
+        // Audio
         LibraryModule {
             key: "pulseaudio",
             name: "PulseAudio",
@@ -1042,7 +1119,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             icon: "󰕾",
             default_config: r#"{"format": "{icon} {volume}%", "format-muted": "󰝟", "format-bluetooth": " {volume}%", "format-icons": {"default": ["󰕿", "󰖀", "󰕾"], "bluetooth": ["󰥰"]}, "on-click": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle", "on-click-right": "pavucontrol", "tooltip-format": "{volume}% {node_name}"}"#,
         },
-        // ── Network ─────────────────────────────────────────────────────────
+        // Network
         LibraryModule {
             key: "network",
             name: "Network",
@@ -1059,7 +1136,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             icon: "󰂯",
             default_config: r#"{"format": "󰂯", "format-connected": "󰂱 {device_alias}", "format-disabled": "󰂲"}"#,
         },
-        // ── Hyprland ────────────────────────────────────────────────────────
+        // Hyprland
         LibraryModule {
             key: "hyprland/workspaces",
             name: "Workspaces",
@@ -1092,7 +1169,7 @@ pub fn module_library() -> Vec<LibraryModule> {
             icon: "󰌌",
             default_config: r#"{"format": "󰌌 {short}"}"#,
         },
-        // ── Utilities ───────────────────────────────────────────────────────
+        // Utilities
         LibraryModule {
             key: "tray",
             name: "System Tray",
@@ -1121,12 +1198,6 @@ pub fn module_library() -> Vec<LibraryModule> {
 }
 
 /// Add a module to the given zone of a profile's config.jsonc.
-///
-/// Steps:
-/// 1. Append `module_key` to the zone array in the JSONC (surgically, preserving comments).
-/// 2. If `default_config` is not empty/null and the module doesn't already have a config block,
-///    append a new block for it before the closing `}` of the root object.
-/// 3. Reload is the caller's responsibility.
 pub fn add_module_to_zone(
     profile_name: &str,
     module_key: &str,
