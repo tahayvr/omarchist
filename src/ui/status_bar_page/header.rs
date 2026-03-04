@@ -161,73 +161,10 @@ impl Render for StatusBarHeader {
                                 this.border_2().border_color(ring)
                             })
                             .child(
-                                Button::new("more-profile-options-btn")
-                                    .icon(Icon::new(IconName::Ellipsis))
-                                    .ghost()
-                                    .small()
-                                    .tooltip("More options")
-                                    .dropdown_menu(move |menu: PopupMenu, _, _| {
-                                        let p_rename = profile_for_rename.clone();
-                                        let p_dup = profile_for_duplicate.clone();
-                                        let p_del = profile_for_delete.clone();
-
-                                        let menu = menu
-                                            .item(PopupMenuItem::new("Rename profile").on_click(
-                                                move |_, window, cx| {
-                                                    open_rename_waybar_profile_dialog(
-                                                        p_rename.clone(),
-                                                        window,
-                                                        cx,
-                                                    );
-                                                },
-                                            ))
-                                            .item(PopupMenuItem::new("Duplicate profile").on_click(
-                                                move |_, window, cx| {
-                                                    open_duplicate_waybar_profile_dialog(
-                                                        p_dup.clone(),
-                                                        window,
-                                                        cx,
-                                                    );
-                                                },
-                                            ))
-                                            .separator();
-
-                                        if can_delete {
-                                            menu.item(
-                                                PopupMenuItem::new("Delete profile").on_click(
-                                                    move |_, window, cx| {
-                                                        open_delete_waybar_profile_dialog(
-                                                            p_del.clone(),
-                                                            window,
-                                                            cx,
-                                                        );
-                                                    },
-                                                ),
-                                            )
-                                        } else {
-                                            menu.item(
-                                                PopupMenuItem::new("Delete profile").disabled(true),
-                                            )
-                                        }
-                                    }),
-                            ),
-                    ),
-            )
-            .child(
-                div()
-                    .rounded_md()
-                    .when(focused == Some(3), move |this: gpui::Div| {
-                        this.border_2().border_color(ring)
-                    })
-                    .child(
-                        Button::new("refresh-status-bar")
-                            .icon(Icon::new(IconName::LoaderCircle))
+                        Button::new("more-profile-options-btn")
+                            .icon(Icon::new(IconName::Ellipsis))
                             .ghost()
                             .small()
-                            .tooltip("Restart waybar")
-                            .on_click(|_, _, _| {
-                                if let Err(e) = restart_waybar() {
-                                    eprintln!("Failed to restart waybar: {e}");
                             .tooltip("More options")
                             .dropdown_menu(move |menu: PopupMenu, _, _| {
                                 let p_rename = profile_for_rename.clone();
@@ -294,22 +231,29 @@ impl Render for StatusBarHeader {
                                 }
                             }),
                     ),
-            )
-
-            .child(
-                Button::new("refresh-status-bar")
-                    .icon(Icon::new(IconName::LoaderCircle))
-                    .ghost()
-                    .small()
-                    .tooltip("Restart waybar")
-                    .on_click(move |_, _, _| {
-                        if let Err(e) = crate::system::waybar::apply_waybar_profile(&profile_for_restart) {
-                            eprintln!("Failed to apply waybar profile: {e}");
-                        }
-                        if let Err(e) = restart_waybar() {
-                            eprintln!("Failed to restart waybar: {e}");
-                        }
-                    }),
-            )
+            ),
+        )
+        .child(
+            div()
+                .rounded_md()
+                .when(focused == Some(3), move |this: gpui::Div| {
+                    this.border_2().border_color(ring)
+                })
+                .child(
+                    Button::new("refresh-status-bar")
+                        .icon(Icon::new(IconName::LoaderCircle))
+                        .ghost()
+                        .small()
+                        .tooltip("Restart waybar")
+                        .on_click(move |_, _, _| {
+                            if let Err(e) = crate::system::waybar::apply_waybar_profile(&profile_for_restart) {
+                                eprintln!("Failed to apply waybar profile: {e}");
+                            }
+                            if let Err(e) = restart_waybar() {
+                                eprintln!("Failed to restart waybar: {e}");
+                            }
+                        }),
+                ),
+        )
     }
 }

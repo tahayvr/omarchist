@@ -122,14 +122,20 @@ impl Render for OmarchyView {
                                     .child("Update available"),
                             )
                             .child(
-
-                                Button::new("update-omarchy")
-                                    .label("Update Omarchy")
-                                    .on_click(|_, _, _| {
-                                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                                            eprintln!("{e}");
-                                        }
-                                    }),
+                                div()
+                                    .rounded_md()
+                                    .when(update_btn_focused, move |this: gpui::Div| {
+                                        this.border_2().border_color(focused_border)
+                                    })
+                                    .child(
+                                        Button::new("update-omarchy")
+                                            .label("Update Omarchy")
+                                            .on_click(|_, _, _| {
+                                                if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                                                    eprintln!("{e}");
+                                                }
+                                            }),
+                                    ),
                             ),
                     )
             }
