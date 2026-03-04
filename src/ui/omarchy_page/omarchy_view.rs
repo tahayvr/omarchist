@@ -152,25 +152,21 @@ impl Render for OmarchyView {
                     )
                     .child(
                         // for testing only TODO: remove for prod
-                        h_flex()
-                            .gap_4()
-                            .items_center()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.green)
-                                    .font_weight(FontWeight::BOLD)
-                                    .child("Up to date"),
-                            )
-                            .child(
-                                Button::new("update-omarchy-test")
-                                    .label("Update Omarchy")
-                                    .on_click(|_, _, _| {
-                                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                                            eprintln!("{e}");
-                                        }
-                                    }),
-                            ),
+                        h_flex().gap_4().items_center().child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.green)
+                                .font_weight(FontWeight::BOLD)
+                                .child("Up to date"),
+                        ), // .child(
+                           //     Button::new("update-omarchy-test")
+                           //         .label("Update Omarchy")
+                           //         .on_click(|_, _, _| {
+                           //             if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                           //                 eprintln!("{e}");
+                           //             }
+                           //         }),
+                           // ),
                     )
             }
         };
@@ -257,9 +253,11 @@ impl Render for OmarchyView {
                 }
             }))
             .on_action(
-                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
+                cx.listener(|this, _: &app_menu::ActivateItem, _window, _cx| {
                     if this.update_btn_focused {
-                        cx.open_url("https://github.com/tahayvr/omarchy/releases");
+                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                            eprintln!("{e}");
+                        }
                     }
                 }),
             )
