@@ -122,14 +122,14 @@ impl Render for OmarchyView {
                                     .child("Update available"),
                             )
                             .child(
-                                div()
-                                    .rounded_md()
-                                    .when(update_btn_focused, move |this: gpui::Div| {
-                                        this.border_2().border_color(focused_border)
-                                    })
-                                    .child(Button::new("update-omarchy").on_click(|_, _, cx| {
-                                        cx.open_url("https://github.com/tahayvr/omarchy/releases");
-                                    })),
+
+                                Button::new("update-omarchy")
+                                    .label("Update Omarchy")
+                                    .on_click(|_, _, _| {
+                                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                                            eprintln!("{e}");
+                                        }
+                                    }),
                             ),
                     )
             }
@@ -145,11 +145,26 @@ impl Render for OmarchyView {
                             .child(format!("Version {}", self.local_version)),
                     )
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.green)
-                            .font_weight(FontWeight::BOLD)
-                            .child("Up to date"),
+                        // for testing only TODO: remove for prod
+                        h_flex()
+                            .gap_4()
+                            .items_center()
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.green)
+                                    .font_weight(FontWeight::BOLD)
+                                    .child("Up to date"),
+                            )
+                            .child(
+                                Button::new("update-omarchy-test")
+                                    .label("Update Omarchy")
+                                    .on_click(|_, _, _| {
+                                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                                            eprintln!("{e}");
+                                        }
+                                    }),
+                            ),
                     )
             }
         };
