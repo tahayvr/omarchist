@@ -1,7 +1,10 @@
 use crate::types::themes::{ThemeEntry, ThemeOrigin};
+use crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog;
 use crate::ui::keyboard_nav::ListNavigationState;
 use crate::ui::themes_page::theme_card::ThemeCard;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
+use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
 
 const BREAKPOINT_SM: f32 = 768.0;
 const BREAKPOINT_LG: f32 = 1280.0;
@@ -185,37 +188,69 @@ impl Render for ThemeGrid {
             }
         }
 
-        div().w_full().min_w_0().child(
-            div().flex().flex_col().gap_4().w_full().min_w_0().child(
-                div().flex().flex_col().gap_4().w_full().min_w_0().children(
-                    filtered_indices
-                        .chunks(column_count)
-                        .map(|row_indices| {
-                            let mut row_children: Vec<AnyElement> = row_indices
-                                .iter()
-                                .filter_map(|&idx| {
-                                    self.cards.get(idx).map(|card| {
-                                        div().flex_1().child(card.clone()).into_any_element()
-                                    })
-                                })
-                                .collect();
+        let is_empty = filtered_indices.is_empty();
+        let muted = cx.theme().muted_foreground;
 
-                            let missing = column_count.saturating_sub(row_indices.len());
-                            for _ in 0..missing {
-                                row_children.push(div().flex_1().into_any_element());
-                            }
-
+        div()
+            .w_full()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .when(is_empty, |this: gpui::Div| {
+                this.items_center().justify_center().child(
+                    v_flex()
+                        .items_center()
+                        .gap_4()
+                        .child(
                             div()
-                                .flex()
-                                .flex_row()
-                                .gap_4()
-                                .w_full()
-                                .min_w_0()
-                                .children(row_children)
-                        })
-                        .collect::<Vec<_>>(),
-                ),
-            ),
-        )
+                                .text_color(muted)
+                                .mt_12()
+                                .text_sm()
+                                .child("You have no themes."),
+                        )
+                        .child(
+                            h_flex().child(
+                                Button::new("empty-create-theme-btn")
+                                    .label("Create New Theme")
+                                    .on_click(|_, window, cx| {
+                                        open_create_theme_dialog(window, cx);
+                                    }),
+                            ),
+                        ),
+                )
+            })
+            .when(!is_empty, |this: gpui::Div| {
+                this.child(
+                    div().flex().flex_col().gap_4().w_full().min_w_0().children(
+                        filtered_indices
+                            .chunks(column_count)
+                            .map(|row_indices| {
+                                let mut row_children: Vec<AnyElement> = row_indices
+                                    .iter()
+                                    .filter_map(|&idx| {
+                                        self.cards.get(idx).map(|card| {
+                                            div().flex_1().child(card.clone()).into_any_element()
+                                        })
+                                    })
+                                    .collect();
+
+                                let missing = column_count.saturating_sub(row_indices.len());
+                                for _ in 0..missing {
+                                    row_children.push(div().flex_1().into_any_element());
+                                }
+
+                                div()
+                                    .flex()
+                                    .flex_row()
+                                    .gap_4()
+                                    .w_full()
+                                    .min_w_0()
+                                    .children(row_children)
+                            })
+                            .collect::<Vec<_>>(),
+                    ),
+                )
+            })
     }
 }
