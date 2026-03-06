@@ -114,6 +114,7 @@ jobs:
           cp target/${{ matrix.target }}/release/omarchist release-dist/
           cp README.md release-dist/
           cp LICENSE release-dist/
+          cp assets/logo/omarchist.png release-dist/omarchist.png
           cd release-dist
           tar -czf ../omarchist-${{ matrix.artifact }}.tar.gz *
 
