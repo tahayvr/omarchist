@@ -91,13 +91,9 @@ export default defineConfig({
 			{
 				text: 'CONFIGURATION',
 				items: [
-					{ text: 'Hyprland', link: '/configuration/' },
-					{ text: 'Status Bar', link: '/status-bar' }
+					{ text: 'Hyprland', link: '/configuring/' },
+					{ text: 'Status Bar', link: '/configuring/status-bar' }
 				]
-			},
-			{
-				text: 'TOOLS',
-				items: [{ text: 'System Monitor', link: '/system-monitor' }]
 			}
 		],
 

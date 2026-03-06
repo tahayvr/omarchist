@@ -26,7 +26,6 @@ You can open Omarchist directly to any page:
 | View | Description |
 |------|-------------|
 | `themes` | Themes page |
-| `system` | System Monitor |
 | `settings` | Settings page |
 | `config` | Hyprland Configuration |
 | `about` | About page |
@@ -34,11 +33,11 @@ You can open Omarchist directly to any page:
 
 ## Examples
 
-### Open System Monitor
+<!--### Open System Monitor
 
 ```bash
 omarchist --view system
-```
+```-->
 
 ### Open Themes Page
 
@@ -58,7 +57,7 @@ omarchist --view themes --theme my-custom-theme
 omarchist --view config
 ```
 
-## Use Cases
+<!--## Use Cases
 
 - **Keyboard shortcuts**: Bind a key combination to `omarchist --view system` for quick system monitoring
-- **Automation**: Launch Omarchist to specific pages from scripts
+- **Automation**: Launch Omarchist to specific pages from scripts-->

@@ -17,7 +17,7 @@ Click the **Create New Theme** button on the Themes page. Enter a name for your 
 The Theme Designer lets you customize every part of your desktop. It contains tabs for different components.
 
 ::: warning
-You cannot edit system themes. You can only view their settings or duplicate them to create custom themes.
+You cannot edit system themes.
 :::
 
 ### General
