@@ -108,7 +108,6 @@ impl Render for DesignArea {
             .gap_4()
             .border_1()
             .border_color(theme.border)
-            .rounded_md()
             // .child(h_flex().w_full().justify_end().child(add_module_btn))
             .child(self.preview.clone())
             .child(self.module_library.clone())

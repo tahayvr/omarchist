@@ -38,6 +38,7 @@ omarchy-theme-set-gnome
 omarchy-theme-set-browser
 omarchy-theme-set-vscode
 omarchy-theme-set-obsidian
+omarchy-theme-set-keyboard
 "#;
 
     let status = Command::new("bash")

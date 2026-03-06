@@ -88,7 +88,7 @@ impl MainWindowView {
             .new(|cx| Root::new(config_view.clone(), window, cx))
             .into();
 
-        let settings_view = cx.new(|_| SettingsView);
+        let settings_view = cx.new(|_| SettingsView::new());
         let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
 
         let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
@@ -197,6 +197,21 @@ impl MainWindowView {
                 );
                 self.theme_edit_view = Some(theme_edit_view);
                 self.theme_edit_name = Some(theme_name.clone());
+            }
+
+            // Auto-apply theme if the setting is enabled
+            let auto_apply = crate::system::config::config_setup::read_settings()
+                .map(|s| s.settings.auto_apply_theme)
+                .unwrap_or(false);
+
+            if auto_apply {
+                let dir = theme_name.clone();
+                cx.spawn(async move |_this, _cx| {
+                    if let Err(e) = crate::shell::theme_sh_commands::apply_theme(dir).await {
+                        eprintln!("auto_apply_theme failed: {}", e);
+                    }
+                })
+                .detach();
             }
         }
 
