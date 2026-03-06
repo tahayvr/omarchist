@@ -32,6 +32,9 @@
 !docs/**
 !docs/
 
-#Github
+# Github
 !.github/**
 !.github/
+
+# Distribution
+!omarchist.desktop

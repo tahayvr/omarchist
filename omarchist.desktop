@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Omarchist
+Comment=A GUI app for Omarchy Linux
+Exec=omarchist
+Icon=omarchist
+Terminal=false
+Type=Application
+Categories=Settings;
+Keywords=theme;waybar;hyprland;omarchy;
+StartupWMClass=omarchist
