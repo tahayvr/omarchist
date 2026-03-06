@@ -254,10 +254,10 @@ impl Render for OmarchyView {
             }))
             .on_action(
                 cx.listener(|this, _: &app_menu::ActivateItem, _window, _cx| {
-                    if this.update_btn_focused {
-                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                            eprintln!("{e}");
-                        }
+                    if this.update_btn_focused
+                        && let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update()
+                    {
+                        eprintln!("{e}");
                     }
                 }),
             )
