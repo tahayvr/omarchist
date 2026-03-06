@@ -32,7 +32,7 @@ pub struct ColorPalette {
     pub image_type: ImageType,
 }
 
-/// Synthesize a ColorInfo directly from HSL values.
+// Synthesize a ColorInfo directly from HSL values.
 fn synthesize_color(hue_deg: f32, saturation: f32, lightness: f32) -> ColorInfo {
     let hsl: Hsl = Hsl::new(hue_deg, saturation, lightness);
     let srgb: Srgb = Srgb::from_color(hsl);
@@ -173,26 +173,33 @@ pub fn extract_palette(image_path: &Path) -> Result<ColorPalette, String> {
     })
 }
 
-// Boost lightness and saturation so terminal colors remain vivid and readable.
 fn normalize_color_for_readability(color: &ColorInfo, bg_lightness: f32) -> ColorInfo {
     let mut hsl = color.hsl;
 
+    if hsl.saturation < 0.12 {
+        let srgb: Srgb = Srgb::from_color(hsl);
+        let hsv: Hsv = Hsv::from_color(hsl);
+        return ColorInfo {
+            r: (srgb.red.clamp(0.0, 1.0) * 255.0) as u8,
+            g: (srgb.green.clamp(0.0, 1.0) * 255.0) as u8,
+            b: (srgb.blue.clamp(0.0, 1.0) * 255.0) as u8,
+            hsl,
+            hsv,
+        };
+    }
+
     if bg_lightness < 0.5 {
-        // Dark theme: push lightness up and boost saturation
-        if hsl.lightness < 0.45 {
-            hsl.lightness = 0.50;
-        }
-        // Boost under-saturated colors (skip near-grays and already-vivid ones)
-        if hsl.saturation > 0.05 && hsl.saturation < 0.55 {
-            hsl.saturation = 0.65;
+        // Dark theme: keep lightness in [0.45, 0.75] to stay vivid against a dark bg
+        hsl.lightness = hsl.lightness.clamp(0.45, 0.75);
+        // Boost under-saturated chromatic colors so they don't look muddy
+        if hsl.saturation < 0.45 {
+            hsl.saturation = (hsl.saturation + 0.25).min(0.80);
         }
     } else {
-        // Light theme: push lightness down and boost saturation
-        if hsl.lightness > 0.55 {
-            hsl.lightness = 0.45;
-        }
-        if hsl.saturation > 0.05 && hsl.saturation < 0.55 {
-            hsl.saturation = 0.65;
+        // Light theme: keep lightness in [0.28, 0.55] to stay vivid against a light bg
+        hsl.lightness = hsl.lightness.clamp(0.28, 0.55);
+        if hsl.saturation < 0.45 {
+            hsl.saturation = (hsl.saturation + 0.25).min(0.80);
         }
     }
 
@@ -269,48 +276,63 @@ fn assign_light_theme_colors(colors: &[ColorInfo]) -> (String, String, String) {
     (background, foreground, accent)
 }
 
-// Pick the most saturated mid-lightness palette color as the accent, or synthesize
-// from the dominant hue when the palette is too gray.
 fn pick_or_synthesize_accent(colors: &[ColorInfo], is_light_theme: bool) -> String {
-    let accent_color = colors
+    let target_lightness = if is_light_theme { 0.40 } else { 0.55 };
+
+    // First preference: saturated color already in a readable lightness range
+    let mid_accent = colors
         .iter()
-        .filter(|c| c.hsl.lightness > 0.3 && c.hsl.lightness < 0.7)
+        .filter(|c| c.hsl.lightness > 0.25 && c.hsl.lightness < 0.75)
         .max_by(|a, b| a.hsl.saturation.partial_cmp(&b.hsl.saturation).unwrap());
 
-    match accent_color {
-        Some(c) if c.hsl.saturation > 0.25 => color_to_hex(c),
-        _ => {
-            let hue = dominant_hue(colors);
-            let lightness = if is_light_theme { 0.40 } else { 0.55 };
-            color_to_hex(&synthesize_color(hue, 0.75, lightness))
-        }
+    if let Some(c) = mid_accent
+        && c.hsl.saturation > 0.20
+    {
+        return color_to_hex(c);
     }
+
+    // Second preference: most saturated color anywhere in the palette, lightness adjusted
+    let best = colors
+        .iter()
+        .max_by(|a, b| a.hsl.saturation.partial_cmp(&b.hsl.saturation).unwrap());
+
+    if let Some(c) = best
+        && c.hsl.saturation > 0.15
+    {
+        // Keep the image hue, re-pin lightness to a readable range
+        return color_to_hex(&synthesize_color(
+            c.hsl.hue.into_degrees(),
+            c.hsl.saturation,
+            target_lightness,
+        ));
+    }
+
+    // Last resort (truly monochrome images): synthesize from the dominant hue
+    let hue = dominant_hue(colors);
+    color_to_hex(&synthesize_color(hue, 0.72, target_lightness))
 }
 
-/// Generate the 8-color ANSI terminal palette with image-type–aware logic:
-///
-/// - **Monochrome**: synthesize all 6 chromatic slots at standard ANSI hues with good
-///   saturation; only black/white come from the palette.
-/// - **LowDiversity**: try the palette first, but fall back to synthesis when no palette
-///   color is within 40° of the target hue or has enough saturation.
-/// - **Chromatic**: same palette-first approach with a slightly wider 45° tolerance.
+// Generate the 8-color ANSI terminal palette from image colors.
+// Only synthesizes when the image has fewer chromatic colors than slots
+// to fill (Monochrome, or near-monochrome images).
 fn generate_terminal_palette(
     colors: &[ColorInfo],
     image_type: ImageType,
     boost: bool,
     is_light_theme: bool,
 ) -> TerminalPalette {
-    // Standard ANSI hue targets
-    const ANSI_HUES: [(f32, &str); 6] = [
-        (0.0, "red"),
-        (60.0, "yellow"),
-        (120.0, "green"),
-        (180.0, "cyan"),
-        (240.0, "blue"),
-        (300.0, "magenta"),
+    // ANSI (red=0°, yellow=60°, green=120°, cyan=180°,
+    // blue=240°, magenta=300°).
+    const ANSI_SLOTS: [(&str, f32); 6] = [
+        ("red", 0.0),
+        ("yellow", 60.0),
+        ("green", 120.0),
+        ("cyan", 180.0),
+        ("blue", 240.0),
+        ("magenta", 300.0),
     ];
 
-    let target_lightness = if is_light_theme { 0.40 } else { 0.55 };
+    let target_lightness = if is_light_theme { 0.42 } else { 0.58 };
 
     let mut sorted_by_lightness = colors.to_vec();
     sorted_by_lightness.sort_by(|a, b| a.hsl.lightness.partial_cmp(&b.hsl.lightness).unwrap());
@@ -333,69 +355,53 @@ fn generate_terminal_palette(
         ..Default::default()
     };
 
-    match image_type {
-        ImageType::Monochrome => {
-            // Synthesize all 6 chromatic ANSI slots — palette is too gray to be useful
-            for (hue, name) in ANSI_HUES.iter() {
-                let hex = color_to_hex(&synthesize_color(*hue, 0.75, target_lightness));
+    if image_type == ImageType::Monochrome {
+        // Palette is too gray — synthesize all 6 chromatic slots at standard hues
+        for (name, hue) in ANSI_SLOTS.iter() {
+            let hex = color_to_hex(&synthesize_color(*hue, 0.72, target_lightness));
+            assign_ansi_color(&mut palette, name, hex);
+        }
+    } else {
+        // Collect chromatic colors (meaningful saturation), sorted by hue angle
+        let mut chromatic: Vec<ColorInfo> = colors
+            .iter()
+            .filter(|c| c.hsl.saturation > 0.15)
+            .cloned()
+            .collect();
+
+        chromatic.sort_by(|a, b| {
+            a.hsl
+                .hue
+                .into_degrees()
+                .partial_cmp(&b.hsl.hue.into_degrees())
+                .unwrap()
+        });
+
+        if chromatic.is_empty() {
+            // Edge case: nothing usable — synthesize everything
+            for (name, hue) in ANSI_SLOTS.iter() {
+                let hex = color_to_hex(&synthesize_color(*hue, 0.72, target_lightness));
                 assign_ansi_color(&mut palette, name, hex);
             }
-        }
-        ImageType::LowDiversity | ImageType::Chromatic => {
-            // Try palette first; fall back to synthesis when the match is too poor
-            let hue_threshold = if image_type == ImageType::LowDiversity {
-                40.0
-            } else {
-                45.0
-            };
-            let sat_threshold = if image_type == ImageType::LowDiversity {
-                0.30
-            } else {
-                0.25
-            };
+        } else {
+            // Assign each ANSI slot the image color closest in hue
+            for (name, target_hue) in ANSI_SLOTS.iter() {
+                let best = chromatic
+                    .iter()
+                    .min_by(|a, b| {
+                        let da = hue_distance(a.hsl.hue.into_degrees(), *target_hue);
+                        let db = hue_distance(b.hsl.hue.into_degrees(), *target_hue);
+                        da.partial_cmp(&db).unwrap()
+                    })
+                    .unwrap(); // chromatic is non-empty here
 
-            let mut used_indices = vec![false; colors.len()];
+                // Borrow only what we need before calling synthesize_color
+                let best_hue = best.hsl.hue.into_degrees();
+                let best_sat = best.hsl.saturation;
 
-            for (target_hue, name) in ANSI_HUES.iter() {
-                let mut best_idx = None;
-                let mut best_quality = -1.0f32;
-
-                for (i, c) in colors.iter().enumerate() {
-                    if used_indices[i] {
-                        continue;
-                    }
-                    let hue_deg = c.hsl.hue.into_degrees();
-                    let dist = hue_distance(hue_deg, *target_hue);
-                    let hue_quality = 1.0 - (dist / 180.0);
-                    let sat_quality = c.hsl.saturation;
-                    let light_quality = if c.hsl.lightness > 0.3 && c.hsl.lightness < 0.7 {
-                        1.0
-                    } else {
-                        0.5
-                    };
-                    let quality = hue_quality * sat_quality * light_quality;
-
-                    if quality > best_quality {
-                        best_quality = quality;
-                        best_idx = Some(i);
-                    }
-                }
-
-                let hex = if let Some(idx) = best_idx {
-                    let c = &colors[idx];
-                    let dist = hue_distance(c.hsl.hue.into_degrees(), *target_hue);
-                    if dist > hue_threshold || c.hsl.saturation < sat_threshold {
-                        // Poor match — synthesize a vivid color at the target hue
-                        color_to_hex(&synthesize_color(*target_hue, 0.75, target_lightness))
-                    } else {
-                        used_indices[idx] = true;
-                        color_to_hex(c)
-                    }
-                } else {
-                    color_to_hex(&synthesize_color(*target_hue, 0.75, target_lightness))
-                };
-
-                assign_ansi_color(&mut palette, name, hex);
+                // Re-pin lightness to a readable range while keeping the image's hue
+                let readable = synthesize_color(best_hue, best_sat.max(0.55), target_lightness);
+                assign_ansi_color(&mut palette, name, color_to_hex(&readable));
             }
         }
     }

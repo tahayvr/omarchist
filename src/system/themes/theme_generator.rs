@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
-    ColorPalette, ImageType, copy_image_to_backgrounds, extract_palette,
+    ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
@@ -135,8 +135,7 @@ fn build_theme_from_palette(
         border: palette.accent.clone(),
         foreground: palette.foreground.clone(),
         text: palette.foreground.clone(),
-        // Cyan is universally distinct and rarely clashes with the accent
-        selected_text: palette.terminal.cyan.clone(),
+        selected_text: most_distinct_from_accent(&palette.terminal, &palette.foreground),
     };
 
     let browser_config = BrowserConfig {
@@ -148,7 +147,10 @@ fn build_theme_from_palette(
         inner_color: strip_hash(&palette.background),
         outer_color: strip_hash(&palette.accent),
         font_color: strip_hash(&palette.foreground),
-        check_color: strip_hash(&palette.terminal.yellow),
+        check_color: strip_hash(&most_distinct_from_accent(
+            &palette.terminal,
+            &palette.accent,
+        )),
     };
 
     let mako_config = MakoConfig {
@@ -243,8 +245,10 @@ fn build_terminal_config(palette: &ColorPalette) -> TerminalConfig {
             text: palette.background.clone(),
         },
         selection: TerminalSelection {
-            // Slightly lighter background variant → clean highlight that never clashes
-            background: adjust_brightness(&palette.background, 0.12),
+            background: adjust_brightness(
+                &palette.accent,
+                if palette.is_light_theme { 0.25 } else { -0.25 },
+            ),
             foreground: palette.foreground.clone(),
         },
         normal: palette.terminal.clone(),
@@ -256,28 +260,15 @@ fn build_btop_config(palette: &ColorPalette) -> BtopConfig {
     let bg = &palette.background;
     let fg = &palette.foreground;
     let accent = &palette.accent;
-
-    // Choose gradient colors based on image type.
-    // Monochrome themes lack vivid green/red terminal colors so use neutral fg-based gradients.
-    let (grad_start, grad_mid, grad_end) = match palette.image_type {
-        ImageType::Monochrome => (
-            adjust_brightness(fg, 0.15),
-            accent.clone(),
-            adjust_brightness(fg, -0.25),
-        ),
-        _ => (
-            palette.terminal.green.clone(),
-            accent.clone(),
-            palette.terminal.red.clone(),
-        ),
-    };
+    let (grad_start, grad_end) = widest_hue_pair(&palette.terminal);
+    let grad_mid = accent.clone();
 
     BtopConfig {
         main_bg: bg.clone(),
         main_fg: fg.clone(),
         title: adjust_brightness(fg, -0.2),
         hi_fg: accent.clone(),
-        selected_bg: palette.terminal.yellow.clone(),
+        selected_bg: accent.clone(),
         selected_fg: bg.clone(),
         inactive_fg: adjust_brightness(fg, -0.5),
         proc_misc: adjust_brightness(fg, -0.3),
@@ -315,6 +306,95 @@ fn build_btop_config(palette: &ColorPalette) -> BtopConfig {
 
 fn strip_hash(hex: &str) -> String {
     hex.trim_start_matches('#').to_string()
+}
+
+// Return the two terminal palette colors that are farthest apart in hue.
+// Used for btop gradients so start and end are maximally distinct on-palette colors.
+fn widest_hue_pair(palette: &crate::types::themes::TerminalPalette) -> (String, String) {
+    use palette::{FromColor, Hsl, Srgb};
+
+    let slots = [
+        &palette.red,
+        &palette.yellow,
+        &palette.green,
+        &palette.cyan,
+        &palette.blue,
+        &palette.magenta,
+    ];
+
+    let hues: Vec<f32> = slots
+        .iter()
+        .map(|hex| {
+            let hex = hex.trim_start_matches('#');
+            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
+            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
+            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
+            let hsl: Hsl = Hsl::from_color(Srgb::new(r, g, b));
+            hsl.hue.into_degrees()
+        })
+        .collect();
+
+    let mut best_dist = -1.0f32;
+    let mut best_i = 0;
+    let mut best_j = 3; // default: red and cyan (opposite)
+
+    for i in 0..slots.len() {
+        for j in (i + 1)..slots.len() {
+            let diff = (hues[i] - hues[j]).abs();
+            let dist = diff.min(360.0 - diff);
+            if dist > best_dist {
+                best_dist = dist;
+                best_i = i;
+                best_j = j;
+            }
+        }
+    }
+
+    (slots[best_i].to_string(), slots[best_j].to_string())
+}
+
+// Return the terminal palette color whose hue is most distant from the accent hue.
+// Used for hyprlock check_color so it's always visually distinct from the accent.
+fn most_distinct_from_accent(
+    terminal: &crate::types::themes::TerminalPalette,
+    accent_hex: &str,
+) -> String {
+    use palette::{FromColor, Hsl, Srgb};
+
+    let accent_hue = {
+        let hex = accent_hex.trim_start_matches('#');
+        let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
+        let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
+        let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
+        let hsl: Hsl = Hsl::from_color(Srgb::new(r, g, b));
+        hsl.hue.into_degrees()
+    };
+
+    let slots = [
+        &terminal.red,
+        &terminal.yellow,
+        &terminal.green,
+        &terminal.cyan,
+        &terminal.blue,
+        &terminal.magenta,
+    ];
+
+    slots
+        .iter()
+        .max_by(|a, b| {
+            let hue_of = |hex: &&&String| {
+                let hex = hex.trim_start_matches('#');
+                let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
+                let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
+                let bv = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
+                let hsl: Hsl = Hsl::from_color(Srgb::new(r, g, bv));
+                let diff = (hsl.hue.into_degrees() - accent_hue).abs();
+                diff.min(360.0 - diff)
+            };
+            hue_of(a).partial_cmp(&hue_of(b)).unwrap()
+        })
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| terminal.green.clone())
 }
 
 fn lighten_color(hex: &str, amount: f32) -> String {
