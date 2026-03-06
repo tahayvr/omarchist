@@ -31,3 +31,7 @@
 # Documentation
 !docs/**
 !docs/
+
+#Github
+!.github/**
+!.github/
