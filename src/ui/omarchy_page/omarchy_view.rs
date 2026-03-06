@@ -208,12 +208,13 @@ impl Render for OmarchyView {
                     div()
                         .id("release-notes-content")
                         .flex_1()
+                        .min_h(px(0.))
                         .p_4()
                         .bg(cx.theme().background)
                         .border_1()
                         .border_color(cx.theme().border)
                         .overflow_y_scroll()
-                        .child(div().w_full().h_full().child(markdown_view)),
+                        .child(div().w_full().child(markdown_view)),
                 )
         } else {
             v_flex()
