@@ -61,7 +61,7 @@ pub struct ThemeEditPage {
     btop_tab: Entity<BtopTab>,
     swayosd_tab: Entity<SwayosdTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
 }
 
 impl ThemeEditPage {

@@ -1,6 +1,7 @@
 use crate::system::themes::custom_themes::get_user_themes;
 use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::ThemeOrigin;
+use crate::ui::menu::app_menu;
 use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -10,6 +11,8 @@ use gpui_component::{
     tab::{Tab, TabBar},
     v_flex,
 };
+
+const KEY_CONTEXT: &str = "ThemesPage";
 
 // Which part of the themes page has focus
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,6 +26,7 @@ pub struct ThemesPage {
     theme_grid: Entity<ThemeGrid>,
     focus: ThemesFocus,
     has_global_focus: bool,
+    pub focus_handle: FocusHandle,
 }
 
 impl ThemesPage {
@@ -35,6 +39,7 @@ impl ThemesPage {
             theme_grid,
             focus: ThemesFocus::Tabs,
             has_global_focus: false,
+            focus_handle: cx.focus_handle(),
         }
     }
 
@@ -180,10 +185,36 @@ impl Render for ThemesPage {
 
         v_flex()
             .id("themes-page")
+            .key_context(KEY_CONTEXT)
+            .track_focus(&self.focus_handle)
             .size_full()
             .overflow_y_scrollbar()
             .overflow_x_hidden()
             .gap_4()
+            .on_action(cx.listener(|this, _: &app_menu::NextItem, _window, cx| {
+                this.handle_next_item(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::PrevItem, _window, cx| {
+                this.handle_prev_item(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::SelectNext, _window, cx| {
+                this.handle_select_next(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::SelectPrev, _window, cx| {
+                // If at the tabs level and trying to go left, bubble to MainWindow
+                // so it can move focus back to the sidebar
+                if this.focus != ThemesFocus::Tabs {
+                    this.handle_select_prev(cx);
+                }
+            }))
+            .on_action(
+                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
+                    this.handle_activate(cx);
+                }),
+            )
+            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
+                this.reset_focus(cx);
+            }))
             .child(
                 div()
                     .when(tabs_has_focus, move |this| this.bg(secondary_bg))

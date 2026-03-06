@@ -47,6 +47,7 @@ pub struct MainWindowView {
     themes_root: AnyView,
     themes_view: Entity<ThemesPage>,
     theme_edit_root: Option<AnyView>,
+    theme_edit_view: Option<Entity<ThemeEditPage>>,
     theme_edit_name: Option<String>,
     system_monitor_root: AnyView,
     config_root: AnyView,
@@ -55,11 +56,13 @@ pub struct MainWindowView {
     status_bar_root: AnyView,
     status_bar_view: Entity<StatusBarView>,
     about_root: AnyView,
+    about_view: Entity<AboutView>,
     omarchy_root: AnyView,
+    omarchy_view: Entity<OmarchyView>,
     sidebar_collapsed: bool,
     /// Keyboard navigation focus state
     focus_state: FocusState,
-    /// Focus handle for the main window
+    /// Focus handle for the main window (sidebar navigation)
     focus_handle: FocusHandle,
 }
 
@@ -94,7 +97,9 @@ impl MainWindowView {
             .into();
 
         let about_view = cx.new(AboutView::new);
-        let about_root = cx.new(|cx| Root::new(about_view, window, cx)).into();
+        let about_root = cx
+            .new(|cx| Root::new(about_view.clone(), window, cx))
+            .into();
 
         // Get Omarchy version once (silently fail if unavailable)
         let omarchy_version = get_local_omarchy_version()
@@ -103,7 +108,9 @@ impl MainWindowView {
 
         // Pass version to OmarchyView to avoid redundant git calls
         let omarchy_view = cx.new(|cx| OmarchyView::new(omarchy_version.clone(), cx));
-        let omarchy_root = cx.new(|cx| Root::new(omarchy_view, window, cx)).into();
+        let omarchy_root = cx
+            .new(|cx| Root::new(omarchy_view.clone(), window, cx))
+            .into();
 
         // Spawn async task to check for Omarchy updates
         let version_for_check = omarchy_version.clone().unwrap_or_default();
@@ -126,7 +133,7 @@ impl MainWindowView {
         })
         .detach();
 
-        // Create focus handle for keyboard navigation and request focus immediately
+        // Create focus handle for sidebar navigation; keep it focused at start
         let focus_handle = cx.focus_handle();
         focus_handle.focus(window);
 
@@ -143,6 +150,7 @@ impl MainWindowView {
             themes_root,
             themes_view,
             theme_edit_root: None,
+            theme_edit_view: None,
             theme_edit_name: None,
             system_monitor_root,
             config_root,
@@ -151,7 +159,9 @@ impl MainWindowView {
             status_bar_root,
             status_bar_view,
             about_root,
+            about_view,
             omarchy_root,
+            omarchy_view,
             sidebar_collapsed: true,
             focus_state: FocusState {
                 focused_section: FocusedSection::Sidebar,
@@ -176,20 +186,51 @@ impl MainWindowView {
 
         // Handle ThemeEdit page creation/update
         if let ActivePage::ThemeEdit(ref theme_name) = page {
-            // Check if we need to create or update the theme edit view
             let should_create = self.theme_edit_name.as_ref() != Some(theme_name);
 
             if should_create {
                 let theme_edit_view =
                     cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
-                self.theme_edit_root =
-                    Some(cx.new(|cx| Root::new(theme_edit_view, window, cx)).into());
+                self.theme_edit_root = Some(
+                    cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
+                        .into(),
+                );
+                self.theme_edit_view = Some(theme_edit_view);
                 self.theme_edit_name = Some(theme_name.clone());
             }
         }
 
         self.active_page = page;
+
+        // Transfer GPUI focus to the newly active page so its key_context
+        // and on_action handlers are in the dispatch chain.
+        self.transfer_focus_to_active_page(window, cx);
+
         cx.notify();
+    }
+
+    /// Transfer GPUI focus to the focus handle of the currently active page.
+    fn transfer_focus_to_active_page(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let handle = match &self.active_page {
+            ActivePage::Themes => Some(self.themes_view.read(cx).focus_handle.clone()),
+            ActivePage::ThemeEdit(_) => self
+                .theme_edit_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
+            ActivePage::StatusBar => Some(self.status_bar_view.read(cx).focus_handle.clone()),
+            ActivePage::About => Some(self.about_view.read(cx).focus_handle.clone()),
+            ActivePage::Omarchy => Some(self.omarchy_view.read(cx).focus_handle.clone()),
+            ActivePage::Configuration => Some(self.config_view.read(cx).focus_handle.clone()),
+            // Settings and SystemMonitor have no custom focus handle — keep main window focus
+            ActivePage::Settings | ActivePage::SystemMonitor => None,
+        };
+
+        if let Some(fh) = handle {
+            fh.focus(window);
+        } else {
+            // Return focus to the main window (sidebar)
+            self.focus_handle.focus(window);
+        }
     }
 
     pub fn navigate_to_theme_edit(
@@ -243,7 +284,7 @@ impl MainWindowView {
         }
     }
 
-    /// Navigate to the currently focused sidebar item
+    /// Navigate to the currently focused sidebar item and transfer focus to that page
     fn activate_focused_sidebar_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let page = self.page_from_sidebar_index(self.focus_state.sidebar_index);
         self.focus_state.focused_section = FocusedSection::Content;
@@ -256,213 +297,91 @@ impl MainWindowView {
             && self.focus_state.sidebar_index == index
     }
 
-    /// Handle NextFocus action (Tab)
+    /// Handle NextFocus action (Tab) — toggles between Sidebar and Content
     fn handle_next_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
                 self.focus_state.focused_section = FocusedSection::Content;
-                // When entering the Status Bar content, start focus on the first header item
-                if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.enter_focus(cx));
-                }
-                // When entering the Config content, focus the config view so Settings handles nav
-                if self.active_page == ActivePage::Configuration {
-                    self.config_view.read(cx).focus_handle.clone().focus(window);
-                }
+                // Transfer GPUI focus to the active page
+                self.transfer_focus_to_active_page(window, cx);
             }
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
-                // Clear StatusBar internal focus when leaving content
-                if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
-                }
+                // Return GPUI focus to the main window for sidebar navigation
+                self.focus_handle.focus(window);
             }
         }
         cx.notify();
     }
 
-    /// Handle PrevFocus action (Shift+Tab)
+    /// Handle PrevFocus action (Shift+Tab) — toggles between Sidebar and Content
     fn handle_prev_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
                 self.focus_state.focused_section = FocusedSection::Content;
-                // When entering Status Bar content via Shift+Tab, start at the last item
-                if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.cycle_prev(cx));
-                }
-                // When entering the Config content, focus the config view
-                if self.active_page == ActivePage::Configuration {
-                    self.config_view.read(cx).focus_handle.clone().focus(window);
-                }
+                // Transfer GPUI focus to the active page
+                self.transfer_focus_to_active_page(window, cx);
             }
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
-                // Clear StatusBar internal focus when leaving content
-                if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
-                }
+                // Return GPUI focus to the main window for sidebar navigation
+                self.focus_handle.focus(window);
             }
         }
         cx.notify();
     }
 
-    /// Handle NextItem action (Down arrow)
+    /// Handle NextItem action (Down arrow) — only applies to sidebar navigation
     fn handle_next_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.focus_state.next_sidebar_item();
-                cx.notify();
-            }
-            FocusedSection::Content => {
-                if matches!(
-                    self.active_page,
-                    ActivePage::Themes | ActivePage::ThemeEdit(_)
-                ) {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.handle_next_item(cx);
-                    });
-                }
-            }
+        if self.focus_state.focused_section == FocusedSection::Sidebar {
+            self.focus_state.next_sidebar_item();
+            cx.notify();
         }
+        // Content navigation is handled by the child page views directly
     }
 
-    /// Handle PrevItem action (Up arrow)
+    /// Handle PrevItem action (Up arrow) — only applies to sidebar navigation
     fn handle_prev_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.focus_state.prev_sidebar_item();
-                cx.notify();
-            }
-            FocusedSection::Content => {
-                if matches!(
-                    self.active_page,
-                    ActivePage::Themes | ActivePage::ThemeEdit(_)
-                ) {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.handle_prev_item(cx);
-                    });
-                }
-            }
+        if self.focus_state.focused_section == FocusedSection::Sidebar {
+            self.focus_state.prev_sidebar_item();
+            cx.notify();
         }
+        // Content navigation is handled by the child page views directly
     }
 
-    /// Handle SelectNext action (Right arrow)
+    /// Handle SelectNext action (Right arrow) — activates focused sidebar item
     fn handle_select_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.activate_focused_sidebar_item(window, cx);
-            }
-            FocusedSection::Content => {
-                if self.active_page == ActivePage::Themes {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.handle_select_next(cx);
-                    });
-                } else if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.cycle_next(cx));
-                }
-            }
+        if self.focus_state.focused_section == FocusedSection::Sidebar {
+            self.activate_focused_sidebar_item(window, cx);
+        }
+        // Content navigation is handled by the child page views directly
+    }
+
+    /// Handle SelectPrev action (Left arrow) — moves focus back to sidebar from content
+    fn handle_select_prev(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.focus_state.focused_section == FocusedSection::Content {
+            // Child views consume this if they still have internal items to navigate left.
+            // If they bubble it up (e.g. ThemesPage at Tabs level), we move to sidebar.
+            self.focus_state.focused_section = FocusedSection::Sidebar;
+            self.focus_handle.focus(window);
+            cx.notify();
         }
     }
 
-    /// Handle SelectPrev action (Left arrow)
-    fn handle_select_prev(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                // Already at sidebar, do nothing
-            }
-            FocusedSection::Content => {
-                if self.active_page == ActivePage::Themes {
-                    let themes_focus = self.themes_view.read(cx).current_focus();
-                    if themes_focus == crate::ui::themes_page::themes::ThemesFocus::Tabs {
-                        // At the tabs level — move focus back to sidebar
-                        self.focus_state.focused_section = FocusedSection::Sidebar;
-                        cx.notify();
-                    } else {
-                        self.themes_view.update(cx, |page, cx| {
-                            page.handle_select_prev(cx);
-                        });
-                    }
-                } else if self.active_page == ActivePage::StatusBar {
-                    if self.status_bar_view.read(cx).at_first_or_none() {
-                        // At first item or no item — move focus back to sidebar
-                        self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
-                        self.focus_state.focused_section = FocusedSection::Sidebar;
-                        cx.notify();
-                    } else {
-                        self.status_bar_view.update(cx, |v, cx| v.cycle_prev(cx));
-                    }
-                } else {
-                    // Non-themes/statusbar page: left arrow moves focus to sidebar
-                    self.focus_state.focused_section = FocusedSection::Sidebar;
-                    cx.notify();
-                }
-            }
-        }
-    }
-
-    /// Handle ActivateItem action (Enter/Space)
+    /// Handle ActivateItem action (Enter/Space) — activates sidebar item
     fn handle_activate_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.activate_focused_sidebar_item(window, cx);
-            }
-            FocusedSection::Content => {
-                if self.active_page == ActivePage::Themes {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.handle_activate(cx);
-                    });
-                } else if self.active_page == ActivePage::StatusBar {
-                    let focused_item = self.status_bar_view.read(cx).focused_header_item;
-                    match focused_item {
-                        Some(0) => {
-                            // Focus the profile Select so it handles keyboard navigation
-                            let header = self.status_bar_view.read(cx).header_entity();
-                            let select = header.read(cx).select_entity();
-                            // Clone the focus handle before calling focus to avoid borrow conflict
-                            let fh = {
-                                use gpui::Focusable;
-                                select.read(cx).focus_handle(cx).clone()
-                            };
-                            fh.focus(window);
-                        }
-                        Some(1) => {
-                            // Add profile
-                            crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog(window, cx);
-                        }
-                        Some(3) => {
-                            // Restart waybar
-                            if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
-                                eprintln!("Failed to restart waybar: {e}");
-                            }
-                        }
-                        _ => {}
-                    }
-                }
-            }
+        if self.focus_state.focused_section == FocusedSection::Sidebar {
+            self.activate_focused_sidebar_item(window, cx);
         }
+        // Content activation is handled by the child page views directly
     }
 
-    /// Handle EscapeFocus action
-    fn handle_escape_focus(&mut self, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Content => {
-                // Escape from content moves focus to sidebar
-                self.focus_state.focused_section = FocusedSection::Sidebar;
-                // Also reset themes page focus back to tabs level
-                if self.active_page == ActivePage::Themes {
-                    self.themes_view.update(cx, |page, cx| {
-                        page.reset_focus(cx);
-                    });
-                }
-                // Reset status bar internal focus
-                if self.active_page == ActivePage::StatusBar {
-                    self.status_bar_view.update(cx, |v, cx| v.reset_focus(cx));
-                }
-                cx.notify();
-            }
-            FocusedSection::Sidebar => {
-                // Already at sidebar, do nothing
-            }
+    /// Handle EscapeFocus action — returns focus to sidebar
+    fn handle_escape_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.focus_state.focused_section == FocusedSection::Content {
+            self.focus_state.focused_section = FocusedSection::Sidebar;
+            self.focus_handle.focus(window);
+            cx.notify();
         }
     }
 }
@@ -610,7 +529,7 @@ impl Render for MainWindowView {
                     this.navigate_to(ActivePage::StatusBar, window, cx);
                 },
             ))
-            // Keyboard navigation actions
+            // Sidebar keyboard navigation actions
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NextFocus, window, cx| {
                     this.handle_next_focus(window, cx);
@@ -647,8 +566,8 @@ impl Render for MainWindowView {
                 },
             ))
             .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::EscapeFocus, _window, cx| {
-                    this.handle_escape_focus(cx);
+                |this, _: &crate::ui::menu::app_menu::EscapeFocus, window, cx| {
+                    this.handle_escape_focus(window, cx);
                 },
             ))
             .child(self.title_bar.clone())

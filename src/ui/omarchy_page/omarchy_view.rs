@@ -16,7 +16,7 @@ pub struct OmarchyView {
     update_available: Option<bool>,
     latest_tag: Option<String>,
     release_notes: Option<String>,
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
     /// Whether the Update button is keyboard-focused (only relevant when update_available == Some(true))
     update_btn_focused: bool,
 }
@@ -247,10 +247,13 @@ impl Render for OmarchyView {
                 }
             }))
             .on_action(cx.listener(|this, _: &app_menu::PrevFocus, _window, cx| {
-                if this.update_available == Some(true) {
-                    this.update_btn_focused = true;
+                // Shift-Tab: if button is focused, unfocus it and let the action
+                // bubble to MainWindow to return focus to the sidebar
+                if this.update_btn_focused {
+                    this.update_btn_focused = false;
                     cx.notify();
                 }
+                // If button was not focused, do nothing — bubble up to MainWindow
             }))
             .on_action(
                 cx.listener(|this, _: &app_menu::ActivateItem, _window, _cx| {

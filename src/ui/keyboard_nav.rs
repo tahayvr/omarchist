@@ -1,12 +1,6 @@
-use gpui::*;
-use std::cell::RefCell;
+// Re-export for use throughout the codebase
 
-thread_local! {
-    /// Thread-local storage for the current focus state across the app
-    pub static FOCUS_STATE: RefCell<FocusState> = RefCell::new(FocusState::new());
-}
-
-/// Global focus state manager for the application
+/// Global focus state for the main window (sidebar vs. content section)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct FocusState {
     /// Which major section has focus (sidebar, content, etc.)
@@ -24,27 +18,6 @@ impl FocusState {
             sidebar_index: 0,
             sidebar_count: 3, // Themes, Configuration, Status Bar
         }
-    }
-
-    pub fn with_section(section: FocusedSection) -> Self {
-        Self {
-            focused_section: section,
-            sidebar_index: 0,
-            sidebar_count: 3,
-        }
-    }
-
-    /// Move focus to next section
-    pub fn next_section(&mut self) {
-        self.focused_section = match self.focused_section {
-            FocusedSection::Sidebar => FocusedSection::Content,
-            FocusedSection::Content => FocusedSection::Sidebar,
-        };
-    }
-
-    /// Move focus to previous section
-    pub fn prev_section(&mut self) {
-        self.next_section(); // Only 2 sections, so toggle
     }
 
     /// Move to next sidebar item
@@ -75,54 +48,6 @@ pub enum FocusedSection {
     Content,
 }
 
-/// Trait for components that support keyboard navigation
-pub trait KeyboardNavigable {
-    /// Handle a key down event for navigation
-    fn handle_nav_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) -> bool
-    where
-        Self: Render;
-}
-
-/// Check if a key is Tab
-pub fn is_tab(event: &KeyDownEvent) -> bool {
-    event.keystroke.key.as_str() == "tab"
-}
-
-/// Check if a key is Shift+Tab
-pub fn is_shift_tab(event: &KeyDownEvent) -> bool {
-    event.keystroke.key.as_str() == "tab" && event.keystroke.modifiers.shift
-}
-
-/// Check if a key is an arrow key
-pub fn is_arrow_key(event: &KeyDownEvent) -> Option<ArrowDirection> {
-    match event.keystroke.key.as_str() {
-        "up" => Some(ArrowDirection::Up),
-        "down" => Some(ArrowDirection::Down),
-        "left" => Some(ArrowDirection::Left),
-        "right" => Some(ArrowDirection::Right),
-        _ => None,
-    }
-}
-
-/// Check if Enter or Space was pressed (activation key)
-pub fn is_activation_key(event: &KeyDownEvent) -> bool {
-    matches!(event.keystroke.key.as_str(), "enter" | "space")
-}
-
-/// Check if Escape was pressed
-pub fn is_escape(event: &KeyDownEvent) -> bool {
-    event.keystroke.key.as_str() == "escape"
-}
-
-/// Arrow key directions
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ArrowDirection {
-    Up,
-    Down,
-    Left,
-    Right,
-}
-
 /// Navigation state for a list/grid of items
 #[derive(Debug, Clone, Copy)]
 pub struct ListNavigationState {
@@ -138,14 +63,6 @@ impl ListNavigationState {
     pub fn new(item_count: usize, columns: usize) -> Self {
         Self {
             focused_index: None,
-            item_count,
-            columns: columns.max(1),
-        }
-    }
-
-    pub fn with_focused(item_count: usize, columns: usize, focused: usize) -> Self {
-        Self {
-            focused_index: Some(focused.min(item_count.saturating_sub(1))),
             item_count,
             columns: columns.max(1),
         }

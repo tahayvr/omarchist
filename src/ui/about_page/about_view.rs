@@ -16,7 +16,7 @@ const ABOUT_BUTTON_URLS: [&str; ABOUT_BUTTON_COUNT] = [
 ];
 
 pub struct AboutView {
-    focus_handle: FocusHandle,
+    pub focus_handle: FocusHandle,
     /// Currently keyboard-focused button index (None = no keyboard focus)
     focused_button: Option<usize>,
 }

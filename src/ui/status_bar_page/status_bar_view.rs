@@ -7,8 +7,12 @@ use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navig
 use crate::ui::dialogs::manage_waybar_profile_dialogs::{
     ProfileManagementResult, take_pending_profile_management,
 };
+use crate::ui::menu::app_menu;
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
+
+const KEY_CONTEXT: &str = "StatusBar";
+const HEADER_ITEM_COUNT: usize = 4;
 
 fn apply_and_restart(profile_name: &str) {
     if let Err(e) = apply_waybar_profile(profile_name) {
@@ -26,9 +30,8 @@ pub struct StatusBarView {
     /// Which header item is keyboard-focused (None = no keyboard focus)
     /// 0 = Profile Select, 1 = Add Profile, 2 = More Options, 3 = Restart Waybar
     pub focused_header_item: Option<usize>,
+    pub focus_handle: FocusHandle,
 }
-
-const HEADER_ITEM_COUNT: usize = 4;
 
 impl StatusBarView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
@@ -71,6 +74,7 @@ impl StatusBarView {
             design_area,
             _select_subscription: subscription,
             focused_header_item: None,
+            focus_handle: cx.focus_handle(),
         }
     }
 
@@ -119,6 +123,7 @@ impl Render for StatusBarView {
         self.header.update(cx, |header, _| {
             header.focused_item = focused_header_item;
         });
+
         // After a new profile is created, reload the header and switch to it
         if let Some(new_profile) = take_pending_profile_navigation() {
             apply_and_restart(&new_profile);
@@ -148,8 +153,52 @@ impl Render for StatusBarView {
 
         v_flex()
             .id("status-bar-page")
+            .key_context(KEY_CONTEXT)
+            .track_focus(&self.focus_handle)
             .size_full()
             .gap_4()
+            .on_action(cx.listener(|this, _: &app_menu::NextFocus, _window, cx| {
+                this.cycle_next(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::PrevFocus, _window, cx| {
+                this.cycle_prev(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::SelectNext, _window, cx| {
+                this.cycle_next(cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::SelectPrev, _window, cx| {
+                // Only consume if not at first item — otherwise bubble to MainWindow
+                // to move focus back to the sidebar
+                if !this.at_first_or_none() {
+                    this.cycle_prev(cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::ActivateItem, window, cx| {
+                match this.focused_header_item {
+                    Some(0) => {
+                        // Focus the profile Select widget so it handles keyboard navigation
+                        let header = this.header_entity();
+                        let select = header.read(cx).select_entity();
+                        let fh = {
+                            use gpui::Focusable;
+                            select.read(cx).focus_handle(cx).clone()
+                        };
+                        fh.focus(window);
+                    }
+                    Some(1) => {
+                        crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog(window, cx);
+                    }
+                    Some(3) => {
+                        if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
+                            eprintln!("Failed to restart waybar: {e}");
+                        }
+                    }
+                    _ => {}
+                }
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
+                this.reset_focus(cx);
+            }))
             .child(self.header.clone())
             .child(self.design_area.clone())
     }
