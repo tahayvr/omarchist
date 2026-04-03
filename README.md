@@ -8,7 +8,7 @@
 Omarchist brings Omarchy theme creation and system configuration into the GUI realm.
 Think of it as an optional add-on.
 
-<img src="assets/omarchist-screenshot-3.png" alt="Omarchist Themes" width="800">
+<img src="screenshots/omarchist-themes.png" alt="Omarchist Themes" width="800">
 
 ## Install
 

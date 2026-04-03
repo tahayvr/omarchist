@@ -1,11 +1,11 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
     select::{Select, SelectState},
+    ActiveTheme, Icon, IconName, IndexPath, Sizable,
 };
 
 use crate::shell::waybar_sh_commands::restart_waybar;
@@ -244,7 +244,7 @@ impl Render for StatusBarHeader {
                         .icon(Icon::new(IconName::LoaderCircle))
                         .ghost()
                         .small()
-                        .tooltip("Restart waybar")
+                        .tooltip("Restart Waybar")
                         .on_click(move |_, _, _| {
                             if let Err(e) = crate::system::waybar::apply_waybar_profile(&profile_for_restart) {
                                 eprintln!("Failed to apply waybar profile: {e}");

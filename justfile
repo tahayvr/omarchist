@@ -8,7 +8,7 @@ alias d := docs
 
 # Run app
 run:
-    cargo run --release || true
+    cargo run || true
 
 check:
     cargo fmt
