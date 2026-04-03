@@ -217,6 +217,11 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
     } else {
         adjust_lightness(&bg, -0.08)
     };
+    let switch_bg = if is_dark {
+        adjust_lightness(&bg, 0.18)
+    } else {
+        adjust_lightness(&bg, -0.18)
+    };
     let secondary_hover = if is_dark {
         adjust_lightness(&bg, 0.12)
     } else {
@@ -294,6 +299,7 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
         "secondary.active.background",
         secondary_active,
     );
+    insert(&mut colors_obj, "switch.background", switch_bg);
     insert(&mut colors_obj, "ring", lighten(&accent_color, 0.05));
     insert(
         &mut colors_obj,
