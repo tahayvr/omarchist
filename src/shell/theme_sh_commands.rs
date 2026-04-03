@@ -39,6 +39,10 @@ omarchy-theme-set-browser
 omarchy-theme-set-vscode
 omarchy-theme-set-obsidian
 omarchy-theme-set-keyboard
+
+# Call hook on theme set
+THEME_NAME="$(cat "$HOME/.config/omarchy/current/theme.name" 2>/dev/null | tr -d '[:space:]')"
+omarchy-hook theme-set "$THEME_NAME"
 "#;
 
     let status = Command::new("bash")
