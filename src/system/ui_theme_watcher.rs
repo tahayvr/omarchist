@@ -209,7 +209,7 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
 
     let primary_bg = fg.clone();
     let primary_fg = bg.clone();
-    let primary_hover = darken(&primary_bg, 0.10);
+    let primary_hover = darken(&primary_bg, 0.16);
     let primary_active = darken(&primary_bg, 0.20);
 
     let secondary_bg = if is_dark {
@@ -223,9 +223,9 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
         adjust_lightness(&bg, -0.18)
     };
     let secondary_hover = if is_dark {
-        adjust_lightness(&bg, 0.12)
+        adjust_lightness(&bg, 0.18)
     } else {
-        adjust_lightness(&bg, -0.12)
+        adjust_lightness(&bg, -0.18)
     };
     let secondary_active = if is_dark {
         adjust_lightness(&bg, 0.15)
