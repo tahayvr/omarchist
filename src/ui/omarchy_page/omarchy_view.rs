@@ -268,22 +268,31 @@ impl Render for OmarchyView {
                 .latest_tag
                 .clone()
                 .unwrap_or_else(|| "Latest".to_string());
-            let style = TextViewStyle::default()
-                .paragraph_gap(rems(2.0))
-                .heading_font_size(|level, base_size| {
-                    // Scale headings: H1 = 1.8x, H2 = 1.5x, H3 = 1.3x, H4+ = 1.1x
-                    let scale = match level {
-                        1 => 1.7,
-                        2 => 1.5,
-                        3 => 1.3,
-                        _ => 1.1,
-                    };
-                    base_size * scale
-                });
+
+            let is_dark = cx.theme().mode.is_dark();
+            let highlight_theme = if is_dark {
+                gpui_component::highlighter::HighlightTheme::default_dark()
+            } else {
+                gpui_component::highlighter::HighlightTheme::default_light()
+            };
+
+            let style = TextViewStyle {
+                paragraph_gap: rems(0.75),
+                heading_base_font_size: px(15.),
+                highlight_theme,
+                heading_font_size: Some(std::sync::Arc::new(|level, base_size| match level {
+                    1 => base_size * 1.45,
+                    2 => base_size * 1.25,
+                    3 => base_size * 1.1,
+                    _ => base_size,
+                })),
+                ..Default::default()
+            };
 
             let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx)
                 .style(style)
-                .line_height(rems(2.0));
+                .line_height(rems(1.6))
+                .selectable(true);
 
             v_flex()
                 .gap_2()
@@ -291,22 +300,37 @@ impl Render for OmarchyView {
                 .flex_1()
                 .min_h(px(0.))
                 .child(
-                    div()
-                        .text_color(cx.theme().foreground)
-                        .font_weight(FontWeight::BOLD)
-                        .child(format!("{} Release Notes:", tag)),
+                    h_flex()
+                        .items_center()
+                        .gap_2()
+                        .child(
+                            div()
+                                .w(px(3.))
+                                .h(px(16.))
+                                .rounded_full()
+                                .bg(cx.theme().accent_foreground),
+                        )
+                        .child(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .text_color(cx.theme().foreground)
+                                .child(format!("Release Notes  ·  {}", tag)),
+                        ),
                 )
                 .child(
                     div()
                         .id("release-notes-content")
                         .flex_1()
                         .min_h(px(0.))
-                        .p_4()
-                        .bg(cx.theme().background)
+                        .px_5()
+                        .py_4()
+                        .bg(cx.theme().muted)
                         .border_1()
                         .border_color(cx.theme().border)
+                        .rounded_lg()
                         .overflow_y_scroll()
-                        .child(div().w_full().child(markdown_view)),
+                        .child(div().w_full().pb_2().child(markdown_view)),
                 )
         } else {
             v_flex()
