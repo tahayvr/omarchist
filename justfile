@@ -5,6 +5,7 @@ alias b := build
 alias c := check
 alias r := run
 alias d := docs
+alias rel := release
 
 # Run app
 run:
@@ -26,3 +27,11 @@ build:
 
 docs VER:
     cd docs/ && bun run docs:{{ VER }} 2>/dev/null || true
+
+# Tag and push a release (x.y.z | patch | minor | major)
+release VER:
+    just update {{ VER }}
+    git add Cargo.toml Cargo.lock src/ui/about_page/about_view.rs
+    git commit -m "chore(release): {{ VER }}"
+    git tag -a "v{{ VER }}" -m "Release v{{ VER }}"
+    git push origin main "v{{ VER }}"

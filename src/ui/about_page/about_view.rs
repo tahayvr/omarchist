@@ -114,7 +114,7 @@ impl Render for AboutView {
                         div()
                             .id("omarchist-version")
                             .text_color(theme.muted_foreground)
-                            .child("v0.6.0"),
+                            .child("v0.7.0"),
                     ),
             )
             .child(

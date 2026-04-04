@@ -36,5 +36,8 @@
 !.github/**
 !.github/
 
+# Cliff changelog
+!cliff.toml
+
 # Distribution
 !omarchist.desktop
