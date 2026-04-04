@@ -25,7 +25,6 @@ impl WaybarPreview {
         self.config = load_waybar_config(profile_name);
     }
 
-    /// Remove the module at (zone, index) from the config and persist immediately.
     pub fn remove_module(&mut self, zone: &WaybarZone, index: usize) {
         let Some(cfg) = self.config.as_mut() else {
             return;
@@ -45,8 +44,6 @@ impl WaybarPreview {
         }
     }
 
-    /// Move a module from (src_zone, src_index) to (dst_zone, dst_index) within the config,
-    /// then persist the new order to disk immediately.
     pub fn move_module(
         &mut self,
         src_zone: &WaybarZone,

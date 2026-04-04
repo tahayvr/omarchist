@@ -7,14 +7,12 @@ use crate::types::hyprland_config::HyprlandConfig;
 const CONFIG_DIR: &str = ".config/omarchist/hyprland";
 const CONFIG_FILE: &str = "hyprland.conf";
 
-/// Manager for Hyprland configuration
 pub struct HyprlandConfigManager {
     config_path: PathBuf,
     config: HyprlandConfig,
 }
 
 impl HyprlandConfigManager {
-    /// Load the configuration from disk, or create a default one if it doesn't exist
     pub fn load() -> Result<Self, String> {
         let config_path = get_config_path()?;
 
@@ -35,7 +33,6 @@ impl HyprlandConfigManager {
         })
     }
 
-    /// Save the current configuration to disk and reload Hyprland
     pub fn save(&self) -> Result<(), String> {
         let content = super::writer::write_config(&self.config);
         fs::write(&self.config_path, content)
@@ -47,7 +44,6 @@ impl HyprlandConfigManager {
         Ok(())
     }
 
-    /// Trigger Hyprland to reload its configuration
     fn reload_hyprland() {
         // Run hyprctl reload in background - don't block on it
         std::thread::spawn(|| {
@@ -55,17 +51,14 @@ impl HyprlandConfigManager {
         });
     }
 
-    /// Get a reference to the current configuration
     pub fn get(&self) -> &HyprlandConfig {
         &self.config
     }
 
-    /// Get a mutable reference to the current configuration
     pub fn get_mut(&mut self) -> &mut HyprlandConfig {
         &mut self.config
     }
 
-    /// Update the configuration using a closure
     pub fn update<F>(&mut self, f: F)
     where
         F: FnOnce(&mut HyprlandConfig),
@@ -73,7 +66,6 @@ impl HyprlandConfigManager {
         f(&mut self.config);
     }
 
-    /// Update the configuration and save it to disk
     pub fn update_and_save<F>(&mut self, f: F) -> Result<(), String>
     where
         F: FnOnce(&mut HyprlandConfig),
@@ -82,12 +74,10 @@ impl HyprlandConfigManager {
         self.save()
     }
 
-    /// Get the path to the config file
     pub fn config_path(&self) -> &Path {
         &self.config_path
     }
 
-    /// Reset configuration to defaults
     pub fn reset_to_defaults(&mut self) {
         self.config = HyprlandConfig::default();
     }
@@ -102,13 +92,11 @@ impl Clone for HyprlandConfigManager {
     }
 }
 
-/// Get the path to the configuration file
 fn get_config_path() -> Result<PathBuf, String> {
     let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
     Ok(home_dir.join(CONFIG_DIR).join(CONFIG_FILE))
 }
 
-/// Ensure the configuration directory exists
 fn ensure_config_dir() -> Result<(), String> {
     let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
     let config_dir = home_dir.join(CONFIG_DIR);
@@ -121,12 +109,10 @@ fn ensure_config_dir() -> Result<(), String> {
     Ok(())
 }
 
-/// Check if a configuration file exists
 pub fn config_exists() -> bool {
     get_config_path().map(|p| p.exists()).unwrap_or(false)
 }
 
-/// Delete the configuration file (reset to system defaults)
 pub fn delete_config() -> Result<(), String> {
     let config_path = get_config_path()?;
     if config_path.exists() {

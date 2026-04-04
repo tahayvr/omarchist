@@ -10,7 +10,6 @@ use gpui_component::{
 
 use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
 
-/// Network tab with traffic visualization and interface details
 pub struct NetworkTab {
     interface_table: gpui::Entity<TableState<InterfaceTableDelegate>>,
 }
@@ -257,7 +256,6 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
     points
 }
 
-/// Create the interface table entity
 pub fn create_interface_table(
     window: &mut Window,
     cx: &mut App,
@@ -270,7 +268,6 @@ pub fn create_interface_table(
     })
 }
 
-/// Table delegate for network interfaces
 pub struct InterfaceTableDelegate {
     interfaces: Vec<InterfaceInfo>,
     columns: Vec<Column>,

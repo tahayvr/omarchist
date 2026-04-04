@@ -11,18 +11,15 @@ use gpui_component::{
 use crate::system::waybar::{get_module_config, set_module_config_field};
 
 thread_local! {
-    /// Set by the context menu "Edit" action; consumed by DesignArea in render.
     pub static PENDING_MODULE_EDIT: RefCell<Option<(String, String)>> = const { RefCell::new(None) };
 }
 
-/// Set the pending module edit request (profile_name, module_key).
 pub fn request_module_edit(profile_name: String, module_key: String) {
     PENDING_MODULE_EDIT.with(|cell| {
         *cell.borrow_mut() = Some((profile_name, module_key));
     });
 }
 
-/// Take (consume) the pending module edit request, if any.
 pub fn take_pending_module_edit() -> Option<(String, String)> {
     PENDING_MODULE_EDIT.with(|cell| cell.borrow_mut().take())
 }
@@ -31,7 +28,6 @@ pub fn take_pending_module_edit() -> Option<(String, String)> {
 // ModuleEditorPanel
 // ---------------------------------------------------------------------------
 
-/// Inline panel that shows editable fields for a single waybar module.
 pub struct ModuleEditorPanel {
     profile_name: String,
     module_key: String,
@@ -80,7 +76,6 @@ impl ModuleEditorPanel {
         }
     }
 
-    /// Open the editor for a specific module, loading its current config.
     pub fn open(&mut self, module_key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.module_key = module_key.to_string();
         self.is_open = true;
@@ -132,13 +127,11 @@ impl ModuleEditorPanel {
         cx.notify();
     }
 
-    /// Close the editor panel.
     pub fn close(&mut self, cx: &mut Context<Self>) {
         self.is_open = false;
         cx.notify();
     }
 
-    /// Switch to a different profile (e.g. on profile change in header).
     pub fn switch_profile(&mut self, profile_name: &str) {
         self.profile_name = profile_name.to_string();
         self.is_open = false;

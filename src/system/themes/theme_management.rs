@@ -6,17 +6,14 @@ use chrono::Utc;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-/// Get the custom themes directory path
 fn get_custom_themes_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))
 }
 
-/// Get the defaults theme directory path
 fn get_defaults_theme_dir() -> PathBuf {
     PathBuf::from("defaults/theme")
 }
 
-/// Generate a unique theme name like "custom-theme-1", "custom-theme-2", etc.
 pub fn generate_unique_theme_name() -> String {
     let themes_dir = match get_custom_themes_dir() {
         Some(dir) => dir,
@@ -43,7 +40,6 @@ pub fn generate_unique_theme_name() -> String {
     }
 }
 
-/// Create a new theme by copying the defaults/theme folder
 pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -69,7 +65,6 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     Ok(theme_name.to_string())
 }
 
-/// Copy all files from source to destination directory
 fn copy_theme_files(src: &Path, dst: &Path) -> Result<(), String> {
     if !src.exists() {
         return Err(format!(
@@ -103,7 +98,6 @@ fn copy_theme_files(src: &Path, dst: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// Update the omarchist.json with actual metadata
 fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), String> {
     let json_path = theme_dir.join("omarchist.json");
 
@@ -128,7 +122,6 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
     Ok(())
 }
 
-/// Load a theme for editing
 pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -220,7 +213,6 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
     Ok(editing_theme)
 }
 
-/// Parse waybar.css content to extract color values
 fn parse_waybar_css(css_content: &str) -> Option<WaybarConfig> {
     let mut background = None;
     let mut foreground = None;
@@ -251,7 +243,6 @@ fn parse_waybar_css(css_content: &str) -> Option<WaybarConfig> {
     }
 }
 
-/// Save theme data
 pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -327,7 +318,6 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     Ok(())
 }
 
-/// Update the icons.theme file with the given icon theme name
 pub fn update_icons_theme(theme_name: &str, icon_theme_name: &str) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -346,7 +336,6 @@ pub fn update_icons_theme(theme_name: &str, icon_theme_name: &str) -> Result<(),
     Ok(())
 }
 
-/// Parse icons.theme file content to extract icon theme name
 fn parse_icons_theme(content: &str) -> Option<serde_json::Value> {
     let theme_name = content.trim();
     if theme_name.is_empty() {
@@ -358,7 +347,6 @@ fn parse_icons_theme(content: &str) -> Option<serde_json::Value> {
     }))
 }
 
-/// Update the chromium config file with the given theme color
 pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -385,7 +373,6 @@ pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Resul
     Ok(())
 }
 
-/// Helper function to create or remove light.mode file
 fn update_light_mode_file(theme_dir: &Path, is_light: bool) -> Result<(), String> {
     let light_mode_path = theme_dir.join("light.mode");
 
@@ -406,7 +393,6 @@ fn update_light_mode_file(theme_dir: &Path, is_light: bool) -> Result<(), String
     Ok(())
 }
 
-/// Rename a theme
 pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -443,7 +429,6 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-/// Update the waybar.css file with the given colors
 pub fn update_waybar_css(theme_name: &str, config: &WaybarConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -467,7 +452,6 @@ pub fn update_waybar_css(theme_name: &str, config: &WaybarConfig) -> Result<(), 
     Ok(())
 }
 
-/// Parse hyprland.conf content to extract window settings
 fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
     let mut active_border = None;
     let mut inactive_border = None;
@@ -512,7 +496,6 @@ fn parse_hyprland_conf(conf_content: &str) -> Option<HyprlandConfig> {
     }
 }
 
-/// Update the hyprland.conf file with the given settings
 pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -537,7 +520,6 @@ pub fn update_hyprland_conf(theme_name: &str, config: &HyprlandConfig) -> Result
     Ok(())
 }
 
-/// Update the walker.css file with the given colors
 pub fn update_walker_css(theme_name: &str, config: &WalkerConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -566,7 +548,6 @@ pub fn update_walker_css(theme_name: &str, config: &WalkerConfig) -> Result<(), 
     Ok(())
 }
 
-/// Update all terminal emulator configs from unified terminal config
 pub fn update_terminal_configs(theme_name: &str, config: &TerminalConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -598,7 +579,6 @@ pub fn update_terminal_configs(theme_name: &str, config: &TerminalConfig) -> Res
     Ok(())
 }
 
-/// Generate Alacritty TOML config
 fn generate_alacritty_config(config: &TerminalConfig) -> String {
     format!(
         r#"
@@ -659,7 +639,6 @@ white = "{}"
     )
 }
 
-/// Generate Kitty config
 fn generate_kitty_config(config: &TerminalConfig) -> String {
     format!(
         r#"
@@ -729,7 +708,6 @@ color15 {}
     )
 }
 
-/// Generate Ghostty config
 fn generate_ghostty_config(config: &TerminalConfig) -> String {
     format!(
         r#"
@@ -787,7 +765,6 @@ palette = 15={}
     )
 }
 
-/// Parse hyprlock.conf content to extract color values
 fn parse_hyprlock_conf(conf_content: &str) -> Option<HyprlockConfig> {
     let mut color = None;
     let mut inner_color = None;
@@ -840,7 +817,6 @@ fn parse_hyprlock_conf(conf_content: &str) -> Option<HyprlockConfig> {
     }
 }
 
-/// Update the hyprlock.conf file with the given settings
 pub fn update_hyprlock_conf(theme_name: &str, config: &HyprlockConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -865,7 +841,6 @@ pub fn update_hyprlock_conf(theme_name: &str, config: &HyprlockConfig) -> Result
     Ok(())
 }
 
-/// Parse mako.ini content to extract color values
 fn parse_mako_ini(ini_content: &str) -> Option<MakoConfig> {
     let mut text_color = None;
     let mut border_color = None;
@@ -900,7 +875,6 @@ fn parse_mako_ini(ini_content: &str) -> Option<MakoConfig> {
     }
 }
 
-/// Update the mako.ini file with the given settings
 pub fn update_mako_ini(theme_name: &str, config: &MakoConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -971,7 +945,6 @@ pub fn update_mako_ini(theme_name: &str, config: &MakoConfig) -> Result<(), Stri
     Ok(())
 }
 
-/// Parse btop.theme content to extract color values
 fn parse_btop_theme(theme_content: &str) -> Option<BtopConfig> {
     let mut main_bg = None;
     let mut main_fg = None;
@@ -1118,7 +1091,6 @@ fn parse_btop_theme(theme_content: &str) -> Option<BtopConfig> {
     }
 }
 
-/// Update the btop.theme file with the given settings
 pub fn update_btop_theme(theme_name: &str, config: &BtopConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -1257,7 +1229,6 @@ theme[upload_end]="{}"
     Ok(())
 }
 
-/// Parse swayosd.css content to extract color values
 fn parse_swayosd_css(css_content: &str) -> Option<SwayosdConfig> {
     let mut background_color = None;
     let mut border_color = None;
@@ -1300,7 +1271,6 @@ fn parse_swayosd_css(css_content: &str) -> Option<SwayosdConfig> {
     }
 }
 
-/// Update the swayosd.css file with the given settings
 pub fn update_swayosd_css(theme_name: &str, config: &SwayosdConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -1324,7 +1294,6 @@ pub fn update_swayosd_css(theme_name: &str, config: &SwayosdConfig) -> Result<()
     Ok(())
 }
 
-/// Update the colors.toml file with the given colors config
 pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -1393,7 +1362,6 @@ color15 = "{}"
     Ok(())
 }
 
-/// Generate ColorsConfig from TerminalConfig
 pub fn colors_config_from_terminal(terminal: &TerminalConfig, accent: &str) -> ColorsConfig {
     ColorsConfig {
         accent: accent.to_string(),

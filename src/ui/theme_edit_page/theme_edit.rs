@@ -26,7 +26,6 @@ use gpui_component::{
 
 const KEY_CONTEXT: &str = "ThemeEditPage";
 
-/// Action to navigate back to themes page
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
 pub struct NavigateToThemes;
@@ -34,11 +33,9 @@ pub struct NavigateToThemes;
 use std::cell::RefCell;
 
 thread_local! {
-    /// Flag to navigate back to themes page
     pub static PENDING_NAVIGATE_TO_THEMES: RefCell<bool> = const { RefCell::new(false) };
 }
 
-/// Action to save the current theme
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
 pub struct SaveTheme;

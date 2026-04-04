@@ -1,6 +1,5 @@
 use std::process::{Command, Stdio};
 
-/// Launch a floating terminal running the omarchy update script.
 pub fn launch_omarchy_update() -> Result<(), String> {
     Command::new("omarchy-launch-floating-terminal-with-presentation")
         .arg("omarchy-update")

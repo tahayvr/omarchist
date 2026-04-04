@@ -19,7 +19,6 @@ use super::{
 
 const INTERVAL: Duration = Duration::from_millis(500);
 
-/// Tab indices
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 enum MonitorTab {
     #[default]
@@ -50,7 +49,6 @@ impl MonitorTab {
     }
 }
 
-/// System monitor page with comprehensive metrics
 pub struct SystemMonitorPage {
     collector: DataCollector,
     active_tab: MonitorTab,

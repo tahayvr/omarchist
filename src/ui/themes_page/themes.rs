@@ -48,12 +48,10 @@ impl ThemesPage {
         cx.notify();
     }
 
-    /// Return the current internal focus level
     pub fn current_focus(&self) -> ThemesFocus {
         self.focus
     }
 
-    /// Reset focus back to the Tabs level (called when Escape is pressed from the content area)
     pub fn reset_focus(&mut self, cx: &mut Context<Self>) {
         self.focus = ThemesFocus::Tabs;
         self.theme_grid.update(cx, |grid, _cx| {

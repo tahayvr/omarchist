@@ -7,7 +7,6 @@ use crate::ui::menu::app_menu;
 
 const KEY_CONTEXT: &str = "AboutView";
 
-/// Focusable link buttons on the About page (in tab order)
 const ABOUT_BUTTON_COUNT: usize = 3;
 const ABOUT_BUTTON_URLS: [&str; ABOUT_BUTTON_COUNT] = [
     "https://x.com/tahayvr/",
@@ -17,7 +16,6 @@ const ABOUT_BUTTON_URLS: [&str; ABOUT_BUTTON_COUNT] = [
 
 pub struct AboutView {
     pub focus_handle: FocusHandle,
-    /// Currently keyboard-focused button index (None = no keyboard focus)
     focused_button: Option<usize>,
 }
 

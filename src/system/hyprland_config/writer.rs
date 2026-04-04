@@ -1,7 +1,6 @@
 use crate::types::hyprland_config::*;
 use std::fmt::Write;
 
-/// Write a HyprlandConfig struct to a configuration file string
 pub fn write_config(config: &HyprlandConfig) -> String {
     let mut output = String::new();
 

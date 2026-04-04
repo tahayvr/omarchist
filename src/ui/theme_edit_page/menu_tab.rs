@@ -1,13 +1,3 @@
-//! Menu tab for theme editing (Walker menu settings)
-//!
-//! Provides UI for editing Walker menu colors:
-//! - Background color
-//! - Base color
-//! - Border color
-//! - Foreground color
-//! - Text color
-//! - Selected text color
-
 use crate::system::themes::theme_management::{save_theme_data, update_walker_css};
 use crate::types::themes::{EditingTheme, WalkerConfig};
 use crate::ui::theme_edit_page::shared::{
@@ -20,7 +10,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Menu tab content for editing Walker menu colors
 pub struct MenuTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -35,7 +24,6 @@ pub struct MenuTab {
 }
 
 impl MenuTab {
-    /// Create a new MenuTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -182,7 +170,6 @@ impl MenuTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -196,7 +183,6 @@ impl MenuTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the walker config within theme_data
     fn update_walker_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut WalkerConfig),
@@ -206,12 +192,10 @@ impl MenuTab {
         self.theme_data.apps.walker = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update walker.css
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

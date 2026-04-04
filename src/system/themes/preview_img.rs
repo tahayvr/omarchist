@@ -1,7 +1,6 @@
 use std::fs;
 use std::path::Path;
 
-/// Returns the absolute file path to the image
 pub fn find_preview_image(theme_dir: &Path) -> Option<String> {
     // First, check for preview.png specifically (most common)
     let preview_path = theme_dir.join("preview.png");

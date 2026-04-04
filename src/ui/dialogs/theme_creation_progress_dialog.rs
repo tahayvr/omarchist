@@ -7,7 +7,6 @@ use smol;
 use crate::system::themes::theme_generator::create_theme_from_image;
 use crate::ui::dialogs::create_theme_dialog::{PENDING_REFRESH_THEMES, PENDING_THEME_NAVIGATION};
 
-/// Progress dialog for theme creation from image
 pub struct ThemeCreationProgressDialog {
     theme_name: String,
     image_path: PathBuf,
@@ -18,7 +17,6 @@ pub struct ThemeCreationProgressDialog {
 }
 
 impl ThemeCreationProgressDialog {
-    /// Create a new progress dialog
     pub fn new(theme_name: String, image_path: PathBuf) -> Self {
         Self {
             theme_name,
@@ -30,7 +28,6 @@ impl ThemeCreationProgressDialog {
         }
     }
 
-    /// Start the theme creation process
     pub fn start_creation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let theme_name = self.theme_name.clone();
         let image_path = self.image_path.clone();
@@ -96,7 +93,6 @@ impl ThemeCreationProgressDialog {
         .detach();
     }
 
-    /// Close the dialog
     fn close(&mut self, window: &mut Window, _cx: &mut Context<Self>) {
         window.close_dialog(_cx);
     }
@@ -163,7 +159,6 @@ impl Render for ThemeCreationProgressDialog {
     }
 }
 
-/// Open the theme creation progress dialog
 pub fn open_theme_creation_progress_dialog(
     theme_name: String,
     image_path: PathBuf,

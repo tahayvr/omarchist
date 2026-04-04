@@ -1,11 +1,3 @@
-//! General tab for theme editing
-//!
-//! Provides UI for editing basic theme metadata:
-//! - Theme name
-//! - Author
-//! - Accent color
-//! - Light/Dark theme toggle (manages light.mode file)
-
 use crate::system::themes::theme_management::{
     colors_config_from_terminal, rename_theme, save_theme_data, update_colors_toml,
 };
@@ -24,7 +16,6 @@ use gpui_component::{
     switch::Switch,
 };
 
-/// General tab content for editing theme metadata
 pub struct GeneralTab {
     theme_data: EditingTheme,
     original_theme_name: String, // Used for saving - folder name doesn't change on rename
@@ -36,7 +27,6 @@ pub struct GeneralTab {
 }
 
 impl GeneralTab {
-    /// Create a new GeneralTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -125,7 +115,6 @@ impl GeneralTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -139,12 +128,10 @@ impl GeneralTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -176,7 +163,6 @@ impl GeneralTab {
         cx.notify();
     }
 
-    /// Save the theme data and update colors.toml with new accent
     fn save_with_colors_update(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -217,13 +203,11 @@ impl GeneralTab {
         cx.notify();
     }
 
-    /// Handle light mode toggle
     fn on_light_mode_toggle(&mut self, checked: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.theme_data.is_light_theme = checked;
         self.save(window, cx);
     }
 
-    /// Rename the theme folder
     fn rename_theme(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         let new_name = self.theme_data.name.clone();
         let old_name = self.original_theme_name.clone();

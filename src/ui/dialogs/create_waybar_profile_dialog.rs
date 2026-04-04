@@ -13,12 +13,9 @@ use gpui_component::{
 use crate::system::waybar::create_waybar_profile;
 
 thread_local! {
-    /// Set to the new profile name after successful creation so the header can
-    /// reload its list and switch to it.
     pub static PENDING_PROFILE_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
-/// Take the pending profile navigation and clear it.
 pub fn take_pending_profile_navigation() -> Option<String> {
     PENDING_PROFILE_NAVIGATION.with(|nav| nav.borrow_mut().take())
 }

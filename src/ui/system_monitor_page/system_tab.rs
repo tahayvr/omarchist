@@ -3,7 +3,6 @@ use gpui_component::{chart::AreaChart, group_box::GroupBox, h_flex, progress::Pr
 
 use super::data_collector::{DataCollector, format_bytes};
 
-/// System tab with detailed CPU and Memory information
 pub struct SystemTab;
 
 impl Default for SystemTab {

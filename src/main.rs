@@ -10,7 +10,6 @@ use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
 use std::rc::Rc;
 
-/// Convert CLI arguments to the initial ActivePage
 fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
         Some(ViewOption::System) => ActivePage::SystemMonitor,

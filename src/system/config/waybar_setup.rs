@@ -2,9 +2,6 @@ use std::path::PathBuf;
 
 use crate::system::config::config_setup::copy_directory_recursive;
 
-/// Ensures the waybar config directory exists in ~/.config/omarchist/waybar
-/// If it doesn't exist, copies the defaults/omarchist/waybar folder
-/// Returns Ok(()) on success, or an error message on failure
 pub fn ensure_waybar_config() -> Result<(), String> {
     let waybar_config_dir = get_waybar_config_dir()?;
 
@@ -22,7 +19,6 @@ pub fn ensure_waybar_config() -> Result<(), String> {
     Ok(())
 }
 
-/// Gets the waybar config directory path (~/.config/omarchist/waybar)
 fn get_waybar_config_dir() -> Result<PathBuf, String> {
     let home_dir =
         dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;

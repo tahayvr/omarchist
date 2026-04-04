@@ -95,7 +95,6 @@ pub struct TerminalColors {
     pub white: String,
 }
 
-/// Structure for editing a theme - matches omarchist.json format
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EditingTheme {
     #[serde(default = "default_version")]
@@ -126,7 +125,6 @@ impl Default for EditingTheme {
     }
 }
 
-/// Colors configuration for colors.toml
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorsConfig {
     pub accent: String,
@@ -182,7 +180,6 @@ impl Default for ColorsConfig {
     }
 }
 
-/// Waybar configuration structure - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WaybarConfig {
     pub background: String,
@@ -215,7 +212,6 @@ impl Default for HyprlandConfig {
     }
 }
 
-/// Walker menu configuration structure - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct WalkerConfig {
     pub background: String,
@@ -239,7 +235,6 @@ impl Default for WalkerConfig {
     }
 }
 
-/// Browser (Chromium) config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserConfig {
     pub theme_color: String,
@@ -253,7 +248,6 @@ impl Default for BrowserConfig {
     }
 }
 
-/// Hyprlock config - Hex color (rgb format: 0f0f19)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HyprlockConfig {
     pub color: String,
@@ -275,7 +269,6 @@ impl Default for HyprlockConfig {
     }
 }
 
-/// Mako notification config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MakoConfig {
     pub text_color: String,
@@ -293,7 +286,6 @@ impl Default for MakoConfig {
     }
 }
 
-/// SwayOSD config - Hex color
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwayosdConfig {
     pub background_color: String,
@@ -315,7 +307,6 @@ impl Default for SwayosdConfig {
     }
 }
 
-/// Btop config
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BtopConfig {
     pub main_bg: String,
@@ -401,7 +392,6 @@ impl Default for BtopConfig {
     }
 }
 
-/// Terminal color palette (8 standard ANSI colors)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPalette {
     pub black: String,
@@ -429,7 +419,6 @@ impl Default for TerminalPalette {
     }
 }
 
-/// Terminal cursor colors
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalCursor {
     pub cursor: String,
@@ -445,7 +434,6 @@ impl Default for TerminalCursor {
     }
 }
 
-/// Terminal selection colors
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalSelection {
     pub background: String,
@@ -461,7 +449,6 @@ impl Default for TerminalSelection {
     }
 }
 
-/// Terminal primary colors
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalPrimary {
     pub background: String,
@@ -477,7 +464,6 @@ impl Default for TerminalPrimary {
     }
 }
 
-/// Unified terminal configuration for all terminal emulators
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TerminalConfig {
     #[serde(default)]
@@ -513,7 +499,6 @@ impl Default for TerminalConfig {
     }
 }
 
-/// All app configurations for a theme
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigs {
     #[serde(rename = "alacritty", skip_serializing_if = "Option::is_none")]
@@ -548,7 +533,6 @@ pub struct AppConfigs {
     pub terminal: Option<TerminalConfig>,
 }
 
-/// Tab identifiers
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeEditTab {
     General,

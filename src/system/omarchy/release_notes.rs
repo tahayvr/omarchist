@@ -8,7 +8,6 @@ struct GitHubRelease {
     prerelease: bool,
 }
 
-/// Fetch the latest release notes from the Omarchy GitHub repository
 pub async fn fetch_latest_release_notes() -> Result<(String, String), String> {
     // Fetch latest release from GitHub using isahc (runtime-agnostic)
     let request = isahc::Request::builder()

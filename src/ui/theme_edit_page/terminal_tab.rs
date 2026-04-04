@@ -1,10 +1,3 @@
-//! Terminal tab for theme editing
-//!
-//! Provides UI for editing unified terminal colors that apply to all terminal emulators:
-//! - Alacritty
-//! - Kitty
-//! - Ghostty
-
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_terminal_configs};
 use crate::types::themes::{EditingTheme, TerminalConfig};
@@ -20,7 +13,6 @@ use gpui_component::{
     h_flex, v_flex,
 };
 
-/// Terminal tab content for editing unified terminal colors
 pub struct TerminalTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -51,7 +43,6 @@ pub struct TerminalTab {
 }
 
 impl TerminalTab {
-    /// Helper to convert hex to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -63,7 +54,6 @@ impl TerminalTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Helper to create a color picker with subscription
     fn create_color_picker(
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -91,7 +81,6 @@ impl TerminalTab {
         picker
     }
 
-    /// Create a new TerminalTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -198,7 +187,6 @@ impl TerminalTab {
         }
     }
 
-    /// Update the terminal config within theme_data
     fn update_terminal_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut TerminalConfig),
@@ -208,7 +196,6 @@ impl TerminalTab {
         self.theme_data.apps.terminal = Some(config);
     }
 
-    /// Save the theme data and update all terminal config files
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -242,7 +229,6 @@ impl TerminalTab {
         cx.notify();
     }
 
-    /// Launch a terminal emulator
     fn launch_terminal(&self, app_name: &str) {
         let command = format!("uwsm app -- {}", app_name);
         if let Err(e) = execute_bash_command(command) {

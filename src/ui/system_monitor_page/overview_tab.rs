@@ -6,7 +6,6 @@ use super::{
     metric_card::MetricCard,
 };
 
-/// Overview tab showing key metrics at a glance
 pub struct OverviewTab;
 
 impl Default for OverviewTab {

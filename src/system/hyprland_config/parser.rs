@@ -1,6 +1,5 @@
 use crate::types::hyprland_config::*;
 
-/// Parse a Hyprland configuration file content into a HyprlandConfig struct
 pub fn parse_config(content: &str) -> HyprlandConfig {
     let mut config = HyprlandConfig::default();
     let mut current_section: Option<String> = None;
@@ -56,7 +55,6 @@ pub fn parse_config(content: &str) -> HyprlandConfig {
     config
 }
 
-/// Parse a key-value pair from a line like "key = value"
 fn parse_key_value(line: &str) -> Option<(String, String)> {
     // Handle special case for col. prefix (colors)
     if let Some(without_prefix) = line
@@ -78,7 +76,6 @@ fn parse_key_value(line: &str) -> Option<(String, String)> {
     None
 }
 
-/// Apply a setting to the appropriate config field
 fn apply_setting(
     config: &mut HyprlandConfig,
     section: &str,
@@ -483,17 +480,14 @@ fn apply_debug_setting(config: &mut DebugConfig, key: &str, value: &str) {
     }
 }
 
-/// Parse a boolean value from string
 fn parse_bool(value: &str) -> bool {
     matches!(value.to_lowercase().as_str(), "true" | "yes" | "on" | "1")
 }
 
-/// Parse an integer value from string
 fn parse_int(value: &str) -> i32 {
     value.parse().unwrap_or(0)
 }
 
-/// Parse a float value from string
 fn parse_float(value: &str) -> f64 {
     value.parse().unwrap_or(0.0)
 }

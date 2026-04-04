@@ -3,7 +3,6 @@ use gpui_component::{Icon, h_flex, v_flex};
 
 use super::sparkline::Sparkline;
 
-/// A metric card displaying a value with icon, label, and sparkline
 pub struct MetricCard {
     icon: Icon,
     label: String,
@@ -144,7 +143,6 @@ impl IntoElement for MetricCard {
     }
 }
 
-/// A small metric display for the status bar
 pub struct MiniMetric {
     icon: Icon,
     value: String,
@@ -195,7 +193,6 @@ impl IntoElement for MiniMetric {
     }
 }
 
-/// Create a grid of metric cards
 pub struct MetricGrid {
     children: Vec<MetricCard>,
     columns: usize,

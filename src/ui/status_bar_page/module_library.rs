@@ -73,7 +73,6 @@ impl ModuleLibraryPanel {
     }
 }
 
-/// Build a single module row element.
 fn render_row(
     row: &LibraryRowState,
     profile: String,

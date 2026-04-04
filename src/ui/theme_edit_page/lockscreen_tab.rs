@@ -1,12 +1,3 @@
-//! Lock Screen (Hyprlock) tab for theme editing
-//!
-//! Provides UI for editing Hyprlock lock screen colors using ColorPicker components:
-//! - color: Main background color
-//! - inner_color: Inner color
-//! - outer_color: Outer/ring color
-//! - font_color: Font/text color
-//! - check_color: Check mark color
-
 use crate::system::themes::theme_management::{save_theme_data, update_hyprlock_conf};
 use crate::types::themes::{EditingTheme, HyprlockConfig};
 use crate::ui::theme_edit_page::shared::{
@@ -19,7 +10,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Lock Screen tab content for editing hyprlock colors
 pub struct LockScreenTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -33,7 +23,6 @@ pub struct LockScreenTab {
 }
 
 impl LockScreenTab {
-    /// Create a new LockScreenTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -166,8 +155,6 @@ impl LockScreenTab {
         tab
     }
 
-    /// Convert RGB format (0f0f19) to Hsla
-    /// hyprlock uses rgb format without #, so we need to add it for ColorPicker
     fn rgb_to_hsla(rgb: &str) -> Option<Hsla> {
         let hex = format!("#{}", rgb.trim());
         if hex.len() != 7 {
@@ -181,14 +168,12 @@ impl LockScreenTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Convert Hsla to RGB format (0f0f19) for hyprlock
     fn hsla_to_rgb(color: &Hsla) -> String {
         let hex = color.to_hex();
         // Remove the # prefix to get rgb format
         hex.trim_start_matches('#').to_string()
     }
 
-    /// Update the hyprlock config within theme_data
     fn update_hyprlock_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut HyprlockConfig),
@@ -198,12 +183,10 @@ impl LockScreenTab {
         self.theme_data.apps.hyprlock = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update hyprlock.conf
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

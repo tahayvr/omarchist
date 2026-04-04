@@ -1,9 +1,3 @@
-//! Windows tab for theme editing (Hyprland window settings)
-//!
-//! Provides UI for editing Hyprland window border colors:
-//! - Active border color
-//! - Inactive border color
-
 use crate::system::themes::theme_management::{save_theme_data, update_hyprland_conf};
 use crate::types::themes::{EditingTheme, HyprlandConfig};
 use crate::ui::theme_edit_page::shared::{
@@ -16,7 +10,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Windows tab content for editing Hyprland window settings
 pub struct WindowsTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -27,7 +20,6 @@ pub struct WindowsTab {
 }
 
 impl WindowsTab {
-    /// Create a new WindowsTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -104,7 +96,6 @@ impl WindowsTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -118,7 +109,6 @@ impl WindowsTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the hyprland config within theme_data
     fn update_hyprland_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut HyprlandConfig),
@@ -128,12 +118,10 @@ impl WindowsTab {
         self.theme_data.apps.hyprland = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update hyprland.conf
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

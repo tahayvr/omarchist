@@ -9,7 +9,6 @@ use gpui_component::{
 
 use crate::system::waybar::{BarSettings, get_bar_settings, set_bar_setting};
 
-/// Collapsible panel that exposes bar-level settings (position, height, layer, etc.)
 pub struct BarSettingsPanel {
     profile_name: String,
     settings: BarSettings,
@@ -242,7 +241,6 @@ impl BarSettingsPanel {
         ]
     }
 
-    /// Reload settings from disk when the profile changes.
     pub fn reload(&mut self, profile_name: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.profile_name = profile_name.to_string();
         let settings = get_bar_settings(profile_name).unwrap_or_default();
@@ -463,7 +461,6 @@ impl Render for BarSettingsPanel {
     }
 }
 
-/// Helper: label + input stacked vertically, fixed width for grid alignment.
 fn labeled_input(label: &str, input: &Entity<InputState>, label_color: Hsla) -> impl IntoElement {
     v_flex()
         .gap_1()

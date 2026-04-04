@@ -7,7 +7,6 @@ use crate::types::hyprland_config::{
     KeyboardVariant,
 };
 
-/// The canonical system XKB rules file containing keyboard definitions.
 const SYSTEM_BASE_LST: &str = "/usr/share/X11/xkb/rules/base.lst";
 
 const FALLBACK_RULES: &str = r"#! fallback XKB rules used when system definitions are unavailable
@@ -47,7 +46,6 @@ layout switching continuation line
   altwin:meta_alt Left Alt is Meta key
 ";
 
-/// Load the keyboard catalog from the system XKB rules file, falling back to bundled definitions.
 pub fn load_keyboard_catalog() -> Result<KeyboardCatalog, String> {
     match parse_keyboard_catalog_from_path(Path::new(SYSTEM_BASE_LST)) {
         Ok(catalog)

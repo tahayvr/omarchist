@@ -22,8 +22,6 @@ pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
     // Raw profile names in the same order as the select items
     pub profile_names: Vec<String>,
-    /// Which header item currently has keyboard focus (set by parent StatusBarView)
-    /// 0 = Profile Select, 1 = Add Profile, 2 = More Options, 3 = Restart Waybar
     pub focused_item: Option<usize>,
 }
 

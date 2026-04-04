@@ -1,7 +1,6 @@
 use gpui::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
 use gpui_component::{chart::AreaChart, h_flex};
 
-/// A mini sparkline chart for displaying trends in small spaces
 #[derive(Clone)]
 pub struct Sparkline {
     data: Vec<f64>,
@@ -99,7 +98,6 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
     points
 }
 
-/// A colored indicator dot showing status
 pub struct StatusDot {
     color: Hsla,
     size: Pixels,
@@ -132,7 +130,6 @@ impl IntoElement for StatusDot {
     }
 }
 
-/// Get trend indicator (up/down/stable arrow)
 pub fn trend_indicator(current: f64, previous: f64) -> &'static str {
     let diff = current - previous;
     let threshold = 0.1;
@@ -146,7 +143,6 @@ pub fn trend_indicator(current: f64, previous: f64) -> &'static str {
     }
 }
 
-/// Get color based on trend
 pub fn trend_color(
     current: f64,
     previous: f64,

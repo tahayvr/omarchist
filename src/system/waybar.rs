@@ -432,7 +432,6 @@ fn first_format_icon(block: Option<&serde_json::Value>) -> Option<String> {
     None
 }
 
-/// Fallback icons for built-in waybar modules that have no config block in the file.
 fn builtin_icon(key: &str) -> String {
     match key {
         "clock" => "󰥔".to_string(),
@@ -457,7 +456,6 @@ fn builtin_icon(key: &str) -> String {
     }
 }
 
-/// The parsed waybar configuration for one profile
 #[derive(Debug, Clone)]
 pub struct WaybarConfig {
     pub profile_name: String,
@@ -476,7 +474,6 @@ impl WaybarConfig {
     }
 }
 
-/// Strip `//` line comments and `/* */` block comments from a JSONC string.
 fn strip_jsonc_comments(src: &str) -> String {
     let mut out = String::with_capacity(src.len());
     let mut chars = src.chars().peekable();
@@ -533,11 +530,6 @@ fn strip_jsonc_comments(src: &str) -> String {
     out
 }
 
-/// Save the current module order back to the config.jsonc file for a profile.
-///
-/// Only the `modules-left`, `modules-center`, and `modules-right` arrays are
-/// rewritten. All other keys, comments, and module config blocks are preserved
-/// exactly as they appear in the file.
 pub fn save_waybar_config(config: &WaybarConfig) -> Result<(), String> {
     let config_path = dirs::home_dir()
         .ok_or_else(|| "Could not determine home directory".to_string())?
@@ -587,11 +579,6 @@ pub fn save_waybar_config(config: &WaybarConfig) -> Result<(), String> {
     fs::write(&config_path, result).map_err(|e| format!("Failed to write config: {}", e))
 }
 
-/// Replace a JSON array value for the given key in a JSONC string, preserving
-/// all surrounding content, comments, and formatting.
-///
-/// Matches: `"<key>": [... anything up to the closing `]` ...]`
-/// The replacement array is written as a compact single-line JSON array.
 fn replace_module_array(src: &str, key: &str, values: &[&str]) -> Option<String> {
     // Build compact JSON array: ["a", "b", "c"]
     let new_array = {
@@ -655,8 +642,6 @@ fn replace_module_array(src: &str, key: &str, values: &[&str]) -> Option<String>
     Some(result)
 }
 
-/// Create a new waybar profile by copying the omarchy-default files from the
-/// bundled defaults directory. Returns the profile name on success.
 pub fn create_waybar_profile(profile_name: &str) -> Result<String, String> {
     let name = profile_name.trim();
     if name.is_empty() {
@@ -687,7 +672,6 @@ pub fn create_waybar_profile(profile_name: &str) -> Result<String, String> {
     Ok(name.to_string())
 }
 
-/// Recursively copy all files and directories from src to dst.
 fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<(), String> {
     fs::create_dir_all(dst).map_err(|e| format!("Failed to create directory {:?}: {}", dst, e))?;
 
@@ -709,11 +693,6 @@ fn copy_dir_recursive(src: &std::path::Path, dst: &std::path::Path) -> Result<()
     Ok(())
 }
 
-/// Rename an existing waybar profile directory.
-///
-/// Returns the new profile name on success. Fails if:
-/// - `new_name` is empty or already exists
-/// - the source directory does not exist
 pub fn rename_waybar_profile(old_name: &str, new_name: &str) -> Result<String, String> {
     let new = new_name.trim();
     if new.is_empty() {
@@ -742,9 +721,6 @@ pub fn rename_waybar_profile(old_name: &str, new_name: &str) -> Result<String, S
     Ok(new.to_string())
 }
 
-/// Duplicate an existing waybar profile into a new directory.
-///
-/// Returns the new profile name on success. Fails if `new_name` already exists.
 pub fn duplicate_waybar_profile(source_name: &str, new_name: &str) -> Result<String, String> {
     let new = new_name.trim();
     if new.is_empty() {
@@ -773,10 +749,6 @@ pub fn duplicate_waybar_profile(source_name: &str, new_name: &str) -> Result<Str
     Ok(new.to_string())
 }
 
-/// Delete a waybar profile directory.
-///
-/// Returns the name of a remaining profile to switch to, or `None` if no profiles
-/// remain. Refuses to delete the profile if it is the only one left.
 pub fn delete_waybar_profile(profile_name: &str) -> Result<Option<String>, String> {
     let profiles_dir = dirs::home_dir()
         .ok_or_else(|| "Could not determine home directory".to_string())?
@@ -808,7 +780,6 @@ pub fn delete_waybar_profile(profile_name: &str) -> Result<Option<String>, Strin
     Ok(sorted.into_iter().next())
 }
 
-/// Load and parse the waybar config for a given profile name.
 pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
     let config_path = dirs::home_dir()?
         .join(".config")
@@ -842,7 +813,6 @@ pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
     })
 }
 
-/// List all available profile names from `~/.config/omarchist/waybar/profiles/`
 pub fn list_waybar_profiles() -> Vec<String> {
     let Some(home) = dirs::home_dir() else {
         return vec![];
@@ -881,7 +851,6 @@ pub fn has_original_waybar_backup() -> bool {
         .unwrap_or(false)
 }
 
-/// Takes a one-time backup of ~/.config/waybar
 fn backup_original_waybar_config() -> Result<(), String> {
     let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
@@ -903,11 +872,6 @@ fn backup_original_waybar_config() -> Result<(), String> {
         .map_err(|e| format!("Failed to back up original waybar config: {}", e))
 }
 
-/// Copies a profile's files from ~/.config/omarchist/waybar/profiles/<name>/
-/// into ~/.config/waybar/, replacing whatever is there.
-///
-/// On the very first call this also backs up the user's original config to
-/// ~/.config/omarchist/waybar/backup-original (only if not already backed up).
 pub fn apply_waybar_profile(profile_name: &str) -> Result<(), String> {
     backup_original_waybar_config()?;
 
@@ -1026,22 +990,16 @@ pub fn set_module_config_field(
 
 // Module Library — curated list of addable modules
 
-/// A single entry in the module library.
 #[derive(Debug, Clone)]
 pub struct LibraryModule {
-    /// The waybar key (e.g. "clock", "hyprland/workspaces")
     pub key: &'static str,
-    /// Short display name
     pub name: &'static str,
     pub description: &'static str,
     pub category: &'static str,
     pub icon: &'static str,
-    /// Default JSON config block inserted when the module is added.
-    /// Use `null` (JSON null) for modules with no useful defaults.
     pub default_config: &'static str,
 }
 
-/// The curated library of known Waybar modules.
 pub fn module_library() -> Vec<LibraryModule> {
     vec![
         // System
@@ -1197,7 +1155,6 @@ pub fn module_library() -> Vec<LibraryModule> {
     ]
 }
 
-/// Add a module to the given zone of a profile's config.jsonc.
 pub fn add_module_to_zone(
     profile_name: &str,
     module_key: &str,
@@ -1250,8 +1207,6 @@ pub fn add_module_to_zone(
     fs::write(&config_path, raw).map_err(|e| format!("Failed to write config: {}", e))
 }
 
-/// Append `module_key` as a new string entry at the end of a zone array
-/// (e.g. `"modules-left"`) in a JSONC string, preserving everything else.
 fn append_to_zone_array(src: &str, zone_key: &str, module_key: &str) -> Option<String> {
     // Find the zone array key at depth-1
     let key_pos = find_top_level_key(src, zone_key)?;

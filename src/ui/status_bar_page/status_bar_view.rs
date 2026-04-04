@@ -27,8 +27,6 @@ pub struct StatusBarView {
     header: Entity<StatusBarHeader>,
     design_area: Entity<DesignArea>,
     _select_subscription: Subscription,
-    /// Which header item is keyboard-focused (None = no keyboard focus)
-    /// 0 = Profile Select, 1 = Add Profile, 2 = More Options, 3 = Restart Waybar
     pub focused_header_item: Option<usize>,
     pub focus_handle: FocusHandle,
 }
@@ -105,12 +103,10 @@ impl StatusBarView {
         cx.notify();
     }
 
-    /// Returns true if focus is at the first item (or none), so left arrow should go to sidebar
     pub fn at_first_or_none(&self) -> bool {
         matches!(self.focused_header_item, None | Some(0))
     }
 
-    /// Returns a clone of the header entity so callers can access profile_select
     pub fn header_entity(&self) -> Entity<StatusBarHeader> {
         self.header.clone()
     }

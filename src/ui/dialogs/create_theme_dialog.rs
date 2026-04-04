@@ -163,12 +163,10 @@ fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path:
     open_theme_creation_progress_dialog(theme_name, image_path, window, cx);
 }
 
-/// Get the pending theme navigation and clear it
 pub fn take_pending_navigation() -> Option<String> {
     PENDING_THEME_NAVIGATION.with(|nav| nav.borrow_mut().take())
 }
 
-/// Check if themes list needs refresh and clear the flag
 pub fn take_pending_refresh() -> bool {
     PENDING_REFRESH_THEMES.with(|refresh| {
         let value = *refresh.borrow();

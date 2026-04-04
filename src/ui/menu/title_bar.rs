@@ -167,7 +167,6 @@ impl Render for MainTitleBar {
     }
 }
 
-/// Handle font size selection action
 pub fn handle_select_font(font_size: &SelectFont, window: &mut Window, cx: &mut App) {
     gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size.0 as f32);
     window.refresh();

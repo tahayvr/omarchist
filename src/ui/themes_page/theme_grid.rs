@@ -102,7 +102,6 @@ impl ThemeGrid {
         self.sidebar_collapsed = collapsed;
     }
 
-    /// Clear keyboard focus from the grid (no item highlighted)
     pub fn clear_focus(&mut self) {
         self.nav_state.focused_index = None;
     }

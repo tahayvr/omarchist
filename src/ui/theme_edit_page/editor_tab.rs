@@ -1,9 +1,3 @@
-//! Editor tab for theme editing
-//!
-//! Provides UI for editing editor configurations using textareas:
-//! - Neovim: edits neovim.lua file
-//! - VSCode:: edits vscode.json file
-
 use crate::system::themes::theme_management::save_theme_data;
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
@@ -16,7 +10,6 @@ use gpui_component::{
 use std::fs;
 use std::path::PathBuf;
 
-/// Editor tab content for editing neovim.lua and vscode.json
 pub struct EditorTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -27,7 +20,6 @@ pub struct EditorTab {
 }
 
 impl EditorTab {
-    /// Create a new EditorTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -91,7 +83,6 @@ impl EditorTab {
         tab
     }
 
-    /// Load neovim.lua content from theme folder
     fn load_neovim_content(theme_name: &str) -> String {
         let themes_dir = dirs::home_dir()
             .map(|h| h.join(".config").join("omarchy").join("themes"))
@@ -113,7 +104,6 @@ impl EditorTab {
         })
     }
 
-    /// Load vscode.json content from theme folder
     fn load_vscode_content(theme_name: &str) -> String {
         let themes_dir = dirs::home_dir()
             .map(|h| h.join(".config").join("omarchy").join("themes"))
@@ -130,7 +120,6 @@ impl EditorTab {
         })
     }
 
-    /// Save neovim.lua content
     fn save_neovim(&mut self, content: &str, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -178,7 +167,6 @@ impl EditorTab {
         cx.notify();
     }
 
-    /// Save vscode.json content
     fn save_vscode(&mut self, content: &str, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -226,7 +214,6 @@ impl EditorTab {
         cx.notify();
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }

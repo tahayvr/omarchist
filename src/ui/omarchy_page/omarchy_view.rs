@@ -12,10 +12,8 @@ use crate::ui::menu::app_menu;
 
 const KEY_CONTEXT: &str = "OmarchyView";
 
-/// How long to wait after launching an update before re-checking the version (seconds).
 const POST_UPDATE_RECHECK_SECS: u64 = 60;
 
-/// How often to periodically re-check for updates in the background (seconds).
 const PERIODIC_CHECK_INTERVAL_SECS: u64 = 30 * 60;
 
 pub struct OmarchyView {
@@ -24,7 +22,6 @@ pub struct OmarchyView {
     latest_tag: Option<String>,
     release_notes: Option<String>,
     pub focus_handle: FocusHandle,
-    /// Whether the Update button is keyboard-focused (only relevant when update_available == Some(true))
     update_btn_focused: bool,
 }
 
@@ -102,8 +99,6 @@ impl OmarchyView {
         }
     }
 
-    /// Spawn an async task that reads the current local version and checks GitHub.
-    /// Updates `self` and syncs the title bar badge when done.
     fn spawn_version_check(version: String, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             match check_omarchy_update(&version).await {
@@ -129,7 +124,6 @@ impl OmarchyView {
         .detach();
     }
 
-    /// Trigger a re-check after a delay (used post-update to reflect the newly installed version).
     fn spawn_delayed_recheck(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             smol::Timer::after(std::time::Duration::from_secs(POST_UPDATE_RECHECK_SECS)).await;

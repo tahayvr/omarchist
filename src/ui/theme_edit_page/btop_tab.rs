@@ -1,8 +1,3 @@
-//! Btop tab for theme editing
-//!
-//! Provides UI for editing Btop activity monitor colors using ColorPicker components.
-//! Organized into sections with dividers for better visual separation.
-
 use crate::system::themes::theme_management::{save_theme_data, update_btop_theme};
 use crate::types::themes::{BtopConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{
@@ -16,7 +11,6 @@ use gpui_component::{
     h_flex, v_flex,
 };
 
-/// Btop tab content for editing btop theme colors
 pub struct BtopTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -74,7 +68,6 @@ pub struct BtopTab {
 }
 
 impl BtopTab {
-    /// Create a new BtopTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -267,7 +260,6 @@ impl BtopTab {
         tab
     }
 
-    /// Subscribe to all color picker change events
     fn subscribe_to_pickers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         // Main colors
         cx.subscribe_in(
@@ -763,7 +755,6 @@ impl BtopTab {
         .detach();
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -777,7 +768,6 @@ impl BtopTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the btop config within theme_data
     fn update_btop_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut BtopConfig),
@@ -787,12 +777,10 @@ impl BtopTab {
         self.theme_data.apps.btop = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update btop.theme
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

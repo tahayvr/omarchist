@@ -1,10 +1,3 @@
-//! Backgrounds tab for theme editing
-//!
-//! Provides UI for managing background images in the /backgrounds folder:
-//! - Display existing background images in a grid
-//! - Open backgrounds folder in Nautilus for adding/removing images
-//! - Delete individual images directly from the UI
-
 use crate::system::themes::theme_file_ops::{
     add_background_image, list_background_images, remove_background_image,
 };
@@ -21,14 +14,12 @@ use gpui_component::{
 use smol;
 use std::path::PathBuf;
 
-/// Represents a background image entry
 #[derive(Clone)]
 pub struct BackgroundImage {
     pub path: PathBuf,
     pub filename: String,
 }
 
-/// Backgrounds tab content for managing theme background images
 pub struct BackgroundsTab {
     theme_name: String,
     is_system_theme: bool,
@@ -38,7 +29,6 @@ pub struct BackgroundsTab {
 }
 
 impl BackgroundsTab {
-    /// Create a new BackgroundsTab instance
     pub fn new(
         theme_name: String,
         is_system_theme: bool,
@@ -59,7 +49,6 @@ impl BackgroundsTab {
         tab
     }
 
-    /// Load the list of background images from the theme folder
     fn load_images(&mut self, cx: &mut Context<Self>) {
         self.is_loading = true;
         self.error_message = None;
@@ -85,7 +74,6 @@ impl BackgroundsTab {
         cx.notify();
     }
 
-    /// Add images using native file picker dialog
     fn add_images(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.error_message = None;
 
@@ -139,7 +127,6 @@ impl BackgroundsTab {
         .detach();
     }
 
-    /// Delete a background image
     fn delete_image(&mut self, filename: &str, _window: &mut Window, cx: &mut Context<Self>) {
         self.error_message = None;
 
@@ -156,7 +143,6 @@ impl BackgroundsTab {
         cx.notify();
     }
 
-    /// Get the number of images per row based on available width
     fn images_per_row(&self, window: &mut Window) -> usize {
         // Each image card is approximately 170px wide (150px image + padding)
         // Calculate how many fit in the current window width

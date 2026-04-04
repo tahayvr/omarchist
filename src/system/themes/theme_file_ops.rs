@@ -2,7 +2,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 
-/// Get the full path for a system theme
 fn get_system_theme_path(theme_name: &str) -> Option<PathBuf> {
     dirs::home_dir().map(|h| {
         h.join(".local")
@@ -13,7 +12,6 @@ fn get_system_theme_path(theme_name: &str) -> Option<PathBuf> {
     })
 }
 
-/// Get the full path for a custom theme
 fn get_custom_theme_path(theme_name: &str) -> Option<PathBuf> {
     dirs::home_dir().map(|h| {
         h.join(".config")
@@ -23,7 +21,6 @@ fn get_custom_theme_path(theme_name: &str) -> Option<PathBuf> {
     })
 }
 
-/// Get the full path for a theme (system or custom)
 pub fn get_theme_path(theme_name: &str, is_system: bool) -> Option<PathBuf> {
     if is_system {
         get_system_theme_path(theme_name)
@@ -32,7 +29,6 @@ pub fn get_theme_path(theme_name: &str, is_system: bool) -> Option<PathBuf> {
     }
 }
 
-/// Open the theme folder in Nautilus file manager
 pub fn open_theme_folder(theme_name: &str, is_system: bool) -> Result<(), String> {
     let path = get_theme_path(theme_name, is_system)
         .ok_or_else(|| "Could not determine theme path".to_string())?;
@@ -50,7 +46,6 @@ pub fn open_theme_folder(theme_name: &str, is_system: bool) -> Result<(), String
     Ok(())
 }
 
-/// Delete a theme folder
 pub fn delete_theme(theme_name: &str, is_system: bool) -> Result<(), String> {
     // Safety check: only allow deleting custom themes, not system themes
     if is_system {
@@ -70,12 +65,10 @@ pub fn delete_theme(theme_name: &str, is_system: bool) -> Result<(), String> {
     Ok(())
 }
 
-/// Get the backgrounds directory for a theme
 pub fn get_backgrounds_dir(theme_name: &str, is_system: bool) -> Option<PathBuf> {
     get_theme_path(theme_name, is_system).map(|p| p.join("backgrounds"))
 }
 
-/// Ensure the backgrounds directory exists, creating it if necessary
 pub fn ensure_backgrounds_dir(theme_name: &str, is_system: bool) -> Result<PathBuf, String> {
     let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
         .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
@@ -88,7 +81,6 @@ pub fn ensure_backgrounds_dir(theme_name: &str, is_system: bool) -> Result<PathB
     Ok(backgrounds_dir)
 }
 
-/// List all background images in a theme's backgrounds folder
 pub fn list_background_images(theme_name: &str, is_system: bool) -> Result<Vec<PathBuf>, String> {
     let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
         .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
@@ -117,7 +109,6 @@ pub fn list_background_images(theme_name: &str, is_system: bool) -> Result<Vec<P
     Ok(images)
 }
 
-/// Add a background image to a theme (copies to backgrounds folder, overwriting if exists)
 pub fn add_background_image(
     theme_name: &str,
     is_system: bool,
@@ -140,7 +131,6 @@ pub fn add_background_image(
     Ok(dest_path)
 }
 
-/// Remove a background image from a theme
 pub fn remove_background_image(
     theme_name: &str,
     is_system: bool,
@@ -160,7 +150,6 @@ pub fn remove_background_image(
     Ok(())
 }
 
-/// Clear all background images from a theme's backgrounds folder
 pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<(), String> {
     let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
         .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
@@ -179,7 +168,6 @@ pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<(), 
     Ok(())
 }
 
-/// Open the backgrounds folder in Nautilus file manager
 pub fn open_backgrounds_folder(theme_name: &str, is_system: bool) -> Result<(), String> {
     let backgrounds_dir = ensure_backgrounds_dir(theme_name, is_system)?;
 
@@ -192,7 +180,6 @@ pub fn open_backgrounds_folder(theme_name: &str, is_system: bool) -> Result<(), 
     Ok(())
 }
 
-/// Check if a theme is a system theme (exists in system themes directory)
 pub fn is_system_theme(theme_name: &str) -> bool {
     if let Some(path) = get_system_theme_path(theme_name) {
         path.exists()
@@ -201,7 +188,6 @@ pub fn is_system_theme(theme_name: &str) -> bool {
     }
 }
 
-/// Check if a theme is a custom theme (exists in custom themes directory)
 pub fn is_custom_theme(theme_name: &str) -> bool {
     if let Some(path) = get_custom_theme_path(theme_name) {
         path.exists()

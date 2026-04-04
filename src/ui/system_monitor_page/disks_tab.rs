@@ -10,7 +10,6 @@ use gpui_component::{
 
 use super::data_collector::{DataCollector, DiskInfo, format_bytes};
 
-/// Disks tab with storage visualization
 pub struct DisksTab {
     disk_table: gpui::Entity<TableState<DiskTableDelegate>>,
 }
@@ -151,7 +150,6 @@ impl DisksTab {
     }
 }
 
-/// Create the disk table entity
 pub fn create_disk_table(
     window: &mut Window,
     cx: &mut App,
@@ -164,7 +162,6 @@ pub fn create_disk_table(
     })
 }
 
-/// Table delegate for disk details
 pub struct DiskTableDelegate {
     disks: Vec<DiskInfo>,
     columns: Vec<Column>,

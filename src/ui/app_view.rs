@@ -26,11 +26,9 @@ const SIDEBAR_ITEM_COUNT: usize = 3;
 thread_local! {
     pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
     pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
-    /// Set by OmarchyView after a re-check completes; None = no pending update, Some(x) = new value
     pub static PENDING_OMARCHY_UPDATE_STATUS: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
 
-/// Represents the currently active page in the application.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
     Themes,
@@ -62,9 +60,7 @@ pub struct MainWindowView {
     omarchy_root: AnyView,
     omarchy_view: Entity<OmarchyView>,
     sidebar_collapsed: bool,
-    /// Keyboard navigation focus state
     focus_state: FocusState,
-    /// Focus handle for the main window (sidebar navigation)
     focus_handle: FocusHandle,
 }
 
@@ -226,7 +222,6 @@ impl MainWindowView {
         cx.notify();
     }
 
-    /// Transfer GPUI focus to the focus handle of the currently active page.
     fn transfer_focus_to_active_page(&self, window: &mut Window, cx: &mut Context<Self>) {
         let handle = match &self.active_page {
             ActivePage::Themes => Some(self.themes_view.read(cx).focus_handle.clone()),
@@ -291,7 +286,6 @@ impl MainWindowView {
         }
     }
 
-    /// Get the active page based on sidebar index
     fn page_from_sidebar_index(&self, index: usize) -> ActivePage {
         match index {
             0 => ActivePage::Themes,
@@ -301,20 +295,17 @@ impl MainWindowView {
         }
     }
 
-    /// Navigate to the currently focused sidebar item and transfer focus to that page
     fn activate_focused_sidebar_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let page = self.page_from_sidebar_index(self.focus_state.sidebar_index);
         self.focus_state.focused_section = FocusedSection::Content;
         self.navigate_to(page, window, cx);
     }
 
-    /// Check if sidebar item at index is focused
     fn is_sidebar_item_focused(&self, index: usize) -> bool {
         self.focus_state.focused_section == FocusedSection::Sidebar
             && self.focus_state.sidebar_index == index
     }
 
-    /// Handle NextFocus action (Tab) — toggles between Sidebar and Content
     fn handle_next_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
@@ -331,7 +322,6 @@ impl MainWindowView {
         cx.notify();
     }
 
-    /// Handle PrevFocus action (Shift+Tab) — toggles between Sidebar and Content
     fn handle_prev_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.focus_state.focused_section {
             FocusedSection::Sidebar => {
@@ -348,7 +338,6 @@ impl MainWindowView {
         cx.notify();
     }
 
-    /// Handle NextItem action (Down arrow) — only applies to sidebar navigation
     fn handle_next_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Sidebar {
             self.focus_state.next_sidebar_item();
@@ -357,7 +346,6 @@ impl MainWindowView {
         // Content navigation is handled by the child page views directly
     }
 
-    /// Handle PrevItem action (Up arrow) — only applies to sidebar navigation
     fn handle_prev_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Sidebar {
             self.focus_state.prev_sidebar_item();
@@ -366,7 +354,6 @@ impl MainWindowView {
         // Content navigation is handled by the child page views directly
     }
 
-    /// Handle SelectNext action (Right arrow) — activates focused sidebar item
     fn handle_select_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Sidebar {
             self.activate_focused_sidebar_item(window, cx);
@@ -374,7 +361,6 @@ impl MainWindowView {
         // Content navigation is handled by the child page views directly
     }
 
-    /// Handle SelectPrev action (Left arrow) — moves focus back to sidebar from content
     fn handle_select_prev(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Content {
             // Child views consume this if they still have internal items to navigate left.
@@ -385,7 +371,6 @@ impl MainWindowView {
         }
     }
 
-    /// Handle ActivateItem action (Enter/Space) — activates sidebar item
     fn handle_activate_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Sidebar {
             self.activate_focused_sidebar_item(window, cx);
@@ -393,7 +378,6 @@ impl MainWindowView {
         // Content activation is handled by the child page views directly
     }
 
-    /// Handle EscapeFocus action — returns focus to sidebar
     fn handle_escape_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Content {
             self.focus_state.focused_section = FocusedSection::Sidebar;

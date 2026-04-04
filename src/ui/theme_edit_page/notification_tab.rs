@@ -1,10 +1,3 @@
-//! Notifications (Mako) tab for theme editing
-//!
-//! Provides UI for editing Mako notification colors using ColorPicker components:
-//! - text-color: Notification text color
-//! - border-color: Notification border color
-//! - background-color: Notification background color
-
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_mako_ini};
 use crate::types::themes::{EditingTheme, MakoConfig};
@@ -19,7 +12,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Notifications tab content for editing mako notification colors
 pub struct NotificationTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -31,7 +23,6 @@ pub struct NotificationTab {
 }
 
 impl NotificationTab {
-    /// Create a new NotificationTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -119,7 +110,6 @@ impl NotificationTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -133,7 +123,6 @@ impl NotificationTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the mako config within theme_data
     fn update_mako_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut MakoConfig),
@@ -143,12 +132,10 @@ impl NotificationTab {
         self.theme_data.apps.mako = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update mako.ini
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -185,7 +172,6 @@ impl NotificationTab {
         cx.notify();
     }
 
-    /// Launch a test notification
     fn launch_test_notification(&self) {
         let command =
             r#"notify-send "Test Notification" "This is a test notification""#.to_string();

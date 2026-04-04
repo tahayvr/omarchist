@@ -9,7 +9,6 @@ use crate::system::waybar::{WaybarModule, WaybarZone};
 use crate::ui::status_bar_page::module_editor::request_module_edit;
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
-/// Drag payload — carries the source zone and index of the dragged module
 #[derive(Clone, Debug)]
 pub struct DragWaybarModule {
     pub zone: WaybarZone,
@@ -17,7 +16,6 @@ pub struct DragWaybarModule {
     pub label: String,
 }
 
-/// Ghost view rendered while the module is being dragged
 struct DragGhost {
     icon: String,
     label: String,
@@ -43,7 +41,6 @@ impl Render for DragGhost {
     }
 }
 
-/// Render a single draggable waybar module chip with a right-click context menu.
 pub fn render_module_chip(
     module: &WaybarModule,
     zone: WaybarZone,

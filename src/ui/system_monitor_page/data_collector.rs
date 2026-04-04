@@ -5,7 +5,6 @@ use sysinfo::{Disks, Networks, Pid, System};
 const INTERVAL: Duration = Duration::from_millis(500);
 const MAX_DATA_POINTS: usize = 120;
 
-/// A single data point for system metrics
 #[derive(Clone, Debug)]
 pub struct MetricPoint {
     pub time: String,
@@ -15,7 +14,6 @@ pub struct MetricPoint {
     pub network_down: f64,
 }
 
-/// Per-core CPU information
 #[derive(Clone, Debug)]
 pub struct CoreInfo {
     pub name: String,
@@ -23,7 +21,6 @@ pub struct CoreInfo {
     pub frequency: u64,
 }
 
-/// Memory breakdown information
 #[derive(Clone, Debug)]
 pub struct MemoryInfo {
     pub total: u64,
@@ -35,7 +32,6 @@ pub struct MemoryInfo {
     pub swap_used: u64,
 }
 
-/// Process information
 #[derive(Clone, Debug)]
 pub struct ProcessInfo {
     pub pid: Pid,
@@ -47,7 +43,6 @@ pub struct ProcessInfo {
     pub command: String,
 }
 
-/// Disk information
 #[derive(Clone, Debug)]
 pub struct DiskInfo {
     pub name: String,
@@ -58,7 +53,6 @@ pub struct DiskInfo {
     pub filesystem: String,
 }
 
-/// Network interface information
 #[derive(Clone, Debug)]
 pub struct InterfaceInfo {
     pub name: String,
@@ -69,7 +63,6 @@ pub struct InterfaceInfo {
     pub total_transmitted: u64,
 }
 
-/// Network connection information
 #[derive(Clone, Debug)]
 pub struct ConnectionInfo {
     pub protocol: String,
@@ -78,7 +71,6 @@ pub struct ConnectionInfo {
     pub state: String,
 }
 
-/// Battery information
 #[derive(Clone, Debug)]
 pub struct BatteryInfo {
     pub model: String,
@@ -91,7 +83,6 @@ pub struct BatteryInfo {
     pub cycle_count: Option<u32>,
 }
 
-/// Alert thresholds for metrics
 #[derive(Clone, Debug)]
 pub struct AlertThresholds {
     pub cpu_warning: f32,
@@ -115,7 +106,6 @@ impl Default for AlertThresholds {
     }
 }
 
-/// System data collector
 pub struct DataCollector {
     sys: System,
     disks: Disks,
@@ -429,7 +419,6 @@ pub enum Alert {
     Critical(String),
 }
 
-/// Format bytes to human readable string
 pub fn format_bytes(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
@@ -446,12 +435,10 @@ pub fn format_bytes(bytes: u64) -> String {
     }
 }
 
-/// Format bytes per second to human readable string
 pub fn format_bytes_speed(bytes_per_sec: u64) -> String {
     format_bytes(bytes_per_sec) + "/s"
 }
 
-/// Format seconds to human readable duration
 pub fn format_duration(seconds: u64) -> String {
     if seconds >= 3600 {
         format!("{}h {}m", seconds / 3600, (seconds % 3600) / 60)
@@ -462,7 +449,6 @@ pub fn format_duration(seconds: u64) -> String {
     }
 }
 
-/// Get color for metric based on thresholds
 pub fn get_metric_color(
     value: f32,
     warning: f32,

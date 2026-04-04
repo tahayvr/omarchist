@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
-/// Parse colors from a colors.toml file
 pub fn parse_colors_toml(path: &Path) -> Option<ThemeColors> {
     let content = fs::read_to_string(path).ok()?;
     let mut colors: HashMap<String, String> = HashMap::new();
@@ -68,7 +67,6 @@ pub fn parse_colors_toml(path: &Path) -> Option<ThemeColors> {
     })
 }
 
-/// Parse colors from an alacritty.toml file
 pub fn parse_alacritty_toml(path: &Path) -> Option<ThemeColors> {
     let content = fs::read_to_string(path).ok()?;
     let mut colors: HashMap<String, String> = HashMap::new();

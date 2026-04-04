@@ -1,12 +1,3 @@
-//! SwayOSD tab for theme editing
-//!
-//! Provides UI for editing SwayOSD on-screen display colors using ColorPicker components:
-//! - background-color: OSD background color
-//! - border-color: OSD border color
-//! - label: Label text color
-//! - image: Image/icon color
-//! - progress: Progress bar color
-
 use crate::system::themes::theme_management::{save_theme_data, update_swayosd_css};
 use crate::types::themes::{EditingTheme, SwayosdConfig};
 use crate::ui::theme_edit_page::shared::{
@@ -19,7 +10,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// SwayOSD tab content for editing swayosd.css colors
 pub struct SwayosdTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -33,7 +23,6 @@ pub struct SwayosdTab {
 }
 
 impl SwayosdTab {
-    /// Create a new SwayosdTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -85,7 +74,6 @@ impl SwayosdTab {
         tab
     }
 
-    /// Subscribe to all color picker change events
     fn subscribe_to_pickers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         cx.subscribe_in(
             &self.background_color_picker,
@@ -153,7 +141,6 @@ impl SwayosdTab {
         .detach();
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -167,7 +154,6 @@ impl SwayosdTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the swayosd config within theme_data
     fn update_swayosd_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut SwayosdConfig),
@@ -177,12 +163,10 @@ impl SwayosdTab {
         self.theme_data.apps.swayosd = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update swayosd.css
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

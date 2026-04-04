@@ -1,8 +1,3 @@
-//! File Manager tab for theme editing
-//!
-//! Provides UI for editing the file manager icon theme:
-//! - Yaru color selection via radio buttons
-
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_icons_theme};
 use crate::types::themes::EditingTheme;
@@ -10,14 +5,12 @@ use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container}
 use gpui::*;
 use gpui_component::{button::Button, h_flex, radio::Radio, v_flex};
 
-/// Yaru icon theme color with display label and hex color
 struct YaruColor {
     value: &'static str,
     label: &'static str,
     color: u32,
 }
 
-/// Available Yaru icon theme colors with their display colors
 const YARU_COLORS: &[YaruColor] = &[
     YaruColor {
         value: "Yaru-red",
@@ -56,7 +49,6 @@ const YARU_COLORS: &[YaruColor] = &[
     },
 ];
 
-/// File Manager tab content for editing icon theme
 pub struct FileManagerTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -66,7 +58,6 @@ pub struct FileManagerTab {
 }
 
 impl FileManagerTab {
-    /// Create a new FileManagerTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -85,7 +76,6 @@ impl FileManagerTab {
         }
     }
 
-    /// Extract the current icon theme from theme_data
     fn get_current_icon_theme(theme_data: &EditingTheme) -> String {
         theme_data
             .apps
@@ -97,7 +87,6 @@ impl FileManagerTab {
             .unwrap_or_else(|| "Yaru-red".to_string())
     }
 
-    /// Update the icon theme in theme_data
     fn update_icon_theme(&mut self, color: String) {
         self.selected_color = color.clone();
 
@@ -109,7 +98,6 @@ impl FileManagerTab {
         self.theme_data.apps.icons = Some(icons_config);
     }
 
-    /// Save the theme data
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -144,7 +132,6 @@ impl FileManagerTab {
         cx.notify();
     }
 
-    /// Launch Nautilus file manager
     fn launch_file_manager(&self) {
         let command = "uwsm app -- nautilus --new-window".to_string();
         if let Err(e) = execute_bash_command(command) {
@@ -152,7 +139,6 @@ impl FileManagerTab {
         }
     }
 
-    /// Create radio button element for a color with color square
     fn create_color_radio(
         &self,
         yaru_color: &'static YaruColor,

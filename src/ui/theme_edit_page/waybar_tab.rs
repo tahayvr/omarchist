@@ -1,9 +1,3 @@
-//! Waybar tab for theme editing
-//!
-//! Provides UI for editing Waybar colors using ColorPicker components:
-//! - Background color
-//! - Foreground color
-
 use crate::system::themes::theme_management::{save_theme_data, update_waybar_css};
 use crate::types::themes::{EditingTheme, WaybarConfig};
 use crate::ui::theme_edit_page::shared::{
@@ -16,7 +10,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Waybar tab content for editing waybar colors
 pub struct WaybarTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -27,7 +20,6 @@ pub struct WaybarTab {
 }
 
 impl WaybarTab {
-    /// Create a new WaybarTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -93,7 +85,6 @@ impl WaybarTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -107,7 +98,6 @@ impl WaybarTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the waybar config within theme_data
     fn update_waybar_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut WaybarConfig),
@@ -117,12 +107,10 @@ impl WaybarTab {
         self.theme_data.apps.waybar = Some(config);
     }
 
-    /// Get the current theme data
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
     }
 
-    /// Save the theme data and update waybar.css
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;

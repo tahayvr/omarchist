@@ -1,8 +1,3 @@
-//! Browser tab for theme editing
-//!
-//! Provides UI for editing Chromium browser theme color:
-//! - Theme color (RGB/Hex)
-
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_chromium_config};
 use crate::types::themes::{BrowserConfig, EditingTheme};
@@ -17,7 +12,6 @@ use gpui_component::{
     h_flex,
 };
 
-/// Browser tab content for editing Chromium theme color
 pub struct BrowserTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -27,7 +21,6 @@ pub struct BrowserTab {
 }
 
 impl BrowserTab {
-    /// Create a new BrowserTab instance
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
@@ -76,7 +69,6 @@ impl BrowserTab {
         tab
     }
 
-    /// Convert hex color string (#RRGGBB) to Hsla
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -90,7 +82,6 @@ impl BrowserTab {
         Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
-    /// Update the browser config within theme_data
     fn update_browser_config<F>(&mut self, updater: F)
     where
         F: FnOnce(&mut BrowserConfig),
@@ -100,7 +91,6 @@ impl BrowserTab {
         self.theme_data.apps.chromium = Some(config);
     }
 
-    /// Save the theme data and update chromium config
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
@@ -137,7 +127,6 @@ impl BrowserTab {
         cx.notify();
     }
 
-    /// Launch Chromium browser
     fn launch_browser(&self) {
         let command = "uwsm app -- chromium".to_string();
         if let Err(e) = execute_bash_command(command) {

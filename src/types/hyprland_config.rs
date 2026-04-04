@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 
-/// Main Hyprland configuration structure containing all sections
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HyprlandConfig {
     pub general: GeneralConfig,
@@ -20,7 +19,6 @@ pub struct HyprlandConfig {
     pub debug: DebugConfig,
 }
 
-/// General section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GeneralConfig {
     pub border_size: i32,
@@ -62,7 +60,6 @@ impl Default for GeneralConfig {
     }
 }
 
-/// Snap subcategory configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SnapConfig {
     pub enabled: bool,
@@ -84,7 +81,6 @@ impl Default for SnapConfig {
     }
 }
 
-/// Decoration section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DecorationConfig {
     pub rounding: i32,
@@ -124,7 +120,6 @@ impl Default for DecorationConfig {
     }
 }
 
-/// Blur subcategory configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BlurConfig {
     pub enabled: bool,
@@ -168,7 +163,6 @@ impl Default for BlurConfig {
     }
 }
 
-/// Shadow subcategory configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ShadowConfig {
     pub enabled: bool,
@@ -200,7 +194,6 @@ impl Default for ShadowConfig {
     }
 }
 
-/// Animations section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnimationsConfig {
     pub enabled: bool,
@@ -216,7 +209,6 @@ impl Default for AnimationsConfig {
     }
 }
 
-/// Input section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InputConfig {
     pub kb_model: String,
@@ -288,7 +280,6 @@ impl Default for InputConfig {
     }
 }
 
-/// Touchpad subcategory configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TouchpadConfig {
     pub disable_while_typing: bool,
@@ -324,7 +315,6 @@ impl Default for TouchpadConfig {
     }
 }
 
-/// Gestures section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GesturesConfig {
     pub workspace_swipe_distance: i32,
@@ -360,7 +350,6 @@ impl Default for GesturesConfig {
     }
 }
 
-/// Group section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupConfig {
     pub auto_group: bool,
@@ -390,7 +379,6 @@ impl Default for GroupConfig {
     }
 }
 
-/// Groupbar subcategory configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GroupbarConfig {
     pub enabled: bool,
@@ -432,7 +420,6 @@ impl Default for GroupbarConfig {
     }
 }
 
-/// Misc section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MiscConfig {
     pub disable_hyprland_logo: bool,
@@ -492,7 +479,6 @@ impl Default for MiscConfig {
     }
 }
 
-/// Binds section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BindsConfig {
     pub pass_mouse_when_bound: bool,
@@ -532,7 +518,6 @@ impl Default for BindsConfig {
     }
 }
 
-/// XWayland section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct XWaylandConfig {
     pub enabled: bool,
@@ -552,7 +537,6 @@ impl Default for XWaylandConfig {
     }
 }
 
-/// OpenGL section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenGlConfig {
     pub nvidia_anti_flicker: bool,
@@ -566,7 +550,6 @@ impl Default for OpenGlConfig {
     }
 }
 
-/// Render section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RenderConfig {
     pub direct_scanout: i32,
@@ -600,7 +583,6 @@ impl Default for RenderConfig {
     }
 }
 
-/// Cursor section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CursorConfig {
     pub invisible: bool,
@@ -656,7 +638,6 @@ impl Default for CursorConfig {
     }
 }
 
-/// Ecosystem section configuration
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct EcosystemConfig {
     pub no_update_news: bool,
@@ -664,13 +645,11 @@ pub struct EcosystemConfig {
     pub enforce_permissions: bool,
 }
 
-/// Quirks section configuration
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct QuirksConfig {
     pub prefer_hdr: i32,
 }
 
-/// Debug section configuration
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DebugConfig {
     pub overlay: bool,
@@ -714,7 +693,6 @@ impl Default for DebugConfig {
     }
 }
 
-/// Catalog of keyboard models, layouts, variants, and options sourced from `base.lst`.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct KeyboardCatalog {
     pub models: Vec<KeyboardModel>,
