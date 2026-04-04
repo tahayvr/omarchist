@@ -26,6 +26,8 @@ const SIDEBAR_ITEM_COUNT: usize = 3;
 thread_local! {
     pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
     pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
+    /// Set by OmarchyView after a re-check completes; None = no pending update, Some(x) = new value
+    pub static PENDING_OMARCHY_UPDATE_STATUS: RefCell<Option<bool>> = const { RefCell::new(None) };
 }
 
 /// Represents the currently active page in the application.
@@ -463,6 +465,15 @@ impl Render for MainWindowView {
         });
         if pending_omarchy {
             self.navigate_to(ActivePage::Omarchy, window, cx);
+        }
+
+        // Sync title bar badge when OmarchyView re-checks update availability
+        let pending_update_status =
+            PENDING_OMARCHY_UPDATE_STATUS.with(|flag| flag.borrow_mut().take());
+        if let Some(update_available) = pending_update_status {
+            self.title_bar.update(cx, |title_bar, _cx| {
+                title_bar.set_omarchy_update_available(update_available);
+            });
         }
 
         // Check for pending UI theme hot-reload

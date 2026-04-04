@@ -5,11 +5,18 @@ use gpui_component::{
 };
 
 use crate::system::omarchy::{
-    omarchy_version::check_omarchy_update, release_notes::fetch_latest_release_notes,
+    omarchy_version::{check_omarchy_update, get_local_omarchy_version},
+    release_notes::fetch_latest_release_notes,
 };
 use crate::ui::menu::app_menu;
 
 const KEY_CONTEXT: &str = "OmarchyView";
+
+/// How long to wait after launching an update before re-checking the version (seconds).
+const POST_UPDATE_RECHECK_SECS: u64 = 60;
+
+/// How often to periodically re-check for updates in the background (seconds).
+const PERIODIC_CHECK_INTERVAL_SECS: u64 = 30 * 60;
 
 pub struct OmarchyView {
     local_version: String,
@@ -23,28 +30,10 @@ pub struct OmarchyView {
 
 impl OmarchyView {
     pub fn new(version: Option<String>, cx: &mut Context<Self>) -> Self {
-        let local_version = version.unwrap_or_else(|| "unknown".to_string()); // Clone for the async block to avoid redundant git calls
-        let version_for_check = local_version.clone();
+        let local_version = version.unwrap_or_else(|| "unknown".to_string());
 
-        // Spawn async task to check for updates
-        cx.spawn(
-            async move |this, cx| match check_omarchy_update(&version_for_check).await {
-                Ok(update_available) => {
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(update_available);
-                    })
-                    .ok();
-                }
-                Err(e) => {
-                    eprintln!("Failed to check for updates: {e}");
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(false);
-                    })
-                    .ok();
-                }
-            },
-        )
-        .detach();
+        // Spawn async task to check for updates immediately
+        Self::spawn_version_check(local_version.clone(), cx);
 
         // Spawn async task to fetch latest release notes
         cx.spawn(
@@ -63,6 +52,46 @@ impl OmarchyView {
         )
         .detach();
 
+        // Spawn a periodic background re-check loop
+        cx.spawn(async move |this, cx| {
+            loop {
+                smol::Timer::after(std::time::Duration::from_secs(PERIODIC_CHECK_INTERVAL_SECS))
+                    .await;
+
+                // Re-read the local version (it may have changed after an update)
+                let current_version =
+                    get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+
+                // Update local_version on the view before checking
+                this.update(cx, |this, _cx| {
+                    this.local_version = current_version.clone();
+                    this.update_available = None; // show "Checking..."
+                })
+                .ok();
+
+                match check_omarchy_update(&current_version).await {
+                    Ok(update_available) => {
+                        this.update(cx, |this, _cx| {
+                            this.update_available = Some(update_available);
+                        })
+                        .ok();
+                        // Sync title bar badge
+                        crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
+                            *flag.borrow_mut() = Some(update_available);
+                        });
+                    }
+                    Err(e) => {
+                        eprintln!("Periodic omarchy update check failed: {e}");
+                        this.update(cx, |this, _cx| {
+                            this.update_available = Some(false);
+                        })
+                        .ok();
+                    }
+                }
+            }
+        })
+        .detach();
+
         Self {
             local_version,
             update_available: None,
@@ -71,6 +100,71 @@ impl OmarchyView {
             focus_handle: cx.focus_handle(),
             update_btn_focused: false,
         }
+    }
+
+    /// Spawn an async task that reads the current local version and checks GitHub.
+    /// Updates `self` and syncs the title bar badge when done.
+    fn spawn_version_check(version: String, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            match check_omarchy_update(&version).await {
+                Ok(update_available) => {
+                    this.update(cx, |this, _cx| {
+                        this.update_available = Some(update_available);
+                    })
+                    .ok();
+                    // Sync title bar badge
+                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
+                        *flag.borrow_mut() = Some(update_available);
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Failed to check for omarchy updates: {e}");
+                    this.update(cx, |this, _cx| {
+                        this.update_available = Some(false);
+                    })
+                    .ok();
+                }
+            }
+        })
+        .detach();
+    }
+
+    /// Trigger a re-check after a delay (used post-update to reflect the newly installed version).
+    fn spawn_delayed_recheck(cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            smol::Timer::after(std::time::Duration::from_secs(POST_UPDATE_RECHECK_SECS)).await;
+
+            // Re-read local version (the update script will have changed git tags)
+            let current_version =
+                get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+
+            // Update local_version and set to checking state
+            this.update(cx, |this, _cx| {
+                this.local_version = current_version.clone();
+                this.update_available = None;
+            })
+            .ok();
+
+            match check_omarchy_update(&current_version).await {
+                Ok(update_available) => {
+                    this.update(cx, |this, _cx| {
+                        this.update_available = Some(update_available);
+                    })
+                    .ok();
+                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
+                        *flag.borrow_mut() = Some(update_available);
+                    });
+                }
+                Err(e) => {
+                    eprintln!("Post-update omarchy version check failed: {e}");
+                    this.update(cx, |this, _cx| {
+                        this.update_available = Some(false);
+                    })
+                    .ok();
+                }
+            }
+        })
+        .detach();
     }
 }
 
@@ -130,11 +224,18 @@ impl Render for OmarchyView {
                                     .child(
                                         Button::new("update-omarchy")
                                             .label("Update Omarchy")
-                                            .on_click(|_, _, _| {
+                                            .on_click(cx.listener(|this, _, _, cx| {
                                                 if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
                                                     eprintln!("{e}");
+                                                } else {
+                                                    // Show "Checking..." immediately while the update runs
+                                                    this.update_available = None;
+                                                    this.update_btn_focused = false;
+                                                    cx.notify();
+                                                    // Schedule a re-check after the update has had time to complete
+                                                    Self::spawn_delayed_recheck(cx);
                                                 }
-                                            }),
+                                            })),
                                     ),
                             ),
                     )
@@ -151,22 +252,13 @@ impl Render for OmarchyView {
                             .child(format!("Version {}", self.local_version)),
                     )
                     .child(
-                        // for testing only TODO: remove for prod
                         h_flex().gap_4().items_center().child(
                             div()
                                 .text_xs()
                                 .text_color(theme.green)
                                 .font_weight(FontWeight::BOLD)
                                 .child("Up to date"),
-                        ), // .child(
-                           //     Button::new("update-omarchy-test")
-                           //         .label("Update Omarchy")
-                           //         .on_click(|_, _, _| {
-                           //             if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                           //                 eprintln!("{e}");
-                           //             }
-                           //         }),
-                           // ),
+                        ),
                     )
             }
         };
@@ -257,11 +349,16 @@ impl Render for OmarchyView {
                 // If button was not focused, do nothing — bubble up to MainWindow
             }))
             .on_action(
-                cx.listener(|this, _: &app_menu::ActivateItem, _window, _cx| {
-                    if this.update_btn_focused
-                        && let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update()
-                    {
-                        eprintln!("{e}");
+                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
+                    if this.update_btn_focused {
+                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+                            eprintln!("{e}");
+                        } else {
+                            this.update_available = None;
+                            this.update_btn_focused = false;
+                            cx.notify();
+                            Self::spawn_delayed_recheck(cx);
+                        }
                     }
                 }),
             )
