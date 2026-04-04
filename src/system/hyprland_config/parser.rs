@@ -491,3 +491,238 @@ fn parse_int(value: &str) -> i32 {
 fn parse_float(value: &str) -> f64 {
     value.parse().unwrap_or(0.0)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_bool_true_variants_return_true() {
+        for val in &[
+            "true", "True", "TRUE", "yes", "Yes", "YES", "on", "On", "ON", "1",
+        ] {
+            assert!(
+                parse_bool(val),
+                "parse_bool(\"{}\") should return true",
+                val
+            );
+        }
+    }
+
+    #[test]
+    fn parse_bool_false_variants_return_false() {
+        for val in &[
+            "false", "False", "FALSE", "no", "No", "off", "0", "2", "", "maybe",
+        ] {
+            assert!(
+                !parse_bool(val),
+                "parse_bool(\"{}\") should return false",
+                val
+            );
+        }
+    }
+
+    #[test]
+    fn parse_int_valid_positive() {
+        assert_eq!(parse_int("42"), 42);
+    }
+
+    #[test]
+    fn parse_int_valid_negative() {
+        assert_eq!(parse_int("-5"), -5);
+    }
+
+    #[test]
+    fn parse_int_zero() {
+        assert_eq!(parse_int("0"), 0);
+    }
+
+    #[test]
+    fn parse_int_invalid_returns_zero() {
+        assert_eq!(
+            parse_int("abc"),
+            0,
+            "non-numeric input should fall back to 0"
+        );
+        assert_eq!(parse_int(""), 0, "empty string should fall back to 0");
+        assert_eq!(parse_int("3.14"), 0, "float string should fall back to 0");
+    }
+
+    #[test]
+    fn parse_float_valid_decimal() {
+        let result = parse_float("1.5");
+        assert!(
+            (result - 1.5).abs() < f64::EPSILON,
+            "parse_float(\"1.5\") should return 1.5"
+        );
+    }
+
+    #[test]
+    fn parse_float_valid_integer_string() {
+        let result = parse_float("2");
+        assert!(
+            (result - 2.0).abs() < f64::EPSILON,
+            "parse_float(\"2\") should return 2.0"
+        );
+    }
+
+    #[test]
+    fn parse_float_invalid_returns_zero() {
+        assert!(
+            parse_float("abc").abs() < f64::EPSILON,
+            "non-numeric input should fall back to 0.0"
+        );
+        assert!(
+            parse_float("").abs() < f64::EPSILON,
+            "empty string should fall back to 0.0"
+        );
+    }
+
+    #[test]
+    fn parse_key_value_simple_pair() {
+        let result = parse_key_value("border_size = 2");
+        assert_eq!(
+            result,
+            Some(("border_size".to_string(), "2".to_string())),
+            "simple key = value should parse correctly"
+        );
+    }
+
+    #[test]
+    fn parse_key_value_trims_whitespace() {
+        let result = parse_key_value("  gaps_in   =   5  ");
+        assert_eq!(
+            result,
+            Some(("gaps_in".to_string(), "5".to_string())),
+            "leading/trailing whitespace should be trimmed from key and value"
+        );
+    }
+
+    #[test]
+    fn parse_key_value_col_prefix_preserved() {
+        // Keys prefixed with "col." or "col:" are a special case.
+        let result = parse_key_value("col.active_border = 0xff89b4fa");
+        let (key, val) = result.expect("col. prefix key should parse successfully");
+        assert_eq!(key, "col.active_border");
+        assert_eq!(val, "0xff89b4fa");
+    }
+
+    #[test]
+    fn parse_key_value_no_equals_returns_none() {
+        assert_eq!(
+            parse_key_value("no equals sign here"),
+            None,
+            "a line without '=' should return None"
+        );
+    }
+
+    #[test]
+    fn parse_key_value_empty_line_returns_none() {
+        assert_eq!(parse_key_value(""), None, "empty input should return None");
+    }
+
+    #[test]
+    fn parse_key_value_value_can_be_empty() {
+        let result = parse_key_value("kb_model =");
+        let (key, val) = result.expect("key with empty value should still parse");
+        assert_eq!(key, "kb_model");
+        assert_eq!(val, "", "empty value should be an empty string");
+    }
+
+    #[test]
+    fn parse_config_general_section_basic_fields() {
+        let input = "general {\n    border_size = 3\n    gaps_in = 8\n}";
+        let config = parse_config(input);
+        assert_eq!(
+            config.general.border_size, 3,
+            "border_size should be parsed from the general section"
+        );
+        assert_eq!(
+            config.general.gaps_in, 8,
+            "gaps_in should be parsed from the general section"
+        );
+    }
+
+    #[test]
+    fn parse_config_skips_comments_and_empty_lines() {
+        let input = "# this is a top-level comment\ngeneral {\n    # inline comment\n    border_size = 5\n}";
+        let config = parse_config(input);
+        assert_eq!(
+            config.general.border_size, 5,
+            "parser should skip comment lines and still read values"
+        );
+    }
+
+    #[test]
+    fn parse_config_subsection_colon_syntax() {
+        // Hyprland uses "section:subsection {" on a single line.
+        let input = "decoration:blur {\n    enabled = false\n    size = 4\n}";
+        let config = parse_config(input);
+        assert!(
+            !config.decoration.blur.enabled,
+            "blur.enabled should be parsed from the 'decoration:blur' subsection"
+        );
+        assert_eq!(
+            config.decoration.blur.size, 4,
+            "blur.size should be parsed from the 'decoration:blur' subsection"
+        );
+    }
+
+    #[test]
+    fn parse_config_input_kb_layout() {
+        let input = "input {\n    kb_layout = gb\n}";
+        let config = parse_config(input);
+        assert_eq!(
+            config.input.kb_layout, "gb",
+            "kb_layout should be parsed from the input section"
+        );
+    }
+
+    #[test]
+    fn parse_config_multiple_sections_independent() {
+        let input = "general {\n    gaps_out = 10\n}\nmisc {\n    vfr = false\n}";
+        let config = parse_config(input);
+        assert_eq!(config.general.gaps_out, 10);
+        assert!(!config.misc.vfr);
+    }
+
+    #[test]
+    fn parse_config_empty_input_returns_default() {
+        let config = parse_config("");
+        // Spot-check that struct defaults are returned for fields not present in the input.
+        // border_size defaults to 2 (as defined in HyprlandConfig::default()).
+        assert_eq!(
+            config.general.border_size, 2,
+            "empty input should yield the struct default border_size of 2"
+        );
+        assert_eq!(
+            config.input.kb_layout, "us",
+            "empty input should yield default kb_layout of 'us'"
+        );
+    }
+
+    #[test]
+    fn parse_config_unknown_section_ignored() {
+        // A section name we don't recognise must not panic.
+        let input = "nonexistent_section {\n    foo = bar\n}";
+        let _config = parse_config(input); // must not panic
+    }
+
+    #[test]
+    fn parse_config_decoration_shadow_subsection() {
+        let input = "decoration:shadow {\n    enabled = false\n    range = 8\n}";
+        let config = parse_config(input);
+        assert!(!config.decoration.shadow.enabled);
+        assert_eq!(config.decoration.shadow.range, 8);
+    }
+
+    #[test]
+    fn parse_config_animations_enabled_false() {
+        let input = "animations {\n    enabled = false\n}";
+        let config = parse_config(input);
+        assert!(
+            !config.animations.enabled,
+            "animations.enabled should be false when set to false"
+        );
+    }
+}

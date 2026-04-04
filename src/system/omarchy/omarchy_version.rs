@@ -113,3 +113,81 @@ pub fn get_local_omarchy_version() -> Result<String, String> {
         Err(_) => Ok("unknown".to_string()),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn compare_versions_latest_has_higher_major_returns_true() {
+        assert!(
+            compare_versions("1.0.0", "2.0.0"),
+            "a higher major version in latest should mean an update is available"
+        );
+    }
+
+    #[test]
+    fn compare_versions_latest_has_higher_minor_returns_true() {
+        assert!(
+            compare_versions("1.0.0", "1.1.0"),
+            "a higher minor version in latest should mean an update is available"
+        );
+    }
+
+    #[test]
+    fn compare_versions_latest_has_higher_patch_returns_true() {
+        assert!(
+            compare_versions("1.0.0", "1.0.1"),
+            "a higher patch version in latest should mean an update is available"
+        );
+    }
+
+    #[test]
+    fn compare_versions_equal_versions_returns_false() {
+        assert!(
+            !compare_versions("1.2.3", "1.2.3"),
+            "identical versions should not be considered an update"
+        );
+    }
+
+    #[test]
+    fn compare_versions_current_newer_than_latest_returns_false() {
+        assert!(
+            !compare_versions("2.0.0", "1.9.9"),
+            "a current version ahead of latest should not be an update"
+        );
+    }
+
+    #[test]
+    fn compare_versions_major_takes_precedence_over_minor_and_patch() {
+        // 2.99.99 is newer than 3.0.0 only if major wins — 3 > 2 so update available.
+        assert!(
+            compare_versions("2.99.99", "3.0.0"),
+            "major version should take precedence"
+        );
+        assert!(
+            !compare_versions("3.0.0", "2.99.99"),
+            "current major newer than latest: no update"
+        );
+    }
+
+    #[test]
+    fn compare_versions_different_component_lengths_padded_with_zeros() {
+        // "1.0" vs "1.0.1" — shorter is padded to "1.0.0", so update is available.
+        assert!(
+            compare_versions("1.0", "1.0.1"),
+            "shorter version string should be zero-padded for comparison"
+        );
+    }
+
+    #[test]
+    fn compare_versions_non_numeric_parts_treated_as_zero() {
+        // Non-numeric parts are filtered out with filter_map, falling back to nothing.
+        // "1.x.0" → [1, 0] after filtering; "1.1.0" → [1, 1, 0].
+        // So "1.0" < "1.1.0" → update available.
+        assert!(
+            compare_versions("1.x.0", "1.1.0"),
+            "non-numeric parts should be skipped (treated as absent/zero)"
+        );
+    }
+}

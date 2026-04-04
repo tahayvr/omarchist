@@ -302,3 +302,115 @@ fn ensure_hyprland_conf(config_dir: &Path) -> Result<(), String> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_version_valid_semver() {
+        let result = parse_version("1.2.3").expect("valid semver should parse");
+        assert_eq!(result, (1, 2, 3));
+    }
+
+    #[test]
+    fn parse_version_strips_v_prefix() {
+        let result = parse_version("v2.0.1").expect("v-prefixed semver should parse");
+        assert_eq!(result, (2, 0, 1));
+    }
+
+    #[test]
+    fn parse_version_zero_components() {
+        let result = parse_version("0.0.0").expect("all-zero version should parse");
+        assert_eq!(result, (0, 0, 0));
+    }
+
+    #[test]
+    fn parse_version_large_numbers() {
+        let result = parse_version("10.20.30").expect("large component numbers should parse");
+        assert_eq!(result, (10, 20, 30));
+    }
+
+    #[test]
+    fn parse_version_too_few_parts_returns_err() {
+        assert!(
+            parse_version("1.2").is_err(),
+            "a version with fewer than 3 parts should return Err"
+        );
+    }
+
+    #[test]
+    fn parse_version_too_many_parts_returns_err() {
+        assert!(
+            parse_version("1.2.3.4").is_err(),
+            "a version with more than 3 parts should return Err"
+        );
+    }
+
+    #[test]
+    fn parse_version_non_numeric_part_returns_err() {
+        assert!(
+            parse_version("1.x.3").is_err(),
+            "a non-numeric version component should return Err"
+        );
+    }
+
+    #[test]
+    fn parse_version_empty_string_returns_err() {
+        assert!(parse_version("").is_err(), "empty string should return Err");
+    }
+
+    #[test]
+    fn is_version_older_major_bump_is_older() {
+        let result = is_version_older("1.0.0", "2.0.0").expect("valid versions should compare");
+        assert!(result, "1.0.0 should be considered older than 2.0.0");
+    }
+
+    #[test]
+    fn is_version_older_minor_bump_is_older() {
+        let result = is_version_older("1.0.0", "1.1.0").expect("valid versions should compare");
+        assert!(result, "1.0.0 should be considered older than 1.1.0");
+    }
+
+    #[test]
+    fn is_version_older_patch_bump_is_older() {
+        let result = is_version_older("1.0.0", "1.0.1").expect("valid versions should compare");
+        assert!(result, "1.0.0 should be considered older than 1.0.1");
+    }
+
+    #[test]
+    fn is_version_older_equal_versions_not_older() {
+        let result = is_version_older("1.2.3", "1.2.3").expect("equal versions should compare");
+        assert!(!result, "equal versions should not be considered older");
+    }
+
+    #[test]
+    fn is_version_older_user_newer_than_default_not_older() {
+        let result = is_version_older("2.0.0", "1.9.9").expect("valid versions should compare");
+        assert!(
+            !result,
+            "a newer user version should not be considered older than default"
+        );
+    }
+
+    #[test]
+    fn is_version_older_major_takes_precedence_over_minor() {
+        let result = is_version_older("2.5.0", "3.0.0").expect("valid versions should compare");
+        assert!(result, "major version difference should dominate");
+    }
+
+    #[test]
+    fn is_version_older_v_prefix_handled() {
+        let result =
+            is_version_older("v1.0.0", "v1.0.1").expect("v-prefixed versions should compare");
+        assert!(result, "v-prefixed versions should compare correctly");
+    }
+
+    #[test]
+    fn is_version_older_invalid_version_returns_err() {
+        assert!(
+            is_version_older("not-a-version", "1.0.0").is_err(),
+            "an invalid version string should return Err"
+        );
+    }
+}
