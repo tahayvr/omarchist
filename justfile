@@ -9,8 +9,9 @@ alias rel := release
 
 # Run app
 run:
-    cargo run || true
+    cargo run
 
+# Run the Checker, Clippy, and Formatter
 check:
     cargo fmt
     cargo check
@@ -25,8 +26,9 @@ update VER:
 build:
     cargo build --release
 
-docs VER:
-    cd docs/ && bun run docs:{{ VER }} 2>/dev/null || true
+# Run the commands for the docs website (dev | build | preview)
+docs DOCS:
+    cd docs/ && bun run docs:{{ DOCS }} 
 
 # Tag and push a release (x.y.z | patch | minor | major)
 release VER:
