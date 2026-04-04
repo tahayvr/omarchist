@@ -3,6 +3,7 @@
 alias u := update
 alias b := build
 alias c := check
+alias t := test
 alias r := run
 alias d := docs
 alias rel := release
@@ -16,6 +17,10 @@ check:
     cargo fmt
     cargo check
     cargo clippy --all-targets --all-features -- -D warnings
+
+# Run the tests
+test:
+    cargo nextest run
 
 # update the version number (x.y.z | patch | minor | major) for app
 update VER:
