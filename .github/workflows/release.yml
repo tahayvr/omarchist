@@ -1,8 +1,9 @@
 name: Omarchist Release Build
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
 
 env:
@@ -12,9 +13,38 @@ permissions:
   contents: write
 
 jobs:
+  changelog:
+    name: Generate Changelog
+    runs-on: ubuntu-latest
+    outputs:
+      release_body: ${{ steps.git-cliff.outputs.content }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate changelog
+        uses: orhun/git-cliff-action@v4
+        id: git-cliff
+        with:
+          config: cliff.toml
+          args: -vv --latest --strip header
+        env:
+          OUTPUT: CHANGELOG.md
+          GITHUB_REPO: ${{ github.repository }}
+
+      - name: Commit CHANGELOG.md
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add CHANGELOG.md
+          git diff --cached --quiet || git commit -m "chore(release): update changelog for ${{ github.ref_name }}"
+          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
+
   build:
     name: Build (${{ matrix.target }})
-    if: github.event_name == 'workflow_dispatch' || github.event.release.target_commitish == 'main'
+    needs: changelog
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -119,8 +149,9 @@ jobs:
           cd release-dist
           tar -czf ../omarchist-${{ matrix.artifact }}.tar.gz *
 
-      - name: Upload artifact to release
+      - name: Create GitHub Release and upload artifact
         uses: softprops/action-gh-release@v2
         with:
           files: omarchist-${{ matrix.artifact }}.tar.gz
-          tag_name: ${{ github.event.release.tag_name }}
+          tag_name: ${{ github.ref_name }}
+          body: ${{ needs.changelog.outputs.release_body }}
