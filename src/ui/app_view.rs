@@ -57,6 +57,7 @@ pub struct MainWindowView {
     config_root: Option<AnyView>,
     config_view: Option<Entity<ConfigView>>,
     settings_root: Option<AnyView>,
+    settings_view: Option<Entity<SettingsView>>,
     status_bar_root: Option<AnyView>,
     status_bar_view: Option<Entity<StatusBarView>>,
     about_root: Option<AnyView>,
@@ -142,6 +143,7 @@ impl MainWindowView {
             config_root: None,
             config_view: None,
             settings_root: None,
+            settings_view: None,
             status_bar_root: None,
             status_bar_view: None,
             about_root: None,
@@ -205,9 +207,12 @@ impl MainWindowView {
             }
             ActivePage::Settings => {
                 if self.settings_root.is_none() {
-                    let settings_view = cx.new(|_| SettingsView::new());
-                    self.settings_root =
-                        Some(cx.new(|cx| Root::new(settings_view, window, cx)).into());
+                    let settings_view = cx.new(SettingsView::new);
+                    self.settings_root = Some(
+                        cx.new(|cx| Root::new(settings_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.settings_view = Some(settings_view);
                 }
             }
             ActivePage::StatusBar => {
@@ -307,8 +312,12 @@ impl MainWindowView {
                 .config_view
                 .as_ref()
                 .map(|v| v.read(cx).focus_handle.clone()),
-            // Settings and SystemMonitor have no custom focus handle — keep main window focus
-            ActivePage::Settings | ActivePage::SystemMonitor => None,
+            ActivePage::Settings => self
+                .settings_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
+            // SystemMonitor has no custom focus handle — keep main window focus
+            ActivePage::SystemMonitor => None,
         };
 
         if let Some(fh) = handle {

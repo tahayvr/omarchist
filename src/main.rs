@@ -222,6 +222,12 @@ fn main() {
                 Some("ThemeEditPage"),
             ),
             KeyBinding::new("escape", app_menu::NavigateBack, Some("ThemeEditPage")),
+            // Settings page keyboard navigation
+            KeyBinding::new("tab", app_menu::NextFocus, Some("SettingsPage")),
+            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("SettingsPage")),
+            KeyBinding::new("enter", app_menu::ActivateItem, Some("SettingsPage")),
+            KeyBinding::new("space", app_menu::ActivateItem, Some("SettingsPage")),
+            KeyBinding::new("escape", app_menu::EscapeFocus, Some("SettingsPage")),
             // About page keyboard navigation
             KeyBinding::new("tab", app_menu::NextFocus, Some("AboutView")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("AboutView")),

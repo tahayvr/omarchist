@@ -12,7 +12,8 @@ use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
 
 const KEY_CONTEXT: &str = "StatusBar";
-const HEADER_ITEM_COUNT: usize = 4;
+// 0=select, 1=add, 2=rename, 3=duplicate, 4=delete, 5=restore, 6=restart
+const HEADER_ITEM_COUNT: usize = 7;
 
 fn apply_and_restart(profile_name: &str) {
     if let Err(e) = apply_waybar_profile(profile_name) {
@@ -184,7 +185,32 @@ impl Render for StatusBarView {
                     Some(1) => {
                         crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog(window, cx);
                     }
+                    Some(2) => {
+                        let profile = this.header.read(cx).current_profile_name(cx);
+                        crate::ui::dialogs::manage_waybar_profile_dialogs::open_rename_waybar_profile_dialog(profile, window, cx);
+                    }
                     Some(3) => {
+                        let profile = this.header.read(cx).current_profile_name(cx);
+                        crate::ui::dialogs::manage_waybar_profile_dialogs::open_duplicate_waybar_profile_dialog(profile, window, cx);
+                    }
+                    Some(4) => {
+                        let can_delete = this.header.read(cx).profile_names.len() > 1;
+                        if can_delete {
+                            let profile = this.header.read(cx).current_profile_name(cx);
+                            crate::ui::dialogs::manage_waybar_profile_dialogs::open_delete_waybar_profile_dialog(profile, window, cx);
+                        }
+                    }
+                    Some(5) => {
+                        if crate::system::waybar::has_original_waybar_backup() {
+                            if let Err(e) = crate::system::waybar::restore_original_waybar_config() {
+                                eprintln!("Failed to restore original waybar config: {e}");
+                            }
+                            if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
+                                eprintln!("Failed to restart waybar: {e}");
+                            }
+                        }
+                    }
+                    Some(6) => {
                         if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
                             eprintln!("Failed to restart waybar: {e}");
                         }
