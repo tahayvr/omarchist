@@ -8,8 +8,12 @@ use gpui_component::{
     v_flex,
 };
 
+use std::sync::LazyLock;
+
 use crate::system::waybar::{LibraryModule, WaybarZone, add_module_to_zone, module_library};
 use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
+
+static MODULE_LIBRARY: LazyLock<Vec<LibraryModule>> = LazyLock::new(module_library);
 
 const ZONES: &[&str] = &["Left", "Center", "Right"];
 
@@ -46,7 +50,7 @@ impl ModuleLibraryPanel {
         window: &mut Window,
         cx: &mut App,
     ) -> Self {
-        let modules: &'static [LibraryModule] = Box::leak(module_library().into_boxed_slice());
+        let modules: &'static [LibraryModule] = &MODULE_LIBRARY;
         let rows = modules
             .iter()
             .map(|m| LibraryRowState::new(m, window, cx))
