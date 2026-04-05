@@ -82,8 +82,6 @@ fn load_custom_fonts(cx: &mut App) {
     // Register the font with GPUI's text system
     if let Err(err) = cx.text_system().add_fonts(vec![font_data]) {
         eprintln!("Failed to add font: {}", err);
-    } else {
-        println!("Font registered successfully");
     }
 }
 
