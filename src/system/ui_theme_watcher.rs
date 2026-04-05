@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -13,10 +12,6 @@ use crate::system::themes::color_utils::{
 };
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
-
-thread_local! {
-    pub static PENDING_UI_THEME_RELOAD: RefCell<bool> = const { RefCell::new(false) };
-}
 
 // the omarchy current theme directory:
 // `~/.config/omarchy/current/theme/`
@@ -373,10 +368,10 @@ pub fn spawn_ui_theme_watcher(cx: &mut App) {
 
             if current_theme_name != last_theme_name {
                 last_theme_name = current_theme_name;
-                PENDING_UI_THEME_RELOAD.with(|flag| {
-                    *flag.borrow_mut() = true;
+                let _ = cx.update(|cx| {
+                    load_and_apply_omarchy_theme(cx);
+                    cx.refresh_windows();
                 });
-                let _ = cx.refresh();
             }
         }
     })

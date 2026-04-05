@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::path::PathBuf;
 
 use anyhow;
@@ -15,11 +14,7 @@ use crate::system::themes::theme_management::{
     create_theme_from_defaults, generate_unique_theme_name,
 };
 use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
-
-thread_local! {
-    pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
-    pub static PENDING_REFRESH_THEMES: RefCell<bool> = const { RefCell::new(false) };
-}
+use crate::ui::menu::app_menu::NavigateToThemeEdit;
 
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
     window.open_dialog(cx, |dialog, _, cx| {
@@ -96,11 +91,6 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
 
                                         match create_theme_from_defaults(&theme_name) {
                                             Ok(created_theme_name) => {
-                                                PENDING_THEME_NAVIGATION.with(|nav| {
-                                                    *nav.borrow_mut() =
-                                                        Some(created_theme_name.clone());
-                                                });
-
                                                 window.close_dialog(cx);
 
                                                 let msg = format!(
@@ -109,7 +99,9 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                                 );
                                                 window.push_notification(msg, cx);
 
-                                                cx.refresh_windows();
+                                                let action =
+                                                    NavigateToThemeEdit(created_theme_name);
+                                                cx.dispatch_action(&action);
                                             }
                                             Err(e) => {
                                                 window.close_dialog(cx);
@@ -161,16 +153,4 @@ fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path:
 
     // Open progress dialog and start async theme creation
     open_theme_creation_progress_dialog(theme_name, image_path, window, cx);
-}
-
-pub fn take_pending_navigation() -> Option<String> {
-    PENDING_THEME_NAVIGATION.with(|nav| nav.borrow_mut().take())
-}
-
-pub fn take_pending_refresh() -> bool {
-    PENDING_REFRESH_THEMES.with(|refresh| {
-        let value = *refresh.borrow();
-        *refresh.borrow_mut() = false;
-        value
-    })
 }

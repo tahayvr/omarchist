@@ -44,7 +44,11 @@ impl ThemesPage {
     }
 
     pub fn set_global_focus(&mut self, has_focus: bool, cx: &mut Context<Self>) {
+        if self.has_global_focus == has_focus {
+            return;
+        }
         self.has_global_focus = has_focus;
+        self.sync_grid_focus(cx);
         cx.notify();
     }
 
@@ -57,6 +61,7 @@ impl ThemesPage {
         self.theme_grid.update(cx, |grid, _cx| {
             grid.clear_focus();
         });
+        self.sync_grid_focus(cx);
         cx.notify();
     }
 
@@ -64,6 +69,7 @@ impl ThemesPage {
         match self.focus {
             ThemesFocus::Tabs => {
                 self.focus = ThemesFocus::Grid;
+                self.sync_grid_focus(cx);
                 cx.notify();
             }
             ThemesFocus::Grid => {
@@ -82,6 +88,7 @@ impl ThemesPage {
                 let moved = self.theme_grid.update(cx, |grid, cx| grid.move_up(cx));
                 if !moved {
                     self.focus = ThemesFocus::Tabs;
+                    self.sync_grid_focus(cx);
                     cx.notify();
                 }
             }
@@ -93,6 +100,7 @@ impl ThemesPage {
             ThemesFocus::Tabs => {
                 if self.active_tab < 1 {
                     self.active_tab += 1;
+                    self.sync_filter_to_grid(cx);
                     cx.notify();
                 }
             }
@@ -109,6 +117,7 @@ impl ThemesPage {
             ThemesFocus::Tabs => {
                 if self.active_tab > 0 {
                     self.active_tab -= 1;
+                    self.sync_filter_to_grid(cx);
                     cx.notify();
                 }
             }
@@ -124,6 +133,7 @@ impl ThemesPage {
         match self.focus {
             ThemesFocus::Tabs => {
                 self.focus = ThemesFocus::Grid;
+                self.sync_grid_focus(cx);
                 cx.notify();
             }
             ThemesFocus::Grid => {
@@ -131,6 +141,29 @@ impl ThemesPage {
                     grid.activate_focused(cx);
                 });
             }
+        }
+    }
+
+    // Push the current active_tab-derived filter into the grid.
+    fn sync_filter_to_grid(&mut self, cx: &mut Context<Self>) {
+        let filter = self.current_filter();
+        self.theme_grid.update(cx, |grid, _| {
+            grid.set_filter(filter);
+        });
+    }
+
+    // Push whether the grid should show as focused based on current state.
+    fn sync_grid_focus(&mut self, cx: &mut Context<Self>) {
+        let grid_has_focus = self.has_global_focus && self.focus == ThemesFocus::Grid;
+        self.theme_grid.update(cx, |grid, _cx| {
+            grid.set_has_focus(grid_has_focus);
+        });
+    }
+
+    fn current_filter(&self) -> ThemeFilter {
+        match self.active_tab {
+            1 => ThemeFilter::Only(ThemeOrigin::Omarchist),
+            _ => ThemeFilter::All,
         }
     }
 
@@ -162,22 +195,7 @@ impl ThemesPage {
 
 impl Render for ThemesPage {
     fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let filter = match self.active_tab {
-            0 => ThemeFilter::All,
-            1 => ThemeFilter::Only(ThemeOrigin::Omarchist),
-            _ => ThemeFilter::All,
-        };
-
-        self.theme_grid.update(cx, |grid, _| {
-            grid.set_filter(filter);
-        });
-
         let tabs_has_focus = self.has_global_focus && self.focus == ThemesFocus::Tabs;
-        let grid_has_focus = self.has_global_focus && self.focus == ThemesFocus::Grid;
-
-        self.theme_grid.update(cx, |grid, _cx| {
-            grid.set_has_focus(grid_has_focus);
-        });
 
         let secondary_bg = cx.theme().secondary;
 
@@ -222,6 +240,7 @@ impl Render for ThemesPage {
                             .selected_index(self.active_tab)
                             .on_click(cx.listener(|view, index, _, cx| {
                                 view.active_tab = *index;
+                                view.sync_filter_to_grid(cx);
                                 cx.notify();
                             }))
                             .child(Tab::new().label("All Themes"))

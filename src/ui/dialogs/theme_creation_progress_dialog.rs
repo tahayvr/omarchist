@@ -5,7 +5,7 @@ use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_f
 use smol;
 
 use crate::system::themes::theme_generator::create_theme_from_image;
-use crate::ui::dialogs::create_theme_dialog::{PENDING_REFRESH_THEMES, PENDING_THEME_NAVIGATION};
+use crate::ui::menu::app_menu::{NavigateToThemeEdit, RefreshThemes};
 
 pub struct ThemeCreationProgressDialog {
     theme_name: String,
@@ -54,15 +54,10 @@ impl ThemeCreationProgressDialog {
             // Handle result
             match result {
                 Ok(created_name) => {
-                    // Store for navigation
-                    PENDING_THEME_NAVIGATION.with(|nav| {
-                        *nav.borrow_mut() = Some(created_name.clone());
-                    });
-                    PENDING_REFRESH_THEMES.with(|refresh| {
-                        *refresh.borrow_mut() = true;
-                    });
-
                     let _ = window_handle.update(cx, |_view, _window, cx| {
+                        let nav = NavigateToThemeEdit(created_name.clone());
+                        cx.dispatch_action(&nav);
+                        cx.dispatch_action(&RefreshThemes);
                         let _ = this.update(cx, |this, cx| {
                             this.is_complete = true;
                             this.status_message = format!("Created theme: {}", created_name);

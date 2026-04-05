@@ -159,12 +159,6 @@ fn main() {
 
             cx.refresh_windows();
         });
-        cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {
-            omarchist::ui::app_view::PENDING_TOGGLE_SIDEBAR.with(|flag| {
-                *flag.borrow_mut() = true;
-            });
-            cx.refresh_windows();
-        });
 
         cx.bind_keys([
             KeyBinding::new("ctrl-q", app_menu::Quit, None),

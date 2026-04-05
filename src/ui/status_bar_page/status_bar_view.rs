@@ -3,10 +3,7 @@ use gpui_component::{select::SelectEvent, v_flex};
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::{apply_waybar_profile, list_waybar_profiles};
-use crate::ui::dialogs::create_waybar_profile_dialog::take_pending_profile_navigation;
-use crate::ui::dialogs::manage_waybar_profile_dialogs::{
-    ProfileManagementResult, take_pending_profile_management,
-};
+use crate::ui::dialogs::manage_waybar_profile_dialogs::ProfileManagementResult;
 use crate::ui::menu::app_menu;
 use crate::ui::status_bar_page::design_area::DesignArea;
 use crate::ui::status_bar_page::header::StatusBarHeader;
@@ -110,42 +107,50 @@ impl StatusBarView {
     pub fn header_entity(&self) -> Entity<StatusBarHeader> {
         self.header.clone()
     }
+
+    pub fn switch_profile(
+        &mut self,
+        profile_name: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        apply_and_restart(&profile_name);
+        self.header.update(cx, |header, cx| {
+            header.reload_and_select(&profile_name, window, cx);
+        });
+        self.design_area.update(cx, |area, cx| {
+            area.switch_profile(&profile_name, window, cx);
+        });
+    }
+
+    pub fn handle_profile_managed(
+        &mut self,
+        result: ProfileManagementResult,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let active_profile = match result {
+            ProfileManagementResult::Renamed { new_name } => new_name,
+            ProfileManagementResult::Duplicated { new_name } => new_name,
+            ProfileManagementResult::Deleted { switch_to } => switch_to,
+        };
+        apply_and_restart(&active_profile);
+        self.header.update(cx, |header, cx| {
+            header.reload_and_select(&active_profile, window, cx);
+        });
+        self.design_area.update(cx, |area, cx| {
+            area.switch_profile(&active_profile, window, cx);
+        });
+    }
 }
 
 impl Render for StatusBarView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Sync keyboard focus state to the header for visual rendering
         let focused_header_item = self.focused_header_item;
         self.header.update(cx, |header, _| {
             header.focused_item = focused_header_item;
         });
-
-        // After a new profile is created, reload the header and switch to it
-        if let Some(new_profile) = take_pending_profile_navigation() {
-            apply_and_restart(&new_profile);
-            self.header.update(cx, |header, cx| {
-                header.reload_and_select(&new_profile, window, cx);
-            });
-            self.design_area.update(cx, |area, cx| {
-                area.switch_profile(&new_profile, window, cx);
-            });
-        }
-
-        // After rename / duplicate / delete, update header and design area
-        if let Some(result) = take_pending_profile_management() {
-            let active_profile = match result {
-                ProfileManagementResult::Renamed { new_name } => new_name,
-                ProfileManagementResult::Duplicated { new_name } => new_name,
-                ProfileManagementResult::Deleted { switch_to } => switch_to,
-            };
-            apply_and_restart(&active_profile);
-            self.header.update(cx, |header, cx| {
-                header.reload_and_select(&active_profile, window, cx);
-            });
-            self.design_area.update(cx, |area, cx| {
-                area.switch_profile(&active_profile, window, cx);
-            });
-        }
 
         v_flex()
             .id("status-bar-page")

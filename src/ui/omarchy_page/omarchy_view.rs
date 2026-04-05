@@ -9,6 +9,7 @@ use crate::system::omarchy::{
     release_notes::fetch_latest_release_notes,
 };
 use crate::ui::menu::app_menu;
+use crate::ui::menu::title_bar::MainTitleBar;
 
 const KEY_CONTEXT: &str = "OmarchyView";
 
@@ -23,14 +24,19 @@ pub struct OmarchyView {
     release_notes: Option<String>,
     pub focus_handle: FocusHandle,
     update_btn_focused: bool,
+    title_bar: Entity<MainTitleBar>,
 }
 
 impl OmarchyView {
-    pub fn new(version: Option<String>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        version: Option<String>,
+        title_bar: Entity<MainTitleBar>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let local_version = version.unwrap_or_else(|| "unknown".to_string());
 
         // Spawn async task to check for updates immediately
-        Self::spawn_version_check(local_version.clone(), cx);
+        Self::spawn_version_check(local_version.clone(), title_bar.clone(), cx);
 
         // Spawn async task to fetch latest release notes
         cx.spawn(
@@ -50,6 +56,7 @@ impl OmarchyView {
         .detach();
 
         // Spawn a periodic background re-check loop
+        let title_bar_for_periodic = title_bar.clone();
         cx.spawn(async move |this, cx| {
             loop {
                 smol::Timer::after(std::time::Duration::from_secs(PERIODIC_CHECK_INTERVAL_SECS))
@@ -72,10 +79,11 @@ impl OmarchyView {
                             this.update_available = Some(update_available);
                         })
                         .ok();
-                        // Sync title bar badge
-                        crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
-                            *flag.borrow_mut() = Some(update_available);
-                        });
+                        title_bar_for_periodic
+                            .update(cx, |tb, _cx| {
+                                tb.set_omarchy_update_available(update_available);
+                            })
+                            .ok();
                     }
                     Err(e) => {
                         eprintln!("Periodic omarchy update check failed: {e}");
@@ -96,21 +104,27 @@ impl OmarchyView {
             release_notes: None,
             focus_handle: cx.focus_handle(),
             update_btn_focused: false,
+            title_bar,
         }
     }
 
-    fn spawn_version_check(version: String, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            match check_omarchy_update(&version).await {
+    fn spawn_version_check(
+        version: String,
+        title_bar: Entity<MainTitleBar>,
+        cx: &mut Context<Self>,
+    ) {
+        cx.spawn(
+            async move |this, cx| match check_omarchy_update(&version).await {
                 Ok(update_available) => {
                     this.update(cx, |this, _cx| {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    // Sync title bar badge
-                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
-                        *flag.borrow_mut() = Some(update_available);
-                    });
+                    title_bar
+                        .update(cx, |tb, _cx| {
+                            tb.set_omarchy_update_available(update_available);
+                        })
+                        .ok();
                 }
                 Err(e) => {
                     eprintln!("Failed to check for omarchy updates: {e}");
@@ -119,12 +133,12 @@ impl OmarchyView {
                     })
                     .ok();
                 }
-            }
-        })
+            },
+        )
         .detach();
     }
 
-    fn spawn_delayed_recheck(cx: &mut Context<Self>) {
+    fn spawn_delayed_recheck(title_bar: Entity<MainTitleBar>, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             smol::Timer::after(std::time::Duration::from_secs(POST_UPDATE_RECHECK_SECS)).await;
 
@@ -145,9 +159,11 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
-                        *flag.borrow_mut() = Some(update_available);
-                    });
+                    title_bar
+                        .update(cx, |tb, _cx| {
+                            tb.set_omarchy_update_available(update_available);
+                        })
+                        .ok();
                 }
                 Err(e) => {
                     eprintln!("Post-update omarchy version check failed: {e}");
@@ -227,7 +243,7 @@ impl Render for OmarchyView {
                                                     this.update_btn_focused = false;
                                                     cx.notify();
                                                     // Schedule a re-check after the update has had time to complete
-                                                    Self::spawn_delayed_recheck(cx);
+                                                    Self::spawn_delayed_recheck(this.title_bar.clone(), cx);
                                                 }
                                             })),
                                     ),
@@ -375,7 +391,7 @@ impl Render for OmarchyView {
                             this.update_available = None;
                             this.update_btn_focused = false;
                             cx.notify();
-                            Self::spawn_delayed_recheck(cx);
+                            Self::spawn_delayed_recheck(this.title_bar.clone(), cx);
                         }
                     }
                 }),

@@ -1,5 +1,3 @@
-use std::cell::RefCell;
-
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -13,25 +11,17 @@ use gpui_component::{
 use crate::system::waybar::{
     delete_waybar_profile, duplicate_waybar_profile, rename_waybar_profile,
 };
+use crate::ui::menu::app_menu::WaybarProfileManaged;
 
 // After a rename/duplicate/delete, the new "active" profile name is stored here
 // for delete, it's the profile to switch to; for rename/duplicate, it's the new name.
-thread_local! {
-    pub static PENDING_PROFILE_MANAGEMENT: RefCell<Option<ProfileManagementResult>> =
-        const { RefCell::new(None) };
-}
 
 // The outcome of a profile management action.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ProfileManagementResult {
     Renamed { new_name: String },
     Duplicated { new_name: String },
     Deleted { switch_to: String },
-}
-
-// Take (and clear) the pending result.
-pub fn take_pending_profile_management() -> Option<ProfileManagementResult> {
-    PENDING_PROFILE_MANAGEMENT.with(|p| p.borrow_mut().take())
 }
 
 pub fn open_rename_waybar_profile_dialog(
@@ -134,18 +124,15 @@ impl RenderOnce for RenameProfileForm {
 
                                 match rename_waybar_profile(&old_name, &new_name) {
                                     Ok(renamed) => {
-                                        PENDING_PROFILE_MANAGEMENT.with(|p| {
-                                            *p.borrow_mut() =
-                                                Some(ProfileManagementResult::Renamed {
-                                                    new_name: renamed.clone(),
-                                                });
-                                        });
                                         window.close_dialog(cx);
                                         window.push_notification(
                                             format!("Renamed profile to \"{}\"", renamed),
                                             cx,
                                         );
-                                        cx.refresh_windows();
+                                        let action = WaybarProfileManaged(
+                                            ProfileManagementResult::Renamed { new_name: renamed },
+                                        );
+                                        cx.dispatch_action(&action);
                                     }
                                     Err(e) => {
                                         error_entity.update(cx, |err, cx| {
@@ -260,18 +247,17 @@ impl RenderOnce for DuplicateProfileForm {
 
                                 match duplicate_waybar_profile(&source, &new_name) {
                                     Ok(created) => {
-                                        PENDING_PROFILE_MANAGEMENT.with(|p| {
-                                            *p.borrow_mut() =
-                                                Some(ProfileManagementResult::Duplicated {
-                                                    new_name: created.clone(),
-                                                });
-                                        });
                                         window.close_dialog(cx);
                                         window.push_notification(
                                             format!("Duplicated profile as \"{}\"", created),
                                             cx,
                                         );
-                                        cx.refresh_windows();
+                                        let action = WaybarProfileManaged(
+                                            ProfileManagementResult::Duplicated {
+                                                new_name: created,
+                                            },
+                                        );
+                                        cx.dispatch_action(&action);
                                     }
                                     Err(e) => {
                                         error_entity.update(cx, |err, cx| {
@@ -340,18 +326,17 @@ impl RenderOnce for DeleteProfileConfirm {
                                 {
                                     Ok(switch_to) => {
                                         if let Some(next) = switch_to {
-                                            PENDING_PROFILE_MANAGEMENT.with(|p| {
-                                                *p.borrow_mut() =
-                                                    Some(ProfileManagementResult::Deleted {
-                                                        switch_to: next.clone(),
-                                                    });
-                                            });
                                             window.close_dialog(cx);
                                             window.push_notification(
                                                 format!("Deleted profile \"{}\"", name),
                                                 cx,
                                             );
-                                            cx.refresh_windows();
+                                            let action = WaybarProfileManaged(
+                                                ProfileManagementResult::Deleted {
+                                                    switch_to: next,
+                                                },
+                                            );
+                                            cx.dispatch_action(&action);
                                         }
                                     }
                                     Err(e) => {
