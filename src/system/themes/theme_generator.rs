@@ -3,6 +3,7 @@ use std::path::Path;
 use crate::system::themes::color_extractor::{
     ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
+use crate::system::themes::color_utils::{adjust_brightness, darken_color, hex_to_rgb};
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
 };
@@ -31,18 +32,6 @@ fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
     (dr + dg + db).sqrt()
 }
 
-// Convert hex color to RGB tuple
-fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-    Some((r, g, b))
-}
-
 // Select the best matching icon theme based on the accent color
 fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
     let accent_rgb = match hex_to_rgb(accent_hex) {
@@ -56,7 +45,7 @@ fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
         .min_by(|(_, c1), (_, c2)| {
             let d1 = color_distance(accent_rgb, *c1);
             let d2 = color_distance(accent_rgb, *c2);
-            d1.partial_cmp(&d2).unwrap()
+            d1.total_cmp(&d2)
         })
         .map(|(name, _)| *name)
         .unwrap_or("Yaru-blue")
@@ -391,43 +380,8 @@ fn most_distinct_from_accent(
                 let diff = (hsl.hue.into_degrees() - accent_hue).abs();
                 diff.min(360.0 - diff)
             };
-            hue_of(a).partial_cmp(&hue_of(b)).unwrap()
+            hue_of(a).total_cmp(&hue_of(b))
         })
         .map(|s| s.to_string())
         .unwrap_or_else(|| terminal.green.clone())
-}
-
-fn lighten_color(hex: &str, amount: f32) -> String {
-    let hex = hex.trim_start_matches('#');
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-
-    let new_r = ((r as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-    let new_g = ((g as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-    let new_b = ((b as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-
-    format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
-}
-
-fn darken_color(hex: &str, amount: f32) -> String {
-    let hex = hex.trim_start_matches('#');
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-
-    let new_r = (r as f32 * (1.0 - amount)) as u8;
-    let new_g = (g as f32 * (1.0 - amount)) as u8;
-    let new_b = (b as f32 * (1.0 - amount)) as u8;
-
-    format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
-}
-
-// Adjust brightness: positive = lighten, negative = darken
-fn adjust_brightness(hex: &str, amount: f32) -> String {
-    if amount >= 0.0 {
-        lighten_color(hex, amount)
-    } else {
-        darken_color(hex, amount.abs())
-    }
 }

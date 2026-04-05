@@ -3,6 +3,7 @@ use std::path::Path;
 use image::imageops::FilterType;
 use palette::{FromColor, Hsl, Hsv, Srgb};
 
+use crate::system::themes::color_utils::{darken_color, lighten_color};
 use crate::types::themes::TerminalPalette;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -434,9 +435,9 @@ fn generate_terminal_palette(
 
     if boost {
         let boost_fn = if is_light_theme {
-            darken_hex
+            darken_color
         } else {
-            lighten_hex
+            lighten_color
         };
         TerminalPalette {
             black: boost_fn(&palette.black, 0.18),
@@ -472,32 +473,6 @@ fn hue_distance(h1: f32, h2: f32) -> f32 {
 
 fn color_to_hex(color: &ColorInfo) -> String {
     format!("#{:02X}{:02X}{:02X}", color.r, color.g, color.b)
-}
-
-fn lighten_hex(hex: &str, amount: f32) -> String {
-    let hex = hex.trim_start_matches('#');
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-
-    let new_r = ((r as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-    let new_g = ((g as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-    let new_b = ((b as f32 * (1.0 - amount)) + (255.0 * amount)) as u8;
-
-    format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
-}
-
-fn darken_hex(hex: &str, amount: f32) -> String {
-    let hex = hex.trim_start_matches('#');
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0);
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0);
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0);
-
-    let new_r = (r as f32 * (1.0 - amount)) as u8;
-    let new_g = (g as f32 * (1.0 - amount)) as u8;
-    let new_b = (b as f32 * (1.0 - amount)) as u8;
-
-    format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
 }
 
 pub fn copy_image_to_backgrounds(source_path: &Path, theme_name: &str) -> Result<String, String> {

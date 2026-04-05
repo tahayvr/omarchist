@@ -8,6 +8,10 @@ use gpui::App;
 use gpui_component::{Theme, ThemeConfig};
 use smol::Timer;
 
+use crate::system::themes::color_utils::{
+    adjust_lightness, darken, is_dark_color, lighten, with_alpha,
+};
+
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 thread_local! {
@@ -65,52 +69,6 @@ fn parse_colors_toml(path: &PathBuf) -> Option<HashMap<String, String>> {
     }
 
     Some(map)
-}
-
-// the standard relative luminance formula.
-fn is_dark_color(hex: &str) -> bool {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 {
-        return true;
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
-    // Relative luminance (perceptual)
-    let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    luminance < 0.5
-}
-
-// Adjusts all RGB channels by `amount` (positive = lighter, negative = darker).
-fn adjust_lightness(hex: &str, amount: f32) -> String {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 {
-        return format!("#{}", hex);
-    }
-    let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
-    let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
-    let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
-    let new_r = ((r + amount).clamp(0.0, 1.0) * 255.0) as u8;
-    let new_g = ((g + amount).clamp(0.0, 1.0) * 255.0) as u8;
-    let new_b = ((b + amount).clamp(0.0, 1.0) * 255.0) as u8;
-    format!("#{:02X}{:02X}{:02X}", new_r, new_g, new_b)
-}
-
-fn lighten(hex: &str, amount: f32) -> String {
-    adjust_lightness(hex, amount)
-}
-
-fn darken(hex: &str, amount: f32) -> String {
-    adjust_lightness(hex, -amount)
-}
-
-fn with_alpha(hex: &str, alpha_hex: &str) -> String {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() >= 6 {
-        format!("#{}{}", &hex[..6], alpha_hex)
-    } else {
-        format!("#{}", hex)
-    }
 }
 
 fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> ThemeConfig {
