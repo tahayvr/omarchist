@@ -31,8 +31,21 @@ pub struct ThemesPage {
 
 impl ThemesPage {
     pub fn new(cx: &mut Context<Self>) -> Self {
-        let themes = Self::load_all_themes();
-        let theme_grid = cx.new(|cx| ThemeGrid::new(cx, themes));
+        // Start with an empty grid so the main thread is not blocked at startup.
+        // Themes are loaded on a background thread and pushed into the grid once ready.
+        let theme_grid = cx.new(|cx| ThemeGrid::new(cx, vec![]));
+
+        cx.spawn(async move |this, cx| {
+            let themes = smol::unblock(Self::load_all_themes).await;
+            this.update(cx, |this, cx| {
+                this.theme_grid.update(cx, |grid, cx| {
+                    grid.update_themes(themes, cx);
+                });
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
 
         Self {
             active_tab: 0,

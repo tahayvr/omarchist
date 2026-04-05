@@ -1,4 +1,5 @@
-use crate::system::omarchy::omarchy_version::get_local_omarchy_version;
+use crate::system::omarchy::omarchy_version::{check_omarchy_update, get_local_omarchy_version};
+use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::keyboard_nav::{FocusState, FocusedSection};
@@ -37,21 +38,24 @@ pub enum ActivePage {
 pub struct MainWindowView {
     title_bar: Entity<MainTitleBar>,
     active_page: ActivePage,
+    // Default page — always present
     themes_root: AnyView,
     themes_view: Entity<ThemesPage>,
+    // ThemeEdit is created on first navigation to a given theme
     theme_edit_root: Option<AnyView>,
     theme_edit_view: Option<Entity<ThemeEditPage>>,
     theme_edit_name: Option<String>,
-    system_monitor_root: AnyView,
-    config_root: AnyView,
-    config_view: Entity<ConfigView>,
-    settings_root: AnyView,
-    status_bar_root: AnyView,
-    status_bar_view: Entity<StatusBarView>,
-    about_root: AnyView,
-    about_view: Entity<AboutView>,
-    omarchy_root: AnyView,
-    omarchy_view: Entity<OmarchyView>,
+    // All other pages are created lazily on first navigation
+    system_monitor_root: Option<AnyView>,
+    config_root: Option<AnyView>,
+    config_view: Option<Entity<ConfigView>>,
+    settings_root: Option<AnyView>,
+    status_bar_root: Option<AnyView>,
+    status_bar_view: Option<Entity<StatusBarView>>,
+    about_root: Option<AnyView>,
+    about_view: Option<Entity<AboutView>>,
+    omarchy_root: Option<AnyView>,
+    omarchy_view: Option<Entity<OmarchyView>>,
     sidebar_collapsed: bool,
     focus_state: FocusState,
     focus_handle: FocusHandle,
@@ -64,46 +68,49 @@ impl MainWindowView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        // The Themes page is the default landing page — created eagerly.
         let themes_view = cx.new(ThemesPage::new);
         let themes_root = cx
             .new(|cx| Root::new(themes_view.clone(), window, cx))
             .into();
 
-        let system_monitor_view = cx.new(|cx| SystemMonitorPage::new(window, cx));
-        let system_monitor_root = cx
-            .new(|cx| Root::new(system_monitor_view, window, cx))
-            .into();
+        // Spawn a background task that checks for Omarchy updates at startup
+        // and repeats every PERIODIC_CHECK_INTERVAL_SECS.  This keeps the
+        // title-bar badge current without requiring the user to open the
+        // Omarchy page.
+        {
+            let title_bar_watcher = title_bar.clone();
+            cx.spawn(async move |_this, cx| {
+                // Initial check
+                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+                if let Ok(update_available) = check_omarchy_update(&version).await {
+                    title_bar_watcher
+                        .update(cx, |tb, _| {
+                            tb.set_omarchy_update_available(update_available);
+                        })
+                        .ok();
+                }
 
-        let config_view = cx.new(|cx| ConfigView::new(window, cx));
-        let config_root = cx
-            .new(|cx| Root::new(config_view.clone(), window, cx))
-            .into();
+                // Periodic re-checks
+                loop {
+                    smol::Timer::after(std::time::Duration::from_secs(
+                        PERIODIC_CHECK_INTERVAL_SECS,
+                    ))
+                    .await;
 
-        let settings_view = cx.new(|_| SettingsView::new());
-        let settings_root = cx.new(|cx| Root::new(settings_view, window, cx)).into();
-
-        let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
-        let status_bar_root = cx
-            .new(|cx| Root::new(status_bar_view.clone(), window, cx))
-            .into();
-
-        let about_view = cx.new(AboutView::new);
-        let about_root = cx
-            .new(|cx| Root::new(about_view.clone(), window, cx))
-            .into();
-
-        // Get Omarchy version once (silently fail if unavailable)
-        let omarchy_version = get_local_omarchy_version()
-            .ok()
-            .filter(|v| v != "unknown" && !v.is_empty());
-
-        // Pass version and title_bar to OmarchyView to avoid redundant git calls
-        // and so it can update the title bar badge directly from async tasks
-        let omarchy_view =
-            cx.new(|cx| OmarchyView::new(omarchy_version.clone(), title_bar.clone(), cx));
-        let omarchy_root = cx
-            .new(|cx| Root::new(omarchy_view.clone(), window, cx))
-            .into();
+                    let version =
+                        get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+                    if let Ok(update_available) = check_omarchy_update(&version).await {
+                        title_bar_watcher
+                            .update(cx, |tb, _| {
+                                tb.set_omarchy_update_available(update_available);
+                            })
+                            .ok();
+                    }
+                }
+            })
+            .detach();
+        }
 
         // Create focus handle for sidebar navigation; keep it focused at start
         let focus_handle = cx.focus_handle();
@@ -124,16 +131,16 @@ impl MainWindowView {
             theme_edit_root: None,
             theme_edit_view: None,
             theme_edit_name: None,
-            system_monitor_root,
-            config_root,
-            config_view,
-            settings_root,
-            status_bar_root,
-            status_bar_view,
-            about_root,
-            about_view,
-            omarchy_root,
-            omarchy_view,
+            system_monitor_root: None,
+            config_root: None,
+            config_view: None,
+            settings_root: None,
+            status_bar_root: None,
+            status_bar_view: None,
+            about_root: None,
+            about_view: None,
+            omarchy_root: None,
+            omarchy_view: None,
             sidebar_collapsed: true,
             focus_state: FocusState {
                 focused_section: FocusedSection::Sidebar,
@@ -151,27 +158,101 @@ impl MainWindowView {
         view
     }
 
+    /// Ensures the view and root for `page` have been created.  Called at the
+    /// start of every `navigate_to` so that render always sees a valid root.
+    fn ensure_page_created(
+        &mut self,
+        page: &ActivePage,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match page {
+            ActivePage::ThemeEdit(theme_name) => {
+                if self.theme_edit_name.as_deref() != Some(theme_name.as_str()) {
+                    let theme_edit_view =
+                        cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
+                    self.theme_edit_root = Some(
+                        cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.theme_edit_view = Some(theme_edit_view);
+                    self.theme_edit_name = Some(theme_name.clone());
+                }
+            }
+            ActivePage::SystemMonitor => {
+                if self.system_monitor_root.is_none() {
+                    let view = cx.new(|cx| SystemMonitorPage::new(window, cx));
+                    self.system_monitor_root =
+                        Some(cx.new(|cx| Root::new(view, window, cx)).into());
+                }
+            }
+            ActivePage::Configuration => {
+                if self.config_root.is_none() {
+                    let config_view = cx.new(|cx| ConfigView::new(window, cx));
+                    self.config_root = Some(
+                        cx.new(|cx| Root::new(config_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.config_view = Some(config_view);
+                }
+            }
+            ActivePage::Settings => {
+                if self.settings_root.is_none() {
+                    let settings_view = cx.new(|_| SettingsView::new());
+                    self.settings_root =
+                        Some(cx.new(|cx| Root::new(settings_view, window, cx)).into());
+                }
+            }
+            ActivePage::StatusBar => {
+                if self.status_bar_root.is_none() {
+                    let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
+                    self.status_bar_root = Some(
+                        cx.new(|cx| Root::new(status_bar_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.status_bar_view = Some(status_bar_view);
+                }
+            }
+            ActivePage::About => {
+                if self.about_root.is_none() {
+                    let about_view = cx.new(AboutView::new);
+                    self.about_root = Some(
+                        cx.new(|cx| Root::new(about_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.about_view = Some(about_view);
+                }
+            }
+            ActivePage::Omarchy => {
+                if self.omarchy_root.is_none() {
+                    // Read local version once when the page is first opened.
+                    let local_version = get_local_omarchy_version()
+                        .ok()
+                        .filter(|v| v != "unknown" && !v.is_empty());
+                    let omarchy_view =
+                        cx.new(|cx| OmarchyView::new(local_version, self.title_bar.clone(), cx));
+                    self.omarchy_root = Some(
+                        cx.new(|cx| Root::new(omarchy_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.omarchy_view = Some(omarchy_view);
+                }
+            }
+            // Themes is always present.
+            ActivePage::Themes => {}
+        }
+    }
+
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {
         if self.active_page == page {
             return;
         }
 
-        // Handle ThemeEdit page creation/update
+        // Create the page entity on first visit.
+        self.ensure_page_created(&page, window, cx);
+
+        // ThemeEdit-specific: auto-apply theme when editing starts.
         if let ActivePage::ThemeEdit(ref theme_name) = page {
-            let should_create = self.theme_edit_name.as_ref() != Some(theme_name);
-
-            if should_create {
-                let theme_edit_view =
-                    cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
-                self.theme_edit_root = Some(
-                    cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
-                        .into(),
-                );
-                self.theme_edit_view = Some(theme_edit_view);
-                self.theme_edit_name = Some(theme_name.clone());
-            }
-
-            // Auto-apply theme if the setting is enabled
             let auto_apply = crate::system::config::config_setup::read_settings()
                 .map(|s| s.settings.auto_apply_theme)
                 .unwrap_or(false);
@@ -203,10 +284,22 @@ impl MainWindowView {
                 .theme_edit_view
                 .as_ref()
                 .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::StatusBar => Some(self.status_bar_view.read(cx).focus_handle.clone()),
-            ActivePage::About => Some(self.about_view.read(cx).focus_handle.clone()),
-            ActivePage::Omarchy => Some(self.omarchy_view.read(cx).focus_handle.clone()),
-            ActivePage::Configuration => Some(self.config_view.read(cx).focus_handle.clone()),
+            ActivePage::StatusBar => self
+                .status_bar_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
+            ActivePage::About => self
+                .about_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
+            ActivePage::Omarchy => self
+                .omarchy_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
+            ActivePage::Configuration => self
+                .config_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
             // Settings and SystemMonitor have no custom focus handle — keep main window focus
             ActivePage::Settings | ActivePage::SystemMonitor => None,
         };
@@ -234,13 +327,31 @@ impl MainWindowView {
             ActivePage::ThemeEdit(_) => self
                 .theme_edit_root
                 .clone()
-                .unwrap_or(self.themes_root.clone()),
-            ActivePage::SystemMonitor => self.system_monitor_root.clone(),
-            ActivePage::Configuration => self.config_root.clone(),
-            ActivePage::Settings => self.settings_root.clone(),
-            ActivePage::StatusBar => self.status_bar_root.clone(),
-            ActivePage::About => self.about_root.clone(),
-            ActivePage::Omarchy => self.omarchy_root.clone(),
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::SystemMonitor => self
+                .system_monitor_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::Configuration => self
+                .config_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::Settings => self
+                .settings_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::StatusBar => self
+                .status_bar_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::About => self
+                .about_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::Omarchy => self
+                .omarchy_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
         }
     }
 
@@ -482,19 +593,25 @@ impl Render for MainWindowView {
                     this.handle_escape_focus(window, cx);
                 },
             ))
-            // Status bar profile actions (bubble up from status_bar_view dialogs)
+            // Status bar profile actions (bubble up from status_bar_view dialogs).
+            // The status_bar_view is only present after the user has first visited
+            // the Status Bar page, so we guard with if-let.
             .on_action(
                 cx.listener(|this, action: &WaybarProfileCreated, window, cx| {
-                    this.status_bar_view.update(cx, |view, cx| {
-                        view.switch_profile(action.0.clone(), window, cx);
-                    });
+                    if let Some(ref sv) = this.status_bar_view {
+                        sv.update(cx, |view, cx| {
+                            view.switch_profile(action.0.clone(), window, cx);
+                        });
+                    }
                 }),
             )
             .on_action(
                 cx.listener(|this, action: &WaybarProfileManaged, window, cx| {
-                    this.status_bar_view.update(cx, |view, cx| {
-                        view.handle_profile_managed(action.0.clone(), window, cx);
-                    });
+                    if let Some(ref sv) = this.status_bar_view {
+                        sv.update(cx, |view, cx| {
+                            view.handle_profile_managed(action.0.clone(), window, cx);
+                        });
+                    }
                 }),
             )
             .child(self.title_bar.clone())

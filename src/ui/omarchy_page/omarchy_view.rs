@@ -15,8 +15,6 @@ const KEY_CONTEXT: &str = "OmarchyView";
 
 const POST_UPDATE_RECHECK_SECS: u64 = 60;
 
-const PERIODIC_CHECK_INTERVAL_SECS: u64 = 30 * 60;
-
 pub struct OmarchyView {
     local_version: String,
     update_available: Option<bool>,
@@ -35,7 +33,8 @@ impl OmarchyView {
     ) -> Self {
         let local_version = version.unwrap_or_else(|| "unknown".to_string());
 
-        // Spawn async task to check for updates immediately
+        // Spawn async task to check for updates and update both the in-page
+        // display and the title bar badge.
         Self::spawn_version_check(local_version.clone(), title_bar.clone(), cx);
 
         // Spawn async task to fetch latest release notes
@@ -55,47 +54,9 @@ impl OmarchyView {
         )
         .detach();
 
-        // Spawn a periodic background re-check loop
-        let title_bar_for_periodic = title_bar.clone();
-        cx.spawn(async move |this, cx| {
-            loop {
-                smol::Timer::after(std::time::Duration::from_secs(PERIODIC_CHECK_INTERVAL_SECS))
-                    .await;
-
-                // Re-read the local version (it may have changed after an update)
-                let current_version =
-                    get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-
-                // Update local_version on the view before checking
-                this.update(cx, |this, _cx| {
-                    this.local_version = current_version.clone();
-                    this.update_available = None; // show "Checking..."
-                })
-                .ok();
-
-                match check_omarchy_update(&current_version).await {
-                    Ok(update_available) => {
-                        this.update(cx, |this, _cx| {
-                            this.update_available = Some(update_available);
-                        })
-                        .ok();
-                        title_bar_for_periodic
-                            .update(cx, |tb, _cx| {
-                                tb.set_omarchy_update_available(update_available);
-                            })
-                            .ok();
-                    }
-                    Err(e) => {
-                        eprintln!("Periodic omarchy update check failed: {e}");
-                        this.update(cx, |this, _cx| {
-                            this.update_available = Some(false);
-                        })
-                        .ok();
-                    }
-                }
-            }
-        })
-        .detach();
+        // Note: the 30-minute periodic version-check loop lives in
+        // MainWindowView::new() (via spawn_omarchy_version_watcher) so the
+        // title-bar badge stays fresh even if this page is never opened.
 
         Self {
             local_version,
