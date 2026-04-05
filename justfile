@@ -24,8 +24,7 @@ test:
 
 # update the version number (x.y.z | patch | minor | major) for app
 update VER:
-    ./update-version {{ VER }}
-    cargo check
+    cargo set-version {{ if VER =~ "^(patch|minor|major)$" { "--bump " + VER } else { VER } }}
 
 # Build the project
 build:
