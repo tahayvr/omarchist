@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::assets::{extract_default_dir, read_default_str};
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsSchema {
     pub version: String,
@@ -21,34 +23,6 @@ pub struct SettingsConfig {
 pub struct Metadata {
     pub created_at: String,
     pub last_modified: String,
-}
-
-pub fn copy_directory_recursive(src: &Path, dst: &Path) -> Result<(), String> {
-    // Create destination directory
-    fs::create_dir_all(dst)
-        .map_err(|e| format!("Failed to create directory '{}': {}", dst.display(), e))?;
-
-    // Read source directory entries
-    let entries = fs::read_dir(src)
-        .map_err(|e| format!("Failed to read directory '{}': {}", src.display(), e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-        let path = entry.path();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| "Invalid file name".to_string())?;
-        let dest_path = dst.join(file_name);
-
-        if path.is_dir() {
-            copy_directory_recursive(&path, &dest_path)?;
-        } else {
-            fs::copy(&path, &dest_path)
-                .map_err(|e| format!("Failed to copy file '{}': {}", path.display(), e))?;
-        }
-    }
-
-    Ok(())
 }
 
 pub fn ensure_config() -> Result<(), String> {
@@ -84,8 +58,7 @@ pub fn ensure_config() -> Result<(), String> {
         return Ok(());
     }
 
-    let defaults_dir = PathBuf::from("defaults/omarchist");
-    copy_directory_recursive(&defaults_dir, &config_dir)?;
+    extract_default_dir("omarchist", &config_dir)?;
 
     // Update timestamps in settings.json
     let settings_path = config_dir.join("settings.json");
@@ -196,9 +169,7 @@ enum UpdateAction {
 }
 
 fn get_default_settings_version() -> Result<String, String> {
-    let default_path = PathBuf::from("defaults/omarchist/settings.json");
-    let content = fs::read_to_string(&default_path)
-        .map_err(|e| format!("Failed to read default settings.json: {}", e))?;
+    let content = read_default_str("omarchist/settings.json")?;
     let settings: SettingsSchema = serde_json::from_str(&content)
         .map_err(|e| format!("Failed to parse default settings.json: {}", e))?;
     Ok(settings.version)
@@ -260,19 +231,15 @@ fn should_update_settings(
 }
 
 fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
-    let default_path = PathBuf::from("defaults/omarchist/settings.json");
-    fs::copy(&default_path, settings_path)
-        .map_err(|e| format!("Failed to copy settings.json from defaults: {}", e))?;
+    let content = read_default_str("omarchist/settings.json")?;
 
     // Update timestamps
     let timestamp = Utc::now().to_rfc3339();
-    let content = fs::read_to_string(settings_path)
-        .map_err(|e| format!("Failed to read copied settings.json: {}", e))?;
     let updated_content = content
         .replace("{{CREATED_AT}}", &timestamp)
         .replace("{{MODIFIED_AT}}", &timestamp);
     fs::write(settings_path, updated_content)
-        .map_err(|e| format!("Failed to write updated settings.json: {}", e))?;
+        .map_err(|e| format!("Failed to write settings.json: {}", e))?;
 
     Ok(())
 }
@@ -294,9 +261,9 @@ fn ensure_hyprland_conf(config_dir: &Path) -> Result<(), String> {
     fs::create_dir_all(&hypr_dir)
         .map_err(|e| format!("Failed to create hyprland config directory: {}", e))?;
 
-    let default_conf = PathBuf::from("defaults/omarchist/hyprland/hyprland.conf");
-    fs::copy(&default_conf, &hypr_conf)
-        .map_err(|e| format!("Failed to copy default hyprland.conf: {}", e))?;
+    let content = read_default_str("omarchist/hyprland/hyprland.conf")?;
+    fs::write(&hypr_conf, content)
+        .map_err(|e| format!("Failed to write default hyprland.conf: {}", e))?;
 
     println!("Copied default hyprland.conf to: {}", hypr_conf.display());
 

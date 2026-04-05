@@ -13,7 +13,8 @@ use super::hyprland::{parse_hyprland_conf, update_hyprland_conf};
 use super::hyprlock::{parse_hyprlock_conf, update_hyprlock_conf};
 use super::icons::{parse_icons_theme, update_icons_theme};
 use super::mako::{parse_mako_ini, update_mako_ini};
-use super::paths::{get_custom_themes_dir, get_defaults_theme_dir};
+use super::paths::get_custom_themes_dir;
+use crate::assets::extract_default_dir;
 use super::swayosd::{parse_swayosd_css, update_swayosd_css};
 use super::terminal::update_terminal_configs;
 use super::walker::update_walker_css;
@@ -49,52 +50,16 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
 
-    let defaults_dir = get_defaults_theme_dir();
     let new_theme_dir = themes_dir.join(theme_name);
 
     if new_theme_dir.exists() {
         return Err(format!("Theme '{}' already exists", theme_name));
     }
 
-    fs::create_dir_all(&new_theme_dir)
-        .map_err(|e| format!("Failed to create theme directory: {}", e))?;
-
-    copy_theme_files(&defaults_dir, &new_theme_dir)?;
+    extract_default_dir("theme", &new_theme_dir)?;
     update_theme_metadata(&new_theme_dir, theme_name)?;
 
     Ok(theme_name.to_string())
-}
-
-fn copy_theme_files(src: &Path, dst: &Path) -> Result<(), String> {
-    if !src.exists() {
-        return Err(format!(
-            "Source directory does not exist: {}",
-            src.display()
-        ));
-    }
-
-    let entries =
-        fs::read_dir(src).map_err(|e| format!("Failed to read source directory: {}", e))?;
-
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read directory entry: {}", e))?;
-        let path = entry.path();
-        let file_name = path
-            .file_name()
-            .ok_or_else(|| "Invalid file name".to_string())?;
-        let dest_path = dst.join(file_name);
-
-        if path.is_dir() {
-            fs::create_dir_all(&dest_path)
-                .map_err(|e| format!("Failed to create subdirectory: {}", e))?;
-            copy_theme_files(&path, &dest_path)?;
-        } else {
-            fs::copy(&path, &dest_path)
-                .map_err(|e| format!("Failed to copy file {}: {}", path.display(), e))?;
-        }
-    }
-
-    Ok(())
 }
 
 fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), String> {

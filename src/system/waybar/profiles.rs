@@ -1,7 +1,7 @@
 use std::fs;
-use std::path::PathBuf;
 
 use super::paths::{omarchist_config_dir, waybar_profiles_dir};
+use crate::assets::extract_default_dir;
 
 pub fn list_waybar_profiles() -> Vec<String> {
     let Some(profiles_dir) = waybar_profiles_dir() else {
@@ -33,12 +33,7 @@ pub fn create_waybar_profile(profile_name: &str) -> Result<String, String> {
         return Err(format!("A profile named \"{}\" already exists", name));
     }
 
-    let src = PathBuf::from("defaults/omarchist/waybar/profiles/omarchy-default");
-    if !src.exists() {
-        return Err(format!("Default profile source not found at {:?}", src));
-    }
-
-    copy_dir_recursive(&src, &dest)?;
+    extract_default_dir("omarchist/waybar/profiles/omarchy-default", &dest)?;
 
     Ok(name.to_string())
 }

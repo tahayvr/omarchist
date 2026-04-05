@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use crate::system::config::config_setup::copy_directory_recursive;
+use crate::assets::extract_default_dir;
 
 pub fn ensure_waybar_config() -> Result<(), String> {
     let waybar_config_dir = get_waybar_config_dir()?;
@@ -10,9 +10,7 @@ pub fn ensure_waybar_config() -> Result<(), String> {
         return Ok(());
     }
 
-    // Copy the defaults/omarchist/waybar folder to ~/.config/omarchist/waybar
-    let defaults_dir = PathBuf::from("defaults/omarchist/waybar");
-    copy_directory_recursive(&defaults_dir, &waybar_config_dir)?;
+    extract_default_dir("omarchist/waybar", &waybar_config_dir)?;
 
     println!("Created default waybar config at: {:?}", waybar_config_dir);
 
