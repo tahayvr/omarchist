@@ -186,12 +186,13 @@ impl OverviewTab {
                         .flex()
                         .flex_row()
                         .gap_4()
-                        // Left side: Network card (~65% width) - same height as right side
-                        .child(div().w_2_3().child(create_network_card(
+                        // Left side: CPU card (~65% width) - same height as right side
+                        .child(div().w_2_3().child(create_cpu_card(
                             theme,
-                            network_down,
-                            network_up,
-                            network_down_data.clone(),
+                            cpu_percent,
+                            cpu_color,
+                            cpu_data.clone(),
+                            collector,
                         )))
                         // Right side: 2x2 grid (~35% width)
                         .child(
@@ -220,7 +221,7 @@ impl OverviewTab {
                                                 collector,
                                             ))),
                                     )
-                                    // Bottom row: Processes | CPU (or Battery if present)
+                                    // Bottom row: Processes | Network (or Battery if present)
                                     .child(
                                         div()
                                             .flex()
@@ -240,12 +241,11 @@ impl OverviewTab {
                                                         collector,
                                                     )
                                                 } else {
-                                                    create_cpu_card(
+                                                    create_network_card(
                                                         theme,
-                                                        cpu_percent,
-                                                        cpu_color,
-                                                        cpu_data.clone(),
-                                                        collector,
+                                                        network_down,
+                                                        network_up,
+                                                        network_down_data.clone(),
                                                     )
                                                 },
                                             )),
@@ -253,14 +253,13 @@ impl OverviewTab {
                             ),
                         ),
                 )
-                // If battery is present, show CPU in a second row
+                // If battery is present, show Network in a second row
                 .when(has_battery, |this| {
-                    this.child(div().w_full().child(create_cpu_card(
+                    this.child(div().w_full().child(create_network_card(
                         theme,
-                        cpu_percent,
-                        cpu_color,
-                        cpu_data.clone(),
-                        collector,
+                        network_down,
+                        network_up,
+                        network_down_data.clone(),
                     )))
                 })
                 .into_element()
