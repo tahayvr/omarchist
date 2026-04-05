@@ -134,7 +134,7 @@ pub fn extract_palette(image_path: &Path) -> Result<ColorPalette, String> {
     let is_light_theme = avg_luminance > 0.55;
 
     let mut sorted_by_lightness = analyzed.clone();
-    sorted_by_lightness.sort_by(|a, b| a.hsl.lightness.partial_cmp(&b.hsl.lightness).unwrap());
+    sorted_by_lightness.sort_by(|a, b| a.hsl.lightness.total_cmp(&b.hsl.lightness));
 
     let bg_lightness = if is_light_theme {
         sorted_by_lightness
@@ -234,8 +234,20 @@ fn desaturate_toward_neutral(color: &ColorInfo, max_saturation: f32) -> ColorInf
 
 fn assign_dark_theme_colors(colors: &[ColorInfo]) -> (String, String, String) {
     // Colors are pre-sorted by lightness (darkest first)
-    let bg_base = colors.first().unwrap();
-    let fg_base = colors.last().unwrap();
+    let Some(bg_base) = colors.first() else {
+        return (
+            String::from("#1e1e2e"),
+            String::from("#cdd6f4"),
+            String::from("#89b4fa"),
+        );
+    };
+    let Some(fg_base) = colors.last() else {
+        return (
+            String::from("#1e1e2e"),
+            String::from("#cdd6f4"),
+            String::from("#89b4fa"),
+        );
+    };
 
     // Desaturate bg/fg to avoid heavy color casts (keep a subtle hue tint)
     let background = color_to_hex(&desaturate_toward_neutral(bg_base, 0.15));
@@ -249,8 +261,20 @@ fn assign_dark_theme_colors(colors: &[ColorInfo]) -> (String, String, String) {
 
 fn assign_light_theme_colors(colors: &[ColorInfo]) -> (String, String, String) {
     // Colors are pre-sorted by lightness (darkest first), so last = lightest
-    let bg_base = colors.last().unwrap();
-    let fg_base = colors.first().unwrap();
+    let Some(bg_base) = colors.last() else {
+        return (
+            String::from("#eff1f5"),
+            String::from("#4c4f69"),
+            String::from("#1e66f5"),
+        );
+    };
+    let Some(fg_base) = colors.first() else {
+        return (
+            String::from("#eff1f5"),
+            String::from("#4c4f69"),
+            String::from("#1e66f5"),
+        );
+    };
 
     let background = color_to_hex(&desaturate_toward_neutral(bg_base, 0.12));
 
@@ -283,7 +307,7 @@ fn pick_or_synthesize_accent(colors: &[ColorInfo], is_light_theme: bool) -> Stri
     let mid_accent = colors
         .iter()
         .filter(|c| c.hsl.lightness > 0.25 && c.hsl.lightness < 0.75)
-        .max_by(|a, b| a.hsl.saturation.partial_cmp(&b.hsl.saturation).unwrap());
+        .max_by(|a, b| a.hsl.saturation.total_cmp(&b.hsl.saturation));
 
     if let Some(c) = mid_accent
         && c.hsl.saturation > 0.20
@@ -294,7 +318,7 @@ fn pick_or_synthesize_accent(colors: &[ColorInfo], is_light_theme: bool) -> Stri
     // Second preference: most saturated color anywhere in the palette, lightness adjusted
     let best = colors
         .iter()
-        .max_by(|a, b| a.hsl.saturation.partial_cmp(&b.hsl.saturation).unwrap());
+        .max_by(|a, b| a.hsl.saturation.total_cmp(&b.hsl.saturation));
 
     if let Some(c) = best
         && c.hsl.saturation > 0.15
@@ -335,10 +359,14 @@ fn generate_terminal_palette(
     let target_lightness = if is_light_theme { 0.42 } else { 0.58 };
 
     let mut sorted_by_lightness = colors.to_vec();
-    sorted_by_lightness.sort_by(|a, b| a.hsl.lightness.partial_cmp(&b.hsl.lightness).unwrap());
+    sorted_by_lightness.sort_by(|a, b| a.hsl.lightness.total_cmp(&b.hsl.lightness));
 
-    let black_color = sorted_by_lightness.first().unwrap();
-    let white_color = sorted_by_lightness.last().unwrap();
+    let Some(black_color) = sorted_by_lightness.first() else {
+        return TerminalPalette::default();
+    };
+    let Some(white_color) = sorted_by_lightness.last() else {
+        return TerminalPalette::default();
+    };
 
     // Black/white always come from the palette extremes
     let mut palette = TerminalPalette {
@@ -373,8 +401,7 @@ fn generate_terminal_palette(
             a.hsl
                 .hue
                 .into_degrees()
-                .partial_cmp(&b.hsl.hue.into_degrees())
-                .unwrap()
+                .total_cmp(&b.hsl.hue.into_degrees())
         });
 
         if chromatic.is_empty() {
@@ -386,14 +413,13 @@ fn generate_terminal_palette(
         } else {
             // Assign each ANSI slot the image color closest in hue
             for (name, target_hue) in ANSI_SLOTS.iter() {
-                let best = chromatic
-                    .iter()
-                    .min_by(|a, b| {
-                        let da = hue_distance(a.hsl.hue.into_degrees(), *target_hue);
-                        let db = hue_distance(b.hsl.hue.into_degrees(), *target_hue);
-                        da.partial_cmp(&db).unwrap()
-                    })
-                    .unwrap(); // chromatic is non-empty here
+                let Some(best) = chromatic.iter().min_by(|a, b| {
+                    let da = hue_distance(a.hsl.hue.into_degrees(), *target_hue);
+                    let db = hue_distance(b.hsl.hue.into_degrees(), *target_hue);
+                    da.total_cmp(&db)
+                }) else {
+                    continue;
+                };
 
                 // Borrow only what we need before calling synthesize_color
                 let best_hue = best.hsl.hue.into_degrees();
