@@ -251,7 +251,6 @@ impl MainWindowView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        eprintln!("navigate_to_theme_edit called with: {}", theme_name);
         self.navigate_to(ActivePage::ThemeEdit(theme_name), window, cx);
     }
 

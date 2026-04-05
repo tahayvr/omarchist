@@ -235,8 +235,6 @@ impl Render for ThemeCard {
                             .primary()
                             .cursor_pointer()
                             .on_click(move |_event, _window, _cx| {
-                                eprintln!("=== Apply BUTTON CLICKED ===");
-                                eprintln!("Theme: {}", dir);
                                 let dir_clone = dir.clone();
                                 smol::spawn(async move {
                                     if let Err(e) = apply_theme(dir_clone).await {

@@ -31,9 +31,7 @@ impl SettingsView {
         self.auto_apply_theme = checked;
 
         match save_auto_apply_theme(checked) {
-            Ok(()) => {
-                eprintln!("Saved auto_apply_theme: {}", checked);
-            }
+            Ok(()) => {}
             Err(e) => {
                 eprintln!("Failed to save auto_apply_theme: {}", e);
             }
