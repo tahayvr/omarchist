@@ -6,7 +6,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
@@ -142,7 +142,10 @@ impl Render for BrowserTab {
                 h_flex()
                     .justify_between()
                     .items_center()
-                    .child(help_text("Color for the Chromium browser."))
+                    .child(help_text(
+                        "Color for the Chromium browser.",
+                        cx.theme().muted_foreground,
+                    ))
                     .child(
                         Button::new("launch-chromium")
                             .label("Chromium")

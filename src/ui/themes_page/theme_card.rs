@@ -1,6 +1,7 @@
 use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
 use crate::types::themes::ThemeEntry;
+use crate::ui::color_utils::hex_to_hsla;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
@@ -46,20 +47,6 @@ impl ThemeCard {
     }
 }
 
-// Parse hex to Hsla
-fn parse_hex_color(hex: &str) -> Option<Hsla> {
-    let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
-        return None;
-    }
-
-    let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-    let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-    let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
-    Some(rgb(u32::from_be_bytes([0, r, g, b])).into())
-}
-
 fn color_palette_display(colors: &crate::types::themes::ThemeColors) -> Div {
     let all_colors = [
         (&colors.primary.background, "bg"),
@@ -76,7 +63,7 @@ fn color_palette_display(colors: &crate::types::themes::ThemeColors) -> Div {
 
     let mut row = h_flex().gap_1().items_center().justify_center();
     for (hex, _name) in &all_colors {
-        if let Some(color) = parse_hex_color(hex) {
+        if let Some(color) = hex_to_hsla(hex) {
             row = row.child(div().w(px(16.)).h(px(120.)).bg(color));
         }
     }

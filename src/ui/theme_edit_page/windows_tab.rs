@@ -5,7 +5,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
@@ -160,9 +160,12 @@ impl WindowsTab {
 }
 
 impl Render for WindowsTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Colors for Hyprland windows and tiles."))
+            .child(help_text(
+                "Colors for Hyprland windows and tiles.",
+                cx.theme().muted_foreground,
+            ))
             .child(
                 // Border colors row
                 h_flex()

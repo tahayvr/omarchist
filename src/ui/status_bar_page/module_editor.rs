@@ -2,13 +2,13 @@ use std::cell::RefCell;
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable, StyledExt, h_flex,
-    input::{Input, InputEvent, InputState},
-    label::Label,
+    ActiveTheme, Icon, IconName, StyledExt, h_flex,
+    input::{InputEvent, InputState},
     v_flex,
 };
 
 use crate::system::waybar::{get_module_config, set_module_config_field};
+use crate::ui::status_bar_page::shared::{labeled_input, labeled_input_wide};
 
 thread_local! {
     pub static PENDING_MODULE_EDIT: RefCell<Option<(String, String)>> = const { RefCell::new(None) };
@@ -304,32 +304,4 @@ impl Render for ModuleEditorPanel {
             .child(fields_row2)
             .into_any()
     }
-}
-
-fn labeled_input(label: &str, input: &Entity<InputState>, label_color: Hsla) -> impl IntoElement {
-    v_flex()
-        .gap_1()
-        .w(px(160.))
-        .child(
-            Label::new(label.to_string())
-                .text_sm()
-                .text_color(label_color),
-        )
-        .child(Input::new(input).small())
-}
-
-fn labeled_input_wide(
-    label: &str,
-    input: &Entity<InputState>,
-    label_color: Hsla,
-) -> impl IntoElement {
-    v_flex()
-        .gap_1()
-        .w(px(340.))
-        .child(
-            Label::new(label.to_string())
-                .text_sm()
-                .text_color(label_color),
-        )
-        .child(Input::new(input).small())
 }

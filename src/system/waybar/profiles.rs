@@ -1,15 +1,12 @@
 use std::fs;
 use std::path::PathBuf;
 
+use super::paths::{omarchist_config_dir, waybar_profiles_dir};
+
 pub fn list_waybar_profiles() -> Vec<String> {
-    let Some(home) = dirs::home_dir() else {
+    let Some(profiles_dir) = waybar_profiles_dir() else {
         return vec![];
     };
-    let profiles_dir = home
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles");
 
     fs::read_dir(&profiles_dir)
         .map(|entries| {
@@ -28,12 +25,8 @@ pub fn create_waybar_profile(profile_name: &str) -> Result<String, String> {
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let dest = dirs::home_dir()
+    let dest = waybar_profiles_dir()
         .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
         .join(name);
 
     if dest.exists() {
@@ -56,12 +49,8 @@ pub fn rename_waybar_profile(old_name: &str, new_name: &str) -> Result<String, S
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let profiles_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles");
+    let profiles_dir =
+        waybar_profiles_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let src = profiles_dir.join(old_name);
     let dst = profiles_dir.join(new);
@@ -84,12 +73,8 @@ pub fn duplicate_waybar_profile(source_name: &str, new_name: &str) -> Result<Str
         return Err("Profile name cannot be empty".to_string());
     }
 
-    let profiles_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles");
+    let profiles_dir =
+        waybar_profiles_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let src = profiles_dir.join(source_name);
     let dst = profiles_dir.join(new);
@@ -107,12 +92,8 @@ pub fn duplicate_waybar_profile(source_name: &str, new_name: &str) -> Result<Str
 }
 
 pub fn delete_waybar_profile(profile_name: &str) -> Result<Option<String>, String> {
-    let profiles_dir = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles");
+    let profiles_dir =
+        waybar_profiles_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let target = profiles_dir.join(profile_name);
     if !target.exists() {
@@ -146,9 +127,8 @@ pub fn apply_waybar_profile(profile_name: &str) -> Result<(), String> {
 
     let home = dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
 
-    let profile_dir = home
-        .join(".config")
-        .join("omarchist")
+    let profile_dir = omarchist_config_dir()
+        .ok_or_else(|| "Could not determine home directory".to_string())?
         .join("waybar")
         .join("profiles")
         .join(profile_name);
@@ -190,12 +170,7 @@ pub fn restore_original_waybar_config() -> Result<(), String> {
 }
 
 fn original_waybar_backup_dir() -> Option<std::path::PathBuf> {
-    dirs::home_dir().map(|h| {
-        h.join(".config")
-            .join("omarchist")
-            .join("waybar")
-            .join("backup-original")
-    })
+    omarchist_config_dir().map(|d| d.join("waybar").join("backup-original"))
 }
 
 fn backup_original_waybar_config() -> Result<(), String> {

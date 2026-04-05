@@ -6,7 +6,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     divider::Divider,
@@ -418,6 +418,7 @@ impl Render for TerminalTab {
                     .items_center()
                     .child(help_text(
                         "Color changes apply to Alacritty, Kitty, and Ghostty.",
+                        cx.theme().muted_foreground,
                     ))
                     .child(
                         h_flex()

@@ -2,16 +2,11 @@ use std::fs;
 
 use super::icons::new_module;
 use super::jsonc::{find_top_level_key, find_value_end, strip_jsonc_comments};
+use super::paths::waybar_profile_config_path;
 use super::types::{BarSettings, WaybarConfig, WaybarModule, WaybarZone};
 
 pub fn get_bar_settings(profile_name: &str) -> Option<BarSettings> {
-    let config_path = dirs::home_dir()?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(profile_name)?;
 
     let raw = fs::read_to_string(&config_path).ok()?;
     let stripped = strip_jsonc_comments(&raw);
@@ -51,14 +46,8 @@ pub fn set_bar_setting(
     key: &str,
     value: &serde_json::Value,
 ) -> Result<(), String> {
-    let config_path = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(profile_name)
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let raw =
         fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
@@ -70,13 +59,7 @@ pub fn set_bar_setting(
 }
 
 pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
-    let config_path = dirs::home_dir()?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(profile_name)?;
 
     let raw = fs::read_to_string(&config_path).ok()?;
     let stripped = strip_jsonc_comments(&raw);
@@ -103,14 +86,8 @@ pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
 }
 
 pub fn save_waybar_config(config: &WaybarConfig) -> Result<(), String> {
-    let config_path = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(&config.profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(&config.profile_name)
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let raw =
         fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
@@ -152,14 +129,7 @@ pub fn save_waybar_config(config: &WaybarConfig) -> Result<(), String> {
 }
 
 pub fn get_module_config(profile_name: &str, module_key: &str) -> serde_json::Value {
-    let Some(config_path) = dirs::home_dir().map(|h| {
-        h.join(".config")
-            .join("omarchist")
-            .join("waybar")
-            .join("profiles")
-            .join(profile_name)
-            .join("config.jsonc")
-    }) else {
+    let Some(config_path) = waybar_profile_config_path(profile_name) else {
         return serde_json::Value::Null;
     };
 
@@ -182,14 +152,8 @@ pub fn set_module_config_field(
     field: &str,
     value: &serde_json::Value,
 ) -> Result<(), String> {
-    let config_path = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(profile_name)
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let raw =
         fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;
@@ -222,14 +186,8 @@ pub fn add_module_to_zone(
     zone: &WaybarZone,
     default_config: &str,
 ) -> Result<(), String> {
-    let config_path = dirs::home_dir()
-        .ok_or_else(|| "Could not determine home directory".to_string())?
-        .join(".config")
-        .join("omarchist")
-        .join("waybar")
-        .join("profiles")
-        .join(profile_name)
-        .join("config.jsonc");
+    let config_path = waybar_profile_config_path(profile_name)
+        .ok_or_else(|| "Could not determine home directory".to_string())?;
 
     let raw =
         fs::read_to_string(&config_path).map_err(|e| format!("Failed to read config: {}", e))?;

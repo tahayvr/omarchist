@@ -183,7 +183,10 @@ impl Render for BackgroundsTab {
                             })),
                     ),
             )
-            .child(help_text("Manage background images for this theme."))
+            .child(help_text(
+                "Manage background images for this theme.",
+                cx.theme().muted_foreground,
+            ))
             .child(
                 // Image count display
                 Label::new(format!(
@@ -223,6 +226,7 @@ impl Render for BackgroundsTab {
                         )
                         .child(help_text(
                             "Click \"Add Images\" to select background images",
+                            cx.theme().muted_foreground,
                         ))
                         .into_any_element()
                 } else {
@@ -298,7 +302,7 @@ impl Render for BackgroundsTab {
             .children(
                 self.error_message
                     .as_ref()
-                    .map(|msg| error_message(msg.clone())),
+                    .map(|msg| error_message(msg.clone(), cx)),
             )
     }
 }

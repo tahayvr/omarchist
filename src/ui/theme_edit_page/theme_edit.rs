@@ -307,7 +307,7 @@ impl Render for ThemeEditPage {
             .children(
                 self.error_message
                     .as_ref()
-                    .map(|error| error_message(error.clone())),
+                    .map(|error| error_message(error.clone(), cx)),
             )
             .child(
                 // Tab content area with scrolling

@@ -224,6 +224,7 @@ impl Render for EditorTab {
         tab_container()
             .child(help_text(
                 "Edit the configuration files for Neovim and VSCode: themes:",
+                cx.theme().muted_foreground,
             ))
             .child(
                 v_flex()

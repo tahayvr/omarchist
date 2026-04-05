@@ -6,7 +6,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
@@ -188,7 +188,10 @@ impl Render for NotificationTab {
                 h_flex()
                     .justify_between()
                     .items_center()
-                    .child(help_text("Colors for Notifications (Mako)."))
+                    .child(help_text(
+                        "Colors for Notifications (Mako).",
+                        cx.theme().muted_foreground,
+                    ))
                     .child(
                         Button::new("launch-test-notification")
                             .label("Test Notification")

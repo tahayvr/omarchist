@@ -5,7 +5,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
@@ -225,9 +225,12 @@ impl LockScreenTab {
 }
 
 impl Render for LockScreenTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
-            .child(help_text("Colors for the lock screen (Hyprlock)."))
+            .child(help_text(
+                "Colors for the lock screen (Hyprlock).",
+                cx.theme().muted_foreground,
+            ))
             .child(
                 h_flex()
                     .gap_24()

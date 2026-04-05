@@ -3,7 +3,7 @@ use crate::system::themes::theme_management::{save_theme_data, update_icons_them
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
-use gpui_component::{button::Button, h_flex, radio::Radio, v_flex};
+use gpui_component::{ActiveTheme, button::Button, h_flex, radio::Radio, v_flex};
 
 struct YaruColor {
     value: &'static str,
@@ -180,7 +180,10 @@ impl Render for FileManagerTab {
                 h_flex()
                     .justify_between()
                     .items_center()
-                    .child(help_text("Accent color for Nautilus."))
+                    .child(help_text(
+                        "Accent color for Nautilus.",
+                        cx.theme().muted_foreground,
+                    ))
                     .child(
                         Button::new("launch-nautilus")
                             .label("Nautilus")

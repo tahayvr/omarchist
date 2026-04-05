@@ -112,11 +112,8 @@ pub fn form_section() -> Div {
     v_flex().gap_2()
 }
 
-pub fn help_text(text: impl Into<SharedString>) -> Div {
-    div()
-        .text_sm()
-        .text_color(gpui::rgb(0x888888))
-        .child(text.into())
+pub fn help_text(text: impl Into<SharedString>, color: Hsla) -> Div {
+    div().text_sm().text_color(color).child(text.into())
 }
 
 pub trait TabInputHandler: Sized {
@@ -135,18 +132,14 @@ pub fn tab_container() -> Div {
     v_flex().gap_6().pt_4().pb_4()
 }
 
-pub fn error_message(text: impl Into<SharedString>) -> Div {
+pub fn error_message(text: impl Into<SharedString>, cx: &App) -> Div {
+    let theme = cx.theme();
     div()
         .p_2()
-        .bg(gpui::rgb(0xffcccc))
+        .bg(theme.danger.opacity(0.1))
         .border_1()
-        .border_color(gpui::rgb(0xff0000))
-        .child(
-            div()
-                .text_sm()
-                .text_color(gpui::rgb(0xff0000))
-                .child(text.into()),
-        )
+        .border_color(theme.danger)
+        .child(div().text_sm().text_color(theme.danger).child(text.into()))
 }
 
 pub fn color_picker_with_clipboard(

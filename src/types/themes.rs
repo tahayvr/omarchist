@@ -501,35 +501,23 @@ impl Default for TerminalConfig {
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigs {
-    #[serde(rename = "alacritty", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub alacritty: Option<serde_json::Value>,
-    #[serde(rename = "waybar")]
     pub waybar: Option<WaybarConfig>,
-    #[serde(rename = "chromium")]
     pub chromium: Option<BrowserConfig>,
-    #[serde(rename = "btop")]
     pub btop: Option<BtopConfig>,
-    #[serde(rename = "hyprland")]
     pub hyprland: Option<HyprlandConfig>,
-    #[serde(rename = "hyprlock")]
     pub hyprlock: Option<HyprlockConfig>,
-    #[serde(rename = "mako")]
     pub mako: Option<MakoConfig>,
-    #[serde(rename = "walker")]
     pub walker: Option<WalkerConfig>,
-    #[serde(rename = "swayosd")]
     pub swayosd: Option<SwayosdConfig>,
-    #[serde(rename = "neovim")]
     pub neovim: Option<serde_json::Value>,
-    #[serde(rename = "vscode")]
     pub vscode: Option<serde_json::Value>,
-    #[serde(rename = "icons")]
     pub icons: Option<serde_json::Value>,
-    #[serde(rename = "ghostty", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ghostty: Option<serde_json::Value>,
-    #[serde(rename = "kitty", skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub kitty: Option<serde_json::Value>,
-    #[serde(rename = "terminal")]
     pub terminal: Option<TerminalConfig>,
 }
 

@@ -1,5 +1,6 @@
 pub mod about_page;
 pub mod app_view;
+pub mod color_utils;
 pub mod config_page;
 pub mod dialogs;
 pub mod keyboard_nav;

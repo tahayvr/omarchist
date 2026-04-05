@@ -5,7 +5,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    Colorize,
+    ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
@@ -205,10 +205,11 @@ impl SwayosdTab {
 }
 
 impl Render for SwayosdTab {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
             .child(help_text(
                 "Colors for On-Screen Display (Volume Change, Display Brightness, etc).",
+                cx.theme().muted_foreground,
             ))
             .child(
                 h_flex()

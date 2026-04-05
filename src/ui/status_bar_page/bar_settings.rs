@@ -1,13 +1,14 @@
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
     label::Label,
     select::{Select, SelectEvent, SelectState},
     v_flex,
 };
 
 use crate::system::waybar::{BarSettings, get_bar_settings, set_bar_setting};
+use crate::ui::status_bar_page::shared::labeled_input;
 
 pub struct BarSettingsPanel {
     profile_name: String,
@@ -459,16 +460,4 @@ impl Render for BarSettingsPanel {
             .child(header)
             .child(body)
     }
-}
-
-fn labeled_input(label: &str, input: &Entity<InputState>, label_color: Hsla) -> impl IntoElement {
-    v_flex()
-        .gap_1()
-        .w(px(160.))
-        .child(
-            Label::new(label.to_string())
-                .text_sm()
-                .text_color(label_color),
-        )
-        .child(Input::new(input).small())
 }

@@ -5,9 +5,10 @@ use std::process::Command;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    prerelease: bool,
+pub(super) struct GitHubRelease {
+    pub(super) tag_name: String,
+    pub(super) body: Option<String>,
+    pub(super) prerelease: bool,
 }
 
 // Check if there's a new version available on GitHub

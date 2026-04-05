@@ -1,12 +1,5 @@
+use super::omarchy_version::GitHubRelease;
 use isahc::AsyncReadResponseExt;
-use serde::Deserialize;
-
-#[derive(Debug, Deserialize)]
-struct GitHubRelease {
-    tag_name: String,
-    body: Option<String>,
-    prerelease: bool,
-}
 
 pub async fn fetch_latest_release_notes() -> Result<(String, String), String> {
     // Fetch latest release from GitHub using isahc (runtime-agnostic)

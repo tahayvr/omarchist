@@ -13,7 +13,7 @@ impl AssetSource for OmarchistAssets {
             return Ok(None);
         }
 
-        Ok(Self::get(path).map(|f| Some(f.data)).unwrap_or(None))
+        Ok(Self::get(path).map(|f| f.data))
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {

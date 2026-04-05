@@ -2,6 +2,7 @@ use crate::system::themes::theme_management::{
     colors_config_from_terminal, rename_theme, save_theme_data, update_colors_toml,
 };
 use crate::types::themes::EditingTheme;
+use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
 };
@@ -50,7 +51,7 @@ impl GeneralTab {
 
         // Create accent color picker
         let accent_color =
-            Self::hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
+            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
         let accent_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
 
@@ -113,19 +114,6 @@ impl GeneralTab {
         .detach();
 
         tab
-    }
-
-    fn hex_to_hsla(hex: &str) -> Option<Hsla> {
-        let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
-            return None;
-        }
-
-        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     pub fn theme_data(&self) -> &EditingTheme {
@@ -317,12 +305,15 @@ impl Render for GeneralTab {
             )
             .child(
                 // Help Text
-                help_text("Themes are in dark mode by default."),
+                help_text(
+                    "Themes are in dark mode by default.",
+                    cx.theme().muted_foreground,
+                ),
             )
             .children(
                 self.error_message
                     .as_ref()
-                    .map(|msg| error_message(msg.clone())),
+                    .map(|msg| error_message(msg.clone(), cx)),
             )
     }
 }
