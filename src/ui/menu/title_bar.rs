@@ -113,8 +113,10 @@ impl Render for MainTitleBar {
                                     .small()
                                     .ghost()
                                     .cursor_pointer()
-                                    .on_click(|_, _window, cx| {
-                                        cx.dispatch_action(&super::app_menu::NavigateToOmarchy);
+                                    .on_click(|_, _, _cx| {
+                                        crate::ui::app_view::PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
+                                            *flag.borrow_mut() = true;
+                                        });
                                     }),
                             )
                             .when(self.omarchy_update_available == Some(true), |this| {

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -9,7 +11,14 @@ use gpui_component::{
 };
 
 use crate::system::waybar::create_waybar_profile;
-use crate::ui::menu::app_menu::WaybarProfileCreated;
+
+thread_local! {
+    pub static PENDING_PROFILE_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
+}
+
+pub fn take_pending_profile_navigation() -> Option<String> {
+    PENDING_PROFILE_NAVIGATION.with(|nav| nav.borrow_mut().take())
+}
 
 pub fn open_create_waybar_profile_dialog(window: &mut Window, cx: &mut App) {
     // InputState is created outside the closure so it survives across re-renders
@@ -104,13 +113,15 @@ impl RenderOnce for CreateProfileForm {
 
                                 match create_waybar_profile(&profile_name) {
                                     Ok(created_name) => {
+                                        PENDING_PROFILE_NAVIGATION.with(|nav| {
+                                            *nav.borrow_mut() = Some(created_name.clone());
+                                        });
                                         window.close_dialog(cx);
                                         window.push_notification(
                                             format!("Created profile \"{}\"", created_name),
                                             cx,
                                         );
-                                        let action = WaybarProfileCreated(created_name);
-                                        cx.dispatch_action(&action);
+                                        cx.refresh_windows();
                                     }
                                     Err(e) => {
                                         error_entity.update(cx, |err, cx| {

@@ -14,11 +14,11 @@ use super::hyprlock::{parse_hyprlock_conf, update_hyprlock_conf};
 use super::icons::{parse_icons_theme, update_icons_theme};
 use super::mako::{parse_mako_ini, update_mako_ini};
 use super::paths::get_custom_themes_dir;
-use crate::assets::extract_default_dir;
 use super::swayosd::{parse_swayosd_css, update_swayosd_css};
 use super::terminal::update_terminal_configs;
 use super::walker::update_walker_css;
 use super::waybar::{parse_waybar_css, update_waybar_css};
+use crate::assets::extract_default_dir;
 
 pub fn generate_unique_theme_name() -> String {
     let themes_dir = match get_custom_themes_dir() {

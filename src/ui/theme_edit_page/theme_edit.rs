@@ -30,6 +30,12 @@ const KEY_CONTEXT: &str = "ThemeEditPage";
 #[action(no_json)]
 pub struct NavigateToThemes;
 
+use std::cell::RefCell;
+
+thread_local! {
+    pub static PENDING_NAVIGATE_TO_THEMES: RefCell<bool> = const { RefCell::new(false) };
+}
+
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
 pub struct SaveTheme;
@@ -153,9 +159,14 @@ impl ThemeEditPage {
         &self.theme_name
     }
 
-    fn navigate_back(&self, _window: &mut Window, cx: &mut Context<Self>) {
-        cx.dispatch_action(&crate::ui::menu::app_menu::NavigateToThemes);
-        cx.dispatch_action(&crate::ui::menu::app_menu::RefreshThemes);
+    fn navigate_back(&self, _window: &mut Window, _cx: &mut Context<Self>) {
+        PENDING_NAVIGATE_TO_THEMES.with(|flag| {
+            *flag.borrow_mut() = true;
+        });
+        // Also trigger themes refresh so new themes appear
+        crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
+            *flag.borrow_mut() = true;
+        });
     }
 
     fn next_tab(&mut self, cx: &mut Context<Self>) {

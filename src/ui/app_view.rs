@@ -3,9 +3,6 @@ use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::keyboard_nav::{FocusState, FocusedSection};
-use crate::ui::menu::app_menu::{
-    NavigateToThemeEdit, RefreshThemes, WaybarProfileCreated, WaybarProfileManaged,
-};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
@@ -19,11 +16,21 @@ use gpui_component::{
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
 };
+use std::cell::RefCell;
+
+use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
 const SIDEBAR_ITEM_COUNT: usize = 3;
-#[derive(PartialEq, Clone)]
+
+thread_local! {
+    pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
+    pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
+    pub static PENDING_OMARCHY_UPDATE_STATUS: RefCell<Option<bool>> = const { RefCell::new(None) };
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
@@ -473,10 +480,101 @@ impl MainWindowView {
 
 impl Render for MainWindowView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // Check for pending theme navigation
+        let pending_theme = crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION
+            .with(|nav| nav.borrow_mut().take());
+        if let Some(theme_name) = pending_theme {
+            self.navigate_to_theme_edit(theme_name, window, cx);
+        }
+
+        let pending_navigate = crate::ui::theme_edit_page::theme_edit::PENDING_NAVIGATE_TO_THEMES
+            .with(|flag| {
+                let value = *flag.borrow();
+                if value {
+                    *flag.borrow_mut() = false;
+                }
+                value
+            });
+        if pending_navigate {
+            self.navigate_to(ActivePage::Themes, window, cx);
+        }
+
+        let pending_refresh =
+            crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
+                let value = *flag.borrow();
+                if value {
+                    *flag.borrow_mut() = false;
+                }
+                value
+            });
+        if pending_refresh {
+            // Refresh the themes list
+            self.themes_view.update(cx, |themes_page, cx| {
+                themes_page.refresh_themes(cx);
+            });
+        }
+
+        // Check for pending sidebar toggle
+        let pending_toggle = PENDING_TOGGLE_SIDEBAR.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_toggle {
+            self.sidebar_collapsed = !self.sidebar_collapsed;
+            self.themes_view.update(cx, |themes_page, cx| {
+                themes_page.set_sidebar_collapsed(self.sidebar_collapsed, cx);
+            });
+            cx.notify();
+        }
+
+        // Check for pending Omarchy navigation from title bar
+        let pending_omarchy = PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_omarchy {
+            self.navigate_to(ActivePage::Omarchy, window, cx);
+        }
+
+        // Sync title bar badge when OmarchyView re-checks update availability
+        let pending_update_status =
+            PENDING_OMARCHY_UPDATE_STATUS.with(|flag| flag.borrow_mut().take());
+        if let Some(update_available) = pending_update_status {
+            self.title_bar.update(cx, |title_bar, _cx| {
+                title_bar.set_omarchy_update_available(update_available);
+            });
+        }
+
+        // Check for pending UI theme hot-reload
+        let pending_ui_theme_reload = ui_theme_watcher::PENDING_UI_THEME_RELOAD.with(|flag| {
+            let value = *flag.borrow();
+            if value {
+                *flag.borrow_mut() = false;
+            }
+            value
+        });
+        if pending_ui_theme_reload {
+            ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+            cx.refresh_windows();
+        }
+
         // Responsive sidebar: auto-collapse on small windows (< 768px)
         let viewport_width = window.viewport_size().width;
         let is_small_window = viewport_width < px(768.0);
         let sidebar_should_be_collapsed = is_small_window || self.sidebar_collapsed;
+
+        // Update themes_page with collapsed state and global focus state
+        let content_has_focus = self.focus_state.focused_section == FocusedSection::Content;
+        self.themes_view.update(cx, |themes_page, cx| {
+            themes_page.set_sidebar_collapsed(sidebar_should_be_collapsed, cx);
+            themes_page.set_global_focus(content_has_focus, cx);
+        });
 
         div()
             .id("main-window-root")
@@ -485,26 +583,6 @@ impl Render for MainWindowView {
             .flex()
             .flex_col()
             .size_full()
-            .on_action(
-                cx.listener(|this, action: &NavigateToThemeEdit, window, cx| {
-                    this.navigate_to_theme_edit(action.0.clone(), window, cx);
-                }),
-            )
-            .on_action(cx.listener(|this, _: &RefreshThemes, _window, cx| {
-                this.themes_view.update(cx, |themes_page, cx| {
-                    themes_page.refresh_themes(cx);
-                });
-            }))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::ToggleSidebar, _window, cx| {
-                    this.sidebar_collapsed = !this.sidebar_collapsed;
-                    let collapsed = this.sidebar_collapsed;
-                    this.themes_view.update(cx, |themes_page, cx| {
-                        themes_page.set_sidebar_collapsed(collapsed, cx);
-                    });
-                    cx.notify();
-                },
-            ))
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToSettings, window, cx| {
                     this.navigate_to(ActivePage::Settings, window, cx);
@@ -593,27 +671,6 @@ impl Render for MainWindowView {
                     this.handle_escape_focus(window, cx);
                 },
             ))
-            // Status bar profile actions (bubble up from status_bar_view dialogs).
-            // The status_bar_view is only present after the user has first visited
-            // the Status Bar page, so we guard with if-let.
-            .on_action(
-                cx.listener(|this, action: &WaybarProfileCreated, window, cx| {
-                    if let Some(ref sv) = this.status_bar_view {
-                        sv.update(cx, |view, cx| {
-                            view.switch_profile(action.0.clone(), window, cx);
-                        });
-                    }
-                }),
-            )
-            .on_action(
-                cx.listener(|this, action: &WaybarProfileManaged, window, cx| {
-                    if let Some(ref sv) = this.status_bar_view {
-                        sv.update(cx, |view, cx| {
-                            view.handle_profile_managed(action.0.clone(), window, cx);
-                        });
-                    }
-                }),
-            )
             .child(self.title_bar.clone())
             .child(
                 h_flex()

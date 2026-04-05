@@ -2,7 +2,6 @@ use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
 use crate::types::themes::ThemeEntry;
 use crate::ui::color_utils::hex_to_hsla;
-use crate::ui::menu::app_menu::{NavigateToThemeEdit, RefreshThemes};
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
@@ -106,8 +105,7 @@ impl Render for ThemeCard {
                     .child({
                         let is_editable = self.theme.origin.is_editable();
                         let is_deletable = self.theme.origin.is_deletable();
-                        let is_system =
-                            matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
+                        let is_system = matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
                         let theme_dir_clone = self.theme.dir.clone();
                         Button::new(("menu", self.index))
                             .icon(IconName::EllipsisVertical)
@@ -118,35 +116,41 @@ impl Render for ThemeCard {
                                 let theme_dir_open = theme_dir_clone.clone();
                                 let theme_dir_edit = theme_dir_clone.clone();
                                 let theme_dir_delete = theme_dir_clone.clone();
-                                menu.item(PopupMenuItem::new("Open Folder").on_click(
-                                    move |_event, _window, _cx| {
-                                        let _ = open_theme_folder(&theme_dir_open, is_system);
-                                    },
-                                ))
+                                menu.item(
+                                    PopupMenuItem::new("Open Folder")
+                                        .on_click(move |_event, _window, _cx| {
+                                            let _ = open_theme_folder(&theme_dir_open, is_system);
+                                        }),
+                                )
                                 .when(is_editable, |this| {
-                                    this.item(PopupMenuItem::new("Edit Theme").on_click(
-                                        move |_event, _window, cx| {
-                                            let action =
-                                                NavigateToThemeEdit(theme_dir_edit.clone());
-                                            cx.dispatch_action(&action);
-                                        },
-                                    ))
+                                    this.item(
+                                        PopupMenuItem::new("Edit Theme")
+                                            .on_click(move |_event, _window, cx| {
+                                                crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION.with(|nav| {
+                                                    *nav.borrow_mut() = Some(theme_dir_edit.clone());
+                                                });
+                                                cx.refresh_windows();
+                                            }),
+                                    )
                                 })
                                 .separator()
                                 .when(is_deletable, |this| {
-                                    this.item(PopupMenuItem::new("Delete Theme").on_click(
-                                        move |_event, _window, cx| match delete_theme(
-                                            &theme_dir_delete,
-                                            is_system,
-                                        ) {
-                                            Ok(()) => {
-                                                cx.dispatch_action(&RefreshThemes);
-                                            }
-                                            Err(e) => {
-                                                eprintln!("Failed to delete theme: {}", e);
-                                            }
-                                        },
-                                    ))
+                                    this.item(
+                                        PopupMenuItem::new("Delete Theme")
+                                            .on_click(move |_event, _window, cx| {
+                                                match delete_theme(&theme_dir_delete, is_system) {
+                                                    Ok(()) => {
+                                                        crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
+                                                            *flag.borrow_mut() = true;
+                                                        });
+                                                        cx.refresh_windows();
+                                                    }
+                                                    Err(e) => {
+                                                        eprintln!("Failed to delete theme: {}", e);
+                                                    }
+                                                }
+                                            }),
+                                    )
                                 })
                             })
                     }),
@@ -199,8 +203,11 @@ impl Render for ThemeCard {
                                 .ghost()
                                 .cursor_pointer()
                                 .on_click(move |_event, _window, cx| {
-                                    let action = NavigateToThemeEdit(theme_dir.clone());
-                                    cx.dispatch_action(&action);
+                                    // Store theme name for navigation
+                                    crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION.with(|nav| {
+                                        *nav.borrow_mut() = Some(theme_dir.clone());
+                                    });
+                                    cx.refresh_windows();
                                 })
                         } else {
                             Button::new(("empty", self.index)).label("").hidden()
@@ -209,7 +216,7 @@ impl Render for ThemeCard {
                     .child({
                         let dir = self.theme.dir.clone();
                         let index = self.index;
-                        Button::new(("apply", index))
+                            Button::new(("apply", index))
                             .label("Apply")
                             .small()
                             .primary()

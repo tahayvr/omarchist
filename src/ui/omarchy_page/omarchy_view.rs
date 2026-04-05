@@ -22,7 +22,6 @@ pub struct OmarchyView {
     release_notes: Option<String>,
     pub focus_handle: FocusHandle,
     update_btn_focused: bool,
-    title_bar: Entity<MainTitleBar>,
 }
 
 impl OmarchyView {
@@ -55,7 +54,7 @@ impl OmarchyView {
         .detach();
 
         // Note: the 30-minute periodic version-check loop lives in
-        // MainWindowView::new() (via spawn_omarchy_version_watcher) so the
+        // MainWindowView::new() (via the background spawn) so the
         // title-bar badge stays fresh even if this page is never opened.
 
         Self {
@@ -65,7 +64,6 @@ impl OmarchyView {
             release_notes: None,
             focus_handle: cx.focus_handle(),
             update_btn_focused: false,
-            title_bar,
         }
     }
 
@@ -82,7 +80,7 @@ impl OmarchyView {
                     })
                     .ok();
                     title_bar
-                        .update(cx, |tb, _cx| {
+                        .update(cx, |tb, _| {
                             tb.set_omarchy_update_available(update_available);
                         })
                         .ok();
@@ -99,7 +97,7 @@ impl OmarchyView {
         .detach();
     }
 
-    fn spawn_delayed_recheck(title_bar: Entity<MainTitleBar>, cx: &mut Context<Self>) {
+    fn spawn_delayed_recheck(cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             smol::Timer::after(std::time::Duration::from_secs(POST_UPDATE_RECHECK_SECS)).await;
 
@@ -120,11 +118,9 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    title_bar
-                        .update(cx, |tb, _cx| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
+                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
+                        *flag.borrow_mut() = Some(update_available);
+                    });
                 }
                 Err(e) => {
                     eprintln!("Post-update omarchy version check failed: {e}");
@@ -204,7 +200,7 @@ impl Render for OmarchyView {
                                                     this.update_btn_focused = false;
                                                     cx.notify();
                                                     // Schedule a re-check after the update has had time to complete
-                                                    Self::spawn_delayed_recheck(this.title_bar.clone(), cx);
+                                                    Self::spawn_delayed_recheck(cx);
                                                 }
                                             })),
                                     ),
@@ -352,7 +348,7 @@ impl Render for OmarchyView {
                             this.update_available = None;
                             this.update_btn_focused = false;
                             cx.notify();
-                            Self::spawn_delayed_recheck(this.title_bar.clone(), cx);
+                            Self::spawn_delayed_recheck(cx);
                         }
                     }
                 }),
