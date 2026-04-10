@@ -60,22 +60,6 @@ impl Render for MainTitleBar {
                             }),
                     )
                     .child(
-                        Button::new("edit-menu")
-                            .label("Edit")
-                            .small()
-                            .compact()
-                            .ghost()
-                            .cursor_pointer()
-                            .dropdown_menu(|menu: PopupMenu, _, _| {
-                                menu.menu("Undo", Box::new(gpui_component::input::Undo))
-                                    .menu("Redo", Box::new(gpui_component::input::Redo))
-                                    .separator()
-                                    .menu("Cut", Box::new(gpui_component::input::Cut))
-                                    .menu("Copy", Box::new(gpui_component::input::Copy))
-                                    .menu("Paste", Box::new(gpui_component::input::Paste))
-                            }),
-                    )
-                    .child(
                         Button::new("themes-menu")
                             .label("Theme")
                             .small()
