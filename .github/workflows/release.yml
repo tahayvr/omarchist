@@ -138,11 +138,11 @@ jobs:
           cp assets/logo/omarchist.png release-dist/omarchist.png
           cp omarchist.desktop release-dist/
           cd release-dist
-          tar -czf ../omarchist-${{ matrix.artifact }}.tar.gz *
+          tar -czf ../${{ matrix.artifact }}.tar.gz *
 
       - name: Create GitHub Release and upload artifact
         uses: softprops/action-gh-release@v3
         with:
-          files: omarchist-${{ matrix.artifact }}.tar.gz
+          files: ${{ matrix.artifact }}.tar.gz
           tag_name: ${{ github.ref_name }}
           body: ${{ needs.changelog.outputs.release_body }}
