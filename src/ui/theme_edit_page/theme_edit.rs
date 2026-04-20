@@ -1,3 +1,4 @@
+use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
@@ -289,6 +290,21 @@ impl Render for ThemeEditPage {
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.navigate_back(window, cx);
+                            })),
+                    )
+                    .child(
+                        Button::new("apply-theme-btn")
+                            .label("Apply Theme")
+                            .compact()
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, _window, _cx| {
+                                let dir = this.theme_name.clone();
+                                smol::spawn(async move {
+                                    if let Err(e) = apply_theme(dir).await {
+                                        eprintln!("Failed to apply theme: {}", e);
+                                    }
+                                })
+                                .detach();
                             })),
                     )
                     .child(

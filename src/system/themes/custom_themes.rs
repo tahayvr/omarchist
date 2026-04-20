@@ -97,7 +97,7 @@ pub fn get_user_themes() -> Result<Vec<ThemeEntry>, String> {
         })
         .collect();
 
-    themes.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    themes.sort_by_key(|a| a.title.to_lowercase());
 
     Ok(themes)
 }

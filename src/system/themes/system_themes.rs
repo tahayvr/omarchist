@@ -57,7 +57,7 @@ pub fn get_system_themes() -> Result<Vec<ThemeEntry>, String> {
         .filter_map(|e| load_theme_from_dir(&e.path()))
         .collect();
 
-    themes.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase()));
+    themes.sort_by_key(|a| a.title.to_lowercase());
 
     Ok(themes)
 }

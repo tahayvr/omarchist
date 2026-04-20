@@ -200,8 +200,8 @@ impl Render for StatusBarView {
                             crate::ui::dialogs::manage_waybar_profile_dialogs::open_delete_waybar_profile_dialog(profile, window, cx);
                         }
                     }
-                    Some(5) => {
-                        if crate::system::waybar::has_original_waybar_backup() {
+                    Some(5)
+                        if crate::system::waybar::has_original_waybar_backup() => {
                             if let Err(e) = crate::system::waybar::restore_original_waybar_config() {
                                 eprintln!("Failed to restore original waybar config: {e}");
                             }
@@ -209,7 +209,6 @@ impl Render for StatusBarView {
                                 eprintln!("Failed to restart waybar: {e}");
                             }
                         }
-                    }
                     Some(6) => {
                         if let Err(e) = crate::shell::waybar_sh_commands::restart_waybar() {
                             eprintln!("Failed to restart waybar: {e}");

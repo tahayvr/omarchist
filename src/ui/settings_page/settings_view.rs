@@ -47,7 +47,7 @@ impl SettingsView {
     fn handle_next_focus(&mut self, cx: &mut Context<Self>) {
         self.focused_index = Some(match self.focused_index {
             None => 0,
-            Some(i) => (i + 1).min(SETTINGS_ITEM_COUNT - 1),
+            Some(_i) => SETTINGS_ITEM_COUNT - 1,
         });
         cx.notify();
     }

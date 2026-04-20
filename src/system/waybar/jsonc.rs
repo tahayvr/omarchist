@@ -84,10 +84,8 @@ pub fn find_top_level_key(src: &str, key: &str) -> Option<usize> {
                 in_str = true;
             }
             '{' | '[' => depth += 1,
-            '}' | ']' => {
-                if depth > 0 {
-                    depth = depth.saturating_sub(1);
-                }
+            '}' | ']' if depth > 0 => {
+                depth = depth.saturating_sub(1);
             }
             _ => {}
         }
