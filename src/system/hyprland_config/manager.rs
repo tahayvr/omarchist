@@ -19,12 +19,18 @@ impl HyprlandConfigManager {
         // Ensure config directory exists
         ensure_config_dir()?;
 
+        // Always seed from the live compositor values so the UI reflects what
+        // Hyprland is actually running, regardless of whether we have a saved
+        // config file.  If a saved file exists, parse it on top so any stored
+        // overrides take precedence.
+        let base = super::hyprctl_reader::read_from_hyprctl();
+
         let config = if config_path.exists() {
             let content = fs::read_to_string(&config_path)
                 .map_err(|e| format!("Failed to read config file: {}", e))?;
-            super::parser::parse_config(&content)
+            super::parser::parse_config_onto(&content, base)
         } else {
-            HyprlandConfig::default()
+            base
         };
 
         Ok(Self {

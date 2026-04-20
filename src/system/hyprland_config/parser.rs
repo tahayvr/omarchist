@@ -1,7 +1,21 @@
 use crate::types::hyprland_config::*;
 
+/// Parse a hyprland config file, starting from `base` instead of defaults.
+/// This lets the caller seed values from hyprctl first, then overlay only the
+/// fields that are explicitly set in the saved file.
+pub fn parse_config_onto(content: &str, base: HyprlandConfig) -> HyprlandConfig {
+    let mut config = base;
+    parse_into(content, &mut config);
+    config
+}
+
 pub fn parse_config(content: &str) -> HyprlandConfig {
     let mut config = HyprlandConfig::default();
+    parse_into(content, &mut config);
+    config
+}
+
+fn parse_into(content: &str, config: &mut HyprlandConfig) {
     let mut current_section: Option<String> = None;
     let mut current_subsection: Option<String> = None;
     let mut brace_depth = 0;
@@ -48,11 +62,9 @@ pub fn parse_config(content: &str) -> HyprlandConfig {
             let section = current_section.as_deref().unwrap_or("");
             let subsection = current_subsection.as_deref();
 
-            apply_setting(&mut config, section, subsection, &key, &value);
+            apply_setting(config, section, subsection, &key, &value);
         }
     }
-
-    config
 }
 
 fn parse_key_value(line: &str) -> Option<(String, String)> {

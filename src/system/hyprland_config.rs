@@ -1,3 +1,4 @@
+pub mod hyprctl_reader;
 pub mod keyboard;
 pub mod manager;
 pub mod parser;

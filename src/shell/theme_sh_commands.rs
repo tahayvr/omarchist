@@ -92,10 +92,7 @@ mod tests {
         smol::block_on(async {
             let result =
                 apply_theme_with_cmd("__omarchist_nonexistent_binary__", "any".to_string()).await;
-            assert!(
-                result.is_err(),
-                "expected Err for missing binary, got Ok"
-            );
+            assert!(result.is_err(), "expected Err for missing binary, got Ok");
             let msg = result.unwrap_err();
             assert!(
                 msg.contains("Failed to execute"),
@@ -124,10 +121,7 @@ mod tests {
     #[test]
     fn spawn_fire_and_forget_missing_binary_returns_err_with_cmd_name() {
         let result = spawn_fire_and_forget("__omarchist_nonexistent_binary__");
-        assert!(
-            result.is_err(),
-            "expected Err for missing binary, got Ok"
-        );
+        assert!(result.is_err(), "expected Err for missing binary, got Ok");
         let msg = result.unwrap_err();
         assert!(
             msg.contains("Failed to spawn"),
