@@ -24,18 +24,18 @@ conventional_commits = true
 filter_unconventional = true
 split_commits = false
 commit_preprocessors = [
-  { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/tahayvr/omarchist/issues/${2}))" },
+    { pattern = '\((\w+\s)?#([0-9]+)\)', replace = "([#${2}](https://github.com/tahayvr/omarchist/issues/${2}))" },
 ]
 commit_parsers = [
-  { message = "^feat", group = "Features" },
-  { message = "^fix", group = "Bug Fixes" },
-  { message = "^perf", group = "Performance" },
-  { message = "^refactor", group = "Refactoring" },
-  { message = "^doc", group = "Documentation" },
-  { message = "^style", group = "Styling" },
-  { message = "^test", group = "Testing" },
-  { message = "^chore", skip = true },
-  { body = ".*security", group = "Security" },
+    { message = "^feat", group = "Features" },
+    { message = "^fix", group = "Bug Fixes" },
+    { message = "^perf", group = "Performance" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^doc", skip = true },
+    { message = "^style", skip = true },
+    { message = "^test", skip = true },
+    { message = "^chore", skip = true },
+    { body = ".*security", group = "Security" },
 ]
 protect_breaking_commits = false
 filter_commits = false

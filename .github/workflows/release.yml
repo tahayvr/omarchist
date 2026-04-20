@@ -20,7 +20,7 @@ jobs:
       release_body: ${{ steps.git-cliff.outputs.content }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -31,16 +31,7 @@ jobs:
           config: cliff.toml
           args: -vv --latest --strip header
         env:
-          OUTPUT: CHANGELOG.md
           GITHUB_REPO: ${{ github.repository }}
-
-      - name: Commit CHANGELOG.md
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add CHANGELOG.md
-          git diff --cached --quiet || git commit -m "chore(release): update changelog for ${{ github.ref_name }}"
-          git push https://${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git HEAD:main
 
   build:
     name: Build (${{ matrix.target }})
@@ -57,7 +48,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -126,7 +117,7 @@ jobs:
           echo "PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig" >> $GITHUB_ENV
 
       - name: Cache Cargo registry
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -150,7 +141,7 @@ jobs:
           tar -czf ../omarchist-${{ matrix.artifact }}.tar.gz *
 
       - name: Create GitHub Release and upload artifact
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: omarchist-${{ matrix.artifact }}.tar.gz
           tag_name: ${{ github.ref_name }}
