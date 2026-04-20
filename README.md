@@ -39,7 +39,7 @@ Edit and generate configs for Waybar, Omarchy, Hyprland, etc (WIP).
   <img src="screenshots/omarchist-screenshot-3.png" alt="Omarchist Theme Designer" width="800">
 
 > [!IMPORTANT]
-> Omarchist puts your current waybar config in `~/.config/omarchist/waybar/original-backup/` for safekeeping. You can restore it anytime from the app.
+> Omarchist puts your current waybar config in `~/.config/omarchist/waybar/backup-original/` for safekeeping. You can restore it anytime from the app.
 
 ## Acknowledgements
 
