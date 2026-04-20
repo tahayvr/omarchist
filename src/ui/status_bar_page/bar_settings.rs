@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
-    input::{InputEvent, InputState},
+    input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     label::Label,
     select::{Select, SelectEvent, SelectState},
     v_flex,
@@ -210,13 +210,57 @@ impl BarSettingsPanel {
             }};
         }
 
+        // Macro: subscribe a number input to handle +/- button step events
+        macro_rules! sub_step {
+            ($input:expr, $signed:literal) => {{
+                let input_ref = $input.clone();
+                cx.subscribe_in(
+                    $input,
+                    window,
+                    move |_this, _input, event: &NumberInputEvent, window, cx| {
+                        let NumberInputEvent::Step(action) = event;
+                        input_ref.update(cx, |state, cx| {
+                            let val = state.value().to_string();
+                            if $signed {
+                                let n = val.trim().parse::<i64>().unwrap_or(0);
+                                let new_val = if *action == StepAction::Increment {
+                                    n + 1
+                                } else {
+                                    n - 1
+                                };
+                                state.set_value(
+                                    SharedString::from(new_val.to_string()),
+                                    window,
+                                    cx,
+                                );
+                            } else {
+                                let n = val.trim().parse::<u64>().unwrap_or(0);
+                                let new_val = if *action == StepAction::Increment {
+                                    n + 1
+                                } else {
+                                    n.saturating_sub(1)
+                                };
+                                state.set_value(
+                                    SharedString::from(new_val.to_string()),
+                                    window,
+                                    cx,
+                                );
+                            }
+                        });
+                    },
+                )
+            }};
+        }
+
         vec![
             sub!(height_input, "height", |s: &str| {
                 s.trim().parse::<u64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(height_input, false),
             sub!(spacing_input, "spacing", |s: &str| {
                 s.trim().parse::<u64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(spacing_input, false),
             sub!(output_input, "output", |s: &str| {
                 let t = s.trim();
                 if t.is_empty() {
@@ -228,15 +272,19 @@ impl BarSettingsPanel {
             sub!(margin_top_input, "margin-top", |s: &str| {
                 s.trim().parse::<i64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(margin_top_input, true),
             sub!(margin_right_input, "margin-right", |s: &str| {
                 s.trim().parse::<i64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(margin_right_input, true),
             sub!(margin_bottom_input, "margin-bottom", |s: &str| {
                 s.trim().parse::<i64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(margin_bottom_input, true),
             sub!(margin_left_input, "margin-left", |s: &str| {
                 s.trim().parse::<i64>().ok().map(serde_json::Value::from)
             }),
+            sub_step!(margin_left_input, true),
             sub_select!(position_select, "position"),
             sub_select!(layer_select, "layer"),
         ]
@@ -399,16 +447,28 @@ impl Render for BarSettingsPanel {
             let sizes_row = h_flex()
                 .gap_4()
                 .flex_wrap()
-                .child(labeled_input(
-                    "Height (px)",
-                    &self.height_input,
-                    theme.muted_foreground,
-                ))
-                .child(labeled_input(
-                    "Spacing (px)",
-                    &self.spacing_input,
-                    theme.muted_foreground,
-                ));
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Height (px)")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.height_input).small()),
+                )
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Spacing (px)")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.spacing_input).small()),
+                );
 
             // Output field
             let output_row = labeled_input("Output", &self.output_input, theme.muted_foreground);
@@ -417,26 +477,50 @@ impl Render for BarSettingsPanel {
             let margins_row = h_flex()
                 .gap_4()
                 .flex_wrap()
-                .child(labeled_input(
-                    "Margin Top",
-                    &self.margin_top_input,
-                    theme.muted_foreground,
-                ))
-                .child(labeled_input(
-                    "Margin Right",
-                    &self.margin_right_input,
-                    theme.muted_foreground,
-                ))
-                .child(labeled_input(
-                    "Margin Bottom",
-                    &self.margin_bottom_input,
-                    theme.muted_foreground,
-                ))
-                .child(labeled_input(
-                    "Margin Left",
-                    &self.margin_left_input,
-                    theme.muted_foreground,
-                ));
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Margin Top")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.margin_top_input).small()),
+                )
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Margin Right")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.margin_right_input).small()),
+                )
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Margin Bottom")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.margin_bottom_input).small()),
+                )
+                .child(
+                    v_flex()
+                        .gap_1()
+                        .w(px(160.))
+                        .child(
+                            Label::new("Margin Left")
+                                .text_sm()
+                                .text_color(theme.muted_foreground),
+                        )
+                        .child(NumberInput::new(&self.margin_left_input).small()),
+                );
 
             v_flex()
                 .pt_3()
