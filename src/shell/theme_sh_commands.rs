@@ -18,48 +18,16 @@ pub async fn apply_theme(dir: String) -> Result<(), String> {
     .await
 }
 
-// Refresh apps and gnome to apply theme changes
+// Refresh apps to apply theme changes
 pub fn refresh_theme() -> Result<(), String> {
-    // Run a best-effort, silent bash script (no terminal)
-    let script = r#"
-# Restart components to apply new theme
-if pgrep -x waybar >/dev/null; then
-  omarchy-restart-waybar
-fi
-omarchy-restart-swayosd
-omarchy-restart-terminal
-omarchy-restart-hyprctl
-omarchy-restart-btop
-omarchy-restart-opencode
-omarchy-restart-mako
-
-# Change app-specific themes
-omarchy-theme-set-gnome
-omarchy-theme-set-browser
-omarchy-theme-set-vscode
-omarchy-theme-set-obsidian
-omarchy-theme-set-keyboard
-
-# Call hook on theme set
-THEME_NAME="$(cat "$HOME/.config/omarchy/current/theme.name" 2>/dev/null | tr -d '[:space:]')"
-omarchy-hook theme-set "$THEME_NAME"
-"#;
-
-    let status = Command::new("bash")
-        .arg("-c")
-        .arg(script)
+    Command::new("omarchy-theme-refresh")
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
-        .status()
-        .map_err(|e| format!("Failed to start bash: {e}"))?;
+        .spawn()
+        .map_err(|e| format!("Failed to spawn omarchy-theme-refresh: {e}"))?;
 
-    if status.success() {
-        Ok(())
-    } else {
-        eprintln!("Desktop adjustments exited with status: {status}");
-        Ok(())
-    }
+    Ok(())
 }
 
 // Execute a bash command without waiting for output (fire and forget)
