@@ -38,6 +38,7 @@ impl LibraryRowState {
 // ModuleLibraryPanel — stateful inline panel
 pub struct ModuleLibraryPanel {
     profile_name: String,
+    is_read_only: bool,
     is_open: bool,
     rows: Vec<LibraryRowState>,
     preview: Entity<WaybarPreview>,
@@ -46,6 +47,7 @@ pub struct ModuleLibraryPanel {
 impl ModuleLibraryPanel {
     pub fn new(
         profile_name: &str,
+        is_read_only: bool,
         preview: Entity<WaybarPreview>,
         window: &mut Window,
         cx: &mut App,
@@ -57,17 +59,25 @@ impl ModuleLibraryPanel {
             .collect();
         Self {
             profile_name: profile_name.to_string(),
+            is_read_only,
             is_open: false,
             rows,
             preview,
         }
     }
 
-    pub fn switch_profile(&mut self, profile_name: &str) {
+    pub fn switch_profile(&mut self, profile_name: &str, is_read_only: bool) {
         self.profile_name = profile_name.to_string();
+        self.is_read_only = is_read_only;
+        if is_read_only {
+            self.is_open = false;
+        }
     }
 
     pub fn toggle(&mut self, cx: &mut Context<Self>) {
+        if self.is_read_only {
+            return;
+        }
         self.is_open = !self.is_open;
         cx.notify();
     }
@@ -110,7 +120,7 @@ fn render_row(
                 Ok(()) => {
                     let p = profile.clone();
                     preview_entity.update(cx, |preview, cx| {
-                        preview.reload(&p);
+                        preview.reload(&p, false);
                         cx.notify();
                     });
                     window.push_notification(format!("Added {} to bar", module_name), cx);
@@ -156,6 +166,10 @@ fn render_row(
 
 impl Render for ModuleLibraryPanel {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if self.is_read_only {
+            return div().into_any();
+        }
+
         if !self.is_open {
             return div().into_any();
         }

@@ -9,7 +9,8 @@ use gpui_component::{
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::{
-    has_original_waybar_backup, list_waybar_profiles, restore_original_waybar_config,
+    UNKNOWN_MANAGED_PROFILE, current_live_waybar_profile, has_unknown_managed_live_waybar,
+    is_read_only_waybar_profile, list_waybar_profiles,
 };
 use crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog;
 use crate::ui::dialogs::manage_waybar_profile_dialogs::{
@@ -19,28 +20,25 @@ use crate::ui::dialogs::manage_waybar_profile_dialogs::{
 
 pub struct StatusBarHeader {
     profile_select: Entity<SelectState<Vec<SharedString>>>,
-    /// Raw profile names in the same order as the select items.
     pub profile_names: Vec<String>,
-    /// Which header item has keyboard focus (None = no focus).
-    /// Items: 0=select, 1=add, 2=rename, 3=duplicate, 4=delete, 5=restore, 6=restart
     pub focused_item: Option<usize>,
 }
 
 impl StatusBarHeader {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let mut profile_names = list_waybar_profiles();
-        profile_names.sort();
-        if profile_names.is_empty() {
-            profile_names.push("omarchy-default".to_string());
-        }
+        let profile_names = available_profile_names();
 
         let items: Vec<SharedString> = profile_names
             .iter()
             .map(|n| SharedString::from(n.clone()))
             .collect();
 
-        let profile_select =
-            cx.new(|cx| SelectState::new(items, Some(IndexPath::default()), window, cx));
+        let initial = current_live_waybar_profile()
+            .and_then(|profile| profile_names.iter().position(|name| name == &profile))
+            .map(IndexPath::new)
+            .or(Some(IndexPath::default()));
+
+        let profile_select = cx.new(|cx| SelectState::new(items, initial, window, cx));
 
         Self {
             profile_select,
@@ -49,18 +47,13 @@ impl StatusBarHeader {
         }
     }
 
-    /// Updates the select in-place after a profile is created/renamed/deleted.
     pub fn reload_and_select(
         &mut self,
         profile_name: &str,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let mut profile_names = list_waybar_profiles();
-        profile_names.sort();
-        if profile_names.is_empty() {
-            profile_names.push("omarchy-default".to_string());
-        }
+        let profile_names = available_profile_names();
 
         let target = profile_name.to_string();
         let select_index = profile_names.iter().position(|n| n == &target).unwrap_or(0);
@@ -86,12 +79,10 @@ impl StatusBarHeader {
             .map(|s| s.as_ref())
     }
 
-    /// Returns the underlying select entity so callers can subscribe to changes.
     pub fn select_entity(&self) -> Entity<SelectState<Vec<SharedString>>> {
         self.profile_select.clone()
     }
 
-    /// Returns the currently selected profile name.
     pub fn current_profile_name(&self, cx: &App) -> String {
         self.profile_select
             .read(cx)
@@ -108,14 +99,16 @@ impl Render for StatusBarHeader {
         let focused = self.focused_item;
 
         let current_profile = self.current_profile_name(cx);
+        let is_read_only_selected = is_read_only_waybar_profile(&current_profile)
+            || current_profile == UNKNOWN_MANAGED_PROFILE;
 
         let profile_for_rename = current_profile.clone();
         let profile_for_duplicate = current_profile.clone();
         let profile_for_delete = current_profile.clone();
         let profile_for_restart = current_profile.clone();
 
-        let can_delete = self.profile_names.len() > 1;
-        let can_restore = has_original_waybar_backup();
+        let can_delete = self.profile_names.len() > 1 && !is_read_only_selected;
+        let can_manage_profile = !is_read_only_selected;
 
         let focus_ring = move |idx: usize| {
             move |this: gpui::Div| {
@@ -140,7 +133,6 @@ impl Render for StatusBarHeader {
                     .gap_2()
                     .items_center()
                     .flex_wrap()
-                    // Profile select
                     .child(
                         div()
                             .w(px(200.))
@@ -148,7 +140,6 @@ impl Render for StatusBarHeader {
                             .map(focus_ring(0))
                             .child(Select::new(&self.profile_select).small()),
                     )
-                    // Add Profile
                     .child(
                         div().rounded_md().map(focus_ring(1)).child(
                             Button::new("add-profile")
@@ -161,7 +152,6 @@ impl Render for StatusBarHeader {
                                 }),
                         ),
                     )
-                    // Rename profile
                     .child(
                         div().rounded_md().map(focus_ring(2)).child(
                             Button::new("rename-profile")
@@ -169,16 +159,18 @@ impl Render for StatusBarHeader {
                                 .ghost()
                                 .small()
                                 .tooltip("Rename Profile")
+                                .disabled(!can_manage_profile)
                                 .on_click(move |_, window, cx| {
-                                    open_rename_waybar_profile_dialog(
-                                        profile_for_rename.clone(),
-                                        window,
-                                        cx,
-                                    );
+                                    if can_manage_profile {
+                                        open_rename_waybar_profile_dialog(
+                                            profile_for_rename.clone(),
+                                            window,
+                                            cx,
+                                        );
+                                    }
                                 }),
                         ),
                     )
-                    // Duplicate profile
                     .child(
                         div().rounded_md().map(focus_ring(3)).child(
                             Button::new("duplicate-profile")
@@ -186,16 +178,18 @@ impl Render for StatusBarHeader {
                                 .ghost()
                                 .small()
                                 .tooltip("Duplicate Profile")
+                                .disabled(!can_manage_profile)
                                 .on_click(move |_, window, cx| {
-                                    open_duplicate_waybar_profile_dialog(
-                                        profile_for_duplicate.clone(),
-                                        window,
-                                        cx,
-                                    );
+                                    if can_manage_profile {
+                                        open_duplicate_waybar_profile_dialog(
+                                            profile_for_duplicate.clone(),
+                                            window,
+                                            cx,
+                                        );
+                                    }
                                 }),
                         ),
                     )
-                    // Delete profile (disabled when only 1 remains)
                     .child(
                         div().rounded_md().map(focus_ring(4)).child(
                             Button::new("delete-profile")
@@ -214,39 +208,15 @@ impl Render for StatusBarHeader {
                                     }
                                 }),
                         ),
-                    )
-                    // Restore original config (disabled when no backup)
-                    .child(
-                        div().rounded_md().map(focus_ring(5)).child(
-                            Button::new("restore-config")
-                                .icon(Icon::new(IconName::Undo2))
-                                .ghost()
-                                .small()
-                                .tooltip("Restore Original Config")
-                                .disabled(!can_restore)
-                                .on_click(move |_, _, _| {
-                                    if can_restore {
-                                        if let Err(e) = restore_original_waybar_config() {
-                                            eprintln!(
-                                                "Failed to restore original waybar config: {e}"
-                                            );
-                                        }
-                                        if let Err(e) = restart_waybar() {
-                                            eprintln!("Failed to restart waybar: {e}");
-                                        }
-                                    }
-                                }),
-                        ),
                     ),
             )
-            // Restart waybar
             .child(
-                div().rounded_md().map(focus_ring(6)).child(
+                div().rounded_md().map(focus_ring(5)).child(
                     Button::new("refresh-status-bar")
                         .icon(Icon::new(IconName::LoaderCircle))
                         .ghost()
                         .small()
-                        .tooltip("Restart Waybar")
+                        .tooltip("Apply And Restart Waybar")
                         .on_click(move |_, _, _| {
                             if let Err(e) =
                                 crate::system::waybar::apply_waybar_profile(&profile_for_restart)
@@ -260,4 +230,19 @@ impl Render for StatusBarHeader {
                 ),
             )
     }
+}
+
+fn available_profile_names() -> Vec<String> {
+    let mut profile_names = list_waybar_profiles();
+    profile_names.sort();
+
+    if has_unknown_managed_live_waybar() {
+        profile_names.insert(0, UNKNOWN_MANAGED_PROFILE.to_string());
+    }
+
+    if profile_names.is_empty() {
+        profile_names.push("omarchy-default".to_string());
+    }
+
+    profile_names
 }

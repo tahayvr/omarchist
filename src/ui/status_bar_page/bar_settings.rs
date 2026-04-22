@@ -1,6 +1,7 @@
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
+    ActiveTheme, Disableable, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
     input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     label::Label,
     select::{Select, SelectEvent, SelectState},
@@ -12,6 +13,7 @@ use crate::ui::status_bar_page::shared::labeled_input;
 
 pub struct BarSettingsPanel {
     profile_name: String,
+    is_read_only: bool,
     settings: BarSettings,
     expanded: bool,
 
@@ -36,8 +38,13 @@ const POSITIONS: &[&str] = &["top", "bottom", "left", "right"];
 const LAYERS: &[&str] = &["top", "bottom", "overlay", "background"];
 
 impl BarSettingsPanel {
-    pub fn new(profile_name: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let settings = get_bar_settings(profile_name).unwrap_or_default();
+    pub fn new(
+        profile_name: &str,
+        is_read_only: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let settings = load_settings(profile_name, is_read_only).unwrap_or_default();
 
         let mk_input = |val: String, placeholder: &str, window: &mut Window, cx: &mut App| {
             cx.new(|cx| {
@@ -137,6 +144,7 @@ impl BarSettingsPanel {
 
         Self {
             profile_name: profile_name.to_string(),
+            is_read_only,
             settings,
             expanded: false,
             height_input,
@@ -290,9 +298,16 @@ impl BarSettingsPanel {
         ]
     }
 
-    pub fn reload(&mut self, profile_name: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub fn reload(
+        &mut self,
+        profile_name: &str,
+        is_read_only: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.profile_name = profile_name.to_string();
-        let settings = get_bar_settings(profile_name).unwrap_or_default();
+        self.is_read_only = is_read_only;
+        let settings = load_settings(profile_name, is_read_only).unwrap_or_default();
 
         macro_rules! update_input {
             ($field:expr, $val:expr) => {
@@ -415,6 +430,7 @@ impl Render for BarSettingsPanel {
         let body: AnyElement = if expanded {
             let pos_entity = self.position_select.clone();
             let layer_entity = self.layer_select.clone();
+            let read_only = self.is_read_only;
 
             // Position + Layer row
             let selects_row = h_flex()
@@ -429,7 +445,7 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(Select::new(&pos_entity).small()),
+                        .child(Select::new(&pos_entity).small().disabled(read_only)),
                 )
                 .child(
                     v_flex()
@@ -440,7 +456,7 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(Select::new(&layer_entity).small()),
+                        .child(Select::new(&layer_entity).small().disabled(read_only)),
                 );
 
             // Height + Spacing row
@@ -456,7 +472,11 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.height_input).small()),
+                        .child(
+                            NumberInput::new(&self.height_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 )
                 .child(
                     v_flex()
@@ -467,11 +487,20 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.spacing_input).small()),
+                        .child(
+                            NumberInput::new(&self.spacing_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 );
 
             // Output field
-            let output_row = labeled_input("Output", &self.output_input, theme.muted_foreground);
+            let output_row = labeled_input(
+                "Output",
+                &self.output_input,
+                theme.muted_foreground,
+                read_only,
+            );
 
             // Margins row
             let margins_row = h_flex()
@@ -486,7 +515,11 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.margin_top_input).small()),
+                        .child(
+                            NumberInput::new(&self.margin_top_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 )
                 .child(
                     v_flex()
@@ -497,7 +530,11 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.margin_right_input).small()),
+                        .child(
+                            NumberInput::new(&self.margin_right_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 )
                 .child(
                     v_flex()
@@ -508,7 +545,11 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.margin_bottom_input).small()),
+                        .child(
+                            NumberInput::new(&self.margin_bottom_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 )
                 .child(
                     v_flex()
@@ -519,12 +560,24 @@ impl Render for BarSettingsPanel {
                                 .text_sm()
                                 .text_color(theme.muted_foreground),
                         )
-                        .child(NumberInput::new(&self.margin_left_input).small()),
+                        .child(
+                            NumberInput::new(&self.margin_left_input)
+                                .small()
+                                .disabled(read_only),
+                        ),
                 );
 
             v_flex()
                 .pt_3()
                 .gap_4()
+                .when(read_only, |this: gpui::Div| {
+                    this.child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("Bar settings are shown for reference until you import or manage this config."),
+                    )
+                })
                 .child(selects_row)
                 .child(sizes_row)
                 .child(output_row)
@@ -544,4 +597,9 @@ impl Render for BarSettingsPanel {
             .child(header)
             .child(body)
     }
+}
+
+fn load_settings(profile_name: &str, is_read_only: bool) -> Option<BarSettings> {
+    let _ = is_read_only;
+    get_bar_settings(profile_name)
 }

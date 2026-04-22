@@ -46,6 +46,7 @@ pub fn render_module_chip(
     zone: WaybarZone,
     index: usize,
     profile_name: &str,
+    is_read_only: bool,
     preview: Entity<WaybarPreview>,
     cx: &mut App,
 ) -> AnyElement {
@@ -75,6 +76,57 @@ pub fn render_module_chip(
     let profile_for_edit = profile_name.to_string();
     let module_key_for_edit = module.key.clone();
 
+    if !is_read_only {
+        return div()
+            .id(SharedString::from(format!(
+                "wbmod-{}-{}",
+                index,
+                label.replace(' ', "-").to_lowercase()
+            )))
+            .px_2()
+            .py_1()
+            .rounded_md()
+            .cursor_grab()
+            .bg(theme.secondary)
+            .text_color(theme.secondary_foreground)
+            .border_1()
+            .border_color(theme.border)
+            .hover(|s| s.bg(theme.secondary_hover))
+            .child(div().text_lg().line_height(relative(1.0)).child(display))
+            .tooltip(move |window, cx| Tooltip::new(label_for_tooltip.clone()).build(window, cx))
+            .on_drag(drag_payload, move |payload, _offset, _window, cx| {
+                cx.stop_propagation();
+                cx.new(|_| DragGhost {
+                    icon: icon_for_ghost.clone(),
+                    label: payload.label.clone(),
+                })
+            })
+            .context_menu(move |menu, _, _| {
+                let p = profile_for_edit.clone();
+                let mk = module_key_for_edit.clone();
+                menu.item(
+                    // TODO: Module editing is disabled for now — re-enable when the feature is ready
+                    PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu))
+                        .disabled(true)
+                        .on_click(move |_event, _window, _cx| {
+                            request_module_edit(p.clone(), mk.clone());
+                        }),
+                )
+                .separator()
+                .item({
+                    let preview = preview_for_remove.clone();
+                    let zone = zone_for_remove.clone();
+                    PopupMenuItem::new("Remove from bar").on_click(move |_event, _window, cx| {
+                        preview.update(cx, |this, cx| {
+                            this.remove_module(&zone, index);
+                            cx.notify();
+                        });
+                    })
+                })
+            })
+            .into_any();
+    }
+
     div()
         .id(SharedString::from(format!(
             "wbmod-{}-{}",
@@ -84,7 +136,6 @@ pub fn render_module_chip(
         .px_2()
         .py_1()
         .rounded_md()
-        .cursor_grab()
         .bg(theme.secondary)
         .text_color(theme.secondary_foreground)
         .border_1()
@@ -92,35 +143,5 @@ pub fn render_module_chip(
         .hover(|s| s.bg(theme.secondary_hover))
         .child(div().text_lg().line_height(relative(1.0)).child(display))
         .tooltip(move |window, cx| Tooltip::new(label_for_tooltip.clone()).build(window, cx))
-        .on_drag(drag_payload, move |payload, _offset, _window, cx| {
-            cx.stop_propagation();
-            cx.new(|_| DragGhost {
-                icon: icon_for_ghost.clone(),
-                label: payload.label.clone(),
-            })
-        })
-        .context_menu(move |menu, _, _| {
-            let p = profile_for_edit.clone();
-            let mk = module_key_for_edit.clone();
-            menu.item(
-                // TODO: Module editing is disabled for now — re-enable when the feature is ready
-                PopupMenuItem::new(format!("Edit \"{}\"", label_for_menu))
-                    .disabled(true)
-                    .on_click(move |_event, _window, _cx| {
-                        request_module_edit(p.clone(), mk.clone());
-                    }),
-            )
-            .separator()
-            .item({
-                let preview = preview_for_remove.clone();
-                let zone = zone_for_remove.clone();
-                PopupMenuItem::new("Remove from bar").on_click(move |_event, _window, cx| {
-                    preview.update(cx, |this, cx| {
-                        this.remove_module(&zone, index);
-                        cx.notify();
-                    });
-                })
-            })
-        })
         .into_any()
 }

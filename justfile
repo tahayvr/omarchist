@@ -10,7 +10,7 @@ alias rel := release
 
 # Run app
 run:
-    cargo run
+    cargo run --release
 
 # Run the Checker, Clippy, and Formatter
 check:

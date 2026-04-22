@@ -9,23 +9,30 @@ use crate::ui::status_bar_page::waybar_item::{DragWaybarModule, render_module_ch
 pub struct WaybarPreview {
     pub profile_name: String,
     pub config: Option<WaybarConfig>,
+    pub is_read_only: bool,
 }
 
 impl WaybarPreview {
-    pub fn new(profile_name: &str) -> Self {
-        let config = load_waybar_config(profile_name);
+    pub fn new(profile_name: &str, is_read_only: bool) -> Self {
+        let config = load_config(profile_name);
         Self {
             profile_name: profile_name.to_string(),
             config,
+            is_read_only,
         }
     }
 
-    pub fn reload(&mut self, profile_name: &str) {
+    pub fn reload(&mut self, profile_name: &str, is_read_only: bool) {
         self.profile_name = profile_name.to_string();
-        self.config = load_waybar_config(profile_name);
+        self.is_read_only = is_read_only;
+        self.config = load_config(profile_name);
     }
 
     pub fn remove_module(&mut self, zone: &WaybarZone, index: usize) {
+        if self.is_read_only {
+            return;
+        }
+
         let Some(cfg) = self.config.as_mut() else {
             return;
         };
@@ -51,6 +58,10 @@ impl WaybarPreview {
         dst_zone: &WaybarZone,
         dst_index: usize,
     ) {
+        if self.is_read_only {
+            return;
+        }
+
         let Some(cfg) = self.config.as_mut() else {
             return;
         };
@@ -102,36 +113,52 @@ impl WaybarPreview {
     }
 }
 
+fn load_config(profile_name: &str) -> Option<WaybarConfig> {
+    load_waybar_config(profile_name)
+}
+
 fn render_zone(
     entity: Entity<WaybarPreview>,
     zone: WaybarZone,
     modules: Vec<WaybarModule>,
     profile_name: &str,
+    is_read_only: bool,
     cx: &mut App,
 ) -> AnyElement {
     let chips: Vec<AnyElement> = modules
         .iter()
         .enumerate()
         .map(|(i, module)| {
-            let chip =
-                render_module_chip(module, zone.clone(), i, profile_name, entity.clone(), cx);
+            let chip = render_module_chip(
+                module,
+                zone.clone(),
+                i,
+                profile_name,
+                is_read_only,
+                entity.clone(),
+                cx,
+            );
             let zone_drop = zone.clone();
             let entity_drop = entity.clone();
 
-            div()
-                .child(chip)
-                .drag_over::<DragWaybarModule>(|style, _, _, cx| {
-                    style.border_l_2().border_color(cx.theme().drag_border)
-                })
-                .on_drop(move |payload: &DragWaybarModule, _window, cx| {
-                    entity_drop.update(cx, |this, cx| {
-                        if payload.zone != zone_drop || payload.index != i {
-                            this.move_module(&payload.zone, payload.index, &zone_drop, i);
-                        }
-                        cx.notify();
-                    });
-                })
-                .into_any()
+            if is_read_only {
+                div().child(chip).into_any()
+            } else {
+                div()
+                    .child(chip)
+                    .drag_over::<DragWaybarModule>(|style, _, _, cx| {
+                        style.border_l_2().border_color(cx.theme().drag_border)
+                    })
+                    .on_drop(move |payload: &DragWaybarModule, _window, cx| {
+                        entity_drop.update(cx, |this, cx| {
+                            if payload.zone != zone_drop || payload.index != i {
+                                this.move_module(&payload.zone, payload.index, &zone_drop, i);
+                            }
+                            cx.notify();
+                        });
+                    })
+                    .into_any()
+            }
         })
         .collect();
 
@@ -139,39 +166,44 @@ fn render_zone(
     let zone_end = zone.clone();
     let entity_end = entity.clone();
 
-    let trail_drop = div()
-        .w(px(4.))
-        .h_full()
-        .min_h(px(24.))
-        .drag_over::<DragWaybarModule>(|style, _, _, cx| {
-            style.border_l_2().border_color(cx.theme().drag_border)
-        })
-        .on_drop(move |payload: &DragWaybarModule, _window, cx| {
-            let dst_index = {
-                let preview = entity_end.read(cx);
-                match &zone_end {
-                    WaybarZone::Left => preview
-                        .config
-                        .as_ref()
-                        .map(|c| c.modules_left.len())
-                        .unwrap_or(0),
-                    WaybarZone::Center => preview
-                        .config
-                        .as_ref()
-                        .map(|c| c.modules_center.len())
-                        .unwrap_or(0),
-                    WaybarZone::Right => preview
-                        .config
-                        .as_ref()
-                        .map(|c| c.modules_right.len())
-                        .unwrap_or(0),
-                }
-            };
-            entity_end.update(cx, |this, cx| {
-                this.move_module(&payload.zone, payload.index, &zone_end, dst_index);
-                cx.notify();
-            });
-        });
+    let trail_drop = if is_read_only {
+        div().into_any()
+    } else {
+        div()
+            .w(px(4.))
+            .h_full()
+            .min_h(px(24.))
+            .drag_over::<DragWaybarModule>(|style, _, _, cx| {
+                style.border_l_2().border_color(cx.theme().drag_border)
+            })
+            .on_drop(move |payload: &DragWaybarModule, _window, cx| {
+                let dst_index = {
+                    let preview = entity_end.read(cx);
+                    match &zone_end {
+                        WaybarZone::Left => preview
+                            .config
+                            .as_ref()
+                            .map(|c| c.modules_left.len())
+                            .unwrap_or(0),
+                        WaybarZone::Center => preview
+                            .config
+                            .as_ref()
+                            .map(|c| c.modules_center.len())
+                            .unwrap_or(0),
+                        WaybarZone::Right => preview
+                            .config
+                            .as_ref()
+                            .map(|c| c.modules_right.len())
+                            .unwrap_or(0),
+                    }
+                };
+                entity_end.update(cx, |this, cx| {
+                    this.move_module(&payload.zone, payload.index, &zone_end, dst_index);
+                    cx.notify();
+                });
+            })
+            .into_any()
+    };
 
     h_flex()
         .gap_1()
@@ -208,30 +240,45 @@ impl Render for WaybarPreview {
         let center = config.modules_center.clone();
         let right = config.modules_right.clone();
         let profile_name = self.profile_name.clone();
+        let is_read_only = self.is_read_only;
 
         let entity = cx.entity().clone();
 
-        let left_zone = render_zone(entity.clone(), WaybarZone::Left, left, &profile_name, cx);
+        let left_zone = render_zone(
+            entity.clone(),
+            WaybarZone::Left,
+            left,
+            &profile_name,
+            is_read_only,
+            cx,
+        );
         let center_zone = render_zone(
             entity.clone(),
             WaybarZone::Center,
             center,
             &profile_name,
+            is_read_only,
             cx,
         );
-        let right_zone = render_zone(entity.clone(), WaybarZone::Right, right, &profile_name, cx);
+        let right_zone = render_zone(
+            entity.clone(),
+            WaybarZone::Right,
+            right,
+            &profile_name,
+            is_read_only,
+            cx,
+        );
 
         v_flex()
             .w_full()
             .flex_1()
             .mb_4()
             .gap_4()
-            .child(
-                div()
-                    .text_sm()
-                    .text_color(muted)
-                    .child("Drag modules to reorder between zones."),
-            )
+            .child(div().text_sm().text_color(muted).child(if is_read_only {
+                "This preview is read-only."
+            } else {
+                "Drag modules to reorder between zones."
+            }))
             .child(
                 div()
                     .w_full()

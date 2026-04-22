@@ -2,13 +2,21 @@ use std::fs;
 
 use super::icons::new_module;
 use super::jsonc::{find_top_level_key, find_value_end, strip_jsonc_comments};
-use super::paths::waybar_profile_config_path;
+use super::paths::{live_waybar_config_path, waybar_profile_config_path};
 use super::types::{BarSettings, WaybarConfig, WaybarModule, WaybarZone};
 
 pub fn get_bar_settings(profile_name: &str) -> Option<BarSettings> {
     let config_path = waybar_profile_config_path(profile_name)?;
+    get_bar_settings_from_path(&config_path)
+}
 
-    let raw = fs::read_to_string(&config_path).ok()?;
+pub fn get_live_bar_settings() -> Option<BarSettings> {
+    let config_path = live_waybar_config_path()?;
+    get_bar_settings_from_path(&config_path)
+}
+
+fn get_bar_settings_from_path(config_path: &std::path::Path) -> Option<BarSettings> {
+    let raw = fs::read_to_string(config_path).ok()?;
     let stripped = strip_jsonc_comments(&raw);
     let json: serde_json::Value = serde_json::from_str(&stripped).ok()?;
 
@@ -60,8 +68,19 @@ pub fn set_bar_setting(
 
 pub fn load_waybar_config(profile_name: &str) -> Option<WaybarConfig> {
     let config_path = waybar_profile_config_path(profile_name)?;
+    load_waybar_config_from_path(profile_name, &config_path)
+}
 
-    let raw = fs::read_to_string(&config_path).ok()?;
+pub fn load_live_waybar_config() -> Option<WaybarConfig> {
+    let config_path = live_waybar_config_path()?;
+    load_waybar_config_from_path("Current Waybar", &config_path)
+}
+
+fn load_waybar_config_from_path(
+    profile_name: &str,
+    config_path: &std::path::Path,
+) -> Option<WaybarConfig> {
+    let raw = fs::read_to_string(config_path).ok()?;
     let stripped = strip_jsonc_comments(&raw);
     let json: serde_json::Value = serde_json::from_str(&stripped).ok()?;
 
@@ -132,8 +151,21 @@ pub fn get_module_config(profile_name: &str, module_key: &str) -> serde_json::Va
     let Some(config_path) = waybar_profile_config_path(profile_name) else {
         return serde_json::Value::Null;
     };
+    get_module_config_from_path(&config_path, module_key)
+}
 
-    let Ok(raw) = fs::read_to_string(&config_path) else {
+pub fn get_live_module_config(module_key: &str) -> serde_json::Value {
+    let Some(config_path) = live_waybar_config_path() else {
+        return serde_json::Value::Null;
+    };
+    get_module_config_from_path(&config_path, module_key)
+}
+
+fn get_module_config_from_path(
+    config_path: &std::path::Path,
+    module_key: &str,
+) -> serde_json::Value {
+    let Ok(raw) = fs::read_to_string(config_path) else {
         return serde_json::Value::Null;
     };
     let stripped = strip_jsonc_comments(&raw);

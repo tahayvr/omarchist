@@ -30,6 +30,7 @@ pub fn take_pending_module_edit() -> Option<(String, String)> {
 
 pub struct ModuleEditorPanel {
     profile_name: String,
+    is_read_only: bool,
     module_key: String,
     is_open: bool,
 
@@ -43,7 +44,12 @@ pub struct ModuleEditorPanel {
 }
 
 impl ModuleEditorPanel {
-    pub fn new(profile_name: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        profile_name: &str,
+        is_read_only: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let format_input = cx.new(|cx| InputState::new(window, cx).placeholder("{icon}"));
         let interval_input = cx.new(|cx| InputState::new(window, cx).placeholder("seconds"));
         let tooltip_format_input =
@@ -65,6 +71,7 @@ impl ModuleEditorPanel {
 
         Self {
             profile_name: profile_name.to_string(),
+            is_read_only,
             module_key: String::new(),
             is_open: false,
             format_input,
@@ -132,8 +139,9 @@ impl ModuleEditorPanel {
         cx.notify();
     }
 
-    pub fn switch_profile(&mut self, profile_name: &str) {
+    pub fn switch_profile(&mut self, profile_name: &str, is_read_only: bool) {
         self.profile_name = profile_name.to_string();
+        self.is_read_only = is_read_only;
         self.is_open = false;
     }
 
@@ -253,9 +261,14 @@ impl Render for ModuleEditorPanel {
                     .child("✕"),
             );
 
-        let help = div().text_xs().text_color(theme.muted_foreground).child(
-            "Changes are saved immediately. Leave a field empty to inherit Waybar defaults.",
-        );
+        let help = div()
+            .text_xs()
+            .text_color(theme.muted_foreground)
+            .child(if self.is_read_only {
+                "This module view is read-only until Omarchist manages the config."
+            } else {
+                "Changes are saved immediately. Leave a field empty to inherit Waybar defaults."
+            });
 
         let fields_row = h_flex()
             .gap_4()
@@ -264,16 +277,19 @@ impl Render for ModuleEditorPanel {
                 "Format",
                 &self.format_input,
                 theme.muted_foreground,
+                self.is_read_only,
             ))
             .child(labeled_input(
                 "Interval (s)",
                 &self.interval_input,
                 theme.muted_foreground,
+                self.is_read_only,
             ))
             .child(labeled_input(
                 "Max Length",
                 &self.max_length_input,
                 theme.muted_foreground,
+                self.is_read_only,
             ));
 
         let fields_row2 = h_flex()
@@ -283,11 +299,13 @@ impl Render for ModuleEditorPanel {
                 "Tooltip Format",
                 &self.tooltip_format_input,
                 theme.muted_foreground,
+                self.is_read_only,
             ))
             .child(labeled_input_wide(
                 "On Click",
                 &self.on_click_input,
                 theme.muted_foreground,
+                self.is_read_only,
             ));
 
         v_flex()
