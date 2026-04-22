@@ -1,5 +1,4 @@
 // TODO: Re-enable when Add Module feature is ready
-// use gpui::prelude::FluentBuilder as _;
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -16,6 +15,7 @@ use crate::ui::status_bar_page::waybar_preview::WaybarPreview;
 
 pub struct DesignArea {
     profile_name: String,
+    is_read_only: bool,
     preview: Entity<WaybarPreview>,
     bar_settings: Entity<BarSettingsPanel>,
     module_editor: Entity<ModuleEditorPanel>,
@@ -23,25 +23,31 @@ pub struct DesignArea {
 }
 
 impl DesignArea {
-    pub fn new(profile_name: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        profile_name: &str,
+        is_read_only: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let name = profile_name.to_string();
-        let preview = cx.new(|_| WaybarPreview::new(&name));
+        let preview = cx.new(|_| WaybarPreview::new(&name, is_read_only));
         let bar_settings = {
             let n = name.clone();
-            cx.new(|cx| BarSettingsPanel::new(&n, window, cx))
+            cx.new(|cx| BarSettingsPanel::new(&n, is_read_only, window, cx))
         };
         let module_editor = {
             let n = name.clone();
-            cx.new(|cx| ModuleEditorPanel::new(&n, window, cx))
+            cx.new(|cx| ModuleEditorPanel::new(&n, is_read_only, window, cx))
         };
         let module_library = {
             let n = name.clone();
             let p = preview.clone();
-            let lib = ModuleLibraryPanel::new(&n, p, window, cx);
+            let lib = ModuleLibraryPanel::new(&n, is_read_only, p, window, cx);
             cx.new(|_| lib)
         };
         Self {
             profile_name: name,
+            is_read_only,
             preview,
             bar_settings,
             module_editor,
@@ -52,21 +58,23 @@ impl DesignArea {
     pub fn switch_profile(
         &mut self,
         profile_name: &str,
+        is_read_only: bool,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.profile_name = profile_name.to_string();
+        self.is_read_only = is_read_only;
         self.preview.update(cx, |preview, _| {
-            preview.reload(profile_name);
+            preview.reload(profile_name, is_read_only);
         });
         self.bar_settings.update(cx, |panel, cx| {
-            panel.reload(profile_name, window, cx);
+            panel.reload(profile_name, is_read_only, window, cx);
         });
         self.module_editor.update(cx, |editor, _| {
-            editor.switch_profile(profile_name);
+            editor.switch_profile(profile_name, is_read_only);
         });
         self.module_library.update(cx, |lib, _| {
-            lib.switch_profile(profile_name);
+            lib.switch_profile(profile_name, is_read_only);
         });
     }
 }

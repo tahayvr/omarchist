@@ -16,6 +16,12 @@ thread_local! {
     pub static PENDING_PROFILE_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
 }
 
+pub fn request_profile_navigation(profile_name: String) {
+    PENDING_PROFILE_NAVIGATION.with(|nav| {
+        *nav.borrow_mut() = Some(profile_name);
+    });
+}
+
 pub fn take_pending_profile_navigation() -> Option<String> {
     PENDING_PROFILE_NAVIGATION.with(|nav| nav.borrow_mut().take())
 }
@@ -113,9 +119,7 @@ impl RenderOnce for CreateProfileForm {
 
                                 match create_waybar_profile(&profile_name) {
                                     Ok(created_name) => {
-                                        PENDING_PROFILE_NAVIGATION.with(|nav| {
-                                            *nav.borrow_mut() = Some(created_name.clone());
-                                        });
+                                        request_profile_navigation(created_name.clone());
                                         window.close_dialog(cx);
                                         window.push_notification(
                                             format!("Created profile \"{}\"", created_name),
