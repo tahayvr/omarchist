@@ -16,14 +16,14 @@ use crate::ui::theme_edit_page::swayosd_tab::SwayosdTab;
 use crate::ui::theme_edit_page::terminal_tab::TerminalTab;
 use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     button::Button,
     h_flex,
     tab::{Tab, TabBar},
     v_flex,
 };
+use gpui_kit::*;
 
 const KEY_CONTEXT: &str = "ThemeEditPage";
 
@@ -132,7 +132,7 @@ impl ThemeEditPage {
 
         // Create focus handle and request focus immediately
         let focus_handle = cx.focus_handle();
-        focus_handle.focus(window);
+        focus_handle.focus(window, cx);
 
         Self {
             theme_name,

@@ -3,12 +3,12 @@ use crate::types::themes::{EditingTheme, HyprlockConfig};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
+use gpui_kit::*;
 
 pub struct LockScreenTab {
     theme_name: String,
@@ -40,15 +40,16 @@ impl LockScreenTab {
         // Create color picker states with current values
         // Note: hyprlock uses rgb format (0f0f19), not hex (#0f0f19)
         // But ColorPicker expects hex, so we add # prefix for display
-        let color = Self::rgb_to_hsla(&hyprlock_config.color).unwrap_or(gpui::rgb(0x0F0F19).into());
-        let inner_color =
-            Self::rgb_to_hsla(&hyprlock_config.inner_color).unwrap_or(gpui::rgb(0x0F0F19).into());
-        let outer_color =
-            Self::rgb_to_hsla(&hyprlock_config.outer_color).unwrap_or(gpui::rgb(0x33A0FF).into());
-        let font_color =
-            Self::rgb_to_hsla(&hyprlock_config.font_color).unwrap_or(gpui::rgb(0xFF66F5).into());
-        let check_color =
-            Self::rgb_to_hsla(&hyprlock_config.check_color).unwrap_or(gpui::rgb(0xFFEA00).into());
+        let color =
+            Self::rgb_to_hsla(&hyprlock_config.color).unwrap_or(gpui_kit::rgb(0x0F0F19).into());
+        let inner_color = Self::rgb_to_hsla(&hyprlock_config.inner_color)
+            .unwrap_or(gpui_kit::rgb(0x0F0F19).into());
+        let outer_color = Self::rgb_to_hsla(&hyprlock_config.outer_color)
+            .unwrap_or(gpui_kit::rgb(0x33A0FF).into());
+        let font_color = Self::rgb_to_hsla(&hyprlock_config.font_color)
+            .unwrap_or(gpui_kit::rgb(0xFF66F5).into());
+        let check_color = Self::rgb_to_hsla(&hyprlock_config.check_color)
+            .unwrap_or(gpui_kit::rgb(0xFFEA00).into());
 
         let color_picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(color));
 
@@ -165,7 +166,7 @@ impl LockScreenTab {
         let g = u8::from_str_radix(&hex[3..5], 16).ok()?;
         let b = u8::from_str_radix(&hex[5..7], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn hsla_to_rgb(color: &Hsla) -> String {

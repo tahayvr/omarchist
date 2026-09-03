@@ -1,21 +1,21 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     group_box::GroupBox,
     h_flex,
     progress::Progress,
-    table::{Column, Table, TableDelegate, TableState},
+    table::{Column, DataTable, TableDelegate, TableState},
     v_flex,
 };
+use gpui_kit::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
 
 use super::data_collector::{DataCollector, DiskInfo, format_bytes};
 
 pub struct DisksTab {
-    disk_table: gpui::Entity<TableState<DiskTableDelegate>>,
+    disk_table: gpui_kit::Entity<TableState<DiskTableDelegate>>,
 }
 
 impl DisksTab {
-    pub fn new(table: gpui::Entity<TableState<DiskTableDelegate>>) -> Self {
+    pub fn new(table: gpui_kit::Entity<TableState<DiskTableDelegate>>) -> Self {
         Self { disk_table: table }
     }
 
@@ -29,8 +29,8 @@ impl DisksTab {
     pub fn render(
         &self,
         collector: &DataCollector,
-        theme: &gpui_component::Theme,
-        viewport_width: gpui::Pixels,
+        theme: &gpui_kit::component::Theme,
+        viewport_width: gpui_kit::Pixels,
     ) -> impl IntoElement {
         let disks = collector.get_disks();
 
@@ -72,7 +72,7 @@ impl DisksTab {
                                         } else {
                                             px(240.0)
                                         })
-                                        .flex_grow()
+                                        .flex_grow(1.0)
                                         .min_w(if viewport_width < px(640.0) {
                                             px(0.0)
                                         } else {
@@ -85,7 +85,7 @@ impl DisksTab {
                                         .child(
                                             div()
                                                 .text_sm()
-                                                .font_weight(gpui::FontWeight::MEDIUM)
+                                                .font_weight(gpui_kit::FontWeight::MEDIUM)
                                                 .child(disk.name.clone()),
                                         )
                                         .child(div().text_xs().child(disk.mount_point.clone()))
@@ -94,10 +94,13 @@ impl DisksTab {
                                                 .gap_3()
                                                 .items_center()
                                                 .child(
-                                                    Progress::new()
-                                                        .w(px(140.0))
-                                                        .h(px(8.0))
-                                                        .value(usage_percent),
+                                                    Progress::new(format!(
+                                                        "disk-usage:{:?}",
+                                                        (&disk.name, &disk.mount_point)
+                                                    ))
+                                                    .w(px(140.0))
+                                                    .h(px(8.0))
+                                                    .value(usage_percent),
                                                 )
                                                 .child(
                                                     div()
@@ -143,7 +146,11 @@ impl DisksTab {
                         .min_h(px(150.0))
                         .flex_1()
                         .overflow_hidden()
-                        .child(Table::new(&self.disk_table).bordered(false).stripe(true)),
+                        .child(
+                            DataTable::new(&self.disk_table)
+                                .bordered(false)
+                                .stripe(true),
+                        ),
                 ),
             )
             .into_element()
@@ -153,7 +160,7 @@ impl DisksTab {
 pub fn create_disk_table(
     window: &mut Window,
     cx: &mut App,
-) -> gpui::Entity<TableState<DiskTableDelegate>> {
+) -> gpui_kit::Entity<TableState<DiskTableDelegate>> {
     let delegate = DiskTableDelegate::new();
     cx.new(|cx| {
         TableState::new(delegate, window, cx)
@@ -196,8 +203,8 @@ impl TableDelegate for DiskTableDelegate {
         self.disks.len()
     }
 
-    fn column(&self, col_ix: usize, _cx: &App) -> &Column {
-        &self.columns[col_ix]
+    fn column(&self, col_ix: usize, _cx: &App) -> Column {
+        self.columns[col_ix].clone()
     }
 
     fn render_td(
@@ -205,7 +212,7 @@ impl TableDelegate for DiskTableDelegate {
         row_ix: usize,
         col_ix: usize,
         _window: &mut Window,
-        cx: &mut gpui::Context<TableState<Self>>,
+        cx: &mut gpui_kit::Context<TableState<Self>>,
     ) -> impl IntoElement {
         let Some(disk) = self.disks.get(row_ix) else {
             return div().into_any_element();

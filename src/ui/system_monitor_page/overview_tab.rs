@@ -1,5 +1,5 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, v_flex};
+use gpui_kit::component::{Icon, v_flex};
+use gpui_kit::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
 
 use super::{
     data_collector::{DataCollector, format_bytes, format_bytes_speed},
@@ -22,8 +22,8 @@ impl OverviewTab {
     pub fn render(
         &self,
         collector: &DataCollector,
-        theme: &gpui_component::Theme,
-        viewport_width: gpui::Pixels,
+        theme: &gpui_kit::component::Theme,
+        viewport_width: gpui_kit::Pixels,
     ) -> impl IntoElement {
         let metrics = collector.get_current_metrics();
         let cpu_data: Vec<f64> = if collector.data.is_empty() {
@@ -270,9 +270,9 @@ impl OverviewTab {
 // Helper functions to create metric cards with consistent styling
 
 fn create_cpu_card(
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     cpu_percent: f32,
-    cpu_color: gpui::Hsla,
+    cpu_color: gpui_kit::Hsla,
     cpu_data: Vec<f64>,
     collector: &DataCollector,
 ) -> MetricCard {
@@ -286,9 +286,9 @@ fn create_cpu_card(
 }
 
 fn create_memory_card(
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     memory_percent: f32,
-    memory_color: gpui::Hsla,
+    memory_color: gpui_kit::Hsla,
     memory_data: Vec<f64>,
     collector: &DataCollector,
 ) -> MetricCard {
@@ -307,7 +307,7 @@ fn create_memory_card(
 }
 
 fn create_network_card(
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     network_down: u64,
     network_up: u64,
     network_down_data: Vec<f64>,
@@ -321,9 +321,9 @@ fn create_network_card(
 }
 
 fn create_disk_card(
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     disk_percent: f32,
-    disk_color: gpui::Hsla,
+    disk_color: gpui_kit::Hsla,
     collector: &DataCollector,
 ) -> MetricCard {
     let disks = collector.get_disks();
@@ -342,7 +342,7 @@ fn create_disk_card(
         .border_color(theme.border)
 }
 
-fn create_processes_card(theme: &gpui_component::Theme, process_count: usize) -> MetricCard {
+fn create_processes_card(theme: &gpui_kit::component::Theme, process_count: usize) -> MetricCard {
     MetricCard::new("Processes", format!("{}", process_count))
         .icon(Icon::new(Icon::empty()).path("icons/layout-dashboard.svg"))
         .color(theme.chart_2)
@@ -351,7 +351,7 @@ fn create_processes_card(theme: &gpui_component::Theme, process_count: usize) ->
 }
 
 fn create_battery_card(
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
     battery: super::data_collector::BatteryInfo,
     collector: &DataCollector,
 ) -> MetricCard {

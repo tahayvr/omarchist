@@ -1,8 +1,8 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, button::Button, h_flex, text::TextView, text::TextViewStyle, v_flex,
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::system::omarchy::{
     omarchy_version::{check_omarchy_update, get_local_omarchy_version},
@@ -79,11 +79,9 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    title_bar
-                        .update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
+                    title_bar.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
                 }
                 Err(e) => {
                     eprintln!("Failed to check for omarchy updates: {e}");
@@ -136,7 +134,7 @@ impl OmarchyView {
 }
 
 impl Render for OmarchyView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let update_available = self.update_available == Some(true);
         let update_btn_focused = self.update_btn_focused && update_available;
@@ -185,7 +183,7 @@ impl Render for OmarchyView {
                             .child(
                                 div()
                                     .rounded_md()
-                                    .when(update_btn_focused, move |this: gpui::Div| {
+                                    .when(update_btn_focused, move |this: gpui_kit::Div| {
                                         this.border_2().border_color(focused_border)
                                     })
                                     .child(
@@ -238,9 +236,9 @@ impl Render for OmarchyView {
 
             let is_dark = cx.theme().mode.is_dark();
             let highlight_theme = if is_dark {
-                gpui_component::highlighter::HighlightTheme::default_dark()
+                gpui_kit::component::highlighter::HighlightTheme::default_dark()
             } else {
-                gpui_component::highlighter::HighlightTheme::default_light()
+                gpui_kit::component::highlighter::HighlightTheme::default_light()
             };
 
             let style = TextViewStyle {
@@ -256,7 +254,7 @@ impl Render for OmarchyView {
                 ..Default::default()
             };
 
-            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx)
+            let markdown_view = TextView::markdown("release-notes", notes.clone())
                 .style(style)
                 .line_height(rems(1.6))
                 .selectable(true);

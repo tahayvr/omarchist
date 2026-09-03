@@ -198,7 +198,7 @@ impl DataCollector {
         let mut total_up: u64 = 0;
         let mut total_down: u64 = 0;
 
-        for (_, network) in self.networks.iter() {
+        for network in self.networks.values() {
             total_up += network.total_transmitted();
             total_down += network.total_received();
         }
@@ -453,8 +453,8 @@ pub fn get_metric_color(
     value: f32,
     warning: f32,
     critical: f32,
-    theme: &gpui_component::Theme,
-) -> gpui::Hsla {
+    theme: &gpui_kit::component::Theme,
+) -> gpui_kit::Hsla {
     if value >= critical {
         theme.red
     } else if value >= warning {

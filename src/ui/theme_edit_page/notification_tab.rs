@@ -4,13 +4,13 @@ use crate::types::themes::{EditingTheme, MakoConfig};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
+use gpui_kit::*;
 
 pub struct NotificationTab {
     theme_name: String,
@@ -34,11 +34,11 @@ impl NotificationTab {
 
         // Create color picker states with current values
         let text_color =
-            Self::hex_to_hsla(&mako_config.text_color).unwrap_or(gpui::rgb(0xEDEDFE).into());
+            Self::hex_to_hsla(&mako_config.text_color).unwrap_or(gpui_kit::rgb(0xEDEDFE).into());
         let border_color =
-            Self::hex_to_hsla(&mako_config.border_color).unwrap_or(gpui::rgb(0x00F59B).into());
-        let background_color =
-            Self::hex_to_hsla(&mako_config.background_color).unwrap_or(gpui::rgb(0x0F0F19).into());
+            Self::hex_to_hsla(&mako_config.border_color).unwrap_or(gpui_kit::rgb(0x00F59B).into());
+        let background_color = Self::hex_to_hsla(&mako_config.background_color)
+            .unwrap_or(gpui_kit::rgb(0x0F0F19).into());
 
         let text_color_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(text_color));
@@ -120,7 +120,7 @@ impl NotificationTab {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn update_mako_config<F>(&mut self, updater: F)

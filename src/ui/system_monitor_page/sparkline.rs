@@ -1,5 +1,5 @@
-use gpui::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
-use gpui_component::{chart::AreaChart, h_flex};
+use gpui_kit::component::{chart::AreaChart, h_flex};
+use gpui_kit::{Hsla, IntoElement, ParentElement, Pixels, Styled, div};
 
 #[derive(Clone)]
 pub struct Sparkline {
@@ -13,8 +13,8 @@ impl Sparkline {
     pub fn new(data: Vec<f64>) -> Self {
         Self {
             data,
-            color: gpui::Hsla::default(),
-            height: gpui::px(40.0),
+            color: gpui_kit::Hsla::default(),
+            height: gpui_kit::px(40.0),
             fill: true,
         }
     }
@@ -36,7 +36,7 @@ impl Sparkline {
 }
 
 impl IntoElement for Sparkline {
-    type Element = gpui::Div;
+    type Element = gpui_kit::Div;
 
     fn into_element(self) -> Self::Element {
         let data_points = build_chart_points(&self.data, 5);
@@ -51,16 +51,16 @@ impl IntoElement for Sparkline {
                     .y(|(_, v)| *v)
                     .stroke(self.color)
                     .fill(if self.fill {
-                        gpui::linear_gradient(
+                        gpui_kit::linear_gradient(
                             0.0,
-                            gpui::linear_color_stop(self.color.opacity(0.3), 1.0),
-                            gpui::linear_color_stop(gpui::Hsla::transparent_black(), 0.0),
+                            gpui_kit::linear_color_stop(self.color.opacity(0.3), 1.0),
+                            gpui_kit::linear_color_stop(gpui_kit::Hsla::transparent_black(), 0.0),
                         )
                     } else {
-                        gpui::linear_gradient(
+                        gpui_kit::linear_gradient(
                             0.0,
-                            gpui::linear_color_stop(gpui::Hsla::transparent_black(), 0.0),
-                            gpui::linear_color_stop(gpui::Hsla::transparent_black(), 0.0),
+                            gpui_kit::linear_color_stop(gpui_kit::Hsla::transparent_black(), 0.0),
+                            gpui_kit::linear_color_stop(gpui_kit::Hsla::transparent_black(), 0.0),
                         )
                     })
                     .tick_margin(tick_margin),
@@ -107,7 +107,7 @@ impl StatusDot {
     pub fn new(color: Hsla) -> Self {
         Self {
             color,
-            size: gpui::px(8.0),
+            size: gpui_kit::px(8.0),
         }
     }
 
@@ -118,7 +118,7 @@ impl StatusDot {
 }
 
 impl IntoElement for StatusDot {
-    type Element = gpui::Div;
+    type Element = gpui_kit::Div;
 
     fn into_element(self) -> Self::Element {
         div()
@@ -147,7 +147,7 @@ pub fn trend_color(
     current: f64,
     previous: f64,
     higher_is_better: bool,
-    theme: &gpui_component::Theme,
+    theme: &gpui_kit::component::Theme,
 ) -> Hsla {
     let diff = current - previous;
     let threshold = 0.1;

@@ -1,12 +1,12 @@
 // TODO: Re-enable when Add Module feature is ready
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     // IconName, Sizable,
     // button::{Button, ButtonVariants as _},
     // h_flex,
     v_flex,
 };
+use gpui_kit::*;
 
 use crate::ui::status_bar_page::bar_settings::BarSettingsPanel;
 use crate::ui::status_bar_page::module_editor::{ModuleEditorPanel, take_pending_module_edit};

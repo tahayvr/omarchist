@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::App;
-use gpui_component::{Theme, ThemeConfig};
+use gpui_kit::App;
+use gpui_kit::component::{Theme, ThemeConfig};
 use smol::Timer;
 
 use crate::system::themes::color_utils::{
@@ -364,11 +364,6 @@ pub fn spawn_ui_theme_watcher(cx: &mut App) {
         loop {
             Timer::after(POLL_INTERVAL).await;
 
-            // Stop the loop if the app has shut down.
-            if cx.update(|_| {}).is_err() {
-                break;
-            }
-
             let current_theme_name = get_active_omarchy_theme_name();
 
             if current_theme_name != last_theme_name {
@@ -376,7 +371,7 @@ pub fn spawn_ui_theme_watcher(cx: &mut App) {
                 PENDING_UI_THEME_RELOAD.with(|flag| {
                     *flag.borrow_mut() = true;
                 });
-                let _ = cx.refresh();
+                cx.refresh();
             }
         }
     })

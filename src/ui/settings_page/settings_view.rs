@@ -1,5 +1,5 @@
-use gpui::*;
-use gpui_component::{ActiveTheme, h_flex, label::Label, switch::Switch, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, label::Label, switch::Switch, v_flex};
+use gpui_kit::*;
 
 use crate::system::config::config_setup::{read_settings, save_settings};
 use crate::ui::menu::app_menu;

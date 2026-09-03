@@ -1,6 +1,8 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, StyledExt, h_flex, select::SelectEvent, v_flex};
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, StyledExt, h_flex, select::SelectEvent, v_flex,
+};
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::{
@@ -195,10 +197,10 @@ impl Render for StatusBarView {
                         let header = this.header_entity();
                         let select = header.read(cx).select_entity();
                         let fh = {
-                            use gpui::Focusable;
+                            use gpui_kit::Focusable;
                             select.read(cx).focus_handle(cx).clone()
                         };
-                        fh.focus(window);
+                        fh.focus(window, cx);
                     }
                     Some(1) => {
                         crate::ui::dialogs::create_waybar_profile_dialog::open_create_waybar_profile_dialog(window, cx);

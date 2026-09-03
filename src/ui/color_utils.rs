@@ -1,4 +1,4 @@
-use gpui::{Hsla, rgb};
+use gpui_kit::{Hsla, rgb};
 
 // Parse a #RRGGBB hex string into GPUI's Hsla type.
 pub fn hex_to_hsla(hex: &str) -> Option<Hsla> {

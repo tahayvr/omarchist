@@ -4,13 +4,13 @@ use crate::types::themes::{BrowserConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
+use gpui_kit::*;
 
 pub struct BrowserTab {
     theme_name: String,
@@ -36,8 +36,8 @@ impl BrowserTab {
             .unwrap_or_default();
 
         // Create color picker state with current theme color
-        let theme_color =
-            Self::hex_to_hsla(&browser_config.theme_color).unwrap_or(gpui::rgb(0x0F0F19).into());
+        let theme_color = Self::hex_to_hsla(&browser_config.theme_color)
+            .unwrap_or(gpui_kit::rgb(0x0F0F19).into());
 
         let theme_color_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(theme_color));
@@ -79,7 +79,7 @@ impl BrowserTab {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn update_browser_config<F>(&mut self, updater: F)

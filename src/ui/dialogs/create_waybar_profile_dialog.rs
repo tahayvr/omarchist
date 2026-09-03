@@ -1,14 +1,14 @@
 use std::cell::RefCell;
 
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
     input::{Input, InputState},
     v_flex,
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::system::waybar::create_waybar_profile;
 
@@ -50,7 +50,7 @@ pub fn open_create_waybar_profile_dialog(window: &mut Window, cx: &mut App) {
     });
 
     // Auto-focus the input field
-    focus.focus(window);
+    focus.focus(window, cx);
 }
 
 #[derive(IntoElement)]
@@ -82,7 +82,7 @@ impl RenderOnce for CreateProfileForm {
                             .child("Profile name"),
                     )
                     .child(Input::new(&self.name_input))
-                    .when(error_text.is_some(), |this: gpui::Div| {
+                    .when(error_text.is_some(), |this: gpui_kit::Div| {
                         this.child(
                             div()
                                 .text_xs()

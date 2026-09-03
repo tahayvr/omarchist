@@ -1,11 +1,11 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable, Icon, IconName, IndexPath, Sizable,
     button::{Button, ButtonVariants as _},
     h_flex,
     select::{Select, SelectState},
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::shell::waybar_sh_commands::restart_waybar;
 use crate::system::waybar::{
@@ -111,7 +111,7 @@ impl Render for StatusBarHeader {
         let can_manage_profile = !is_read_only_selected;
 
         let focus_ring = move |idx: usize| {
-            move |this: gpui::Div| {
+            move |this: gpui_kit::Div| {
                 if focused == Some(idx) {
                     this.border_2().border_color(ring)
                 } else {

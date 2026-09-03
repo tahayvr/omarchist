@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_flex};
+use gpui_kit::component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_flex};
+use gpui_kit::*;
 use smol;
 
 use crate::system::themes::theme_generator::create_theme_from_image;

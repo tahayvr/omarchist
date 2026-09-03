@@ -1,5 +1,7 @@
-use gpui::{IntoElement, ParentElement, Styled, div, px};
-use gpui_component::{chart::AreaChart, group_box::GroupBox, h_flex, progress::Progress, v_flex};
+use gpui_kit::component::{
+    chart::AreaChart, group_box::GroupBox, h_flex, progress::Progress, v_flex,
+};
+use gpui_kit::{IntoElement, ParentElement, Styled, div, px};
 
 use super::data_collector::{DataCollector, format_bytes};
 
@@ -19,8 +21,8 @@ impl SystemTab {
     pub fn render(
         &self,
         collector: &DataCollector,
-        theme: &gpui_component::Theme,
-        viewport_width: gpui::Pixels,
+        theme: &gpui_kit::component::Theme,
+        viewport_width: gpui_kit::Pixels,
     ) -> impl IntoElement {
         let cpu_data: Vec<f64> = collector.data.iter().map(|p| p.cpu).collect();
         let memory_data: Vec<f64> = collector.data.iter().map(|p| p.memory).collect();
@@ -70,7 +72,10 @@ impl SystemTab {
                                             .gap_2()
                                             .items_center()
                                             .child(
-                                                Progress::new().w(px(96.0)).h(px(8.0)).value(usage),
+                                                Progress::new(format!("cpu-core-{}", core.name))
+                                                    .w(px(96.0))
+                                                    .h(px(8.0))
+                                                    .value(usage),
                                             )
                                             .child(
                                                 div()
@@ -92,10 +97,13 @@ impl SystemTab {
                                         .y(|(_, v)| *v)
                                         .step_after()
                                         .stroke(cyan)
-                                        .fill(gpui::linear_gradient(
+                                        .fill(gpui_kit::linear_gradient(
                                             0.0,
-                                            gpui::linear_color_stop(cyan.opacity(0.3), 1.0),
-                                            gpui::linear_color_stop(background.opacity(0.1), 0.0),
+                                            gpui_kit::linear_color_stop(cyan.opacity(0.3), 1.0),
+                                            gpui_kit::linear_color_stop(
+                                                background.opacity(0.1),
+                                                0.0,
+                                            ),
                                         ))
                                         .tick_margin(10),
                                 ),
@@ -117,10 +125,13 @@ impl SystemTab {
                                         .y(|(_, v)| *v)
                                         .step_after()
                                         .stroke(blue)
-                                        .fill(gpui::linear_gradient(
+                                        .fill(gpui_kit::linear_gradient(
                                             0.0,
-                                            gpui::linear_color_stop(blue.opacity(0.3), 1.0),
-                                            gpui::linear_color_stop(background.opacity(0.1), 0.0),
+                                            gpui_kit::linear_color_stop(blue.opacity(0.3), 1.0),
+                                            gpui_kit::linear_color_stop(
+                                                background.opacity(0.1),
+                                                0.0,
+                                            ),
                                         ))
                                         .tick_margin(10),
                                 ),

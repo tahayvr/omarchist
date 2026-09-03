@@ -3,12 +3,12 @@ use crate::types::themes::{EditingTheme, WalkerConfig};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
+use gpui_kit::*;
 
 pub struct MenuTab {
     theme_name: String,
@@ -35,17 +35,17 @@ impl MenuTab {
 
         // Create color picker states with current values
         let background_color =
-            Self::hex_to_hsla(&walker_config.background).unwrap_or(gpui::rgb(0x0F0F19).into());
+            Self::hex_to_hsla(&walker_config.background).unwrap_or(gpui_kit::rgb(0x0F0F19).into());
         let base_color =
-            Self::hex_to_hsla(&walker_config.base).unwrap_or(gpui::rgb(0x0F0F19).into());
+            Self::hex_to_hsla(&walker_config.base).unwrap_or(gpui_kit::rgb(0x0F0F19).into());
         let border_color =
-            Self::hex_to_hsla(&walker_config.border).unwrap_or(gpui::rgb(0x33A1FF).into());
+            Self::hex_to_hsla(&walker_config.border).unwrap_or(gpui_kit::rgb(0x33A1FF).into());
         let foreground_color =
-            Self::hex_to_hsla(&walker_config.foreground).unwrap_or(gpui::rgb(0xEDEDFE).into());
+            Self::hex_to_hsla(&walker_config.foreground).unwrap_or(gpui_kit::rgb(0xEDEDFE).into());
         let text_color =
-            Self::hex_to_hsla(&walker_config.text).unwrap_or(gpui::rgb(0xEDEDFE).into());
-        let selected_text_color =
-            Self::hex_to_hsla(&walker_config.selected_text).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&walker_config.text).unwrap_or(gpui_kit::rgb(0xEDEDFE).into());
+        let selected_text_color = Self::hex_to_hsla(&walker_config.selected_text)
+            .unwrap_or(gpui_kit::rgb(0xFF66F6).into());
 
         let background_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(background_color));
@@ -180,7 +180,7 @@ impl MenuTab {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn update_walker_config<F>(&mut self, updater: F)

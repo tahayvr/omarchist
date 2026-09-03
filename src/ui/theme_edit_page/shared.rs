@@ -1,5 +1,4 @@
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     clipboard::Clipboard,
     color_picker::{ColorPicker, ColorPickerState},
@@ -9,6 +8,7 @@ use gpui_component::{
     switch::Switch,
     v_flex,
 };
+use gpui_kit::*;
 
 pub struct FormField {
     label: String,
@@ -89,7 +89,7 @@ impl RenderOnce for ToggleField {
     fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let is_checked = self.is_checked;
         let on_change = self.on_change;
-        let id: gpui::SharedString = self.id.into();
+        let id: gpui_kit::SharedString = self.id.into();
 
         h_flex()
             .gap_4()

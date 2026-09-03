@@ -3,14 +3,14 @@ use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::ThemeOrigin;
 use crate::ui::menu::app_menu;
 use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     scroll::ScrollableElement,
     tab::{Tab, TabBar},
     v_flex,
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 const KEY_CONTEXT: &str = "ThemesPage";
 

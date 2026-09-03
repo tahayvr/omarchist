@@ -1,7 +1,7 @@
-use gpui::FontWeight;
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*, h_flex, v_flex};
+use gpui_kit::FontWeight;
+use gpui_kit::component::{ActiveTheme, Icon, IconName, Sizable, button::*, h_flex, v_flex};
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::ui::menu::app_menu;
 
@@ -63,9 +63,11 @@ impl Render for AboutView {
 
         let make_btn_wrapper = |index: usize, focused_button: Option<usize>| {
             let is_focused = focused_button == Some(index);
-            div().rounded_md().when(is_focused, move |this: gpui::Div| {
-                this.border_2().border_color(focused_border)
-            })
+            div()
+                .rounded_md()
+                .when(is_focused, move |this: gpui_kit::Div| {
+                    this.border_2().border_color(focused_border)
+                })
         };
 
         v_flex()
@@ -134,7 +136,7 @@ impl Render for AboutView {
                     .child(
                         make_btn_wrapper(1, self.focused_button).child(
                             Button::new("github")
-                                .icon(Icon::new(IconName::GitHub).size_8())
+                                .icon(Icon::new(IconName::Github).size_8())
                                 .ghost()
                                 .cursor_pointer()
                                 .large()

@@ -1,11 +1,11 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
-    ActiveTheme, Icon, IconName, PixelsExt, Side, Sizable, TitleBar,
+use gpui_kit::component::{
+    ActiveTheme, Icon, IconName, Side, Sizable, TitleBar,
     button::*,
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::ui::menu::app_menu::SelectFont;
 
@@ -123,7 +123,7 @@ impl Render for MainTitleBar {
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
                                 let font_size = cx.theme().font_size.as_f32() as i32;
-                                let is_light = cx.theme().mode == gpui_component::ThemeMode::Light;
+                                let is_light = cx.theme().mode == gpui_kit::component::ThemeMode::Light;
                                 menu.label("Font Size")
                                     .check_side(Side::Right)
                                     .menu_with_check("Large", font_size == 18, Box::new(SelectFont(18)))
@@ -138,7 +138,7 @@ impl Render for MainTitleBar {
                     )
                     .child(
                         Button::new("github")
-                            .icon(IconName::GitHub)
+                            .icon(IconName::Github)
                             .small()
                             .ghost()
                             .cursor_pointer()
@@ -152,6 +152,6 @@ impl Render for MainTitleBar {
 }
 
 pub fn handle_select_font(font_size: &SelectFont, window: &mut Window, cx: &mut App) {
-    gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size.0 as f32);
+    gpui_kit::component::Theme::global_mut(cx).font_size = gpui_kit::px(font_size.0 as f32);
     window.refresh();
 }

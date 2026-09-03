@@ -3,13 +3,14 @@ use crate::types::themes::{BtopConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
-    divider::Divider,
-    h_flex, v_flex,
+    h_flex,
+    separator::Separator,
+    v_flex,
 };
+use gpui_kit::*;
 
 pub struct BtopTab {
     theme_name: String,
@@ -78,71 +79,78 @@ impl BtopTab {
         let btop_config = theme_data.apps.btop.as_ref().cloned().unwrap_or_default();
 
         // Create color picker states with current values
-        let main_bg = Self::hex_to_hsla(&btop_config.main_bg).unwrap_or(gpui::rgb(0x0F0F19).into());
-        let main_fg = Self::hex_to_hsla(&btop_config.main_fg).unwrap_or(gpui::rgb(0xEDEDFE).into());
-        let title = Self::hex_to_hsla(&btop_config.title).unwrap_or(gpui::rgb(0x6e6e92).into());
-        let hi_fg = Self::hex_to_hsla(&btop_config.hi_fg).unwrap_or(gpui::rgb(0x33A1FF).into());
+        let main_bg =
+            Self::hex_to_hsla(&btop_config.main_bg).unwrap_or(gpui_kit::rgb(0x0F0F19).into());
+        let main_fg =
+            Self::hex_to_hsla(&btop_config.main_fg).unwrap_or(gpui_kit::rgb(0xEDEDFE).into());
+        let title = Self::hex_to_hsla(&btop_config.title).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
+        let hi_fg = Self::hex_to_hsla(&btop_config.hi_fg).unwrap_or(gpui_kit::rgb(0x33A1FF).into());
         let selected_bg =
-            Self::hex_to_hsla(&btop_config.selected_bg).unwrap_or(gpui::rgb(0xf59e0b).into());
+            Self::hex_to_hsla(&btop_config.selected_bg).unwrap_or(gpui_kit::rgb(0xf59e0b).into());
         let selected_fg =
-            Self::hex_to_hsla(&btop_config.selected_fg).unwrap_or(gpui::rgb(0xEDEDFE).into());
+            Self::hex_to_hsla(&btop_config.selected_fg).unwrap_or(gpui_kit::rgb(0xEDEDFE).into());
         let inactive_fg =
-            Self::hex_to_hsla(&btop_config.inactive_fg).unwrap_or(gpui::rgb(0x333333).into());
+            Self::hex_to_hsla(&btop_config.inactive_fg).unwrap_or(gpui_kit::rgb(0x333333).into());
         let proc_misc =
-            Self::hex_to_hsla(&btop_config.proc_misc).unwrap_or(gpui::rgb(0x8a8a8d).into());
-        let cpu_box = Self::hex_to_hsla(&btop_config.cpu_box).unwrap_or(gpui::rgb(0x6e6e92).into());
-        let mem_box = Self::hex_to_hsla(&btop_config.mem_box).unwrap_or(gpui::rgb(0x6e6e92).into());
-        let net_box = Self::hex_to_hsla(&btop_config.net_box).unwrap_or(gpui::rgb(0x6e6e92).into());
+            Self::hex_to_hsla(&btop_config.proc_misc).unwrap_or(gpui_kit::rgb(0x8a8a8d).into());
+        let cpu_box =
+            Self::hex_to_hsla(&btop_config.cpu_box).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
+        let mem_box =
+            Self::hex_to_hsla(&btop_config.mem_box).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
+        let net_box =
+            Self::hex_to_hsla(&btop_config.net_box).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
         let proc_box =
-            Self::hex_to_hsla(&btop_config.proc_box).unwrap_or(gpui::rgb(0x6e6e92).into());
+            Self::hex_to_hsla(&btop_config.proc_box).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
         let div_line =
-            Self::hex_to_hsla(&btop_config.div_line).unwrap_or(gpui::rgb(0x6e6e92).into());
+            Self::hex_to_hsla(&btop_config.div_line).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
         let temp_start =
-            Self::hex_to_hsla(&btop_config.temp_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.temp_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let temp_mid =
-            Self::hex_to_hsla(&btop_config.temp_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.temp_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let temp_end =
-            Self::hex_to_hsla(&btop_config.temp_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.temp_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
         let cpu_start =
-            Self::hex_to_hsla(&btop_config.cpu_start).unwrap_or(gpui::rgb(0x00F59B).into());
-        let cpu_mid = Self::hex_to_hsla(&btop_config.cpu_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
-        let cpu_end = Self::hex_to_hsla(&btop_config.cpu_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.cpu_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
+        let cpu_mid =
+            Self::hex_to_hsla(&btop_config.cpu_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
+        let cpu_end =
+            Self::hex_to_hsla(&btop_config.cpu_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
         let free_start =
-            Self::hex_to_hsla(&btop_config.free_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.free_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let free_mid =
-            Self::hex_to_hsla(&btop_config.free_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.free_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let free_end =
-            Self::hex_to_hsla(&btop_config.free_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.free_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
         let cached_start =
-            Self::hex_to_hsla(&btop_config.cached_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.cached_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let cached_mid =
-            Self::hex_to_hsla(&btop_config.cached_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.cached_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let cached_end =
-            Self::hex_to_hsla(&btop_config.cached_end).unwrap_or(gpui::rgb(0xFF3366).into());
-        let available_start =
-            Self::hex_to_hsla(&btop_config.available_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.cached_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
+        let available_start = Self::hex_to_hsla(&btop_config.available_start)
+            .unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let available_mid =
-            Self::hex_to_hsla(&btop_config.available_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.available_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let available_end =
-            Self::hex_to_hsla(&btop_config.available_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.available_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
         let used_start =
-            Self::hex_to_hsla(&btop_config.used_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.used_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let used_mid =
-            Self::hex_to_hsla(&btop_config.used_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.used_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let used_end =
-            Self::hex_to_hsla(&btop_config.used_end).unwrap_or(gpui::rgb(0xFF3366).into());
-        let download_start =
-            Self::hex_to_hsla(&btop_config.download_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.used_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
+        let download_start = Self::hex_to_hsla(&btop_config.download_start)
+            .unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let download_mid =
-            Self::hex_to_hsla(&btop_config.download_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.download_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let download_end =
-            Self::hex_to_hsla(&btop_config.download_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.download_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
         let upload_start =
-            Self::hex_to_hsla(&btop_config.upload_start).unwrap_or(gpui::rgb(0x00F59B).into());
+            Self::hex_to_hsla(&btop_config.upload_start).unwrap_or(gpui_kit::rgb(0x00F59B).into());
         let upload_mid =
-            Self::hex_to_hsla(&btop_config.upload_mid).unwrap_or(gpui::rgb(0xFF66F6).into());
+            Self::hex_to_hsla(&btop_config.upload_mid).unwrap_or(gpui_kit::rgb(0xFF66F6).into());
         let upload_end =
-            Self::hex_to_hsla(&btop_config.upload_end).unwrap_or(gpui::rgb(0xFF3366).into());
+            Self::hex_to_hsla(&btop_config.upload_end).unwrap_or(gpui_kit::rgb(0xFF3366).into());
 
         let main_bg_picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(main_bg));
         let main_fg_picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(main_fg));
@@ -765,7 +773,7 @@ impl BtopTab {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn update_btop_config<F>(&mut self, updater: F)
@@ -1101,7 +1109,7 @@ impl Render for BtopTab {
                                 )),
                         ),
                 )
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Selection Colors Section
                 .child(
                     form_section()
@@ -1128,7 +1136,7 @@ impl Render for BtopTab {
                                 )),
                         ),
                 )
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Status Colors Section
                 .child(
                     form_section()
@@ -1155,7 +1163,7 @@ impl Render for BtopTab {
                                 )),
                         ),
                 )
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Box Colors Section
                 .child(
                     form_section()
@@ -1197,7 +1205,7 @@ impl Render for BtopTab {
                                 )),
                         ),
                 )
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Gradient sections — 2 cols on wide screens, stacked on narrow
                 // Row 1: Temperature + CPU
                 .child(if wide {
@@ -1215,7 +1223,7 @@ impl Render for BtopTab {
                         .child(temp_section)
                         .child(cpu_section)
                 })
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Row 2: Free + Cached
                 .child(if wide {
                     div()
@@ -1232,7 +1240,7 @@ impl Render for BtopTab {
                         .child(free_section)
                         .child(cached_section)
                 })
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Row 3: Available + Used
                 .child(if wide {
                     div()
@@ -1249,7 +1257,7 @@ impl Render for BtopTab {
                         .child(available_section)
                         .child(used_section)
                 })
-                .child(Divider::horizontal())
+                .child(Separator::horizontal())
                 // Row 4: Download + Upload
                 .child(if wide {
                     div()

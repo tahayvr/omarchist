@@ -2,13 +2,14 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 
 use anyhow;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
-    divider::Divider,
-    h_flex, v_flex,
+    h_flex,
+    separator::Separator,
+    v_flex,
 };
+use gpui_kit::*;
 use smol;
 
 use crate::system::themes::theme_management::{
@@ -65,7 +66,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                     }),
                             ),
                     )
-                    .child(Divider::vertical().color(cx.theme().border))
+                    .child(Separator::vertical().color(cx.theme().border))
                     .child(
                         // Right Column - Create Manually
                         v_flex()

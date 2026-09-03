@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, IconName, StyledExt, h_flex,
     input::{InputEvent, InputState},
     v_flex,
 };
+use gpui_kit::*;
 
 use crate::system::waybar::{get_module_config, set_module_config_field};
 use crate::ui::status_bar_page::shared::{labeled_input, labeled_input_wide};

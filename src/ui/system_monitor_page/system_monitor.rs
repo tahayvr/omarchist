@@ -1,12 +1,12 @@
 use std::time::Duration;
 
-use gpui::{prelude::FluentBuilder as _, *};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Icon, h_flex,
     progress::Progress,
     tab::{Tab, TabBar},
     v_flex,
 };
+use gpui_kit::{prelude::FluentBuilder as _, *};
 use smol::Timer;
 
 use super::{
@@ -113,7 +113,7 @@ impl SystemMonitorPage {
     fn render_status_bar(
         &self,
         cx: &Context<Self>,
-        viewport_width: gpui::Pixels,
+        viewport_width: gpui_kit::Pixels,
     ) -> impl IntoElement {
         let theme = cx.theme();
         let metrics = self.collector.get_current_metrics();
@@ -179,7 +179,10 @@ impl SystemMonitorPage {
                             )
                             .when(!is_compact, |this| {
                                 this.child(
-                                    Progress::new().w(px(96.0)).h(px(6.0)).value(cpu_percent),
+                                    Progress::new("status-cpu")
+                                        .w(px(96.0))
+                                        .h(px(6.0))
+                                        .value(cpu_percent),
                                 )
                             })
                             .child(
@@ -201,7 +204,10 @@ impl SystemMonitorPage {
                             )
                             .when(!is_compact, |this| {
                                 this.child(
-                                    Progress::new().w(px(96.0)).h(px(6.0)).value(memory_percent),
+                                    Progress::new("status-memory")
+                                        .w(px(96.0))
+                                        .h(px(6.0))
+                                        .value(memory_percent),
                                 )
                             })
                             .child(
@@ -223,7 +229,10 @@ impl SystemMonitorPage {
                             )
                             .when(!is_compact, |this| {
                                 this.child(
-                                    Progress::new().w(px(96.0)).h(px(6.0)).value(disk_percent),
+                                    Progress::new("status-disk")
+                                        .w(px(96.0))
+                                        .h(px(6.0))
+                                        .value(disk_percent),
                                 )
                             })
                             .child(

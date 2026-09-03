@@ -1,10 +1,10 @@
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     Sizable,
     input::{Input, InputState},
     label::Label,
     v_flex,
 };
+use gpui_kit::*;
 
 // Labeled input field with a fixed narrow width (160 px).
 pub fn labeled_input(

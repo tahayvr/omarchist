@@ -4,14 +4,15 @@ use crate::types::themes::{EditingTheme, TerminalConfig};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
-    divider::Divider,
-    h_flex, v_flex,
+    h_flex,
+    separator::Separator,
+    v_flex,
 };
+use gpui_kit::*;
 
 pub struct TerminalTab {
     theme_name: String,
@@ -51,7 +52,7 @@ impl TerminalTab {
         let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn create_color_picker(
@@ -60,7 +61,7 @@ impl TerminalTab {
         hex: &str,
         setter: impl Fn(&mut TerminalConfig, String) + 'static + Copy,
     ) -> Entity<ColorPickerState> {
-        let color = Self::hex_to_hsla(hex).unwrap_or(gpui::rgb(0x0F0F19).into());
+        let color = Self::hex_to_hsla(hex).unwrap_or(gpui_kit::rgb(0x0F0F19).into());
         let picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(color));
 
         cx.subscribe_in(
@@ -469,7 +470,7 @@ impl Render for TerminalTab {
                                     )),
                             ),
                     )
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     // Cursor + Selection — 2 cols on wide, stacked on narrow
                     .child(if wide {
                         div()
@@ -486,7 +487,7 @@ impl Render for TerminalTab {
                             .child(cursor_section)
                             .child(selection_section)
                     })
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     // Normal + Bright — 2 cols on wide, stacked on narrow
                     .child(if wide {
                         div()

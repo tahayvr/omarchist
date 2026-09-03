@@ -1,5 +1,5 @@
-use gpui::*;
-use gpui_component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, h_flex, v_flex};
+use gpui_kit::*;
 
 use crate::system::waybar::{
     WaybarConfig, WaybarModule, WaybarZone, load_waybar_config, save_waybar_config,

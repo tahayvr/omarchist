@@ -1,20 +1,20 @@
 use crate::system::themes::theme_management::save_theme_data;
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
-    input::{Input, InputEvent, InputState},
+    input::{Editor, EditorState, InputEvent},
     v_flex,
 };
+use gpui_kit::*;
 use std::fs;
 use std::path::PathBuf;
 
 pub struct EditorTab {
     theme_name: String,
     theme_data: EditingTheme,
-    neovim_input: Entity<InputState>,
-    vscode_input: Entity<InputState>,
+    neovim_input: Entity<EditorState>,
+    vscode_input: Entity<EditorState>,
     is_saving: bool,
     error_message: Option<String>,
 }
@@ -32,15 +32,15 @@ impl EditorTab {
 
         // Create input states with code editor mode
         let neovim_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("lua")
+            EditorState::new(window, cx)
+                .language("lua")
                 .line_number(false)
                 .default_value(&neovim_content)
         });
 
         let vscode_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("json")
+            EditorState::new(window, cx)
+                .language("json")
                 .line_number(false)
                 .default_value(&vscode_content)
         });
@@ -241,7 +241,7 @@ impl Render for EditorTab {
                             )
                             .child(
                                 div().bg(cx.theme().background).h(px(300.)).child(
-                                    Input::new(&self.neovim_input)
+                                    Editor::new(&self.neovim_input)
                                         .bg(cx.theme().background)
                                         .border_1()
                                         .border_color(cx.theme().border)
@@ -262,7 +262,7 @@ impl Render for EditorTab {
                             )
                             .child(
                                 div().bg(cx.theme().background).h(px(200.)).child(
-                                    Input::new(&self.vscode_input)
+                                    Editor::new(&self.vscode_input)
                                         .bg(cx.theme().background)
                                         .border_1()
                                         .border_color(cx.theme().border)

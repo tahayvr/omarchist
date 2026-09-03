@@ -1,9 +1,9 @@
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     IndexPath, Sizable as _, Size,
     select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
     setting::{NumberFieldOptions, SettingField, SettingGroup, SettingItem, SettingPage, Settings},
 };
+use gpui_kit::*;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -119,7 +119,7 @@ impl Render for ConfigView {
             .child(
                 Settings::new("hyprland-config")
                     .sidebar_width(px(220.0))
-                    .with_group_variant(gpui_component::group_box::GroupBoxVariant::Normal)
+                    .with_group_variant(gpui_kit::component::group_box::GroupBoxVariant::Normal)
                     .with_size(Size::default())
                     .pages(vec![
                         self.create_general_page(&view),
