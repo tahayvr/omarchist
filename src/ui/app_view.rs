@@ -10,12 +10,12 @@ use crate::ui::status_bar_page::status_bar_view::StatusBarView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
-    sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
+    sidebar::{Sidebar, SidebarGroup, SidebarItem, SidebarMenu, SidebarMenuItem},
 };
+use gpui_kit::*;
 use std::cell::RefCell;
 
 use crate::system::ui_theme_watcher;
@@ -92,11 +92,9 @@ impl MainWindowView {
                 // Initial check
                 let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
                 if let Ok(update_available) = check_omarchy_update(&version).await {
-                    title_bar_watcher
-                        .update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
+                    title_bar_watcher.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
                 }
 
                 // Periodic re-checks
@@ -109,11 +107,9 @@ impl MainWindowView {
                     let version =
                         get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
                     if let Ok(update_available) = check_omarchy_update(&version).await {
-                        title_bar_watcher
-                            .update(cx, |tb, _| {
-                                tb.set_omarchy_update_available(update_available);
-                            })
-                            .ok();
+                        title_bar_watcher.update(cx, |tb, _| {
+                            tb.set_omarchy_update_available(update_available);
+                        });
                     }
                 }
             })
@@ -122,7 +118,7 @@ impl MainWindowView {
 
         // Create focus handle for sidebar navigation; keep it focused at start
         let focus_handle = cx.focus_handle();
-        focus_handle.focus(window);
+        focus_handle.focus(window, cx);
 
         let initial_sidebar_index = match &initial_page {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
@@ -321,10 +317,10 @@ impl MainWindowView {
         };
 
         if let Some(fh) = handle {
-            fh.focus(window);
+            fh.focus(window, cx);
         } else {
             // Return focus to the main window (sidebar)
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
         }
     }
 
@@ -416,7 +412,7 @@ impl MainWindowView {
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
                 // Return GPUI focus to the main window for sidebar navigation
-                self.focus_handle.focus(window);
+                self.focus_handle.focus(window, cx);
             }
         }
         cx.notify();
@@ -432,7 +428,7 @@ impl MainWindowView {
             FocusedSection::Content => {
                 self.focus_state.focused_section = FocusedSection::Sidebar;
                 // Return GPUI focus to the main window for sidebar navigation
-                self.focus_handle.focus(window);
+                self.focus_handle.focus(window, cx);
             }
         }
         cx.notify();
@@ -466,7 +462,7 @@ impl MainWindowView {
             // Child views consume this if they still have internal items to navigate left.
             // If they bubble it up (e.g. ThemesPage at Tabs level), we move to sidebar.
             self.focus_state.focused_section = FocusedSection::Sidebar;
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
             cx.notify();
         }
     }
@@ -481,7 +477,7 @@ impl MainWindowView {
     fn handle_escape_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.focus_state.focused_section == FocusedSection::Content {
             self.focus_state.focused_section = FocusedSection::Sidebar;
-            self.focus_handle.focus(window);
+            self.focus_handle.focus(window, cx);
             cx.notify();
         }
     }
@@ -687,7 +683,8 @@ impl Render for MainWindowView {
                     .size_full()
                     .overflow_hidden()
                     .child(
-                        Sidebar::new(Side::Left)
+                        Sidebar::new("main-sidebar")
+                            .side(Side::Left)
                             .collapsed(sidebar_should_be_collapsed)
                             .child(
                                 SidebarGroup::new("Navigation").child(
@@ -749,16 +746,16 @@ impl Render for MainWindowView {
                                         ),
                                 ),
                             )
-                            .footer(
+                            .footer(SidebarItem::render(
                                 SidebarGroup::new("")
                                     .collapsed(sidebar_should_be_collapsed)
                                     .child(
                                         SidebarMenu::new().cursor_pointer().child(
                                             SidebarMenuItem::new("Toggle Sidebar")
                                                 .icon(Icon::new(IconName::PanelLeft))
-                                                .suffix(Kbd::new(
-                                                    Keystroke::parse("ctrl-b").unwrap(),
-                                                ))
+                                                .suffix(|_, _| {
+                                                    Kbd::new(Keystroke::parse("ctrl-b").unwrap())
+                                                })
                                                 .on_click(cx.listener(|this, _, _, cx| {
                                                     this.sidebar_collapsed =
                                                         !this.sidebar_collapsed;
@@ -776,7 +773,10 @@ impl Render for MainWindowView {
                                                 })),
                                         ),
                                     ),
-                            ),
+                                "sidebar-footer",
+                                window,
+                                cx,
+                            )),
                     )
                     .child(
                         div()

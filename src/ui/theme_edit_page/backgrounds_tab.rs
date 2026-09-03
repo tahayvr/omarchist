@@ -3,14 +3,14 @@ use crate::system::themes::theme_file_ops::{
 };
 use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
 use anyhow;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
     v_flex,
 };
+use gpui_kit::*;
 use smol;
 use std::path::PathBuf;
 

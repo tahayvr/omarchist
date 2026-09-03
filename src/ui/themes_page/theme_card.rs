@@ -2,12 +2,12 @@ use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
 use crate::types::themes::ThemeEntry;
 use crate::ui::color_utils::hex_to_hsla;
-use gpui::prelude::*;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, Sizable, button::*, h_flex, menu::DropdownMenu, menu::PopupMenuItem,
     v_flex,
 };
+use gpui_kit::prelude::*;
+use gpui_kit::*;
 use smol;
 use std::path::PathBuf;
 

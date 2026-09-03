@@ -1,4 +1,4 @@
-use gpui::*;
+use gpui_kit::*;
 use rust_embed::RustEmbed;
 use std::borrow::Cow;
 use std::path::Path;
@@ -79,10 +79,10 @@ impl AssetSource for OmarchistAssets {
     }
 }
 
-// Combined asset source that tries OmarchistAssets first, then gpui_component_assets
+// Combined asset source that tries OmarchistAssets first, then gpui_kit::assets
 pub struct CombinedAssets {
     omarchist: OmarchistAssets,
-    gpui_component: gpui_component_assets::Assets,
+    gpui_kit: gpui_kit::assets::Assets,
 }
 
 impl Default for CombinedAssets {
@@ -95,7 +95,7 @@ impl CombinedAssets {
     pub fn new() -> Self {
         Self {
             omarchist: OmarchistAssets,
-            gpui_component: gpui_component_assets::Assets,
+            gpui_kit: gpui_kit::assets::Assets,
         }
     }
 }
@@ -111,13 +111,13 @@ impl AssetSource for CombinedAssets {
             return Ok(Some(data));
         }
 
-        // Fall back to gpui_component_assets
-        self.gpui_component.load(path)
+        // Fall back to gpui_kit::assets
+        self.gpui_kit.load(path)
     }
 
     fn list(&self, path: &str) -> Result<Vec<SharedString>> {
         let mut results = self.omarchist.list(path)?;
-        results.extend(self.gpui_component.list(path)?);
+        results.extend(self.gpui_kit.list(path)?);
         Ok(results)
     }
 }

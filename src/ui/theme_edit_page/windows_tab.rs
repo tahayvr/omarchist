@@ -3,12 +3,12 @@ use crate::types::themes::{EditingTheme, HyprlandConfig};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
 };
+use gpui_kit::*;
 
 pub struct WindowsTab {
     theme_name: String,
@@ -40,9 +40,9 @@ impl WindowsTab {
         let inactive_border_hex = format!("#{}", hyprland_config.inactive_border);
 
         let active_border_color =
-            Self::hex_to_hsla(&active_border_hex).unwrap_or(gpui::rgb(0x6e6e92).into());
+            Self::hex_to_hsla(&active_border_hex).unwrap_or(gpui_kit::rgb(0x6e6e92).into());
         let inactive_border_color =
-            Self::hex_to_hsla(&inactive_border_hex).unwrap_or(gpui::rgb(0x5C5C5E).into());
+            Self::hex_to_hsla(&inactive_border_hex).unwrap_or(gpui_kit::rgb(0x5C5C5E).into());
 
         let active_border_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(active_border_color));
@@ -106,7 +106,7 @@ impl WindowsTab {
         let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
         let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
 
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
+        Some(gpui_kit::rgb(u32::from_be_bytes([0, r, g, b])).into())
     }
 
     fn update_hyprland_config<F>(&mut self, updater: F)

@@ -1,12 +1,12 @@
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Disableable, Icon, IconName, IndexPath, Sizable, StyledExt, h_flex,
     input::{InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     label::Label,
     select::{Select, SelectEvent, SelectState},
     v_flex,
 };
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 use crate::system::waybar::{BarSettings, get_bar_settings, set_bar_setting};
 use crate::ui::status_bar_page::shared::labeled_input;
@@ -570,7 +570,7 @@ impl Render for BarSettingsPanel {
             v_flex()
                 .pt_3()
                 .gap_4()
-                .when(read_only, |this: gpui::Div| {
+                .when(read_only, |this: gpui_kit::Div| {
                     this.child(
                         div()
                             .text_xs()

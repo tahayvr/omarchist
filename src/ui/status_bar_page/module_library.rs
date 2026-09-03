@@ -1,5 +1,4 @@
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, IconName, IndexPath, Sizable, StyledExt, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
@@ -7,6 +6,7 @@ use gpui_component::{
     select::{Select, SelectState},
     v_flex,
 };
+use gpui_kit::*;
 
 use std::sync::LazyLock;
 

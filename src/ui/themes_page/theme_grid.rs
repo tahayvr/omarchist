@@ -2,9 +2,9 @@ use crate::types::themes::{ThemeEntry, ThemeOrigin};
 use crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog;
 use crate::ui::keyboard_nav::ListNavigationState;
 use crate::ui::themes_page::theme_card::ThemeCard;
-use gpui::prelude::FluentBuilder;
-use gpui::*;
-use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
+use gpui_kit::component::{ActiveTheme, button::Button, h_flex, v_flex};
+use gpui_kit::prelude::FluentBuilder;
+use gpui_kit::*;
 
 const BREAKPOINT_SM: f32 = 768.0;
 const BREAKPOINT_LG: f32 = 1280.0;
@@ -196,7 +196,7 @@ impl Render for ThemeGrid {
             .flex()
             .flex_col()
             .flex_1()
-            .when(is_empty, |this: gpui::Div| {
+            .when(is_empty, |this: gpui_kit::Div| {
                 this.items_center().justify_center().child(
                     v_flex()
                         .items_center()
@@ -219,7 +219,7 @@ impl Render for ThemeGrid {
                         ),
                 )
             })
-            .when(!is_empty, |this: gpui::Div| {
+            .when(!is_empty, |this: gpui_kit::Div| {
                 this.child(
                     div().flex().flex_col().gap_4().w_full().min_w_0().children(
                         filtered_indices

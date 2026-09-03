@@ -1,9 +1,9 @@
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     menu::{ContextMenuExt, PopupMenuItem},
     tooltip::Tooltip,
 };
+use gpui_kit::*;
 
 use crate::system::waybar::{WaybarModule, WaybarZone};
 use crate::ui::status_bar_page::module_editor::request_module_edit;

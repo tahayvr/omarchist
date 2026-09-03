@@ -1,4 +1,4 @@
-use gpui::{Action, actions};
+use gpui_kit::{Action, actions};
 
 actions!(
     app_menu,

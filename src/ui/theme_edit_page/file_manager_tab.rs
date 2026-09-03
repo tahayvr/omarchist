@@ -2,8 +2,8 @@ use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::{save_theme_data, update_icons_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
-use gpui::*;
-use gpui_component::{ActiveTheme, button::Button, h_flex, radio::Radio, v_flex};
+use gpui_kit::component::{ActiveTheme, button::Button, h_flex, radio::Radio, v_flex};
+use gpui_kit::*;
 
 struct YaruColor {
     value: &'static str,
@@ -162,7 +162,7 @@ impl FileManagerTab {
             )
             .child(
                 // Color square
-                div().size_6().bg(gpui::rgb(color_hex)).border_1(),
+                div().size_6().bg(gpui_kit::rgb(color_hex)).border_1(),
             )
     }
 }

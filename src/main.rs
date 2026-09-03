@@ -1,5 +1,5 @@
-use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
-use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
+use gpui_kit::component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
+use gpui_kit::{App, AppContext, KeyBinding, WindowOptions};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
@@ -89,7 +89,7 @@ fn main() {
     // Parse CLI arguments before starting the application
     let cli_args = CliArgs::parse_args();
 
-    let app = Application::new().with_assets(CombinedAssets::new());
+    let app = gpui_kit::application().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
         // Determine initial page from CLI arguments
@@ -110,7 +110,7 @@ fn main() {
             eprintln!("Failed to set up waybar config: {}", e);
         }
 
-        gpui_component::init(cx);
+        gpui_kit::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
         // Apply the omarchy current theme immediately at startup, falling back to embedded theme
@@ -126,22 +126,22 @@ fn main() {
                 "large" => 18.0,
                 _ => 16.0,
             };
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size_px);
+            gpui_kit::component::Theme::global_mut(cx).font_size = gpui_kit::px(font_size_px);
         }
 
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
-            gpui_component::Theme::change(gpui_component::ThemeMode::Light, None, cx);
+            gpui_kit::component::Theme::change(gpui_kit::component::ThemeMode::Light, None, cx);
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::SwitchToDark, cx: &mut App| {
-            gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
+            gpui_kit::component::Theme::change(gpui_kit::component::ThemeMode::Dark, None, cx);
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::Quit, cx: &mut App| {
             cx.quit();
         });
         cx.on_action(|action: &app_menu::SelectFont, cx: &mut App| {
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
+            gpui_kit::component::Theme::global_mut(cx).font_size = gpui_kit::px(action.0 as f32);
 
             // Map pixel size to font size string and save to settings
             let font_size_str = match action.0 {
@@ -169,11 +169,11 @@ fn main() {
             KeyBinding::new("ctrl-,", app_menu::NavigateToSettings, None),
             KeyBinding::new("ctrl-alt-l", app_menu::SwitchToLight, None),
             KeyBinding::new("ctrl-alt-d", app_menu::SwitchToDark, None),
-            KeyBinding::new("ctrl-z", gpui_component::input::Undo, None),
-            KeyBinding::new("ctrl-shift-z", gpui_component::input::Redo, None),
-            KeyBinding::new("ctrl-x", gpui_component::input::Cut, None),
-            KeyBinding::new("ctrl-c", gpui_component::input::Copy, None),
-            KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
+            KeyBinding::new("ctrl-z", gpui_kit::component::input::Undo, None),
+            KeyBinding::new("ctrl-shift-z", gpui_kit::component::input::Redo, None),
+            KeyBinding::new("ctrl-x", gpui_kit::component::input::Cut, None),
+            KeyBinding::new("ctrl-c", gpui_kit::component::input::Copy, None),
+            KeyBinding::new("ctrl-v", gpui_kit::component::input::Paste, None),
             KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
             KeyBinding::new("ctrl-b", app_menu::ToggleSidebar, None),
             // Global page navigation shortcuts

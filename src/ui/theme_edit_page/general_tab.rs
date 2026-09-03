@@ -6,8 +6,7 @@ use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
 };
-use gpui::*;
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme, Colorize, Disableable, Sizable,
     button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
@@ -16,6 +15,7 @@ use gpui_component::{
     label::Label,
     switch::Switch,
 };
+use gpui_kit::*;
 
 pub struct GeneralTab {
     theme_data: EditingTheme,
@@ -51,7 +51,7 @@ impl GeneralTab {
 
         // Create accent color picker
         let accent_color =
-            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
+            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui_kit::rgb(0x33A1FF).into());
         let accent_picker =
             cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
 

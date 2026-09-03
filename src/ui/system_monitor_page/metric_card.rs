@@ -1,5 +1,5 @@
-use gpui::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
-use gpui_component::{Icon, h_flex, v_flex};
+use gpui_kit::component::{Icon, h_flex, v_flex};
+use gpui_kit::{IntoElement, ParentElement, Styled, div, prelude::FluentBuilder as _, px};
 
 use super::sparkline::Sparkline;
 
@@ -9,11 +9,11 @@ pub struct MetricCard {
     value: String,
     sub_value: Option<String>,
     sparkline_data: Option<Vec<f64>>,
-    color: gpui::Hsla,
-    alert_color: Option<gpui::Hsla>,
+    color: gpui_kit::Hsla,
+    alert_color: Option<gpui_kit::Hsla>,
     compact: bool,
     large: bool,
-    border_color: gpui::Hsla,
+    border_color: gpui_kit::Hsla,
 }
 
 impl MetricCard {
@@ -24,11 +24,11 @@ impl MetricCard {
             value: value.into(),
             sub_value: None,
             sparkline_data: None,
-            color: gpui::Hsla::default(),
+            color: gpui_kit::Hsla::default(),
             alert_color: None,
             compact: false,
             large: false,
-            border_color: gpui::Hsla::default(),
+            border_color: gpui_kit::Hsla::default(),
         }
     }
 
@@ -47,12 +47,12 @@ impl MetricCard {
         self
     }
 
-    pub fn color(mut self, color: gpui::Hsla) -> Self {
+    pub fn color(mut self, color: gpui_kit::Hsla) -> Self {
         self.color = color;
         self
     }
 
-    pub fn alert_color(mut self, color: gpui::Hsla) -> Self {
+    pub fn alert_color(mut self, color: gpui_kit::Hsla) -> Self {
         self.alert_color = Some(color);
         self
     }
@@ -67,14 +67,14 @@ impl MetricCard {
         self
     }
 
-    pub fn border_color(mut self, color: gpui::Hsla) -> Self {
+    pub fn border_color(mut self, color: gpui_kit::Hsla) -> Self {
         self.border_color = color;
         self
     }
 }
 
 impl IntoElement for MetricCard {
-    type Element = gpui::Div;
+    type Element = gpui_kit::Div;
 
     fn into_element(self) -> Self::Element {
         let value_color = self.alert_color.unwrap_or(self.color);
@@ -93,9 +93,9 @@ impl IntoElement for MetricCard {
             px(24.0)
         };
         let value_text_class = if self.large {
-            |d: gpui::Div| d.text_3xl()
+            |d: gpui_kit::Div| d.text_3xl()
         } else {
-            |d: gpui::Div| d.text_2xl()
+            |d: gpui_kit::Div| d.text_2xl()
         };
 
         div()
@@ -120,7 +120,7 @@ impl IntoElement for MetricCard {
                             .gap_2()
                             .child(
                                 value_text_class(div())
-                                    .font_weight(gpui::FontWeight::SEMIBOLD)
+                                    .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                     .text_color(value_color)
                                     .child(self.value),
                             )
@@ -131,7 +131,7 @@ impl IntoElement for MetricCard {
                     .when_some(self.sparkline_data, |this, data| {
                         let sparkline_height = if self.large { px(160.0) } else { px(80.0) };
                         this.child(
-                            div().flex_grow().child(
+                            div().flex_grow(1.0).child(
                                 Sparkline::new(data)
                                     .color(self.color)
                                     .height(sparkline_height),
@@ -146,7 +146,7 @@ impl IntoElement for MetricCard {
 pub struct MiniMetric {
     icon: Icon,
     value: String,
-    color: gpui::Hsla,
+    color: gpui_kit::Hsla,
     sparkline_data: Option<Vec<f64>>,
 }
 
@@ -155,12 +155,12 @@ impl MiniMetric {
         Self {
             icon,
             value: value.into(),
-            color: gpui::Hsla::default(),
+            color: gpui_kit::Hsla::default(),
             sparkline_data: None,
         }
     }
 
-    pub fn color(mut self, color: gpui::Hsla) -> Self {
+    pub fn color(mut self, color: gpui_kit::Hsla) -> Self {
         self.color = color;
         self
     }
@@ -172,7 +172,7 @@ impl MiniMetric {
 }
 
 impl IntoElement for MiniMetric {
-    type Element = gpui::Div;
+    type Element = gpui_kit::Div;
 
     fn into_element(self) -> Self::Element {
         h_flex()
@@ -196,7 +196,7 @@ impl IntoElement for MiniMetric {
 pub struct MetricGrid {
     children: Vec<MetricCard>,
     columns: usize,
-    gap: gpui::Pixels,
+    gap: gpui_kit::Pixels,
 }
 
 impl Default for MetricGrid {
@@ -219,7 +219,7 @@ impl MetricGrid {
         self
     }
 
-    pub fn gap(mut self, gap: gpui::Pixels) -> Self {
+    pub fn gap(mut self, gap: gpui_kit::Pixels) -> Self {
         self.gap = gap;
         self
     }
@@ -231,7 +231,7 @@ impl MetricGrid {
 }
 
 impl IntoElement for MetricGrid {
-    type Element = gpui::Div;
+    type Element = gpui_kit::Div;
 
     fn into_element(self) -> Self::Element {
         let mut grid = div().flex().flex_wrap().gap(self.gap);
@@ -241,7 +241,7 @@ impl IntoElement for MetricGrid {
                 div()
                     .flex()
                     .flex_basis(px(0.0))
-                    .flex_grow()
+                    .flex_grow(1.0)
                     .min_w(px(240.0))
                     .child(card),
             );

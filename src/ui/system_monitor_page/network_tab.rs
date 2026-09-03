@@ -1,21 +1,21 @@
-use gpui::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
-use gpui_component::{
+use gpui_kit::component::{
     ActiveTheme,
     chart::AreaChart,
     group_box::GroupBox,
     h_flex,
-    table::{Column, Table, TableDelegate, TableState},
+    table::{Column, DataTable, TableDelegate, TableState},
     v_flex,
 };
+use gpui_kit::{App, AppContext, IntoElement, ParentElement, Styled, Window, div, px};
 
 use super::data_collector::{DataCollector, InterfaceInfo, format_bytes, format_bytes_speed};
 
 pub struct NetworkTab {
-    interface_table: gpui::Entity<TableState<InterfaceTableDelegate>>,
+    interface_table: gpui_kit::Entity<TableState<InterfaceTableDelegate>>,
 }
 
 impl NetworkTab {
-    pub fn new(table: gpui::Entity<TableState<InterfaceTableDelegate>>) -> Self {
+    pub fn new(table: gpui_kit::Entity<TableState<InterfaceTableDelegate>>) -> Self {
         Self {
             interface_table: table,
         }
@@ -31,8 +31,8 @@ impl NetworkTab {
     pub fn render(
         &self,
         collector: &DataCollector,
-        theme: &gpui_component::Theme,
-        viewport_width: gpui::Pixels,
+        theme: &gpui_kit::component::Theme,
+        viewport_width: gpui_kit::Pixels,
     ) -> impl IntoElement {
         let up_values: Vec<f64> = collector.data.iter().map(|p| p.network_up).collect();
         let down_values: Vec<f64> = collector.data.iter().map(|p| p.network_down).collect();
@@ -67,7 +67,7 @@ impl NetworkTab {
                                         .child(
                                             div()
                                                 .text_lg()
-                                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                                 .child(format_bytes_speed(down_speed)),
                                         )
                                         .child(div().text_xs().child("Download")),
@@ -80,7 +80,7 @@ impl NetworkTab {
                                         .child(
                                             div()
                                                 .text_lg()
-                                                .font_weight(gpui::FontWeight::SEMIBOLD)
+                                                .font_weight(gpui_kit::FontWeight::SEMIBOLD)
                                                 .child(format_bytes_speed(up_speed)),
                                         )
                                         .child(div().text_xs().child("Upload")),
@@ -108,13 +108,13 @@ impl NetworkTab {
                                                         .x(|(t, _)| t.clone())
                                                         .y(|(_, v)| *v)
                                                         .stroke(green)
-                                                        .fill(gpui::linear_gradient(
+                                                        .fill(gpui_kit::linear_gradient(
                                                             0.0,
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 green.opacity(0.3),
                                                                 1.0,
                                                             ),
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 background.opacity(0.1),
                                                                 0.0,
                                                             ),
@@ -133,13 +133,13 @@ impl NetworkTab {
                                                         .x(|(t, _)| t.clone())
                                                         .y(|(_, v)| *v)
                                                         .stroke(yellow)
-                                                        .fill(gpui::linear_gradient(
+                                                        .fill(gpui_kit::linear_gradient(
                                                             0.0,
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 yellow.opacity(0.3),
                                                                 1.0,
                                                             ),
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 background.opacity(0.1),
                                                                 0.0,
                                                             ),
@@ -163,13 +163,13 @@ impl NetworkTab {
                                                         .x(|(t, _)| t.clone())
                                                         .y(|(_, v)| *v)
                                                         .stroke(green)
-                                                        .fill(gpui::linear_gradient(
+                                                        .fill(gpui_kit::linear_gradient(
                                                             0.0,
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 green.opacity(0.3),
                                                                 1.0,
                                                             ),
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 background.opacity(0.1),
                                                                 0.0,
                                                             ),
@@ -189,13 +189,13 @@ impl NetworkTab {
                                                         .x(|(t, _)| t.clone())
                                                         .y(|(_, v)| *v)
                                                         .stroke(yellow)
-                                                        .fill(gpui::linear_gradient(
+                                                        .fill(gpui_kit::linear_gradient(
                                                             0.0,
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 yellow.opacity(0.3),
                                                                 1.0,
                                                             ),
-                                                            gpui::linear_color_stop(
+                                                            gpui_kit::linear_color_stop(
                                                                 background.opacity(0.1),
                                                                 0.0,
                                                             ),
@@ -217,7 +217,7 @@ impl NetworkTab {
                         .flex_1()
                         .overflow_hidden()
                         .child(
-                            Table::new(&self.interface_table)
+                            DataTable::new(&self.interface_table)
                                 .bordered(false)
                                 .stripe(true),
                         ),
@@ -259,7 +259,7 @@ fn build_chart_points(values: &[f64], min_len: usize) -> Vec<(String, f64)> {
 pub fn create_interface_table(
     window: &mut Window,
     cx: &mut App,
-) -> gpui::Entity<TableState<InterfaceTableDelegate>> {
+) -> gpui_kit::Entity<TableState<InterfaceTableDelegate>> {
     let delegate = InterfaceTableDelegate::new();
     cx.new(|cx| {
         TableState::new(delegate, window, cx)
@@ -301,8 +301,8 @@ impl TableDelegate for InterfaceTableDelegate {
         self.interfaces.len()
     }
 
-    fn column(&self, col_ix: usize, _cx: &App) -> &Column {
-        &self.columns[col_ix]
+    fn column(&self, col_ix: usize, _cx: &App) -> Column {
+        self.columns[col_ix].clone()
     }
 
     fn render_td(
@@ -310,7 +310,7 @@ impl TableDelegate for InterfaceTableDelegate {
         row_ix: usize,
         col_ix: usize,
         _window: &mut Window,
-        cx: &mut gpui::Context<TableState<Self>>,
+        cx: &mut gpui_kit::Context<TableState<Self>>,
     ) -> impl IntoElement {
         let Some(interface) = self.interfaces.get(row_ix) else {
             return div().into_any_element();
