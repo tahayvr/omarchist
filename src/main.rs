@@ -3,7 +3,6 @@ use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
-use omarchist::system::config::waybar_setup;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
@@ -105,11 +104,6 @@ fn main() {
             eprintln!("Failed to set up Hyprland config: {}", e);
         }
 
-        // Ensure waybar config directory exists
-        if let Err(e) = waybar_setup::ensure_waybar_config() {
-            eprintln!("Failed to set up waybar config: {}", e);
-        }
-
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
@@ -179,7 +173,6 @@ fn main() {
             // Global page navigation shortcuts
             KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
             KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
-            KeyBinding::new("ctrl-3", app_menu::NavigateToStatusBar, None),
             // Keyboard navigation bindings - using MainWindow context
             KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
@@ -200,14 +193,6 @@ fn main() {
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("ThemesPage")),
             KeyBinding::new("tab", app_menu::NextFocus, Some("ThemesPage")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("ThemesPage")),
-            // Status bar page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("StatusBar")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("StatusBar")),
-            KeyBinding::new("right", app_menu::SelectNext, Some("StatusBar")),
-            KeyBinding::new("left", app_menu::SelectPrev, Some("StatusBar")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("StatusBar")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("StatusBar")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("StatusBar")),
             // Theme edit page navigation
             KeyBinding::new("right", app_menu::ThemeEditNextTab, Some("ThemeEditPage")),
             KeyBinding::new("left", app_menu::ThemeEditPrevTab, Some("ThemeEditPage")),

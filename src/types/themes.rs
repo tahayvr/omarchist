@@ -66,10 +66,11 @@ impl RawUserTheme {
 }
 
 fn default_version() -> String {
-    "1.0.0".to_string()
+    "2.0.0".to_string()
 }
 
-// Theme colors structure
+// Theme colors structure, used for the read-only preview swatches shown in
+// the theme gallery (any theme folder, not just ones Omarchist authored).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeColors {
     pub primary: PrimaryColors,
@@ -113,7 +114,7 @@ pub struct EditingTheme {
 impl Default for EditingTheme {
     fn default() -> Self {
         Self {
-            version: "1.0.0".to_string(),
+            version: default_version(),
             name: String::new(),
             created_at: String::new(),
             modified_at: String::new(),
@@ -127,6 +128,12 @@ impl Default for EditingTheme {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorsConfig {
+    // Explicit dark/light marker, written into colors.toml's `mode` key —
+    // Omarchy's own resolver otherwise has to fall back to a `light.mode`
+    // marker file or background-luminance auto-detection, and Omarchist
+    // already tracks this precisely via `EditingTheme::is_light_theme`.
+    #[serde(default = "default_mode")]
+    pub mode: String,
     pub accent: String,
     pub cursor: String,
     pub foreground: String,
@@ -151,9 +158,14 @@ pub struct ColorsConfig {
     pub color15: String,
 }
 
+fn default_mode() -> String {
+    "dark".to_string()
+}
+
 impl Default for ColorsConfig {
     fn default() -> Self {
         Self {
+            mode: default_mode(),
             accent: "#33A1FF".to_string(),
             cursor: "#EDEDFE".to_string(),
             foreground: "#EDEDFE".to_string(),
@@ -181,61 +193,6 @@ impl Default for ColorsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WaybarConfig {
-    pub background: String,
-    pub foreground: String,
-}
-
-impl Default for WaybarConfig {
-    fn default() -> Self {
-        Self {
-            background: "#0F0F19".to_string(),
-            foreground: "#EDEDFE".to_string(),
-        }
-    }
-}
-
-// Hyprland window configuration structure
-// Hex color (without #, e.g., "6e6e92")
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HyprlandConfig {
-    pub active_border: String,
-    pub inactive_border: String,
-}
-
-impl Default for HyprlandConfig {
-    fn default() -> Self {
-        Self {
-            active_border: "6e6e92".to_string(),
-            inactive_border: "5C5C5E".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct WalkerConfig {
-    pub background: String,
-    pub base: String,
-    pub border: String,
-    pub foreground: String,
-    pub text: String,
-    pub selected_text: String,
-}
-
-impl Default for WalkerConfig {
-    fn default() -> Self {
-        Self {
-            background: "#0F0F19".to_string(),
-            base: "#0F0F19".to_string(),
-            border: "#33A1FF".to_string(),
-            foreground: "#EDEDFE".to_string(),
-            text: "#EDEDFE".to_string(),
-            selected_text: "#FF66F6".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BrowserConfig {
     pub theme_color: String,
 }
@@ -248,61 +205,57 @@ impl Default for BrowserConfig {
     }
 }
 
+// Lock screen colors — Quattro's `shell.lock.toml`, confirmed keys and format
+// against the real omacom/omarchy@quattro source (e.g. themes/tokyo-night/shell.lock.toml).
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HyprlockConfig {
-    pub color: String,
-    pub inner_color: String,
-    pub outer_color: String,
-    pub font_color: String,
-    pub check_color: String,
+pub struct LockScreenConfig {
+    pub text: String,
+    pub placeholder: String,
+    pub text_error: String,
+    pub border: String,
+    pub border_active: String,
+    pub border_error: String,
 }
 
-impl Default for HyprlockConfig {
+impl Default for LockScreenConfig {
     fn default() -> Self {
         Self {
-            color: "0f0f19".to_string(),
-            inner_color: "0f0f19".to_string(),
-            outer_color: "33a0ff".to_string(),
-            font_color: "ff66f5".to_string(),
-            check_color: "ffea00".to_string(),
+            text: "#EDEDFE".to_string(),
+            placeholder: "#EDEDFE".to_string(),
+            text_error: "#FF3366".to_string(),
+            border: "#33A1FF".to_string(),
+            border_active: "#33A1FF".to_string(),
+            border_error: "#FF3366".to_string(),
         }
     }
 }
 
+// A generic 8-slot ANSI color palette, used as an intermediate value type by
+// the image-based color extractor (`color_extractor.rs`) — independent of
+// any specific app's config file format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MakoConfig {
-    pub text_color: String,
-    pub border_color: String,
-    pub background_color: String,
+pub struct TerminalPalette {
+    pub black: String,
+    pub red: String,
+    pub green: String,
+    pub yellow: String,
+    pub blue: String,
+    pub magenta: String,
+    pub cyan: String,
+    pub white: String,
 }
 
-impl Default for MakoConfig {
+impl Default for TerminalPalette {
     fn default() -> Self {
         Self {
-            text_color: "#EDEDFE".to_string(),
-            border_color: "#00F59B".to_string(),
-            background_color: "#0F0F19".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SwayosdConfig {
-    pub background_color: String,
-    pub border_color: String,
-    pub label: String,
-    pub image: String,
-    pub progress: String,
-}
-
-impl Default for SwayosdConfig {
-    fn default() -> Self {
-        Self {
-            background_color: "#0F0F19".to_string(),
-            border_color: "#33A1FF".to_string(),
-            label: "#8A8A8D".to_string(),
-            image: "#8A8A8D".to_string(),
-            progress: "#8A8A8D".to_string(),
+            black: "#0A0A12".to_string(),
+            red: "#FF3366".to_string(),
+            green: "#00F59B".to_string(),
+            yellow: "#FFEA00".to_string(),
+            blue: "#33A1FF".to_string(),
+            magenta: "#FF66F6".to_string(),
+            cyan: "#3CFFED".to_string(),
+            white: "#EDEDFE".to_string(),
         }
     }
 }
@@ -392,149 +345,35 @@ impl Default for BtopConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalPalette {
-    pub black: String,
-    pub red: String,
-    pub green: String,
-    pub yellow: String,
-    pub blue: String,
-    pub magenta: String,
-    pub cyan: String,
-    pub white: String,
-}
-
-impl Default for TerminalPalette {
-    fn default() -> Self {
-        Self {
-            black: "#0A0A12".to_string(),
-            red: "#FF3366".to_string(),
-            green: "#00F59B".to_string(),
-            yellow: "#FFEA00".to_string(),
-            blue: "#33A1FF".to_string(),
-            magenta: "#FF66F6".to_string(),
-            cyan: "#3CFFED".to_string(),
-            white: "#EDEDFE".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalCursor {
-    pub cursor: String,
-    pub text: String,
-}
-
-impl Default for TerminalCursor {
-    fn default() -> Self {
-        Self {
-            cursor: "#EDEDFE".to_string(),
-            text: "#0F0F19".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalSelection {
-    pub background: String,
-    pub foreground: String,
-}
-
-impl Default for TerminalSelection {
-    fn default() -> Self {
-        Self {
-            background: "#202034".to_string(),
-            foreground: "#EDEDFE".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalPrimary {
-    pub background: String,
-    pub foreground: String,
-}
-
-impl Default for TerminalPrimary {
-    fn default() -> Self {
-        Self {
-            background: "#0F0F19".to_string(),
-            foreground: "#EDEDFE".to_string(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TerminalConfig {
-    #[serde(default)]
-    pub primary: TerminalPrimary,
-    #[serde(default)]
-    pub cursor: TerminalCursor,
-    #[serde(default)]
-    pub selection: TerminalSelection,
-    #[serde(default)]
-    pub normal: TerminalPalette,
-    #[serde(default)]
-    pub bright: TerminalPalette,
-}
-
-impl Default for TerminalConfig {
-    fn default() -> Self {
-        Self {
-            primary: TerminalPrimary::default(),
-            cursor: TerminalCursor::default(),
-            selection: TerminalSelection::default(),
-            normal: TerminalPalette::default(),
-            bright: TerminalPalette {
-                black: "#181824".to_string(),
-                red: "#FF9A8F".to_string(),
-                green: "#57F8BD".to_string(),
-                yellow: "#FFFF80".to_string(),
-                blue: "#5A9EFF".to_string(),
-                magenta: "#FF99FF".to_string(),
-                cyan: "#80FFFF".to_string(),
-                white: "#F8F8FF".to_string(),
-            },
-        }
-    }
-}
-
+// A theme folder's contents beyond `colors.toml`. Terminal configs
+// (alacritty.toml/foot.ini/kitty.conf/ghostty.conf), the bar, notifications,
+// the launcher menu, lock screen PAM flow, and window border colors are all
+// template-generated by Omarchy's own `omarchy-theme-set-templates` from
+// `colors.toml` — Omarchist writes colors.toml and leaves those to Omarchy,
+// rather than reimplementing its template engine. What's left are files
+// Quattro's theme folder format still expects verbatim, confirmed against
+// real theme folders in omacom/omarchy@quattro (btop.theme and chromium.theme
+// are legitimate optional per-theme overrides, not template output).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct AppConfigs {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub alacritty: Option<serde_json::Value>,
-    pub waybar: Option<WaybarConfig>,
-    pub chromium: Option<BrowserConfig>,
     pub btop: Option<BtopConfig>,
-    pub hyprland: Option<HyprlandConfig>,
-    pub hyprlock: Option<HyprlockConfig>,
-    pub mako: Option<MakoConfig>,
-    pub walker: Option<WalkerConfig>,
-    pub swayosd: Option<SwayosdConfig>,
+    pub chromium: Option<BrowserConfig>,
+    pub lock: Option<LockScreenConfig>,
     pub neovim: Option<serde_json::Value>,
     pub vscode: Option<serde_json::Value>,
     pub icons: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub ghostty: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub kitty: Option<serde_json::Value>,
-    pub terminal: Option<TerminalConfig>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeEditTab {
     General,
-    Waybar,
+    Colors,
     Windows,
-    Menu,
-    Terminal,
     Browser,
     FileManager,
     LockScreen,
-    Notification,
     Editor,
     Btop,
-    Swayosd,
     Backgrounds,
 }
 
@@ -542,17 +381,13 @@ impl ThemeEditTab {
     pub fn as_str(&self) -> &'static str {
         match self {
             ThemeEditTab::General => "General",
-            ThemeEditTab::Waybar => "Waybar",
+            ThemeEditTab::Colors => "Colors",
             ThemeEditTab::Windows => "Windows",
-            ThemeEditTab::Menu => "Menu",
-            ThemeEditTab::Terminal => "Terminal",
             ThemeEditTab::Browser => "Browser",
             ThemeEditTab::FileManager => "File Manager",
             ThemeEditTab::LockScreen => "Lock Screen",
-            ThemeEditTab::Notification => "Notification",
             ThemeEditTab::Editor => "Editor",
             ThemeEditTab::Btop => "Btop",
-            ThemeEditTab::Swayosd => "SwayOSD",
             ThemeEditTab::Backgrounds => "Backgrounds",
         }
     }
@@ -560,17 +395,13 @@ impl ThemeEditTab {
     pub fn all() -> Vec<ThemeEditTab> {
         vec![
             ThemeEditTab::General,
-            ThemeEditTab::Waybar,
+            ThemeEditTab::Colors,
             ThemeEditTab::Windows,
-            ThemeEditTab::Menu,
-            ThemeEditTab::Terminal,
             ThemeEditTab::Browser,
             ThemeEditTab::FileManager,
             ThemeEditTab::LockScreen,
-            ThemeEditTab::Notification,
             ThemeEditTab::Editor,
             ThemeEditTab::Btop,
-            ThemeEditTab::Swayosd,
             ThemeEditTab::Backgrounds,
         ]
     }

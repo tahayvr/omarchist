@@ -7,7 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn get_user_themes_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))
+    crate::system::omarchy_paths::user_themes_dir()
 }
 
 fn load_theme_from_dir(theme_dir: &Path) -> Option<RawUserTheme> {

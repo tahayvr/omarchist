@@ -5,16 +5,12 @@ use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::browser_tab::BrowserTab;
 use crate::ui::theme_edit_page::btop_tab::BtopTab;
+use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
 use crate::ui::theme_edit_page::lockscreen_tab::LockScreenTab;
-use crate::ui::theme_edit_page::menu_tab::MenuTab;
-use crate::ui::theme_edit_page::notification_tab::NotificationTab;
 use crate::ui::theme_edit_page::shared::error_message;
-use crate::ui::theme_edit_page::swayosd_tab::SwayosdTab;
-use crate::ui::theme_edit_page::terminal_tab::TerminalTab;
-use crate::ui::theme_edit_page::waybar_tab::WaybarTab;
 use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
@@ -47,17 +43,13 @@ pub struct ThemeEditPage {
     tab_count: usize,
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
-    waybar_tab: Entity<WaybarTab>,
+    colors_tab: Entity<ColorsTab>,
     windows_tab: Entity<WindowsTab>,
-    menu_tab: Entity<MenuTab>,
-    terminal_tab: Entity<TerminalTab>,
     browser_tab: Entity<BrowserTab>,
     file_manager_tab: Entity<FileManagerTab>,
     lockscreen_tab: Entity<LockScreenTab>,
-    notification_tab: Entity<NotificationTab>,
     editor_tab: Entity<EditorTab>,
     btop_tab: Entity<BtopTab>,
-    swayosd_tab: Entity<SwayosdTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
     pub focus_handle: FocusHandle,
 }
@@ -80,21 +72,13 @@ impl ThemeEditPage {
         let general_tab =
             cx.new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
-        // Create Waybar tab instance
-        let waybar_tab =
-            cx.new(|cx| WaybarTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+        // Create Colors tab instance
+        let colors_tab =
+            cx.new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Windows tab instance
         let windows_tab =
             cx.new(|cx| WindowsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Menu tab instance
-        let menu_tab =
-            cx.new(|cx| MenuTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Terminal tab instance
-        let terminal_tab =
-            cx.new(|cx| TerminalTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Browser tab instance
         let browser_tab =
@@ -108,10 +92,6 @@ impl ThemeEditPage {
         let lockscreen_tab =
             cx.new(|cx| LockScreenTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
-        // Create Notification tab instance
-        let notification_tab =
-            cx.new(|cx| NotificationTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
         // Create Editor tab instance
         let editor_tab =
             cx.new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), window, cx));
@@ -119,10 +99,6 @@ impl ThemeEditPage {
         // Create Btop tab instance
         let btop_tab =
             cx.new(|cx| BtopTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create SwayOSD tab instance
-        let swayosd_tab =
-            cx.new(|cx| SwayosdTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Backgrounds tab instance
         let backgrounds_tab =
@@ -140,17 +116,13 @@ impl ThemeEditPage {
             tab_count,
             error_message: None,
             general_tab,
-            waybar_tab,
+            colors_tab,
             windows_tab,
-            menu_tab,
-            terminal_tab,
             browser_tab,
             file_manager_tab,
             lockscreen_tab,
-            notification_tab,
             editor_tab,
             btop_tab,
-            swayosd_tab,
             backgrounds_tab,
             focus_handle,
         }
@@ -196,21 +168,13 @@ impl ThemeEditPage {
                 // Use the GeneralTab entity
                 self.general_tab.clone().into_any_element()
             }
-            ThemeEditTab::Waybar => {
-                // Use the WaybarTab entity
-                self.waybar_tab.clone().into_any_element()
+            ThemeEditTab::Colors => {
+                // Use the ColorsTab entity
+                self.colors_tab.clone().into_any_element()
             }
             ThemeEditTab::Windows => {
                 // Use the WindowsTab entity
                 self.windows_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Menu => {
-                // Use the MenuTab entity
-                self.menu_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Terminal => {
-                // Use the TerminalTab entity
-                self.terminal_tab.clone().into_any_element()
             }
             ThemeEditTab::Browser => {
                 // Use the BrowserTab entity
@@ -224,10 +188,6 @@ impl ThemeEditPage {
                 // Use the LockScreenTab entity
                 self.lockscreen_tab.clone().into_any_element()
             }
-            ThemeEditTab::Notification => {
-                // Use the NotificationTab entity
-                self.notification_tab.clone().into_any_element()
-            }
             ThemeEditTab::Editor => {
                 // Use the EditorTab entity
                 self.editor_tab.clone().into_any_element()
@@ -235,10 +195,6 @@ impl ThemeEditPage {
             ThemeEditTab::Btop => {
                 // Use the BtopTab entity
                 self.btop_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Swayosd => {
-                // Use the SwayosdTab entity
-                self.swayosd_tab.clone().into_any_element()
             }
             ThemeEditTab::Backgrounds => {
                 // Use the BackgroundsTab entity

@@ -198,7 +198,7 @@ impl DataCollector {
         let mut total_up: u64 = 0;
         let mut total_down: u64 = 0;
 
-        for (_, network) in self.networks.iter() {
+        for network in self.networks.values() {
             total_up += network.total_transmitted();
             total_down += network.total_received();
         }

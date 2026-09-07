@@ -1,6 +1,4 @@
-use crate::system::themes::theme_management::{
-    colors_config_from_terminal, rename_theme, save_theme_data, update_colors_toml,
-};
+use crate::system::themes::theme_management::{rename_theme, save_theme_data};
 use crate::types::themes::EditingTheme;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
@@ -107,7 +105,7 @@ impl GeneralTab {
                 if let ColorPickerEvent::Change(Some(color)) = event {
                     let hex = color.to_hex();
                     this.theme_data.colors.accent = hex;
-                    this.save_with_colors_update(window, cx);
+                    this.save(window, cx);
                 }
             },
         )
@@ -140,46 +138,6 @@ impl GeneralTab {
         // The new name is stored in theme_data.name but we save to the original folder
         match save_theme_data(&self.original_theme_name, &self.theme_data) {
             Ok(()) => {
-                self.is_saving = false;
-            }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(e);
-            }
-        }
-
-        cx.notify();
-    }
-
-    fn save_with_colors_update(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        // Don't save if theme name is empty
-        if self.original_theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-        cx.notify();
-
-        // Save theme data
-        match save_theme_data(&self.original_theme_name, &self.theme_data) {
-            Ok(()) => {
-                // Also update colors.toml with new accent color
-                if let Some(ref terminal_config) = self.theme_data.apps.terminal {
-                    let colors = colors_config_from_terminal(
-                        terminal_config,
-                        &self.theme_data.colors.accent,
-                    );
-                    if let Err(e) = update_colors_toml(&self.original_theme_name, &colors) {
-                        self.error_message = Some(format!("Failed to update colors.toml: {}", e));
-                    }
-                }
                 self.is_saving = false;
             }
             Err(e) => {

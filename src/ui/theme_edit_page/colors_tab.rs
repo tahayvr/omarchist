@@ -1,25 +1,21 @@
-use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::themes::theme_management::{save_theme_data, update_terminal_configs};
-use crate::types::themes::{EditingTheme, TerminalConfig};
+use crate::system::themes::theme_management::save_theme_data;
+use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize,
-    button::Button,
     color_picker::{ColorPickerEvent, ColorPickerState},
     divider::Divider,
     h_flex, v_flex,
 };
 
-pub struct TerminalTab {
+pub struct ColorsTab {
     theme_name: String,
     theme_data: EditingTheme,
-    primary_bg_picker: Entity<ColorPickerState>,
-    primary_fg_picker: Entity<ColorPickerState>,
-    cursor_cursor_picker: Entity<ColorPickerState>,
-    cursor_text_picker: Entity<ColorPickerState>,
+    background_picker: Entity<ColorPickerState>,
+    foreground_picker: Entity<ColorPickerState>,
     selection_bg_picker: Entity<ColorPickerState>,
     selection_fg_picker: Entity<ColorPickerState>,
     normal_black_picker: Entity<ColorPickerState>,
@@ -42,7 +38,7 @@ pub struct TerminalTab {
     error_message: Option<String>,
 }
 
-impl TerminalTab {
+impl ColorsTab {
     fn hex_to_hsla(hex: &str) -> Option<Hsla> {
         let hex = hex.trim_start_matches('#');
         if hex.len() != 6 {
@@ -58,7 +54,7 @@ impl TerminalTab {
         window: &mut Window,
         cx: &mut Context<Self>,
         hex: &str,
-        setter: impl Fn(&mut TerminalConfig, String) + 'static + Copy,
+        setter: impl Fn(&mut ColorsConfig, String) + 'static + Copy,
     ) -> Entity<ColorPickerState> {
         let color = Self::hex_to_hsla(hex).unwrap_or(gpui::rgb(0x0F0F19).into());
         let picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(color));
@@ -69,7 +65,7 @@ impl TerminalTab {
             move |this, _picker, event: &ColorPickerEvent, window, cx| {
                 if let ColorPickerEvent::Change(Some(color)) = event {
                     let hex = color.to_hex();
-                    this.update_terminal_config(|config| {
+                    this.update_colors(|config| {
                         setter(config, hex);
                     });
                     this.save(window, cx);
@@ -87,83 +83,58 @@ impl TerminalTab {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let config = theme_data
-            .apps
-            .terminal
-            .as_ref()
-            .cloned()
-            .unwrap_or_default();
+        let colors = theme_data.colors.clone();
 
-        let primary_bg_picker =
-            Self::create_color_picker(window, cx, &config.primary.background, |c, v| {
-                c.primary.background = v
-            });
-        let primary_fg_picker =
-            Self::create_color_picker(window, cx, &config.primary.foreground, |c, v| {
-                c.primary.foreground = v
-            });
-        let cursor_cursor_picker =
-            Self::create_color_picker(window, cx, &config.cursor.cursor, |c, v| {
-                c.cursor.cursor = v
-            });
-        let cursor_text_picker =
-            Self::create_color_picker(window, cx, &config.cursor.text, |c, v| c.cursor.text = v);
+        let background_picker =
+            Self::create_color_picker(window, cx, &colors.background, |c, v| c.background = v);
+        let foreground_picker =
+            Self::create_color_picker(window, cx, &colors.foreground, |c, v| c.foreground = v);
         let selection_bg_picker =
-            Self::create_color_picker(window, cx, &config.selection.background, |c, v| {
-                c.selection.background = v
+            Self::create_color_picker(window, cx, &colors.selection_background, |c, v| {
+                c.selection_background = v
             });
         let selection_fg_picker =
-            Self::create_color_picker(window, cx, &config.selection.foreground, |c, v| {
-                c.selection.foreground = v
+            Self::create_color_picker(window, cx, &colors.selection_foreground, |c, v| {
+                c.selection_foreground = v
             });
         let normal_black_picker =
-            Self::create_color_picker(window, cx, &config.normal.black, |c, v| c.normal.black = v);
+            Self::create_color_picker(window, cx, &colors.color0, |c, v| c.color0 = v);
         let normal_red_picker =
-            Self::create_color_picker(window, cx, &config.normal.red, |c, v| c.normal.red = v);
+            Self::create_color_picker(window, cx, &colors.color1, |c, v| c.color1 = v);
         let normal_green_picker =
-            Self::create_color_picker(window, cx, &config.normal.green, |c, v| c.normal.green = v);
+            Self::create_color_picker(window, cx, &colors.color2, |c, v| c.color2 = v);
         let normal_yellow_picker =
-            Self::create_color_picker(window, cx, &config.normal.yellow, |c, v| {
-                c.normal.yellow = v
-            });
+            Self::create_color_picker(window, cx, &colors.color3, |c, v| c.color3 = v);
         let normal_blue_picker =
-            Self::create_color_picker(window, cx, &config.normal.blue, |c, v| c.normal.blue = v);
+            Self::create_color_picker(window, cx, &colors.color4, |c, v| c.color4 = v);
         let normal_magenta_picker =
-            Self::create_color_picker(window, cx, &config.normal.magenta, |c, v| {
-                c.normal.magenta = v
-            });
+            Self::create_color_picker(window, cx, &colors.color5, |c, v| c.color5 = v);
         let normal_cyan_picker =
-            Self::create_color_picker(window, cx, &config.normal.cyan, |c, v| c.normal.cyan = v);
+            Self::create_color_picker(window, cx, &colors.color6, |c, v| c.color6 = v);
         let normal_white_picker =
-            Self::create_color_picker(window, cx, &config.normal.white, |c, v| c.normal.white = v);
+            Self::create_color_picker(window, cx, &colors.color7, |c, v| c.color7 = v);
         let bright_black_picker =
-            Self::create_color_picker(window, cx, &config.bright.black, |c, v| c.bright.black = v);
+            Self::create_color_picker(window, cx, &colors.color8, |c, v| c.color8 = v);
         let bright_red_picker =
-            Self::create_color_picker(window, cx, &config.bright.red, |c, v| c.bright.red = v);
+            Self::create_color_picker(window, cx, &colors.color9, |c, v| c.color9 = v);
         let bright_green_picker =
-            Self::create_color_picker(window, cx, &config.bright.green, |c, v| c.bright.green = v);
+            Self::create_color_picker(window, cx, &colors.color10, |c, v| c.color10 = v);
         let bright_yellow_picker =
-            Self::create_color_picker(window, cx, &config.bright.yellow, |c, v| {
-                c.bright.yellow = v
-            });
+            Self::create_color_picker(window, cx, &colors.color11, |c, v| c.color11 = v);
         let bright_blue_picker =
-            Self::create_color_picker(window, cx, &config.bright.blue, |c, v| c.bright.blue = v);
+            Self::create_color_picker(window, cx, &colors.color12, |c, v| c.color12 = v);
         let bright_magenta_picker =
-            Self::create_color_picker(window, cx, &config.bright.magenta, |c, v| {
-                c.bright.magenta = v
-            });
+            Self::create_color_picker(window, cx, &colors.color13, |c, v| c.color13 = v);
         let bright_cyan_picker =
-            Self::create_color_picker(window, cx, &config.bright.cyan, |c, v| c.bright.cyan = v);
+            Self::create_color_picker(window, cx, &colors.color14, |c, v| c.color14 = v);
         let bright_white_picker =
-            Self::create_color_picker(window, cx, &config.bright.white, |c, v| c.bright.white = v);
+            Self::create_color_picker(window, cx, &colors.color15, |c, v| c.color15 = v);
 
         Self {
             theme_name,
             theme_data,
-            primary_bg_picker,
-            primary_fg_picker,
-            cursor_cursor_picker,
-            cursor_text_picker,
+            background_picker,
+            foreground_picker,
             selection_bg_picker,
             selection_fg_picker,
             normal_black_picker,
@@ -187,13 +158,11 @@ impl TerminalTab {
         }
     }
 
-    fn update_terminal_config<F>(&mut self, updater: F)
+    fn update_colors<F>(&mut self, updater: F)
     where
-        F: FnOnce(&mut TerminalConfig),
+        F: FnOnce(&mut ColorsConfig),
     {
-        let mut config = self.theme_data.apps.terminal.clone().unwrap_or_default();
-        updater(&mut config);
-        self.theme_data.apps.terminal = Some(config);
+        updater(&mut self.theme_data.colors);
     }
 
     fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
@@ -213,11 +182,6 @@ impl TerminalTab {
 
         match save_theme_data(&self.theme_name, &self.theme_data) {
             Ok(()) => {
-                if let Some(ref terminal_config) = self.theme_data.apps.terminal
-                    && let Err(e) = update_terminal_configs(&self.theme_name, terminal_config)
-                {
-                    self.error_message = Some(format!("Failed to update terminal configs: {}", e));
-                }
                 self.is_saving = false;
             }
             Err(e) => {
@@ -228,43 +192,11 @@ impl TerminalTab {
 
         cx.notify();
     }
-
-    fn launch_terminal(&self, app_name: &str) {
-        let command = format!("uwsm app -- {}", app_name);
-        if let Err(e) = execute_bash_command(command) {
-            eprintln!("Failed to launch {}: {}", app_name, e);
-        }
-    }
 }
 
-impl Render for TerminalTab {
+impl Render for ColorsTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let wide = window.viewport_size().width >= px(1000.0);
-
-        // Cursor Colors section
-        let cursor_section = form_section()
-            .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Cursor Colors"),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "term-cursor",
-                        "Cursor",
-                        &self.cursor_cursor_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "term-cursor-text",
-                        "Cursor Text",
-                        &self.cursor_text_picker,
-                    )),
-            );
 
         // Selection Colors section
         let selection_section = form_section()
@@ -280,14 +212,39 @@ impl Render for TerminalTab {
                     .gap_24()
                     .flex_wrap()
                     .child(color_picker_with_clipboard(
-                        "term-selection-bg",
+                        "colors-selection-bg",
                         "Background",
                         &self.selection_bg_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-selection-fg",
+                        "colors-selection-fg",
                         "Foreground",
                         &self.selection_fg_picker,
+                    )),
+            );
+
+        // Primary Colors section
+        let primary_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Primary Colors"),
+            )
+            .child(
+                h_flex()
+                    .gap_24()
+                    .flex_wrap()
+                    .child(color_picker_with_clipboard(
+                        "colors-background",
+                        "Background",
+                        &self.background_picker,
+                    ))
+                    .child(color_picker_with_clipboard(
+                        "colors-foreground",
+                        "Foreground",
+                        &self.foreground_picker,
                     )),
             );
 
@@ -305,22 +262,22 @@ impl Render for TerminalTab {
                     .gap_24()
                     .flex_wrap()
                     .child(color_picker_with_clipboard(
-                        "term-normal-black",
+                        "colors-normal-black",
                         "Black",
                         &self.normal_black_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-red",
+                        "colors-normal-red",
                         "Red",
                         &self.normal_red_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-green",
+                        "colors-normal-green",
                         "Green",
                         &self.normal_green_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-yellow",
+                        "colors-normal-yellow",
                         "Yellow",
                         &self.normal_yellow_picker,
                     )),
@@ -330,22 +287,22 @@ impl Render for TerminalTab {
                     .gap_24()
                     .flex_wrap()
                     .child(color_picker_with_clipboard(
-                        "term-normal-blue",
+                        "colors-normal-blue",
                         "Blue",
                         &self.normal_blue_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-magenta",
+                        "colors-normal-magenta",
                         "Magenta",
                         &self.normal_magenta_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-cyan",
+                        "colors-normal-cyan",
                         "Cyan",
                         &self.normal_cyan_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-normal-white",
+                        "colors-normal-white",
                         "White",
                         &self.normal_white_picker,
                     )),
@@ -365,22 +322,22 @@ impl Render for TerminalTab {
                     .gap_24()
                     .flex_wrap()
                     .child(color_picker_with_clipboard(
-                        "term-bright-black",
+                        "colors-bright-black",
                         "Black",
                         &self.bright_black_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-red",
+                        "colors-bright-red",
                         "Red",
                         &self.bright_red_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-green",
+                        "colors-bright-green",
                         "Green",
                         &self.bright_green_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-yellow",
+                        "colors-bright-yellow",
                         "Yellow",
                         &self.bright_yellow_picker,
                     )),
@@ -390,102 +347,38 @@ impl Render for TerminalTab {
                     .gap_24()
                     .flex_wrap()
                     .child(color_picker_with_clipboard(
-                        "term-bright-blue",
+                        "colors-bright-blue",
                         "Blue",
                         &self.bright_blue_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-magenta",
+                        "colors-bright-magenta",
                         "Magenta",
                         &self.bright_magenta_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-cyan",
+                        "colors-bright-cyan",
                         "Cyan",
                         &self.bright_cyan_picker,
                     ))
                     .child(color_picker_with_clipboard(
-                        "term-bright-white",
+                        "colors-bright-white",
                         "White",
                         &self.bright_white_picker,
                     )),
             );
 
         tab_container()
-            .child(
-                h_flex()
-                    .justify_between()
-                    .items_center()
-                    .child(help_text(
-                        "Color changes apply to Alacritty, Kitty, and Ghostty.",
-                        cx.theme().muted_foreground,
-                    ))
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .child(Button::new("launch-alacritty").label("Alacritty").on_click(
-                                cx.listener(|this, _event, _window, _cx| {
-                                    this.launch_terminal("alacritty");
-                                }),
-                            ))
-                            .child(Button::new("launch-kitty").label("Kitty").on_click(
-                                cx.listener(|this, _event, _window, _cx| {
-                                    this.launch_terminal("kitty");
-                                }),
-                            ))
-                            .child(Button::new("launch-ghostty").label("Ghostty").on_click(
-                                cx.listener(|this, _event, _window, _cx| {
-                                    this.launch_terminal("ghostty");
-                                }),
-                            )),
-                    ),
-            )
+            .child(help_text(
+                "This is the theme's full palette (colors.toml) — Omarchy generates your terminal, window borders, and other app colors from these values.",
+                cx.theme().muted_foreground,
+            ))
             .child(
                 v_flex()
                     .gap_6()
-                    // Primary Colors — full width
-                    .child(
-                        form_section()
-                            .gap_4()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child("Primary Colors"),
-                            )
-                            .child(
-                                h_flex()
-                                    .gap_24()
-                                    .flex_wrap()
-                                    .child(color_picker_with_clipboard(
-                                        "term-primary-bg",
-                                        "Background",
-                                        &self.primary_bg_picker,
-                                    ))
-                                    .child(color_picker_with_clipboard(
-                                        "term-primary-fg",
-                                        "Foreground",
-                                        &self.primary_fg_picker,
-                                    )),
-                            ),
-                    )
+                    .child(primary_section)
                     .child(Divider::horizontal())
-                    // Cursor + Selection — 2 cols on wide, stacked on narrow
-                    .child(if wide {
-                        div()
-                            .grid()
-                            .grid_cols(2)
-                            .gap_6()
-                            .child(cursor_section)
-                            .child(selection_section)
-                    } else {
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_6()
-                            .child(cursor_section)
-                            .child(selection_section)
-                    })
+                    .child(selection_section)
                     .child(Divider::horizontal())
                     // Normal + Bright — 2 cols on wide, stacked on narrow
                     .child(if wide {
@@ -503,6 +396,11 @@ impl Render for TerminalTab {
                             .child(normal_section)
                             .child(bright_section)
                     }),
+            )
+            .children(
+                self.error_message
+                    .as_ref()
+                    .map(|msg| crate::ui::theme_edit_page::shared::error_message(msg.clone(), cx)),
             )
     }
 }

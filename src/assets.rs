@@ -26,8 +26,8 @@ pub fn read_default_str(path: &str) -> Result<String, String> {
 }
 
 // Extracts all embedded files whose path begins with `prefix/` and writes them under `dest`.
-// For example, `extract_default_dir("omarchist/waybar", Path::new("/home/user/.config/omarchist/waybar"))`
-// will recreate the subtree at `dest`, stripping the `omarchist/waybar/` prefix from each file's embedded path.
+// For example, `extract_default_dir("theme", Path::new("/home/user/.config/omarchy/themes/my-theme"))`
+// will recreate the subtree at `dest`, stripping the `theme/` prefix from each file's embedded path.
 pub fn extract_default_dir(prefix: &str, dest: &Path) -> Result<(), String> {
     let prefix_slash = format!("{}/", prefix.trim_end_matches('/'));
     let mut extracted = false;

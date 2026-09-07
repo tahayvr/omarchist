@@ -3,6 +3,16 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
+// Looks up `key`, falling back to `alias` — mirrors the bidirectional
+// color0-15 <-> semantic-name aliasing Omarchy's own `omarchy-theme-color`
+// resolver applies, confirmed against the real omacom/omarchy@quattro source.
+// Quattro's own official themes (catppuccin, tokyo-night, etc.) use only the
+// semantic names with no color0-15 keys at all, so without this fallback
+// every real Quattro theme's preview swatch would silently show wrong colors.
+fn lookup<'a>(colors: &'a HashMap<String, String>, key: &str, alias: &str) -> Option<&'a String> {
+    colors.get(key).or_else(|| colors.get(alias))
+}
+
 pub fn parse_colors_toml(path: &Path) -> Option<ThemeColors> {
     let content = fs::read_to_string(path).ok()?;
     let mut colors: HashMap<String, String> = HashMap::new();
@@ -19,48 +29,42 @@ pub fn parse_colors_toml(path: &Path) -> Option<ThemeColors> {
         }
     }
 
+    let background = lookup(&colors, "background", "color0");
+    let foreground = lookup(&colors, "foreground", "color7");
+
     Some(ThemeColors {
         primary: PrimaryColors {
-            background: colors
-                .get("background")
-                .cloned()
-                .unwrap_or_else(|| "#1e1e2e".to_string()),
-            foreground: colors
-                .get("foreground")
-                .cloned()
-                .unwrap_or_else(|| "#cdd6f4".to_string()),
+            background: background.cloned().unwrap_or_else(|| "#1e1e2e".to_string()),
+            foreground: foreground.cloned().unwrap_or_else(|| "#cdd6f4".to_string()),
         },
         terminal: TerminalColors {
-            black: colors
-                .get("color0")
+            black: lookup(&colors, "color0", "background")
+                .or(background)
                 .cloned()
                 .unwrap_or_else(|| "#45475a".to_string()),
-            red: colors
-                .get("color1")
+            red: lookup(&colors, "color1", "red")
                 .cloned()
                 .unwrap_or_else(|| "#f38ba8".to_string()),
-            green: colors
-                .get("color2")
+            green: lookup(&colors, "color2", "green")
                 .cloned()
                 .unwrap_or_else(|| "#a6e3a1".to_string()),
-            yellow: colors
-                .get("color3")
+            yellow: lookup(&colors, "color3", "yellow")
                 .cloned()
                 .unwrap_or_else(|| "#f9e2af".to_string()),
-            blue: colors
-                .get("color4")
+            blue: lookup(&colors, "color4", "blue")
                 .cloned()
                 .unwrap_or_else(|| "#89b4fa".to_string()),
             magenta: colors
                 .get("color5")
+                .or_else(|| colors.get("magenta"))
+                .or_else(|| colors.get("purple"))
                 .cloned()
                 .unwrap_or_else(|| "#f5c2e7".to_string()),
-            cyan: colors
-                .get("color6")
+            cyan: lookup(&colors, "color6", "cyan")
                 .cloned()
                 .unwrap_or_else(|| "#94e2d5".to_string()),
-            white: colors
-                .get("color7")
+            white: lookup(&colors, "color7", "foreground")
+                .or(foreground)
                 .cloned()
                 .unwrap_or_else(|| "#bac2de".to_string()),
         },

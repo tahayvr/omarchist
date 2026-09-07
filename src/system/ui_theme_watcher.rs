@@ -18,26 +18,9 @@ thread_local! {
     pub static PENDING_UI_THEME_RELOAD: RefCell<bool> = const { RefCell::new(false) };
 }
 
-// the omarchy current theme directory:
-// `~/.config/omarchy/current/theme/`
-fn get_omarchy_current_theme_dir() -> Option<PathBuf> {
-    let home = dirs::home_dir()?;
-    Some(
-        home.join(".config")
-            .join("omarchy")
-            .join("current")
-            .join("theme"),
-    )
-}
-
-// `~/.config/omarchy/current/theme.name`
+// `~/.local/state/omarchy/current/theme.name`
 fn get_active_omarchy_theme_name() -> Option<String> {
-    let home = dirs::home_dir()?;
-    let name_file = home
-        .join(".config")
-        .join("omarchy")
-        .join("current")
-        .join("theme.name");
+    let name_file = crate::system::omarchy_paths::current_theme_name_file()?;
     let name = std::fs::read_to_string(&name_file).ok()?;
     let trimmed = name.trim().to_string();
     if trimmed.is_empty() {
@@ -47,9 +30,9 @@ fn get_active_omarchy_theme_name() -> Option<String> {
     }
 }
 
-// `~/.config/omarchy/current/theme/colors.toml`
+// `~/.local/state/omarchy/current/theme/colors.toml`
 fn get_colors_toml_path() -> Option<PathBuf> {
-    Some(get_omarchy_current_theme_dir()?.join("colors.toml"))
+    Some(crate::system::omarchy_paths::current_theme_dir()?.join("colors.toml"))
 }
 
 fn parse_colors_toml(path: &PathBuf) -> Option<HashMap<String, String>> {

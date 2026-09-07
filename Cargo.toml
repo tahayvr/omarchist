@@ -1,6 +1,6 @@
 [package]
 name = "omarchist"
-version = "1.0.1"
+version = "2.0.0"
 edition = "2024"
 description = "A GUI app for Omarchy Linux."
 documentation = "https://omarchist.com"

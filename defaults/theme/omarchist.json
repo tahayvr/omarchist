@@ -1,5 +1,5 @@
 {
-	"version": "1.0.0",
+	"version": "2.0.0",
 	"name": "{{THEME_NAME}}",
 	"created_at": "{{CREATED_AT}}",
 	"modified_at": "{{MODIFIED_AT}}",
@@ -47,24 +47,8 @@
 		"chromium": {
 			"theme_color": "#0F0F19"
 		},
-		"hyprland": {
-			"active_border": "6e6e92",
-			"inactive_border": "5C5C5E"
-		},
-		"hyprlock": {
-			"check_color": "255,234,0,1.0",
-			"color": "15,15,25,1.0",
-			"font_color": "255,102,245,1.0",
-			"inner_color": "15,15,25,1.0",
-			"outer_color": "51,160,255,1.0"
-		},
 		"icons": {
 			"theme_name": "Yaru-magenta"
-		},
-		"mako": {
-			"background_color": "#0F0F19",
-			"border_color": "#00F59B",
-			"text_color": "#EDEDFE"
 		},
 		"neovim": {
 			"lazy": false,
@@ -73,65 +57,12 @@
 			"theme_name": "matteblack",
 			"theme_repo": "tahayvr/matteblack.nvim"
 		},
-		"swayosd": {
-			"background_color": "#0F0F19",
-			"border_color": "#33A1FF",
-			"image": "#8A8A8D",
-			"label": "#8A8A8D",
-			"progress": "#8A8A8D"
-		},
 		"vscode": {
 			"raw_config": "{\n  \"name\": \"Sunset Drive\",\n  \"extension\": \"TahaYVR.sunset-drive\"\n}"
-		},
-		"walker": {
-			"background": "#0F0F19",
-			"base": "#0F0F19",
-			"border": "#33A1FF",
-			"foreground": "#EDEDFE",
-			"selected_text": "#FF66F6",
-			"text": "#EDEDFE"
-		},
-		"waybar": {
-			"background": "#0F0F19",
-			"foreground": "#EDEDFE"
-		},
-		"terminal": {
-			"bright": {
-				"black": "#181824",
-				"blue": "#5a9eff",
-				"cyan": "#80ffff",
-				"green": "#57f8bd",
-				"magenta": "#ff99ff",
-				"red": "#ff9a8f",
-				"white": "#F8F8FF",
-				"yellow": "#ffff80"
-			},
-			"cursor": {
-				"cursor": "#EDEDFE",
-				"text": "#0F0F19"
-			},
-			"normal": {
-				"black": "#0A0A12",
-				"blue": "#33A1FF",
-				"cyan": "#3CFFED",
-				"green": "#00F59B",
-				"magenta": "#FF66F6",
-				"red": "#FF3366",
-				"white": "#EDEDFE",
-				"yellow": "#FFEA00"
-			},
-			"primary": {
-				"background": "#0F0F19",
-				"dim_foreground": "#8C8CB8",
-				"foreground": "#EDEDFE"
-			},
-			"selection": {
-				"background": "#202034",
-				"foreground": "#EDEDFE"
-			}
 		}
 	},
 	"colors": {
+		"mode": "dark",
 		"accent": "#33A1FF",
 		"cursor": "#EDEDFE",
 		"foreground": "#EDEDFE",

@@ -6,7 +6,6 @@ use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
-use crate::ui::status_bar_page::status_bar_view::StatusBarView;
 use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
@@ -22,7 +21,7 @@ use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
-const SIDEBAR_ITEM_COUNT: usize = 3;
+const SIDEBAR_ITEM_COUNT: usize = 2;
 
 thread_local! {
     pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
@@ -37,7 +36,6 @@ pub enum ActivePage {
     SystemMonitor,
     Configuration,
     Settings,
-    StatusBar,
     About,
     Omarchy,
 }
@@ -58,8 +56,6 @@ pub struct MainWindowView {
     config_view: Option<Entity<ConfigView>>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
-    status_bar_root: Option<AnyView>,
-    status_bar_view: Option<Entity<StatusBarView>>,
     about_root: Option<AnyView>,
     about_view: Option<Entity<AboutView>>,
     omarchy_root: Option<AnyView>,
@@ -127,7 +123,6 @@ impl MainWindowView {
         let initial_sidebar_index = match &initial_page {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
             ActivePage::Configuration => 1,
-            ActivePage::StatusBar => 2,
             _ => 0,
         };
 
@@ -144,8 +139,6 @@ impl MainWindowView {
             config_view: None,
             settings_root: None,
             settings_view: None,
-            status_bar_root: None,
-            status_bar_view: None,
             about_root: None,
             about_view: None,
             omarchy_root: None,
@@ -213,16 +206,6 @@ impl MainWindowView {
                             .into(),
                     );
                     self.settings_view = Some(settings_view);
-                }
-            }
-            ActivePage::StatusBar => {
-                if self.status_bar_root.is_none() {
-                    let status_bar_view = cx.new(|cx| StatusBarView::new(window, cx));
-                    self.status_bar_root = Some(
-                        cx.new(|cx| Root::new(status_bar_view.clone(), window, cx))
-                            .into(),
-                    );
-                    self.status_bar_view = Some(status_bar_view);
                 }
             }
             ActivePage::About => {
@@ -296,10 +279,6 @@ impl MainWindowView {
                 .theme_edit_view
                 .as_ref()
                 .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::StatusBar => self
-                .status_bar_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
             ActivePage::About => self
                 .about_view
                 .as_ref()
@@ -356,10 +335,6 @@ impl MainWindowView {
                 .settings_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::StatusBar => self
-                .status_bar_root
-                .clone()
-                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::About => self
                 .about_root
                 .clone()
@@ -379,7 +354,6 @@ impl MainWindowView {
             (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
-            (ActivePage::StatusBar, ActivePage::StatusBar) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
             _ => false,
@@ -390,7 +364,6 @@ impl MainWindowView {
         match index {
             0 => ActivePage::Themes,
             1 => ActivePage::Configuration,
-            2 => ActivePage::StatusBar,
             _ => ActivePage::Themes,
         }
     }
@@ -632,13 +605,6 @@ impl Render for MainWindowView {
                     this.navigate_to(ActivePage::Configuration, window, cx);
                 },
             ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NavigateToStatusBar, window, cx| {
-                    this.focus_state.sidebar_index = 2;
-                    this.focus_state.focused_section = FocusedSection::Content;
-                    this.navigate_to(ActivePage::StatusBar, window, cx);
-                },
-            ))
             // Sidebar keyboard navigation actions
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NextFocus, window, cx| {
@@ -724,24 +690,6 @@ impl Render for MainWindowView {
                                                         FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
-                                                        window,
-                                                        cx,
-                                                    );
-                                                })),
-                                        )
-                                        .child(
-                                            SidebarMenuItem::new("STATUS BAR")
-                                                .icon(Icon::new(IconName::PanelBottom))
-                                                .active(
-                                                    self.is_page_active(ActivePage::StatusBar)
-                                                        || self.is_sidebar_item_focused(2),
-                                                )
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.focus_state.sidebar_index = 2;
-                                                    this.focus_state.focused_section =
-                                                        FocusedSection::Content;
-                                                    this.navigate_to(
-                                                        ActivePage::StatusBar,
                                                         window,
                                                         cx,
                                                     );
