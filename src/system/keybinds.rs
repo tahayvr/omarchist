@@ -14,7 +14,11 @@
 // and rendered into the write-only `~/.config/hypr/omarchist.lua`, which
 // Omarchy loads after the user's own files, so it wins.
 pub mod chord;
+pub mod conflicts;
 pub mod keymap;
+pub mod replay;
+pub mod scanner;
+pub mod search;
 
 use std::path::PathBuf;
 
