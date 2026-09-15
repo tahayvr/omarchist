@@ -15,7 +15,6 @@ pub struct CliArgs {
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewOption {
     Themes,
-    System,
     Settings,
     About,
     Omarchy,
@@ -33,16 +32,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_system_view() {
-        let args = CliArgs::parse_from(["omarchist", "--view", "system"]);
-        assert_eq!(args.view, Some(ViewOption::System));
+    fn test_parse_themes_view() {
+        let args = CliArgs::parse_from(["omarchist", "--view", "themes"]);
+        assert_eq!(args.view, Some(ViewOption::Themes));
         assert_eq!(args.theme, None);
     }
 
     #[test]
-    fn test_parse_themes_view() {
-        let args = CliArgs::parse_from(["omarchist", "--view", "themes"]);
-        assert_eq!(args.view, Some(ViewOption::Themes));
+    fn test_parse_config_view() {
+        let args = CliArgs::parse_from(["omarchist", "--view", "config"]);
+        assert_eq!(args.view, Some(ViewOption::Config));
+    }
+
+    #[test]
+    fn test_unknown_view_is_rejected() {
+        assert!(CliArgs::try_parse_from(["omarchist", "--view", "system"]).is_err());
     }
 
     #[test]

@@ -6,7 +6,6 @@ use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
-use crate::ui::system_monitor_page::system_monitor::SystemMonitorPage;
 use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
 use crate::ui::themes_page::themes::ThemesPage;
 use gpui::*;
@@ -33,7 +32,6 @@ thread_local! {
 pub enum ActivePage {
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
-    SystemMonitor,
     Configuration,
     Settings,
     About,
@@ -51,7 +49,6 @@ pub struct MainWindowView {
     theme_edit_view: Option<Entity<ThemeEditPage>>,
     theme_edit_name: Option<String>,
     // All other pages are created lazily on first navigation
-    system_monitor_root: Option<AnyView>,
     config_root: Option<AnyView>,
     config_view: Option<Entity<ConfigView>>,
     settings_root: Option<AnyView>,
@@ -134,7 +131,6 @@ impl MainWindowView {
             theme_edit_root: None,
             theme_edit_view: None,
             theme_edit_name: None,
-            system_monitor_root: None,
             config_root: None,
             config_view: None,
             settings_root: None,
@@ -179,13 +175,6 @@ impl MainWindowView {
                     );
                     self.theme_edit_view = Some(theme_edit_view);
                     self.theme_edit_name = Some(theme_name.clone());
-                }
-            }
-            ActivePage::SystemMonitor => {
-                if self.system_monitor_root.is_none() {
-                    let view = cx.new(|cx| SystemMonitorPage::new(window, cx));
-                    self.system_monitor_root =
-                        Some(cx.new(|cx| Root::new(view, window, cx)).into());
                 }
             }
             ActivePage::Configuration => {
@@ -295,8 +284,6 @@ impl MainWindowView {
                 .settings_view
                 .as_ref()
                 .map(|v| v.read(cx).focus_handle.clone()),
-            // SystemMonitor has no custom focus handle — keep main window focus
-            ActivePage::SystemMonitor => None,
         };
 
         if let Some(fh) = handle {
@@ -323,10 +310,6 @@ impl MainWindowView {
                 .theme_edit_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::SystemMonitor => self
-                .system_monitor_root
-                .clone()
-                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Configuration => self
                 .config_root
                 .clone()
@@ -351,7 +334,6 @@ impl MainWindowView {
             (ActivePage::Themes, ActivePage::Themes) => true,
             (ActivePage::ThemeEdit(_), ActivePage::Themes) => true, // ThemeEdit is under Themes in sidebar
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
-            (ActivePage::SystemMonitor, ActivePage::SystemMonitor) => true,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,

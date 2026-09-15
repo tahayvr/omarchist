@@ -33,12 +33,6 @@ You can open Omarchist directly to any page:
 
 ## Examples
 
-<!--### Open System Monitor
-
-```bash
-omarchist --view system
-```-->
-
 ### Open Themes Page
 
 ```bash
@@ -56,8 +50,3 @@ omarchist --view themes --theme my-custom-theme
 ```bash
 omarchist --view config
 ```
-
-<!--## Use Cases
-
-- **Keyboard shortcuts**: Bind a key combination to `omarchist --view system` for quick system monitoring
-- **Automation**: Launch Omarchist to specific pages from scripts-->

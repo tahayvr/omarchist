@@ -11,7 +11,6 @@ use std::rc::Rc;
 
 fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
-        Some(ViewOption::System) => ActivePage::SystemMonitor,
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
