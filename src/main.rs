@@ -190,14 +190,12 @@ fn main() {
             KeyBinding::new("left", app_menu::SelectPrev, Some("MainWindow")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("MainWindow")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("MainWindow")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("MainWindow")),
             // Themes page keyboard navigation
             KeyBinding::new("down", app_menu::NextItem, Some("ThemesPage")),
             KeyBinding::new("up", app_menu::PrevItem, Some("ThemesPage")),
             KeyBinding::new("right", app_menu::SelectNext, Some("ThemesPage")),
             KeyBinding::new("left", app_menu::SelectPrev, Some("ThemesPage")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("ThemesPage")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("ThemesPage")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("ThemesPage")),
             KeyBinding::new("tab", app_menu::NextFocus, Some("ThemesPage")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("ThemesPage")),
@@ -219,13 +217,11 @@ fn main() {
             KeyBinding::new("tab", app_menu::NextFocus, Some("SettingsPage")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("SettingsPage")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("SettingsPage")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("SettingsPage")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("SettingsPage")),
             // About page keyboard navigation
             KeyBinding::new("tab", app_menu::NextFocus, Some("AboutView")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("AboutView")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("AboutView")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
             // Keybinds page keyboard navigation
             KeyBinding::new("tab", app_menu::NextFocus, Some("KeybindsPage")),
@@ -257,7 +253,6 @@ fn main() {
             KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("OmarchyView")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("OmarchyView")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("OmarchyView")),
         ]);
 
