@@ -257,6 +257,11 @@ impl Render for ThemeEditPage {
                         Button::new("back-btn")
                             .label("Back")
                             .compact()
+                            .tooltip_with_action(
+                                "Back to Themes",
+                                &app_menu::NavigateBack,
+                                Some(KEY_CONTEXT),
+                            )
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
                                 this.navigate_back(window, cx);
@@ -266,6 +271,11 @@ impl Render for ThemeEditPage {
                         Button::new("apply-theme-btn")
                             .label("Apply Theme")
                             .compact()
+                            .tooltip_with_action(
+                                "Apply this theme now",
+                                &ApplyTheme,
+                                Some(KEY_CONTEXT),
+                            )
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _window, _cx| this.apply_theme())),
                     )

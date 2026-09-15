@@ -60,6 +60,7 @@ impl Render for MainTitleBar {
                             .dropdown_menu(|menu: PopupMenu, _window, _cx| {
                                 menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
+                                    .menu("Keyboard Shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
                             }),

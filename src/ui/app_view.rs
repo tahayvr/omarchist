@@ -622,6 +622,9 @@ impl Render for MainWindowView {
             .on_action(cx.listener(|this, _: &focus::ReloadPage, window, cx| {
                 this.reload_page(window, cx);
             }))
+            .on_action(cx.listener(|_, _: &focus::ShowShortcuts, window, cx| {
+                crate::ui::dialogs::shortcuts_dialog::open_shortcuts_dialog(window, cx);
+            }))
             // Sidebar composite
             .on_action(cx.listener(|this, _: &sidebar_nav::Next, _, cx| {
                 this.move_sidebar_index(this.sidebar_index + 1, cx);

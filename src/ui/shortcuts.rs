@@ -126,6 +126,97 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Dark appearance"
     ),
     shortcut!("ctrl-q", app_menu::Quit, None, GLOBAL, "Quit"),
+    shortcut!(
+        "ctrl-/",
+        focus::ShowShortcuts,
+        None,
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("Sidebar"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("Sidebar"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("TabStrip"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("TabStrip"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("ThemeGrid"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("ThemeGrid"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("ConfigNav"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("ConfigNav"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("KeybindsTable"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("KeybindsTable"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("KeybindsFilters"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("KeybindsFilters"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
     shortcut!("tab", focus::FocusNext, None, GLOBAL, "Next control"),
     shortcut!(
         "shift-tab",
@@ -611,13 +702,36 @@ pub fn key_bindings() -> Vec<KeyBinding> {
     SHORTCUTS.iter().map(Shortcut::key_binding).collect()
 }
 
-/// Shortcuts grouped for display, in table order.
-pub fn help_groups() -> Vec<(&'static str, Vec<&'static Shortcut>)> {
-    let mut groups: Vec<(&'static str, Vec<&'static Shortcut>)> = Vec::new();
+/// One help row: a label and every key that triggers it.
+pub type HelpRow = (&'static str, Vec<&'static str>);
+/// A help group: its title and rows.
+pub type HelpGroup = (&'static str, Vec<HelpRow>);
+
+/// Shortcuts grouped for the help dialog, in table order: one row per
+/// label with every key that triggers it. Bindings that only exist to
+/// override a component's own key (`Parent > Input`) and the `shift-`
+/// spelling of symbol keys are folded into the plain entry.
+pub fn help_rows() -> Vec<HelpGroup> {
+    let mut groups: Vec<HelpGroup> = Vec::new();
     for shortcut in SHORTCUTS {
-        match groups.iter_mut().find(|(name, _)| *name == shortcut.group) {
-            Some((_, items)) => items.push(shortcut),
-            None => groups.push((shortcut.group, vec![shortcut])),
+        if shortcut.context.is_some_and(|c| c.contains('>')) || shortcut.keys.starts_with("shift-?")
+        {
+            continue;
+        }
+        let rows = match groups.iter_mut().find(|(name, _)| *name == shortcut.group) {
+            Some((_, rows)) => rows,
+            None => {
+                groups.push((shortcut.group, Vec::new()));
+                &mut groups.last_mut().unwrap().1
+            }
+        };
+        match rows.iter_mut().find(|(label, _)| *label == shortcut.label) {
+            Some((_, keys)) => {
+                if !keys.contains(&shortcut.keys) {
+                    keys.push(shortcut.keys);
+                }
+            }
+            None => rows.push((shortcut.label, vec![shortcut.keys])),
         }
     }
     groups
@@ -639,6 +753,18 @@ mod tests {
                 shortcut.context
             );
         }
+    }
+
+    #[test]
+    fn help_rows_merge_keys_by_label() {
+        let groups = help_rows();
+        let (_, global) = groups.iter().find(|(g, _)| *g == GLOBAL).unwrap();
+        let (_, keys) = global
+            .iter()
+            .find(|(label, _)| *label == "Show keyboard shortcuts")
+            .unwrap();
+        assert_eq!(keys, &vec!["ctrl-/", "?"]);
+        assert!(groups.iter().all(|(_, rows)| !rows.is_empty()));
     }
 
     #[test]

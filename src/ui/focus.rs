@@ -13,7 +13,16 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, Disableable, h_flex, switch::Switch};
 
-actions!(focus, [FocusNext, FocusPrev, EscapeToSidebar, ReloadPage]);
+actions!(
+    focus,
+    [
+        FocusNext,
+        FocusPrev,
+        EscapeToSidebar,
+        ReloadPage,
+        ShowShortcuts
+    ]
+);
 
 /// A focus handle that Tab/Shift-Tab can reach.
 pub fn tab_stop(cx: &mut App) -> FocusHandle {

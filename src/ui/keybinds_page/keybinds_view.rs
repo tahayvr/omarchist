@@ -951,11 +951,15 @@ impl Render for KeybindsView {
                         let button = Button::new("kb-chord-search")
                             .small()
                             .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
-                            .tooltip(if self.chord_search_on {
-                                "Back to text search"
-                            } else {
-                                "Search by pressing keys"
-                            })
+                            .tooltip_with_action(
+                                if self.chord_search_on {
+                                    "Back to text search"
+                                } else {
+                                    "Search by pressing keys"
+                                },
+                                &ToggleChordSearch,
+                                Some(KEY_CONTEXT),
+                            )
                             .cursor_pointer();
                         let button = if self.chord_search_on {
                             button.primary()
@@ -973,6 +977,7 @@ impl Render for KeybindsView {
                             .small()
                             .icon(IconName::Plus)
                             .label("Add keybind")
+                            .tooltip_with_action("Add a keybind", &AddKeybind, Some(KEY_CONTEXT))
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| this.open_add(window, cx))),
                     )
@@ -981,7 +986,11 @@ impl Render for KeybindsView {
                             .ghost()
                             .small()
                             .icon(IconName::Undo2)
-                            .tooltip("Rescan your Hyprland config")
+                            .tooltip_with_action(
+                                "Rescan your Hyprland config",
+                                &focus::ReloadPage,
+                                None,
+                            )
                             .cursor_pointer()
                             .loading(self.loading)
                             .on_click(cx.listener(|this, _, _window, cx| this.refresh(cx))),
