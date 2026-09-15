@@ -19,13 +19,15 @@ Rows with a warning icon share their keys with another bind. Hyprland runs every
 
 ## Searching
 
-Type in the search box to match descriptions, commands, or keys (`super k`, `workspace`, `screenshot`). Press the keyboard button next to it to search by pressing keys instead: the page records a key combination and shows every bind on it. While only modifiers are held it shows every bind that uses them.
+Type in the search box to match descriptions, commands, or keys (`super k`, `workspace`, `screenshot`). Press the keyboard button next to it, or <kbd>Ctrl</kbd> + <kbd>K</kbd>, to search by pressing keys instead: the page records a key combination and shows every bind on it. While only modifiers are held it shows every bind that uses them.
 
-The filters narrow the list to **Modified** binds, **Conflicts**, Omarchy's defaults, or your own binds.
+The filters narrow the list to **Modified** binds, **Conflicts**, Omarchy's defaults, or your own binds (<kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>5</kbd>).
+
+The page opens with the search box focused. <kbd>↓</kbd> moves to the table, where <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd>, and <kbd>PgUp</kbd> / <kbd>PgDn</kbd> move between rows and <kbd>Escape</kbd> returns to the search box. The full list is on the [Keyboard Navigation](/keyboard) page.
 
 ## Changing a keybind
 
-Double-click a row, press <kbd>Enter</kbd> on a selected row, or right-click and choose **Edit**.
+Double-click a row, press <kbd>Enter</kbd> on a selected row, or right-click and choose **Edit**. <kbd>Delete</kbd> disables the selected bind and <kbd>Ctrl</kbd> + <kbd>C</kbd> copies its command.
 
 The **Keys** box records a key combination: click it (or press <kbd>Enter</kbd> while it is focused), then press the keys you want. Recording stops as soon as a complete combination arrives, so <kbd>Escape</kbd> can be recorded too. Use the stop button to cancel.
 

@@ -127,15 +127,17 @@ pub fn create_theme(name: &str) -> Result<String> {
 
 UI code displays errors with `to_string()` (`self.error_message = Some(e.to_string())`) and may match on variants when it needs to react differently. In files that `use gpui::*`, spell the alias out as `crate::error::Result<T>` because gpui re-exports anyhow's `Result` under the same name.
 
-### GPUI Actions
+### GPUI Actions and Shortcuts
 
-Define actions with derive macro:
+Define actions with `actions!(namespace, [..])` (in a `pub mod` when several components share a namespace, e.g. `focus::tab_strip`) or the derive macro for actions with data:
 
 ```rust
 #[derive(Clone, PartialEq, Action)]
-#[action(no_json)]
-pub struct NavigateToThemes;
+#[action(namespace = keybinds, no_json)]
+pub struct SetFilter(pub usize);
 ```
+
+Every key binding lives in `src/ui/shortcuts.rs` (`SHORTCUTS`): `main.rs` registers `key_bindings()`, the help dialog renders `help_rows()`, and a test rejects duplicate `(keys, context)` pairs. Never call `cx.bind_keys` with app shortcuts anywhere else. Never bind a bare printable key (`space`, letters) in a context that can contain an `Input`: the binding wins over the input and the character is never typed. To override a component's own key (Input binds `tab`, `down`, `escape`, `ctrl-enter`) use a child predicate registered later, e.g. `Some("KeybindsSearch > Input")`.
 
 ### State Management
 
@@ -232,6 +234,17 @@ pub enum ActivePage {
 }
 ```
 
+### Focus and Keyboard Navigation
+
+GPUI focus is the only source of truth; never keep a shadow "focused index" that is not backed by a `FocusHandle`. Helpers live in `src/ui/focus.rs`:
+
+- Every interactive element is a tab stop (`focus::tab_stop(cx)` or gpui-component's `Button`/`Input`/`Select`/`Radio`/`ColorPicker`). `Switch` is mouse-only: use `FocusableSwitch`.
+- Composites (sidebar, tab strips, theme grid, keybinds table and filters, config section list) are one tab stop with a roving index; their arrow keys are actions in their own `key_context`. Tab never stops on individual items inside them.
+- Each page exposes `focus_entry(&self, window, cx)`; `MainWindowView::navigate_to` calls it so keyboard users land on the first control. `Escape` (`focus::EscapeToSidebar`) toggles between the sidebar and the page.
+- Dialogs wrap their content in `focus::dialog_body(...)` (traps Tab, handles `dialog::Submit` = Ctrl+Enter) and call `focus::focus_first_in(&body_focus, window)` after `open_dialog`.
+- Scrolling content wraps sections in `FocusSection` so a focused section scrolls into view.
+- Focus rings come from `handle.is_focused(window)` and `focus::focus_border`.
+
 ### Entity Pattern
 
 Components that need state use the Entity pattern:
@@ -258,6 +271,10 @@ Changes persist automatically (no save button):
 - **`.when()` on a div** requires `use gpui::prelude::FluentBuilder` in scope; the closure parameter needs an explicit type annotation: `|this: gpui::Div|`.
 - **Drag and drop API** — `on_drag` takes a value + ghost-view constructor, `on_drop` takes `Fn(&T, &mut Window, &mut App)`. Use `drag_over::<T>` for highlight styling on drop targets.
 - **Stateless vs stateful components** — stateless: `#[derive(IntoElement)] + impl RenderOnce`; stateful (holding GPUI state): full `impl Render` struct owned as `Entity<T>`.
+- **Tab stops** — only the `FocusHandle`'s own `tab_stop`/`tab_index` count; `Div::tab_index()` does not write them to a tracked handle. Set them on the handle (`cx.focus_handle().tab_stop(true)`).
+- **`actions!` does not create a module** — the namespace is only the action name. Wrap it in `pub mod name { gpui::actions!(name, [...]); }` when you want `name::Action` paths.
+- **`use super::*` in a test module** of a file that has `use gpui::*` imports gpui's `test` attribute macro and breaks `#[test]` (recursion limit). Import the specific items instead.
+- **gpui-component `Settings`** keeps its page selection in private keyed state and cannot be driven from the keyboard; the Configuration page renders its own section list and `GroupBox`es from a declarative table instead.
 
 ## Theme System (Quattro)
 
@@ -296,6 +313,7 @@ Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, op
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
+- **Keyboard:** `src/ui/shortcuts.rs` (every binding), `src/ui/focus.rs` (tab stops, focus trap, focusable switch, scroll-into-view), `src/ui/dialogs/shortcuts_dialog.rs`
 - **Theme Creation:** `src/ui/dialogs/create_theme_dialog.rs`
 - **Theme Editing:** `src/ui/theme_edit_page/theme_edit_view.rs`
 - **Theme Management:** `src/system/themes/theme_management.rs`
