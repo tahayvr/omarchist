@@ -7,6 +7,7 @@
 // hands the rows to the table delegate.
 use std::collections::HashMap;
 
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable,
@@ -17,6 +18,7 @@ use gpui_component::{
     v_flex,
 };
 
+use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::conflicts::find_conflicts;
 use crate::system::keybinds::overrides::{KeybindOverrides, Override};
 use crate::system::keybinds::replay::{ScanResult, scan_keybinds};
@@ -26,6 +28,7 @@ use crate::system::keybinds::{BindStatus, Keybind, Origin};
 use crate::ui::keybinds_page::keybinds_table::{
     EmptyReason, KeybindRow, KeybindsTableDelegate, RowKind,
 };
+use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
 
 const KEY_CONTEXT: &str = "KeybindsPage";
 
@@ -84,6 +87,10 @@ pub struct KeybindsView {
     overrides: KeybindOverrides,
     table: Entity<TableState<KeybindsTableDelegate>>,
     search: Entity<InputState>,
+    chord_search: Entity<KeystrokeInput>,
+    chord_search_on: bool,
+    chord_query: Option<Chord>,
+    mods_query: Option<ModMask>,
     filter: KeybindFilter,
     loading: bool,
     error: Option<String>,
@@ -101,7 +108,25 @@ impl KeybindsView {
         let search = cx
             .new(|cx| InputState::new(window, cx).placeholder("Search actions, keys, or commands"));
 
+        let chord_search = cx.new(|cx| KeystrokeInput::new(None, true, window, cx));
+
         let subscriptions = vec![
+            cx.subscribe_in(
+                &chord_search,
+                window,
+                |this, _, event: &KeystrokeInputEvent, _window, cx| match event {
+                    KeystrokeInputEvent::Changed(chord) => {
+                        this.chord_query = chord.clone();
+                        this.mods_query = None;
+                        this.rebuild_rows(cx);
+                    }
+                    KeystrokeInputEvent::Pending(mods) => {
+                        this.mods_query = *mods;
+                        this.rebuild_rows(cx);
+                    }
+                    KeystrokeInputEvent::Started | KeystrokeInputEvent::Stopped => cx.notify(),
+                },
+            ),
             cx.subscribe_in(
                 &search,
                 window,
@@ -124,6 +149,10 @@ impl KeybindsView {
             overrides: KeybindOverrides::default(),
             table,
             search,
+            chord_search,
+            chord_search_on: false,
+            chord_query: None,
+            mods_query: None,
             filter: KeybindFilter::All,
             loading: false,
             error: None,
@@ -195,6 +224,36 @@ impl KeybindsView {
         if self.filter != filter {
             self.filter = filter;
             self.rebuild_rows(cx);
+        }
+    }
+
+    fn toggle_chord_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.chord_search_on = !self.chord_search_on;
+        if self.chord_search_on {
+            self.chord_search
+                .update(cx, |input, cx| input.start_recording(window, cx));
+        } else {
+            self.chord_search
+                .update(cx, |input, cx| input.clear(window, cx));
+            self.chord_query = None;
+            self.mods_query = None;
+            self.search.update(cx, |input, cx| input.focus(window, cx));
+        }
+        self.rebuild_rows(cx);
+    }
+
+    /// Keystroke search: an exact chord, or every chord holding the
+    /// modifiers currently pressed.
+    fn matches_chord_query(&self, row: &KeybindRow) -> bool {
+        if !self.chord_search_on {
+            return true;
+        }
+        if let Some(chord) = &self.chord_query {
+            return row.bind.chord.same_as(chord);
+        }
+        match self.mods_query {
+            Some(mods) => row.bind.chord.mods.contains(mods),
+            None => true,
         }
     }
 
@@ -297,6 +356,7 @@ impl KeybindsView {
         let mut rows: Vec<(u32, KeybindRow)> = all
             .into_iter()
             .filter(|row| filter.accepts(row))
+            .filter(|row| self.matches_chord_query(row))
             .filter_map(|row| score(&query, &row.bind).map(|s| (s, row)))
             .collect();
         if !query.trim().is_empty() {
@@ -310,7 +370,7 @@ impl KeybindsView {
             EmptyReason::Loading
         } else if self.scan.as_ref().is_none_or(|s| s.binds.is_empty()) {
             EmptyReason::NoBinds
-        } else if !query.trim().is_empty() {
+        } else if !query.trim().is_empty() || self.chord_query.is_some() {
             EmptyReason::NoMatches
         } else {
             match filter {
@@ -439,13 +499,36 @@ impl Render for KeybindsView {
                     .flex_wrap()
                     .gap_2()
                     .items_center()
-                    .child(
-                        div().flex_1().min_w(px(220.)).child(
-                            Input::new(&self.search)
-                                .cleanable(true)
-                                .prefix(Icon::new(IconName::Search).size_4()),
-                        ),
-                    )
+                    .child(div().flex_1().min_w(px(220.)).map(|this| {
+                        if self.chord_search_on {
+                            this.child(self.chord_search.clone())
+                        } else {
+                            this.child(
+                                Input::new(&self.search)
+                                    .cleanable(true)
+                                    .prefix(Icon::new(IconName::Search).size_4()),
+                            )
+                        }
+                    }))
+                    .child({
+                        let button = Button::new("kb-chord-search")
+                            .small()
+                            .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
+                            .tooltip(if self.chord_search_on {
+                                "Back to text search"
+                            } else {
+                                "Search by pressing keys"
+                            })
+                            .cursor_pointer();
+                        let button = if self.chord_search_on {
+                            button.primary()
+                        } else {
+                            button.ghost()
+                        };
+                        button.on_click(cx.listener(|this, _, window, cx| {
+                            this.toggle_chord_search(window, cx);
+                        }))
+                    })
                     .child(self.render_filters(cx))
                     .child(
                         Button::new("kb-refresh")

@@ -21,6 +21,7 @@ pub mod replay;
 pub mod scanner;
 pub mod search;
 pub mod store;
+pub mod submap;
 
 use std::path::PathBuf;
 

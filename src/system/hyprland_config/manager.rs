@@ -127,8 +127,13 @@ pub fn write_omarchist_lua(config: &HyprlandConfig) -> Result<()> {
     let keybinds = crate::system::keybinds::store::load_overrides().unwrap_or_default();
     let keybinds_lua = crate::system::keybinds::overrides::emit_keybinds_lua(&keybinds);
     let lua_content = super::lua_writer::render_omarchist_lua(config, &keybinds_lua);
-    fs::write(get_lua_path()?, lua_content)
-        .map_err(|e| Error::io("Failed to write omarchist.lua", e))
+    let lua_path = get_lua_path()?;
+    // Hyprland reloads on every write to ~/.config/hypr, so leave an
+    // up-to-date file alone.
+    if fs::read_to_string(&lua_path).is_ok_and(|current| current == lua_content) {
+        return Ok(());
+    }
+    fs::write(&lua_path, lua_content).map_err(|e| Error::io("Failed to write omarchist.lua", e))
 }
 
 fn get_state_path() -> Result<PathBuf> {
