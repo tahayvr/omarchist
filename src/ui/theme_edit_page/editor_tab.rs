@@ -1,6 +1,7 @@
+use crate::system::omarchy_paths::user_themes_dir;
 use crate::system::themes::theme_management::save_theme_data;
 use crate::types::themes::EditingTheme;
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{error_message, form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -10,6 +11,15 @@ use gpui_component::{
 use std::fs;
 use std::path::PathBuf;
 
+const NEOVIM_FILE: &str = "neovim.lua";
+const VSCODE_FILE: &str = "vscode.json";
+
+// Optional per-theme override files. Quattro generates both a Neovim
+// colorscheme (`neovim.lua`) and a VS Code theme (`vscode-theme.json`) from
+// colors.toml via `omarchy-theme-set-templates` whenever the theme folder
+// doesn't ship its own, so these files only exist when the user wants to
+// point at a specific plugin/extension instead. An empty editor removes the
+// file so Omarchy's generated version takes over again.
 pub struct EditorTab {
     theme_name: String,
     theme_data: EditingTheme,
@@ -26,15 +36,16 @@ impl EditorTab {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        // Load file contents
-        let neovim_content = Self::load_neovim_content(&theme_name);
-        let vscode_content = Self::load_vscode_content(&theme_name);
+        let neovim_content = Self::load_override(&theme_name, NEOVIM_FILE);
+        let vscode_content = Self::load_override(&theme_name, VSCODE_FILE);
 
-        // Create input states with code editor mode
         let neovim_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .code_editor("lua")
                 .line_number(false)
+                .placeholder(
+                    "Leave empty to use the Neovim colorscheme Omarchy generates from colors.toml",
+                )
                 .default_value(&neovim_content)
         });
 
@@ -42,6 +53,9 @@ impl EditorTab {
             InputState::new(window, cx)
                 .code_editor("json")
                 .line_number(false)
+                .placeholder(
+                    "Leave empty to use the VS Code theme Omarchy generates from colors.toml",
+                )
                 .default_value(&vscode_content)
         });
 
@@ -54,27 +68,25 @@ impl EditorTab {
             error_message: None,
         };
 
-        // Subscribe to neovim input changes
         cx.subscribe_in(
             &tab.neovim_input,
             window,
-            |this, _input_state, event: &InputEvent, window, cx| {
+            |this, _input_state, event: &InputEvent, _window, cx| {
                 if let InputEvent::Change = event {
                     let content = this.neovim_input.read(cx).value().to_string();
-                    this.save_neovim(&content, window, cx);
+                    this.save_override(NEOVIM_FILE, &content, cx);
                 }
             },
         )
         .detach();
 
-        // Subscribe to vscode input changes
         cx.subscribe_in(
             &tab.vscode_input,
             window,
-            |this, _input_state, event: &InputEvent, window, cx| {
+            |this, _input_state, event: &InputEvent, _window, cx| {
                 if let InputEvent::Change = event {
                     let content = this.vscode_input.read(cx).value().to_string();
-                    this.save_vscode(&content, window, cx);
+                    this.save_override(VSCODE_FILE, &content, cx);
                 }
             },
         )
@@ -83,44 +95,18 @@ impl EditorTab {
         tab
     }
 
-    fn load_neovim_content(theme_name: &str) -> String {
-        let themes_dir = dirs::home_dir()
-            .map(|h| h.join(".config").join("omarchy").join("themes"))
-            .unwrap_or_else(|| PathBuf::from("."));
-
-        let file_path = themes_dir.join(theme_name).join("neovim.lua");
-        fs::read_to_string(&file_path).unwrap_or_else(|_| {
-            // Return default content if file doesn't exist
-            r#"return {
-    { "tahayvr/sunset-drive.nvim", lazy = false, priority = 1000 },
-    {
-        "LazyVim/LazyVim",
-        opts = {
-            colorscheme = "sunsetdrive",
-        },
-    },
-}"#
-            .to_string()
-        })
+    fn override_path(theme_name: &str, file_name: &str) -> Option<PathBuf> {
+        user_themes_dir().map(|dir| dir.join(theme_name).join(file_name))
     }
 
-    fn load_vscode_content(theme_name: &str) -> String {
-        let themes_dir = dirs::home_dir()
-            .map(|h| h.join(".config").join("omarchy").join("themes"))
-            .unwrap_or_else(|| PathBuf::from("."));
-
-        let file_path = themes_dir.join(theme_name).join("vscode.json");
-        fs::read_to_string(&file_path).unwrap_or_else(|_| {
-            // Return default content if file doesn't exist
-            r#"{
-	"name": "Sunset Drive",
-	"extension": "TahaYVR.sunset-drive"
-}"#
-            .to_string()
-        })
+    // Missing file means "no override" and shows as an empty editor.
+    fn load_override(theme_name: &str, file_name: &str) -> String {
+        Self::override_path(theme_name, file_name)
+            .and_then(|path| fs::read_to_string(path).ok())
+            .unwrap_or_default()
     }
 
-    fn save_neovim(&mut self, content: &str, _window: &mut Window, cx: &mut Context<Self>) {
+    fn save_override(&mut self, file_name: &str, content: &str, cx: &mut Context<Self>) {
         if self.is_saving {
             return;
         }
@@ -135,83 +121,46 @@ impl EditorTab {
         self.error_message = None;
         cx.notify();
 
-        // Save to neovim.lua file directly
-        let themes_dir = dirs::home_dir()
-            .map(|h| h.join(".config").join("omarchy").join("themes"))
-            .unwrap_or_else(|| PathBuf::from("."));
+        let result = Self::write_override(&self.theme_name, file_name, content);
 
-        let file_path = themes_dir.join(&self.theme_name).join("neovim.lua");
-
-        match fs::write(&file_path, content) {
+        match result {
             Ok(()) => {
-                // Also update theme_data.apps.neovim with the content
-                match serde_json::to_value(content) {
-                    Ok(value) => {
-                        self.theme_data.apps.neovim = Some(value);
-                        // Save theme data to update modified_at timestamp
-                        let _ = save_theme_data(&self.theme_name, &self.theme_data);
-                    }
-                    Err(e) => {
-                        self.error_message =
-                            Some(format!("Failed to serialize neovim content: {}", e));
-                    }
+                let value = if content.trim().is_empty() {
+                    None
+                } else {
+                    Some(serde_json::Value::String(content.to_string()))
+                };
+                match file_name {
+                    NEOVIM_FILE => self.theme_data.apps.neovim = value,
+                    VSCODE_FILE => self.theme_data.apps.vscode = value,
+                    _ => {}
                 }
-                self.is_saving = false;
+                // Persist the manifest so modified_at reflects this edit.
+                if let Err(e) = save_theme_data(&self.theme_name, &self.theme_data) {
+                    self.error_message = Some(e);
+                }
             }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(format!("Failed to write neovim.lua: {}", e));
-            }
+            Err(e) => self.error_message = Some(e),
         }
 
+        self.is_saving = false;
         cx.notify();
     }
 
-    fn save_vscode(&mut self, content: &str, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
+    // Writes the override, or removes it when the editor is blank so Omarchy
+    // falls back to its template-generated file on the next theme apply.
+    fn write_override(theme_name: &str, file_name: &str, content: &str) -> Result<(), String> {
+        let path = Self::override_path(theme_name, file_name)
+            .ok_or_else(|| "Could not determine themes directory".to_string())?;
 
-        if self.theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-        cx.notify();
-
-        // Save to vscode.json file directly
-        let themes_dir = dirs::home_dir()
-            .map(|h| h.join(".config").join("omarchy").join("themes"))
-            .unwrap_or_else(|| PathBuf::from("."));
-
-        let file_path = themes_dir.join(&self.theme_name).join("vscode.json");
-
-        match fs::write(&file_path, content) {
-            Ok(()) => {
-                // Also update theme_data.apps.vscode with the content
-                match serde_json::to_value(content) {
-                    Ok(value) => {
-                        self.theme_data.apps.vscode = Some(value);
-                        // Save theme data to update modified_at timestamp
-                        let _ = save_theme_data(&self.theme_name, &self.theme_data);
-                    }
-                    Err(e) => {
-                        self.error_message =
-                            Some(format!("Failed to serialize vscode content: {}", e));
-                    }
-                }
-                self.is_saving = false;
+        if content.trim().is_empty() {
+            if path.exists() {
+                fs::remove_file(&path).map_err(|e| format!("Failed to remove {file_name}: {e}"))?;
             }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(format!("Failed to write vscode.json: {}", e));
-            }
+            return Ok(());
         }
 
-        cx.notify();
+        fs::write(&path, content).map_err(|e| format!("Failed to write {file_name}: {e}"))
     }
 
     pub fn theme_data(&self) -> &EditingTheme {
@@ -223,14 +172,20 @@ impl Render for EditorTab {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         tab_container()
             .child(help_text(
-                "Edit the configuration files for Neovim and VSCode: themes:",
+                "Optional overrides. Omarchy already generates a Neovim colorscheme and a VS Code \
+                 theme from this theme's colors — only fill these in to use a specific plugin or \
+                 extension instead. Clearing a field removes the override.",
                 cx.theme().muted_foreground,
             ))
+            .children(
+                self.error_message
+                    .as_ref()
+                    .map(|msg| error_message(msg.clone(), cx)),
+            )
             .child(
                 v_flex()
                     .gap_6()
                     .child(
-                        // Neovim section
                         form_section()
                             .gap_4()
                             .child(
@@ -251,14 +206,13 @@ impl Render for EditorTab {
                             ),
                     )
                     .child(
-                        // VSCode: section
                         form_section()
                             .gap_4()
                             .child(
                                 div()
                                     .text_lg()
                                     .font_weight(FontWeight::SEMIBOLD)
-                                    .child("VSCode: (vscode.json)"),
+                                    .child("VS Code (vscode.json)"),
                             )
                             .child(
                                 div().bg(cx.theme().background).h(px(200.)).child(

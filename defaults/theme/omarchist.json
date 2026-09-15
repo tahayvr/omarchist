@@ -50,16 +50,8 @@
 		"icons": {
 			"theme_name": "Yaru-magenta"
 		},
-		"neovim": {
-			"lazy": false,
-			"priority": 1000,
-			"raw_config": "return {\n  { \"tahayvr/sunset-drive.nvim\", lazy = false, priority = 1000 },\n  {\n\t\t\"LazyVim/LazyVim\",\n\t\topts = {\n\t\t\tcolorscheme = \"sunsetdrive\",\n\t\t},\n\t},\n}",
-			"theme_name": "matteblack",
-			"theme_repo": "tahayvr/matteblack.nvim"
-		},
-		"vscode": {
-			"raw_config": "{\n  \"name\": \"Sunset Drive\",\n  \"extension\": \"TahaYVR.sunset-drive\"\n}"
-		}
+		"neovim": null,
+		"vscode": null
 	},
 	"colors": {
 		"mode": "dark",

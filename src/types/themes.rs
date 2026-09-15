@@ -39,32 +39,6 @@ pub struct ThemeEntry {
     pub colors: Option<ThemeColors>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct RawUserTheme {
-    #[serde(default = "default_version")]
-    pub version: String,
-    pub name: String,
-    pub image: String,
-    pub origin: ThemeOrigin,
-    pub created_at: String,
-    pub modified_at: String,
-    pub author: Option<String>,
-    pub apps: serde_json::Value,
-    pub colors: Option<ThemeColors>,
-}
-
-impl RawUserTheme {
-    pub fn into_entry(self, title: String) -> ThemeEntry {
-        ThemeEntry {
-            dir: self.name,
-            title,
-            origin: self.origin,
-            image: self.image,
-            colors: self.colors,
-        }
-    }
-}
-
 fn default_version() -> String {
     "2.0.0".to_string()
 }

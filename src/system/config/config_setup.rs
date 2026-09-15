@@ -52,8 +52,7 @@ pub fn ensure_config() -> Result<(), String> {
             copy_settings_from_default(&settings_path)?;
         }
 
-        // Hyprland errors if the sourced file is missing.
-        ensure_hyprland_conf(&config_dir)?;
+        remove_legacy_hyprland_conf(&config_dir)?;
 
         return Ok(());
     }
@@ -249,23 +248,19 @@ fn copy_settings_from_default(settings_path: &Path) -> Result<(), String> {
     replace_settings_file(settings_path)
 }
 
-fn ensure_hyprland_conf(config_dir: &Path) -> Result<(), String> {
-    let hypr_dir = config_dir.join("hyprland");
-    let hypr_conf = hypr_dir.join("hyprland.conf");
+// Pre-Quattro versions of Omarchist generated a hyprlang
+// `~/.config/omarchist/hyprland/hyprland.conf` that the user's `hyprland.conf`
+// sourced via a glob. Quattro's Hyprland config is Lua, and Omarchist now
+// writes `~/.config/hypr/omarchist.lua` instead (see `hyprland_config`), so
+// the old generated file is dead weight — delete it if an upgrade left it behind.
+fn remove_legacy_hyprland_conf(config_dir: &Path) -> Result<(), String> {
+    let legacy_conf = config_dir.join("hyprland").join("hyprland.conf");
 
-    if hypr_conf.exists() {
-        return Ok(());
+    if legacy_conf.exists() {
+        fs::remove_file(&legacy_conf)
+            .map_err(|e| format!("Failed to remove legacy hyprland.conf: {}", e))?;
+        println!("Removed legacy config: {}", legacy_conf.display());
     }
-
-    // Create the hyprland directory if it doesn't exist yet
-    fs::create_dir_all(&hypr_dir)
-        .map_err(|e| format!("Failed to create hyprland config directory: {}", e))?;
-
-    let content = read_default_str("omarchist/hyprland/hyprland.conf")?;
-    fs::write(&hypr_conf, content)
-        .map_err(|e| format!("Failed to write default hyprland.conf: {}", e))?;
-
-    println!("Copied default hyprland.conf to: {}", hypr_conf.display());
 
     Ok(())
 }

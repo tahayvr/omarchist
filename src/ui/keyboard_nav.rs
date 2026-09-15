@@ -12,7 +12,7 @@ impl FocusState {
         Self {
             focused_section: FocusedSection::Content,
             sidebar_index: 0,
-            sidebar_count: 3, // Themes, Configuration, Status Bar
+            sidebar_count: 2, // Themes, Configuration
         }
     }
 

@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://omarchist.com"
 repository = "https://github.com/tahayvr/omarchist"
 license = "Apache-2.0"
-keywords = ["omarchy", "themes", "hyprland", "waybar"]
+keywords = ["omarchy", "themes", "hyprland"]
 categories = ["config"]
 
 # Explicitly include what the build needs

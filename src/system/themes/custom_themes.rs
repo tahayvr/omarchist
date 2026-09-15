@@ -2,7 +2,7 @@ use super::parse_colors::{parse_alacritty_toml, parse_colors_toml};
 use super::preview_img::find_preview_image;
 use super::utils::dir_to_title;
 
-use crate::types::themes::{RawUserTheme, ThemeEntry, ThemeOrigin};
+use crate::types::themes::{ThemeEntry, ThemeOrigin};
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -10,9 +10,12 @@ pub fn get_user_themes_dir() -> Option<PathBuf> {
     crate::system::omarchy_paths::user_themes_dir()
 }
 
-fn load_theme_from_dir(theme_dir: &Path) -> Option<RawUserTheme> {
+fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
     let dir_name = theme_dir.file_name()?.to_str()?;
 
+    // `alacritty.toml` is only consulted for themes that predate colors.toml —
+    // Omarchy itself still converts those on apply, so their preview swatches
+    // should keep working here too.
     let colors_path = theme_dir.join("colors.toml");
     let alacritty_path = theme_dir.join("alacritty.toml");
     let colors = if colors_path.exists() {
@@ -32,45 +35,11 @@ fn load_theme_from_dir(theme_dir: &Path) -> Option<RawUserTheme> {
         ThemeOrigin::Community
     };
 
-    let metadata = fs::metadata(theme_dir).ok();
-    let created_at = metadata
-        .as_ref()
-        .and_then(|m| m.created().ok())
-        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-        .unwrap_or_default();
-    let modified_at = metadata
-        .as_ref()
-        .and_then(|m| m.modified().ok())
-        .map(|t| chrono::DateTime::<chrono::Utc>::from(t).to_rfc3339())
-        .unwrap_or_default();
-
-    let theme_json_path = theme_dir.join("theme.json");
-    let (author, apps) = if theme_json_path.exists() {
-        match fs::read_to_string(&theme_json_path) {
-            Ok(json_str) => {
-                let v: serde_json::Value = serde_json::from_str(&json_str).unwrap_or_default();
-                let author = v
-                    .get("author")
-                    .and_then(|a| a.as_str())
-                    .map(|s| s.to_string());
-                let apps = v.get("apps").cloned().unwrap_or(serde_json::Value::Null);
-                (author, apps)
-            }
-            Err(_) => (None, serde_json::Value::Null),
-        }
-    } else {
-        (None, serde_json::Value::Null)
-    };
-
-    Some(RawUserTheme {
-        version: "1.0.0".to_string(),
-        name: dir_name.to_string(),
-        image,
+    Some(ThemeEntry {
+        dir: dir_name.to_string(),
+        title: dir_to_title(dir_name),
         origin,
-        created_at,
-        modified_at,
-        author,
-        apps,
+        image,
         colors,
     })
 }
@@ -91,10 +60,6 @@ pub fn get_user_themes() -> Result<Vec<ThemeEntry>, String> {
         .flatten()
         .filter(|e| e.path().is_dir())
         .filter_map(|e| load_theme_from_dir(&e.path()))
-        .map(|raw| {
-            let title = dir_to_title(&raw.name);
-            raw.into_entry(title)
-        })
         .collect();
 
     themes.sort_by_key(|a| a.title.to_lowercase());

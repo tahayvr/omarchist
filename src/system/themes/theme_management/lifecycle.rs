@@ -99,8 +99,10 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         EditingTheme::default()
     };
 
+    // `mode` in colors.toml is authoritative; the `light.mode` marker file is
+    // only honored for themes written by pre-Quattro versions of Omarchist.
     editing_theme.is_light_theme =
-        theme_dir.join("light.mode").exists() || editing_theme.colors.mode == "light";
+        editing_theme.colors.mode == "light" || theme_dir.join("light.mode").exists();
 
     let icons_theme_path = theme_dir.join("icons.theme");
     if icons_theme_path.exists()
@@ -148,7 +150,7 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     fs::write(&json_path, json_content)
         .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
 
-    update_light_mode_file(&theme_dir, theme_data.is_light_theme)?;
+    remove_legacy_light_mode_file(&theme_dir)?;
 
     // colors.toml is Omarchist's source of truth for the theme's palette —
     // written unconditionally on every save. Everything else a theme could
@@ -218,17 +220,16 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn update_light_mode_file(theme_dir: &Path, is_light: bool) -> Result<(), String> {
+// Pre-Quattro Omarchist marked light themes with an empty `light.mode` file.
+// Omarchy's resolver (`omarchy-theme-color`) now treats that file as a legacy
+// fallback behind the `mode` key in colors.toml, which Omarchist always writes,
+// so the marker is removed on save rather than kept in sync.
+fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<(), String> {
     let light_mode_path = theme_dir.join("light.mode");
 
-    if is_light {
-        if !light_mode_path.exists() {
-            fs::write(&light_mode_path, "")
-                .map_err(|e| format!("Failed to create light.mode file: {}", e))?;
-        }
-    } else if light_mode_path.exists() {
+    if light_mode_path.exists() {
         fs::remove_file(&light_mode_path)
-            .map_err(|e| format!("Failed to remove light.mode file: {}", e))?;
+            .map_err(|e| format!("Failed to remove legacy light.mode file: {}", e))?;
     }
 
     Ok(())

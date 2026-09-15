@@ -12,6 +12,14 @@ You find your themes in the **Custom Themes** tab on the Themes page. System the
 
 Click the **Create New Theme** button on the Themes page. Enter a name for your theme and click **Create**. The Theme Designer opens automatically.
 
+You can also create a theme from an image. Omarchist extracts a color palette from the picture, builds the theme from it, and copies the image into the theme's backgrounds folder.
+
+## How Omarchy Uses Your Theme
+
+Omarchy Quattro builds most app configs from a single `colors.toml` file. When you apply a theme, Omarchy generates the terminal configs, window border colors, the bar, notifications, the launcher, a Neovim colorscheme, and a VS Code theme from that palette.
+
+Omarchist writes `colors.toml` for you. It only adds extra files for the few apps that accept a per-theme override, such as btop, Chromium, and the lock screen.
+
 ## Theme Designer
 
 The Theme Designer lets you customize every part of your desktop. It contains tabs for different components.
@@ -26,16 +34,20 @@ Set basic information about your theme.
 
 - **Theme Name**: The name appears in your theme list.
 - **Author**: Enter your name or handle.
-- **Light Mode**: Toggle this if you create a light theme. This ensures proper contrast and text colors.
-- **Accent Color**: This color is used by Omarchy to make themes for various apps.
+- **Light Mode**: Toggle this if you create a light theme. Omarchist writes it as the `mode` key in `colors.toml`.
+- **Accent Color**: Omarchy uses this color for window borders, the bar, and other highlights.
 
-### Terminal
+### Colors
 
-Set the color palette for your terminal emulators. Omarchist generates configurations for **Alacritty**, **Ghostty**, and **Kitty** automatically.
+Set the full palette in `colors.toml`. Omarchy generates configurations for **Alacritty**, **Ghostty**, **Kitty**, and **Foot** from these values.
 
 - **Primary Colors**: Background and foreground colors.
-- **Cursor**: Cursor color and text color.
+- **Cursor and Selection**: Cursor color plus selection foreground and background.
 - **Normal/Bright Colors**: The 8 standard ANSI colors for both normal and bright variants.
+
+### Windows (Hyprland)
+
+Shows the accent color Omarchy uses for window borders. Omarchy no longer stores border colors separately per theme, so you change them on the General tab.
 
 ### Browser
 
@@ -43,55 +55,28 @@ Set the theme color for **Chromium**.
 
 - **Theme Color**: One color generates a complete Chromium theme.
 
-### Waybar (Status Bar)
+### File Manager
 
-Customize **Waybar**, the bar at the top of your screen.
+Select the icon theme for **Nautilus**.
 
-- **Background/Foreground**: Base colors for the bar.
+- **Yaru Colors**: Choose from Red, Blue, Olive, Yellow, Purple, Magenta, or Sage variants.
 
-### Windows (Hyprland)
+### Lock Screen
 
-Configure window appearance in **Hyprland**.
+Customize the Omarchy shell lock screen.
 
-- **Active/Inactive Border**: Border colors for focused and unfocused windows.
-- **Border Size**: Border thickness in pixels.
-- **Gaps**: Space between windows and screen edges.
-- **Rounding**: Corner rounding for windows.
+- **Text/Placeholder**: Input text and placeholder colors.
+- **Text Error**: Color shown after a wrong password.
+- **Border/Border Active/Border Error**: Border colors for the input field.
 
-### Menu (Walker)
+### Editor
 
-Customize **Walker**, the application launcher.
+Optionally override the editor themes Omarchy generates.
 
-- **Background**: Main menu background color.
-- **Base**: Search bar background.
-- **Border**: Menu border color.
-- **Foreground**: Text color.
-- **Selected Text**: Highlighted item color.
+- **Neovim**: Edit the `neovim.lua` file directly. Leave it empty to use the colorscheme Omarchy generates from your palette.
+- **VS Code**: Edit the `vscode.json` file directly. Leave it empty to use the VS Code theme Omarchy generates from your palette.
 
-### Lock Screen (Hyprlock)
-
-Customize **Hyprlock**, the screen locker.
-
-- **Main Color**: Input field color.
-- **Inner/Outer Color**: Border colors.
-- **Font Color**: Text color.
-- **Check Color**: Success indicator color.
-
-### Notifications (Mako)
-
-Style notifications with **Mako**.
-
-- **Background**: Notification bubble background.
-- **Text Color**: Notification text color.
-- **Border Color**: Border color.
-
-### SwayOSD
-
-Customize on-screen popups for volume and brightness changes.
-
-- **Background**: Popup background color.
-- **Border**: Popup border color.
-- **Label/Image/Progress**: Colors for text, icons, and progress bars.
+Clearing a field removes the override file.
 
 ### Btop
 
@@ -100,19 +85,6 @@ Set colors for the **Btop** system monitor.
 - **Main Colors**: Background, text, and title colors.
 - **Box Colors**: Colors for CPU, memory, network, and process boxes.
 - **Gradient Colors**: Temperature, CPU, memory, and network gradients.
-
-### File Manager
-
-Select the icon theme for **Nautilus**.
-
-- **Yaru Colors**: Choose from Red, Blue, Olive, Yellow, Purple, Magenta, or Sage variants.
-
-### Editor
-
-Edit configuration files for **Neovim** and **VSCode:**.
-
-- **Neovim**: Edit the `neovim.lua` file directly.
-- **VSCode:**: Edit the `vscode.json` file directly.
 
 ### Backgrounds
 
@@ -160,26 +132,20 @@ Never edit the `omarchist.json` file directly. Use the Theme Designer to make ch
 
 ### Theme Structure
 
-A complete theme folder contains:
+A theme folder contains:
 
 ```
 ~/.config/omarchy/themes/my-theme/
 ├── omarchist.json          # Theme manifest (do not edit)
-├── colors.toml             # Color definitions
-├── alacritty.toml          # Alacritty terminal config
-├── ghostty.conf            # Ghostty terminal config
-├── kitty.conf              # Kitty terminal config
-├── hyprland.conf           # Hyprland window settings
-├── hyprlock.conf           # Hyprlock screen lock
-├── waybar.css              # Waybar styling
-├── walker.css              # Walker launcher styling
-├── mako.ini                # Mako notifications
-├── btop.theme              # Btop system monitor
-├── swayosd.css             # SwayOSD styling
+├── colors.toml             # Color palette — Omarchy generates the rest from this
+├── btop.theme              # Btop system monitor (optional override)
+├── chromium.theme          # Chromium theme color (optional override)
+├── shell.lock.toml         # Lock screen colors (optional override)
 ├── icons.theme             # Icon theme reference
-├── neovim.lua              # Neovim configuration
-├── vscode.json             # VSCode: theme reference
-├── chromium.theme          # Chromium theme color
+├── neovim.lua              # Neovim configuration (optional override)
+├── vscode.json             # VS Code theme reference (optional override)
 └── backgrounds/            # Wallpaper images
     └── *.png
 ```
+
+Omarchy generates terminal configs, window border colors, and the rest of the desktop from `colors.toml` when you apply the theme, so those files never appear in the theme folder.

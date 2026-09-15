@@ -121,3 +121,70 @@ impl AssetSource for CombinedAssets {
         Ok(results)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{DefaultAssets, read_default_str};
+    use crate::types::themes::EditingTheme;
+
+    #[test]
+    fn embedded_defaults_match_quattro_theme_layout() {
+        let embedded: Vec<String> = DefaultAssets::iter().map(|p| p.to_string()).collect();
+
+        for required in [
+            "omarchist/settings.json",
+            "theme/omarchist.json",
+            "theme/colors.toml",
+            "theme/icons.theme",
+            "theme/btop.theme",
+            "theme/chromium.theme",
+        ] {
+            assert!(
+                embedded.iter().any(|p| p == required),
+                "expected embedded default '{required}', have: {embedded:?}"
+            );
+        }
+
+        // Pre-Quattro leftovers must not come back: Omarchy generates these
+        // (or treats them as legacy) from colors.toml.
+        for legacy in [
+            "light.mode",
+            "omarchist/hyprland/hyprland.conf",
+            "theme/neovim.lua",
+            "theme/vscode.json",
+            "theme/alacritty.toml",
+            "theme/hyprland.conf",
+            "theme/waybar.css",
+        ] {
+            assert!(
+                !embedded.iter().any(|p| p == legacy),
+                "legacy default '{legacy}' should not be embedded"
+            );
+        }
+    }
+
+    #[test]
+    fn default_theme_manifest_deserializes_after_placeholder_substitution() {
+        let content = read_default_str("theme/omarchist.json").expect("manifest is embedded");
+        let substituted = content
+            .replace("{{THEME_NAME}}", "test-theme")
+            .replace("{{CREATED_AT}}", "2026-01-01T00:00:00Z")
+            .replace("{{MODIFIED_AT}}", "2026-01-01T00:00:00Z")
+            .replace("{{AUTHOR}}", "");
+
+        let theme: EditingTheme =
+            serde_json::from_str(&substituted).expect("default manifest should parse");
+        assert_eq!(theme.name, "test-theme");
+        assert!(
+            theme.apps.neovim.is_none(),
+            "new themes ship no neovim override"
+        );
+        assert!(
+            theme.apps.vscode.is_none(),
+            "new themes ship no vscode override"
+        );
+        assert!(theme.apps.btop.is_some());
+        assert!(theme.apps.chromium.is_some());
+        assert_eq!(theme.colors.mode, "dark");
+    }
+}
