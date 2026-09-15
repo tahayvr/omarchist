@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use isahc::AsyncReadResponseExt;
 
 use serde::Deserialize;
@@ -10,7 +11,7 @@ pub(super) struct GitHubRelease {
 }
 
 // Check if there's a new version available on GitHub
-pub async fn check_omarchy_update(current_version: &str) -> Result<bool, String> {
+pub async fn check_omarchy_update(current_version: &str) -> Result<bool> {
     if current_version == "unknown" {
         return Ok(false);
     }
@@ -20,20 +21,23 @@ pub async fn check_omarchy_update(current_version: &str) -> Result<bool, String>
         .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
         .header("User-Agent", "omarchist")
         .body(())
-        .map_err(|e| format!("Failed to build request: {e}"))?;
+        .map_err(|e| Error::Network(format!("Failed to build request: {e}")))?;
 
     let mut response = isahc::send_async(request)
         .await
-        .map_err(|e| format!("Failed to fetch releases: {e}"))?;
+        .map_err(|e| Error::Network(format!("Failed to fetch releases: {e}")))?;
 
     if !response.status().is_success() {
-        return Err(format!("GitHub API returned status: {}", response.status()));
+        return Err(Error::Network(format!(
+            "GitHub API returned status: {}",
+            response.status()
+        )));
     }
 
     let release: GitHubRelease = response
         .json::<GitHubRelease>()
         .await
-        .map_err(|e| format!("Failed to parse release data: {e}"))?;
+        .map_err(|e| Error::Network(format!("Failed to parse release data: {e}")))?;
 
     // Skip prereleases
     if release.prerelease {
@@ -76,7 +80,7 @@ fn compare_versions(current: &str, latest: &str) -> bool {
 // ships as a pacman package, not a git checkout, so this plain version file —
 // e.g. containing `4.0.0.alpha` — is the authoritative source, not `git
 // describe`).
-pub fn get_local_omarchy_version() -> Result<String, String> {
+pub fn get_local_omarchy_version() -> Result<String> {
     let version_file = crate::system::omarchy_paths::omarchy_version_file();
 
     match std::fs::read_to_string(&version_file) {

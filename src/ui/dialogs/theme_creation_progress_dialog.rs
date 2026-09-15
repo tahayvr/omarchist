@@ -79,7 +79,7 @@ impl ThemeCreationProgressDialog {
                     let _ = window_handle.update(cx, |_view, _window, cx| {
                         let _ = this.update(cx, |this, cx| {
                             this.has_error = true;
-                            this.error_message = Some(e.clone());
+                            this.error_message = Some(e.to_string());
                             this.status_message = format!("Error: {}", e);
                             cx.notify();
                         });

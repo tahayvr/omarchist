@@ -351,7 +351,7 @@ impl OverridesTab {
         });
 
         if let Err(e) = result {
-            self.error_message = Some(e);
+            self.error_message = Some(e.to_string());
         }
 
         self.is_saving = false;

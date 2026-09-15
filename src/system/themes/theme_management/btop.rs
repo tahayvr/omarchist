@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 
 use crate::types::themes::{BtopConfig, ColorsConfig};
@@ -206,14 +207,13 @@ pub(super) fn parse_btop_theme(theme_content: &str) -> Option<BtopConfig> {
     }
 }
 
-pub fn update_btop_theme(theme_name: &str, config: &BtopConfig) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn update_btop_theme(theme_name: &str, config: &BtopConfig) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let theme_content = format!(
@@ -337,7 +337,7 @@ theme[upload_end]="{}"
 
     let theme_path = theme_dir.join("btop.theme");
     fs::write(&theme_path, theme_content)
-        .map_err(|e| format!("Failed to write btop.theme: {}", e))?;
+        .map_err(|e| Error::io("Failed to write btop.theme", e))?;
 
     Ok(())
 }

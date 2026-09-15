@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
@@ -18,38 +19,42 @@ pub fn get_theme_path(theme_name: &str, is_system: bool) -> Option<PathBuf> {
     }
 }
 
-pub fn open_theme_folder(theme_name: &str, is_system: bool) -> Result<(), String> {
-    let path = get_theme_path(theme_name, is_system)
-        .ok_or_else(|| "Could not determine theme path".to_string())?;
+pub fn open_theme_folder(theme_name: &str, is_system: bool) -> Result<()> {
+    let path = get_theme_path(theme_name, is_system).ok_or(Error::UnknownDirectory("theme"))?;
 
     if !path.exists() {
-        return Err(format!("Theme folder does not exist: {}", path.display()));
+        return Err(Error::Invalid(format!(
+            "Theme folder does not exist: {}",
+            path.display()
+        )));
     }
 
     // Open in Nautilus
     Command::new("nautilus")
         .arg(&path)
         .spawn()
-        .map_err(|e| format!("Failed to open Nautilus: {}", e))?;
+        .map_err(|e| Error::io("Failed to open Nautilus", e))?;
 
     Ok(())
 }
 
-pub fn delete_theme(theme_name: &str, is_system: bool) -> Result<(), String> {
+pub fn delete_theme(theme_name: &str, is_system: bool) -> Result<()> {
     // Safety check: only allow deleting custom themes, not system themes
     if is_system {
-        return Err("Cannot delete system themes".to_string());
+        return Err(Error::Invalid("Cannot delete system themes".into()));
     }
 
-    let path = get_theme_path(theme_name, is_system)
-        .ok_or_else(|| "Could not determine theme path".to_string())?;
+    let path = get_theme_path(theme_name, is_system).ok_or(Error::UnknownDirectory("theme"))?;
 
     if !path.exists() {
-        return Err(format!("Theme folder does not exist: {}", path.display()));
+        return Err(Error::Invalid(format!(
+            "Theme folder does not exist: {}",
+            path.display()
+        )));
     }
 
     // Delete the directory and all its contents
-    fs::remove_dir_all(&path).map_err(|e| format!("Failed to delete theme folder: {}", e))?;
+    fs::remove_dir_all(&path).map_err(|e| Error::io("Failed to delete theme folder", e))?;
 
     Ok(())
 }
@@ -58,28 +63,28 @@ pub fn get_backgrounds_dir(theme_name: &str, is_system: bool) -> Option<PathBuf>
     get_theme_path(theme_name, is_system).map(|p| p.join("backgrounds"))
 }
 
-pub fn ensure_backgrounds_dir(theme_name: &str, is_system: bool) -> Result<PathBuf, String> {
-    let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
-        .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
+pub fn ensure_backgrounds_dir(theme_name: &str, is_system: bool) -> Result<PathBuf> {
+    let backgrounds_dir =
+        get_backgrounds_dir(theme_name, is_system).ok_or(Error::UnknownDirectory("backgrounds"))?;
 
     if !backgrounds_dir.exists() {
         fs::create_dir_all(&backgrounds_dir)
-            .map_err(|e| format!("Failed to create backgrounds directory: {}", e))?;
+            .map_err(|e| Error::io("Failed to create backgrounds directory", e))?;
     }
 
     Ok(backgrounds_dir)
 }
 
-pub fn list_background_images(theme_name: &str, is_system: bool) -> Result<Vec<PathBuf>, String> {
-    let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
-        .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
+pub fn list_background_images(theme_name: &str, is_system: bool) -> Result<Vec<PathBuf>> {
+    let backgrounds_dir =
+        get_backgrounds_dir(theme_name, is_system).ok_or(Error::UnknownDirectory("backgrounds"))?;
 
     if !backgrounds_dir.exists() {
         return Ok(Vec::new());
     }
 
     let images: Vec<PathBuf> = fs::read_dir(&backgrounds_dir)
-        .map_err(|e| format!("Failed to read backgrounds directory: {}", e))?
+        .map_err(|e| Error::io("Failed to read backgrounds directory", e))?
         .filter_map(|entry| entry.ok())
         .filter(|entry| {
             if let Some(ext) = entry.path().extension() {
@@ -102,46 +107,45 @@ pub fn add_background_image(
     theme_name: &str,
     is_system: bool,
     source_path: &std::path::Path,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf> {
     // Ensure backgrounds directory exists
     let backgrounds_dir = ensure_backgrounds_dir(theme_name, is_system)?;
 
     // Get the filename from the source path
     let filename = source_path
         .file_name()
-        .ok_or_else(|| "Invalid source file path".to_string())?;
+        .ok_or_else(|| Error::Invalid("Invalid source file path".into()))?;
 
     let dest_path = backgrounds_dir.join(filename);
 
     // Copy the file (overwrites if exists)
     fs::copy(source_path, &dest_path)
-        .map_err(|e| format!("Failed to copy background image: {}", e))?;
+        .map_err(|e| Error::io("Failed to copy background image", e))?;
 
     Ok(dest_path)
 }
 
-pub fn remove_background_image(
-    theme_name: &str,
-    is_system: bool,
-    filename: &str,
-) -> Result<(), String> {
-    let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
-        .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
+pub fn remove_background_image(theme_name: &str, is_system: bool, filename: &str) -> Result<()> {
+    let backgrounds_dir =
+        get_backgrounds_dir(theme_name, is_system).ok_or(Error::UnknownDirectory("backgrounds"))?;
 
     let file_path = backgrounds_dir.join(filename);
 
     if !file_path.exists() {
-        return Err(format!("Background image not found: {}", filename));
+        return Err(Error::Invalid(format!(
+            "Background image not found: {}",
+            filename
+        )));
     }
 
-    fs::remove_file(&file_path).map_err(|e| format!("Failed to remove background image: {}", e))?;
+    fs::remove_file(&file_path).map_err(|e| Error::io("Failed to remove background image", e))?;
 
     Ok(())
 }
 
-pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<(), String> {
-    let backgrounds_dir = get_backgrounds_dir(theme_name, is_system)
-        .ok_or_else(|| "Could not determine backgrounds directory path".to_string())?;
+pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<()> {
+    let backgrounds_dir =
+        get_backgrounds_dir(theme_name, is_system).ok_or(Error::UnknownDirectory("backgrounds"))?;
 
     if !backgrounds_dir.exists() {
         return Ok(());
@@ -151,20 +155,20 @@ pub fn clear_background_images(theme_name: &str, is_system: bool) -> Result<(), 
     let images = list_background_images(theme_name, is_system)?;
     for image_path in images {
         fs::remove_file(&image_path)
-            .map_err(|e| format!("Failed to remove background image: {}", e))?;
+            .map_err(|e| Error::io("Failed to remove background image", e))?;
     }
 
     Ok(())
 }
 
-pub fn open_backgrounds_folder(theme_name: &str, is_system: bool) -> Result<(), String> {
+pub fn open_backgrounds_folder(theme_name: &str, is_system: bool) -> Result<()> {
     let backgrounds_dir = ensure_backgrounds_dir(theme_name, is_system)?;
 
     // Open in Nautilus
     Command::new("nautilus")
         .arg(&backgrounds_dir)
         .spawn()
-        .map_err(|e| format!("Failed to open Nautilus: {}", e))?;
+        .map_err(|e| Error::io("Failed to open Nautilus", e))?;
 
     Ok(())
 }

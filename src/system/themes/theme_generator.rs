@@ -1,3 +1,4 @@
+use crate::error::Result;
 use std::path::Path;
 
 use crate::system::themes::color_extractor::{
@@ -46,7 +47,7 @@ fn select_icon_theme(accent_hex: &str) -> &'static str {
 }
 
 // Create a complete theme from an image
-pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<String, String> {
+pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<String> {
     let palette = extract_palette(image_path)?;
 
     create_theme_from_defaults(theme_name)?;

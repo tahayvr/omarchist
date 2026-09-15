@@ -39,6 +39,7 @@ clap = { version = "4.5.58", features = ["derive"] }
 image = { version = "0.25.9", features = ["png", "jpeg", "webp"] }
 color-thief = "0.2.2"
 palette = "0.7.6"
+thiserror = "2"
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

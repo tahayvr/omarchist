@@ -1,5 +1,6 @@
 pub mod assets;
 pub mod cli;
+pub mod error;
 pub mod shell;
 pub mod system;
 pub mod types;

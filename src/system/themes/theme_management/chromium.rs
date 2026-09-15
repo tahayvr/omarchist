@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 use std::path::Path;
 
@@ -13,14 +14,13 @@ pub fn default_browser_config(colors: &ColorsConfig) -> BrowserConfig {
     }
 }
 
-pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let hex = config.theme_color.trim_start_matches('#');
@@ -30,7 +30,7 @@ pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Resul
 
     let theme_path = theme_dir.join("chromium.theme");
     fs::write(&theme_path, format!("{},{},{}\n", r, g, b))
-        .map_err(|e| format!("Failed to write chromium.theme: {}", e))?;
+        .map_err(|e| Error::io("Failed to write chromium.theme", e))?;
 
     Ok(())
 }

@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::path::Path;
 
 use image::imageops::FilterType;
@@ -151,8 +152,9 @@ fn mean_luminance(rgb: &[u8]) -> f32 {
     (sum / pixels.len() as f64) as f32
 }
 
-pub fn extract_palette(image_path: &Path) -> Result<ColorPalette, String> {
-    let img = image::open(image_path).map_err(|e| format!("Failed to open image: {}", e))?;
+pub fn extract_palette(image_path: &Path) -> Result<ColorPalette> {
+    let img = image::open(image_path)
+        .map_err(|e| Error::Invalid(format!("Failed to open image: {}", e)))?;
     let resized = img.resize(800, 600, FilterType::Triangle);
     // Composite any alpha onto white first so transparent regions don't read
     // as black and drag the theme dark.
@@ -171,7 +173,7 @@ pub fn extract_palette(image_path: &Path) -> Result<ColorPalette, String> {
     let buffer = rgb_img.into_raw();
 
     let quantized = color_thief::get_palette(&buffer, color_thief::ColorFormat::Rgb, 10, 32)
-        .map_err(|e| format!("Failed to extract colors: {:?}", e))?;
+        .map_err(|e| Error::Invalid(format!("Failed to extract colors: {:?}", e)))?;
 
     let colors: Vec<ColorInfo> = quantized
         .iter()
@@ -179,7 +181,9 @@ pub fn extract_palette(image_path: &Path) -> Result<ColorPalette, String> {
         .collect();
 
     if colors.is_empty() {
-        return Err("No colors could be extracted from the image".to_string());
+        return Err(Error::Invalid(
+            "No colors could be extracted from the image".into(),
+        ));
     }
 
     let is_light_theme = mean_luminance(&buffer) > 0.55;
@@ -386,7 +390,7 @@ fn chromatic_slots(
     })
 }
 
-pub fn copy_image_to_backgrounds(source_path: &Path, theme_name: &str) -> Result<String, String> {
+pub fn copy_image_to_backgrounds(source_path: &Path, theme_name: &str) -> Result<String> {
     use crate::system::themes::theme_file_ops::{add_background_image, clear_background_images};
 
     clear_background_images(theme_name, false)?;

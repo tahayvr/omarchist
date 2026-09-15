@@ -17,18 +17,24 @@ pub struct DefaultAssets;
 
 // Returns the content of an embedded default file as a UTF-8 string.
 // `path` is relative to the `defaults/` folder (e.g. `"omarchist/settings.json"`).
-pub fn read_default_str(path: &str) -> Result<String, String> {
-    let file = DefaultAssets::get(path)
-        .ok_or_else(|| format!("Embedded default not found: '{}'", path))?;
+pub fn read_default_str(path: &str) -> crate::error::Result<String> {
+    let file = DefaultAssets::get(path).ok_or_else(|| {
+        crate::error::Error::Invalid(format!("Embedded default not found: '{path}'"))
+    })?;
     std::str::from_utf8(&file.data)
         .map(|s| s.to_string())
-        .map_err(|e| format!("Embedded default '{}' is not valid UTF-8: {}", path, e))
+        .map_err(|e| {
+            crate::error::Error::Invalid(format!(
+                "Embedded default '{}' is not valid UTF-8: {}",
+                path, e
+            ))
+        })
 }
 
 // Extracts all embedded files whose path begins with `prefix/` and writes them under `dest`.
 // For example, `extract_default_dir("theme", Path::new("/home/user/.config/omarchy/themes/my-theme"))`
 // will recreate the subtree at `dest`, stripping the `theme/` prefix from each file's embedded path.
-pub fn extract_default_dir(prefix: &str, dest: &Path) -> Result<(), String> {
+pub fn extract_default_dir(prefix: &str, dest: &Path) -> crate::error::Result<()> {
     let prefix_slash = format!("{}/", prefix.trim_end_matches('/'));
     let mut extracted = false;
 
@@ -42,22 +48,24 @@ pub fn extract_default_dir(prefix: &str, dest: &Path) -> Result<(), String> {
         let dest_path = dest.join(relative);
 
         if let Some(parent) = dest_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create directory '{:?}': {}", parent, e))?;
+            std::fs::create_dir_all(parent).map_err(|e| {
+                crate::error::Error::io(format!("Failed to create directory '{:?}'", parent), e)
+            })?;
         }
 
         let file = DefaultAssets::get(embedded_path).unwrap();
-        std::fs::write(&dest_path, file.data)
-            .map_err(|e| format!("Failed to write '{:?}': {}", dest_path, e))?;
+        std::fs::write(&dest_path, file.data).map_err(|e| {
+            crate::error::Error::io(format!("Failed to write '{:?}'", dest_path), e)
+        })?;
 
         extracted = true;
     }
 
     if !extracted {
-        return Err(format!(
+        return Err(crate::error::Error::Invalid(format!(
             "No embedded defaults found under prefix '{}'",
             prefix
-        ));
+        )));
     }
 
     Ok(())

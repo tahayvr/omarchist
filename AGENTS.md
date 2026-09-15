@@ -111,19 +111,21 @@ impl Default for CustomTheme {
 
 ### Error Handling
 
-Use `Result<T, String>` for operations with user-facing errors:
+Fallible code in `system/` and `shell/` returns `crate::error::Result<T>`, whose error is the `thiserror` enum in `src/error.rs` (`Io`, `Json`, `ThemeNotFound`, `ThemeExists`, `UnknownDirectory`, `Network`, `Invalid`). Never return `Result<T, String>`.
 
 ```rust
-pub fn create_theme(name: &str) -> Result<String, String> {
-    let dir = get_themes_dir()
-        .ok_or_else(|| "Could not determine themes directory".to_string())?;
-    
-    fs::write(&path, content)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
-    
+use crate::error::{Error, Result};
+
+pub fn create_theme(name: &str) -> Result<String> {
+    let dir = get_themes_dir().ok_or(Error::UnknownDirectory("themes"))?;
+
+    fs::write(&path, content).map_err(|e| Error::io("Failed to write colors.toml", e))?;
+
     Ok(name.to_string())
 }
 ```
+
+UI code displays errors with `to_string()` (`self.error_message = Some(e.to_string())`) and may match on variants when it needs to react differently. In files that `use gpui::*`, spell the alias out as `crate::error::Result<T>` because gpui re-exports anyhow's `Result` under the same name.
 
 ### GPUI Actions
 
