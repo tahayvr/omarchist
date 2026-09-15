@@ -44,30 +44,13 @@ Set the full palette in `colors.toml`. Omarchy generates configurations for **Al
 - **Primary Colors**: Background and foreground colors.
 - **Cursor and Selection**: Cursor color plus selection foreground and background.
 - **Normal/Bright Colors**: The 8 standard ANSI colors for both normal and bright variants.
-
-### Windows (Hyprland)
-
-Shows the accent color Omarchy uses for window borders. Omarchy no longer stores border colors separately per theme, so you change them on the General tab.
-
-### Browser
-
-Set the theme color for **Chromium**.
-
-- **Theme Color**: One color generates a complete Chromium theme.
+- **Window Borders**: Optional Hyprland border colors. Omarchy uses the accent color for the active border and a neutral grey for inactive ones. Any Hyprland color works, including gradients such as `rgba(26a269ee) rgba(2ec27eee) 45deg`. Leave a field blank for the default.
 
 ### File Manager
 
 Select the icon theme for **Nautilus**.
 
 - **Yaru Colors**: Choose from Red, Blue, Olive, Yellow, Purple, Magenta, or Sage variants.
-
-### Lock Screen
-
-Customize the Omarchy shell lock screen.
-
-- **Text/Placeholder**: Input text and placeholder colors.
-- **Text Error**: Color shown after a wrong password.
-- **Border/Border Active/Border Error**: Border colors for the input field.
 
 ### Editor
 
@@ -78,13 +61,15 @@ Optionally override the editor themes Omarchy generates.
 
 Clearing a field removes the override file.
 
-### Btop
+### Overrides
 
-Set colors for the **Btop** system monitor.
+Omarchy generates these app configs from your palette every time you apply the theme. Turn an override on only when an app needs colors that differ from the generated ones. Turning it off removes the file so the app follows the palette again.
 
-- **Main Colors**: Background, text, and title colors.
-- **Box Colors**: Colors for CPU, memory, network, and process boxes.
-- **Gradient Colors**: Temperature, CPU, memory, and network gradients.
+Each override starts from the same colors Omarchy would generate, so you only change what you need.
+
+- **Browser**: The Chromium theme color. Omarchy uses the theme background by default.
+- **Lock Screen**: Text, placeholder, error, and border colors for the lock screen input.
+- **Btop**: Main, selection, status, box outline, and gradient colors for the btop system monitor.
 
 ### Backgrounds
 

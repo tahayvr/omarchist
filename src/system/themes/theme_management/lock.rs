@@ -1,8 +1,31 @@
 use std::fs;
 
-use crate::types::themes::LockScreenConfig;
+use crate::system::themes::color_utils::mix_hex;
+use crate::types::themes::{ColorsConfig, LockScreenConfig};
 
 use super::paths::get_custom_themes_dir;
+
+// Mirrors the `[lock]` section of Quattro's `shell.toml.tpl`: text is the
+// foreground, placeholder is foreground mixed 34% toward background, errors
+// use red, and borders follow the active window border (accent by default).
+pub fn default_lock_config(colors: &ColorsConfig) -> LockScreenConfig {
+    let border = colors
+        .hyprland_active_border
+        .as_deref()
+        .map(str::trim)
+        .filter(|v| v.starts_with('#') && v.len() == 7)
+        .unwrap_or(&colors.accent)
+        .to_string();
+
+    LockScreenConfig {
+        text: colors.foreground.clone(),
+        placeholder: mix_hex(&colors.foreground, &colors.background, 0.34),
+        text_error: colors.color1.clone(),
+        border: border.clone(),
+        border_active: border,
+        border_error: colors.color1.clone(),
+    }
+}
 
 pub(super) fn parse_lock_toml(content: &str) -> Option<LockScreenConfig> {
     let mut text = None;

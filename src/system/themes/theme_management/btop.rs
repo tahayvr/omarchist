@@ -1,8 +1,66 @@
 use std::fs;
 
-use crate::types::themes::BtopConfig;
+use crate::types::themes::{BtopConfig, ColorsConfig};
 
 use super::paths::get_custom_themes_dir;
+
+// Mirrors Quattro's `btop.theme.tpl` so a freshly enabled override starts
+// exactly where Omarchy's generated file would, then diverges only where the
+// user edits it. Derived names follow `omarchy-theme-color`: muted = color8,
+// light_foreground = color7, selection = selection_background.
+pub fn default_btop_config(c: &ColorsConfig) -> BtopConfig {
+    let muted = c.color8.clone();
+    let light_fg = c.color7.clone();
+    let selection = c.selection_background.clone();
+    let (red, green, yellow, blue, magenta, cyan) = (
+        c.color1.clone(),
+        c.color2.clone(),
+        c.color3.clone(),
+        c.color4.clone(),
+        c.color5.clone(),
+        c.color6.clone(),
+    );
+
+    BtopConfig {
+        main_bg: c.background.clone(),
+        main_fg: c.foreground.clone(),
+        title: c.foreground.clone(),
+        hi_fg: c.accent.clone(),
+        selected_bg: selection,
+        selected_fg: c.accent.clone(),
+        inactive_fg: muted.clone(),
+        proc_misc: light_fg,
+        cpu_box: magenta.clone(),
+        mem_box: green.clone(),
+        net_box: red.clone(),
+        proc_box: c.accent.clone(),
+        div_line: muted,
+        temp_start: green.clone(),
+        temp_mid: yellow.clone(),
+        temp_end: red.clone(),
+        cpu_start: cyan.clone(),
+        cpu_mid: blue.clone(),
+        cpu_end: magenta.clone(),
+        free_start: magenta.clone(),
+        free_mid: blue.clone(),
+        free_end: cyan.clone(),
+        cached_start: blue.clone(),
+        cached_mid: cyan.clone(),
+        cached_end: magenta,
+        available_start: yellow.clone(),
+        available_mid: red.clone(),
+        available_end: red.clone(),
+        used_start: green.clone(),
+        used_mid: cyan.clone(),
+        used_end: blue.clone(),
+        download_start: yellow,
+        download_mid: red.clone(),
+        download_end: red,
+        upload_start: green,
+        upload_mid: cyan,
+        upload_end: blue,
+    }
+}
 
 pub(super) fn parse_btop_theme(theme_content: &str) -> Option<BtopConfig> {
     let mut main_bg = None;

@@ -1,5 +1,5 @@
 use crate::system::omarchy_paths::user_themes_dir;
-use crate::system::themes::theme_management::save_theme_data;
+use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{error_message, form_section, help_text, tab_container};
 use gpui::*;
@@ -131,12 +131,17 @@ impl EditorTab {
                     Some(serde_json::Value::String(content.to_string()))
                 };
                 match file_name {
-                    NEOVIM_FILE => self.theme_data.apps.neovim = value,
-                    VSCODE_FILE => self.theme_data.apps.vscode = value,
+                    NEOVIM_FILE => self.theme_data.apps.neovim = value.clone(),
+                    VSCODE_FILE => self.theme_data.apps.vscode = value.clone(),
                     _ => {}
                 }
                 // Persist the manifest so modified_at reflects this edit.
-                if let Err(e) = save_theme_data(&self.theme_name, &self.theme_data) {
+                let result = update_theme(&self.theme_name, |theme| match file_name {
+                    NEOVIM_FILE => theme.apps.neovim = value,
+                    VSCODE_FILE => theme.apps.vscode = value,
+                    _ => {}
+                });
+                if let Err(e) = result {
                     self.error_message = Some(e);
                 }
             }

@@ -7,7 +7,7 @@ use crate::system::themes::color_utils::{adjust_brightness, hex_to_rgb};
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, save_theme_data, update_icons_theme,
 };
-use crate::types::themes::{BtopConfig, ColorsConfig, EditingTheme};
+use crate::types::themes::{ColorsConfig, EditingTheme};
 
 // Available icon themes mapped to their representative colors (RGB)
 const ICON_THEMES: &[(&str, (u8, u8, u8))] = &[
@@ -99,8 +99,6 @@ fn build_theme_from_palette(
 
     let now = Utc::now().to_rfc3339();
 
-    let btop_config = build_btop_config(palette);
-
     // Select the best matching icon theme based on accent color
     let icon_theme_name = select_icon_theme(&palette.accent, palette.is_light_theme);
 
@@ -147,6 +145,8 @@ fn build_theme_from_palette(
         color13: palette.bright.magenta.clone(),
         color14: palette.bright.cyan.clone(),
         color15: palette.bright.white.clone(),
+        hyprland_active_border: None,
+        hyprland_inactive_border: None,
     };
 
     Ok(EditingTheme {
@@ -155,8 +155,10 @@ fn build_theme_from_palette(
         created_at: now.clone(),
         modified_at: now,
         author: None,
+        // No overrides: Omarchy generates btop, Chromium, lock screen and
+        // editor themes from colors.toml, so they track the palette.
         apps: crate::types::themes::AppConfigs {
-            btop: Some(btop_config),
+            btop: None,
             chromium: None,
             lock: None,
             neovim: None,
@@ -166,97 +168,4 @@ fn build_theme_from_palette(
         colors: colors_config,
         is_light_theme: palette.is_light_theme,
     })
-}
-
-fn build_btop_config(palette: &ColorPalette) -> BtopConfig {
-    let bg = &palette.background;
-    let fg = &palette.foreground;
-    let accent = &palette.accent;
-    let (grad_start, grad_end) = widest_hue_pair(&palette.terminal);
-    let grad_mid = accent.clone();
-
-    BtopConfig {
-        main_bg: bg.clone(),
-        main_fg: fg.clone(),
-        title: adjust_brightness(fg, -0.2),
-        hi_fg: accent.clone(),
-        selected_bg: accent.clone(),
-        selected_fg: bg.clone(),
-        inactive_fg: adjust_brightness(fg, -0.5),
-        proc_misc: adjust_brightness(fg, -0.3),
-        cpu_box: adjust_brightness(fg, -0.4),
-        mem_box: adjust_brightness(fg, -0.4),
-        net_box: adjust_brightness(fg, -0.4),
-        proc_box: adjust_brightness(fg, -0.4),
-        div_line: adjust_brightness(fg, -0.4),
-        temp_start: grad_start.clone(),
-        temp_mid: grad_mid.clone(),
-        temp_end: grad_end.clone(),
-        cpu_start: grad_start.clone(),
-        cpu_mid: grad_mid.clone(),
-        cpu_end: grad_end.clone(),
-        free_start: grad_start.clone(),
-        free_mid: grad_mid.clone(),
-        free_end: grad_end.clone(),
-        cached_start: grad_start.clone(),
-        cached_mid: grad_mid.clone(),
-        cached_end: grad_end.clone(),
-        available_start: grad_start.clone(),
-        available_mid: grad_mid.clone(),
-        available_end: grad_end.clone(),
-        used_start: grad_start.clone(),
-        used_mid: grad_mid.clone(),
-        used_end: grad_end.clone(),
-        download_start: grad_start.clone(),
-        download_mid: grad_mid.clone(),
-        download_end: grad_end.clone(),
-        upload_start: grad_start,
-        upload_mid: grad_mid,
-        upload_end: grad_end,
-    }
-}
-
-// Return the two terminal palette colors that are farthest apart in hue.
-// Used for btop gradients so start and end are maximally distinct on-palette colors.
-fn widest_hue_pair(palette: &crate::types::themes::TerminalPalette) -> (String, String) {
-    use palette::{FromColor, Hsl, Srgb};
-
-    let slots = [
-        &palette.red,
-        &palette.yellow,
-        &palette.green,
-        &palette.cyan,
-        &palette.blue,
-        &palette.magenta,
-    ];
-
-    let hues: Vec<f32> = slots
-        .iter()
-        .map(|hex| {
-            let hex = hex.trim_start_matches('#');
-            let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
-            let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(0) as f32 / 255.0;
-            let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
-            let hsl: Hsl = Hsl::from_color(Srgb::new(r, g, b));
-            hsl.hue.into_degrees()
-        })
-        .collect();
-
-    let mut best_dist = -1.0f32;
-    let mut best_i = 0;
-    let mut best_j = 3; // default: red and cyan (opposite)
-
-    for i in 0..slots.len() {
-        for j in (i + 1)..slots.len() {
-            let diff = (hues[i] - hues[j]).abs();
-            let dist = diff.min(360.0 - diff);
-            if dist > best_dist {
-                best_dist = dist;
-                best_i = i;
-                best_j = j;
-            }
-        }
-    }
-
-    (slots[best_i].to_string(), slots[best_j].to_string())
 }

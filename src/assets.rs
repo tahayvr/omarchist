@@ -136,8 +136,6 @@ mod tests {
             "theme/omarchist.json",
             "theme/colors.toml",
             "theme/icons.theme",
-            "theme/btop.theme",
-            "theme/chromium.theme",
         ] {
             assert!(
                 embedded.iter().any(|p| p == required),
@@ -145,10 +143,13 @@ mod tests {
             );
         }
 
-        // Pre-Quattro leftovers must not come back: Omarchy generates these
-        // (or treats them as legacy) from colors.toml.
+        // Pre-Quattro leftovers must not come back, and override files are
+        // opt-in: Omarchy generates all of these from colors.toml.
         for legacy in [
             "light.mode",
+            "theme/btop.theme",
+            "theme/chromium.theme",
+            "theme/shell.lock.toml",
             "omarchist/hyprland/hyprland.conf",
             "theme/neovim.lua",
             "theme/vscode.json",
@@ -183,8 +184,9 @@ mod tests {
             theme.apps.vscode.is_none(),
             "new themes ship no vscode override"
         );
-        assert!(theme.apps.btop.is_some());
-        assert!(theme.apps.chromium.is_some());
+        assert!(theme.apps.btop.is_none(), "btop override is opt-in");
+        assert!(theme.apps.chromium.is_none(), "chromium override is opt-in");
+        assert!(theme.apps.lock.is_none(), "lock override is opt-in");
         assert_eq!(theme.colors.mode, "dark");
     }
 }

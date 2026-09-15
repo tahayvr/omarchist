@@ -3,15 +3,12 @@ use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::{EditingTheme, ThemeEditTab};
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
-use crate::ui::theme_edit_page::browser_tab::BrowserTab;
-use crate::ui::theme_edit_page::btop_tab::BtopTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
 use crate::ui::theme_edit_page::general_tab::GeneralTab;
-use crate::ui::theme_edit_page::lockscreen_tab::LockScreenTab;
+use crate::ui::theme_edit_page::overrides_tab::OverridesTab;
 use crate::ui::theme_edit_page::shared::error_message;
-use crate::ui::theme_edit_page::windows_tab::WindowsTab;
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -44,12 +41,9 @@ pub struct ThemeEditPage {
     error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
     colors_tab: Entity<ColorsTab>,
-    windows_tab: Entity<WindowsTab>,
-    browser_tab: Entity<BrowserTab>,
     file_manager_tab: Entity<FileManagerTab>,
-    lockscreen_tab: Entity<LockScreenTab>,
     editor_tab: Entity<EditorTab>,
-    btop_tab: Entity<BtopTab>,
+    overrides_tab: Entity<OverridesTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
     pub focus_handle: FocusHandle,
 }
@@ -76,29 +70,17 @@ impl ThemeEditPage {
         let colors_tab =
             cx.new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
-        // Create Windows tab instance
-        let windows_tab =
-            cx.new(|cx| WindowsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Browser tab instance
-        let browser_tab =
-            cx.new(|cx| BrowserTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
         // Create File Manager tab instance
         let file_manager_tab =
             cx.new(|cx| FileManagerTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Lock Screen tab instance
-        let lockscreen_tab =
-            cx.new(|cx| LockScreenTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Editor tab instance
         let editor_tab =
             cx.new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
-        // Create Btop tab instance
-        let btop_tab =
-            cx.new(|cx| BtopTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+        // Create Overrides tab instance (btop / Chromium / lock screen)
+        let overrides_tab =
+            cx.new(|cx| OverridesTab::new(theme_name.clone(), theme_data.clone(), window, cx));
 
         // Create Backgrounds tab instance
         let backgrounds_tab =
@@ -117,12 +99,9 @@ impl ThemeEditPage {
             error_message: None,
             general_tab,
             colors_tab,
-            windows_tab,
-            browser_tab,
             file_manager_tab,
-            lockscreen_tab,
             editor_tab,
-            btop_tab,
+            overrides_tab,
             backgrounds_tab,
             focus_handle,
         }
@@ -172,29 +151,17 @@ impl ThemeEditPage {
                 // Use the ColorsTab entity
                 self.colors_tab.clone().into_any_element()
             }
-            ThemeEditTab::Windows => {
-                // Use the WindowsTab entity
-                self.windows_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Browser => {
-                // Use the BrowserTab entity
-                self.browser_tab.clone().into_any_element()
-            }
             ThemeEditTab::FileManager => {
                 // Use the FileManagerTab entity
                 self.file_manager_tab.clone().into_any_element()
-            }
-            ThemeEditTab::LockScreen => {
-                // Use the LockScreenTab entity
-                self.lockscreen_tab.clone().into_any_element()
             }
             ThemeEditTab::Editor => {
                 // Use the EditorTab entity
                 self.editor_tab.clone().into_any_element()
             }
-            ThemeEditTab::Btop => {
-                // Use the BtopTab entity
-                self.btop_tab.clone().into_any_element()
+            ThemeEditTab::Overrides => {
+                // Use the OverridesTab entity
+                self.overrides_tab.clone().into_any_element()
             }
             ThemeEditTab::Backgrounds => {
                 // Use the BackgroundsTab entity

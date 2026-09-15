@@ -7,12 +7,12 @@ pub mod icons;
 pub mod lifecycle;
 pub mod lock;
 
-pub use btop::update_btop_theme;
-pub use chromium::update_chromium_config;
+pub use btop::{default_btop_config, update_btop_theme};
+pub use chromium::{default_browser_config, update_chromium_config};
 pub use colors::update_colors_toml;
 pub use icons::update_icons_theme;
 pub use lifecycle::{
     create_theme_from_defaults, generate_unique_theme_name, load_theme_for_editing, rename_theme,
-    save_theme_data,
+    save_theme_data, update_theme,
 };
-pub use lock::update_lock_toml;
+pub use lock::{default_lock_config, update_lock_toml};

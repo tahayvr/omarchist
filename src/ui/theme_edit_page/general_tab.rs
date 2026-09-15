@@ -1,4 +1,4 @@
-use crate::system::themes::theme_management::{rename_theme, save_theme_data};
+use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
@@ -134,9 +134,21 @@ impl GeneralTab {
         self.error_message = None;
         cx.notify();
 
-        // Save theme data using the ORIGINAL theme name (folder name)
-        // The new name is stored in theme_data.name but we save to the original folder
-        match save_theme_data(&self.original_theme_name, &self.theme_data) {
+        // Save using the ORIGINAL theme name (folder name); the display name
+        // lives in theme_data.name. Only this tab's fields are written so a
+        // stale snapshot never overwrites another tab's edits.
+        let (name, author, accent, is_light) = (
+            self.theme_data.name.clone(),
+            self.theme_data.author.clone(),
+            self.theme_data.colors.accent.clone(),
+            self.theme_data.is_light_theme,
+        );
+        match update_theme(&self.original_theme_name, |theme| {
+            theme.name = name;
+            theme.author = author;
+            theme.colors.accent = accent;
+            theme.is_light_theme = is_light;
+        }) {
             Ok(()) => {
                 self.is_saving = false;
             }

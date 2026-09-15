@@ -1,5 +1,5 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::themes::theme_management::{save_theme_data, update_icons_theme};
+use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
 use gpui::*;
@@ -114,13 +114,10 @@ impl FileManagerTab {
         self.error_message = None;
         cx.notify();
 
-        // Save theme data
-        match save_theme_data(&self.theme_name, &self.theme_data) {
+        // save_theme_data writes icons.theme from apps.icons.
+        let icons = self.theme_data.apps.icons.clone();
+        match update_theme(&self.theme_name, |theme| theme.apps.icons = icons) {
             Ok(()) => {
-                // Also update the icons.theme file
-                if let Err(e) = update_icons_theme(&self.theme_name, &self.selected_color) {
-                    self.error_message = Some(format!("Failed to update icons.theme: {}", e));
-                }
                 self.is_saving = false;
             }
             Err(e) => {
