@@ -98,6 +98,7 @@ export default defineConfig({
         text: "CONFIGURATION",
         items: [
           { text: "Hyprland", link: "/configuring/" },
+          { text: "Keybinds", link: "/configuring/keybinds" },
         ],
       },
     ],

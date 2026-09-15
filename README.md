@@ -39,6 +39,10 @@ Edit Hyprland settings from a GUI. Omarchist keeps its own settings in `~/.confi
   
   <img src="screenshots/omarchist-screenshot-3.png" alt="Omarchist Theme Designer" width="800">
 
+### **Keybinds:**
+
+Browse, search, and change every Hyprland keybind on your system. Record a new key combination the way you would in an editor, or type it in Omarchy's syntax for keys the compositor keeps to itself. Changes go to `~/.config/hypr/omarchist.lua`; your `bindings.lua` is never touched.
+
 ## Acknowledgements
 
 - Thanks [@dhh](https://github.com/dhh) for Omarchy.

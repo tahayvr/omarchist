@@ -28,6 +28,7 @@ You can open Omarchist directly to any page:
 | `themes` | Themes page |
 | `settings` | Settings page |
 | `config` | Hyprland Configuration |
+| `keybinds` | Keybinds page |
 | `about` | About page |
 | `omarchy` | Omarchy page |
 
@@ -49,4 +50,10 @@ omarchist --view themes --theme my-custom-theme
 
 ```bash
 omarchist --view config
+```
+
+### Open the Keybinds Page
+
+```bash
+omarchist --view keybinds
 ```

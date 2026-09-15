@@ -4,7 +4,7 @@ outline: deep
 
 # Configuring
 
-Omarchist provides a **Configuring** page to configure Hyprland, the window manager for Omarchy Linux. You find this in the left sidebar under **Configuring**.
+Omarchist provides a **Configuration** page for Hyprland, the window manager for Omarchy Linux, and a [**Keybinds**](/configuring/keybinds) page for its keyboard shortcuts. Both are in the left sidebar.
 
 ## Hyprland
 
