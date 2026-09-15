@@ -40,6 +40,7 @@ image = { version = "0.25.9", features = ["png", "jpeg", "webp"] }
 color-thief = "0.2.2"
 palette = "0.7.6"
 thiserror = "2"
+xkbcommon = { version = "0.8", default-features = false }
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

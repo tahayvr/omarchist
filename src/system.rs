@@ -1,5 +1,6 @@
 pub mod config;
 pub mod hyprland_config;
+pub mod keybinds;
 pub mod omarchy;
 pub mod omarchy_paths;
 pub mod themes;
