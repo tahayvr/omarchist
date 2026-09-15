@@ -14,13 +14,8 @@ actions!(
         RefreshTheme,
         ToggleSidebar,
         NewTheme,
-        // Themes page keyboard navigation (see themes_view.rs)
-        NextItem,
-        PrevItem,
+        // Keybinds page: open the selected row
         ActivateItem,
-        EscapeFocus,
-        SelectNext,
-        SelectPrev,
         // Page navigation shortcuts
         NavigateToThemes,
         NavigateToConfig,

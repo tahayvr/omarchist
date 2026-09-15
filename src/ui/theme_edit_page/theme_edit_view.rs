@@ -4,6 +4,8 @@ use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
+use crate::ui::focus::{self, tab_strip_container};
+use crate::ui::menu::app_menu;
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
@@ -58,13 +60,7 @@ impl ThemeEditTab {
     }
 }
 
-#[derive(Clone, PartialEq, Action)]
-#[action(no_json)]
-pub struct NavigateToThemes;
-
-#[derive(Clone, PartialEq, Action)]
-#[action(no_json)]
-pub struct SaveTheme;
+actions!(theme_edit, [ApplyTheme]);
 
 pub struct ThemeEditPage {
     theme_name: String,
@@ -78,6 +74,12 @@ pub struct ThemeEditPage {
     overrides_tab: Entity<OverridesTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
     pub focus_handle: FocusHandle,
+    /// The tab strip is one tab stop; left/right switch tabs.
+    tabs_focus: FocusHandle,
+    /// Non-tab-stop handle on the scrolling content, so `focus_first_in`
+    /// can land on the active tab's first field.
+    content_focus: FocusHandle,
+    scroll: ScrollHandle,
 }
 
 impl ThemeEditPage {
@@ -94,35 +96,30 @@ impl ThemeEditPage {
             }
         };
 
-        // Create General tab instance
-        let general_tab =
-            cx.new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), window, cx));
+        // Shared by every tab so focused sections can scroll into view.
+        let scroll = ScrollHandle::new();
 
-        // Create Colors tab instance
-        let colors_tab =
-            cx.new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create File Manager tab instance
-        let file_manager_tab =
-            cx.new(|cx| FileManagerTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Editor tab instance
-        let editor_tab =
-            cx.new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Overrides tab instance (btop / Chromium / lock screen)
-        let overrides_tab =
-            cx.new(|cx| OverridesTab::new(theme_name.clone(), theme_data.clone(), window, cx));
-
-        // Create Backgrounds tab instance
+        let general_tab = cx
+            .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        let colors_tab = cx
+            .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        let file_manager_tab = cx.new(|cx| {
+            FileManagerTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx)
+        });
+        let editor_tab = cx
+            .new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        // btop / Chromium / lock screen
+        let overrides_tab = cx.new(|cx| {
+            OverridesTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx)
+        });
         let backgrounds_tab =
-            cx.new(|cx| BackgroundsTab::new(theme_name.clone(), is_system, window, cx));
+            cx.new(|cx| BackgroundsTab::new(theme_name.clone(), is_system, &scroll, window, cx));
 
         let tab_count = ThemeEditTab::all().len();
 
-        // Create focus handle and request focus immediately
         let focus_handle = cx.focus_handle();
-        focus_handle.focus(window);
+        let tabs_focus = focus::tab_stop(cx);
+        tabs_focus.focus(window);
 
         Self {
             theme_name,
@@ -136,12 +133,34 @@ impl ThemeEditPage {
             overrides_tab,
             backgrounds_tab,
             focus_handle,
+            tabs_focus,
+            content_focus: cx.focus_handle(),
+            scroll,
         }
     }
 
-    /// Focuses the page for keyboard navigation.
+    /// Focuses the tab strip, the page's first control after Back/Apply.
     pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.focus_handle.focus(window);
+        self.tabs_focus.focus(window);
+    }
+
+    fn apply_theme(&self) {
+        let dir = self.theme_name.clone();
+        smol::spawn(async move {
+            if let Err(e) = apply_theme(dir).await {
+                eprintln!("Failed to apply theme: {}", e);
+            }
+        })
+        .detach();
+    }
+
+    fn set_tab(&mut self, index: usize, cx: &mut Context<Self>) {
+        let index = index.min(self.tab_count.saturating_sub(1));
+        if self.active_tab != index {
+            self.active_tab = index;
+            self.scroll.set_offset(Point::default());
+            cx.notify();
+        }
     }
 
     pub fn theme_name(&self) -> &str {
@@ -155,17 +174,11 @@ impl ThemeEditPage {
     }
 
     fn next_tab(&mut self, cx: &mut Context<Self>) {
-        if self.active_tab < self.tab_count.saturating_sub(1) {
-            self.active_tab += 1;
-            cx.notify();
-        }
+        self.set_tab(self.active_tab + 1, cx);
     }
 
     fn prev_tab(&mut self, cx: &mut Context<Self>) {
-        if self.active_tab > 0 {
-            self.active_tab -= 1;
-            cx.notify();
-        }
+        self.set_tab(self.active_tab.saturating_sub(1), cx);
     }
 
     fn render_tab_content(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
@@ -218,21 +231,22 @@ impl Render for ThemeEditPage {
             .bg(theme.background)
             .gap_4()
             .overflow_x_hidden()
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::ThemeEditNextTab, _window, cx| {
+            .on_action(
+                cx.listener(|this, _: &app_menu::ThemeEditNextTab, _window, cx| {
                     this.next_tab(cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::ThemeEditPrevTab, _window, cx| {
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &app_menu::ThemeEditPrevTab, _window, cx| {
                     this.prev_tab(cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NavigateBack, window, cx| {
-                    this.navigate_back(window, cx);
-                },
-            ))
+                }),
+            )
+            .on_action(cx.listener(|this, _: &app_menu::NavigateBack, window, cx| {
+                this.navigate_back(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ApplyTheme, _window, _cx| {
+                this.apply_theme();
+            }))
             .child(
                 // Back button + Tabs row - wraps on narrow screens
                 h_flex()
@@ -253,27 +267,40 @@ impl Render for ThemeEditPage {
                             .label("Apply Theme")
                             .compact()
                             .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _window, _cx| {
-                                let dir = this.theme_name.clone();
-                                smol::spawn(async move {
-                                    if let Err(e) = apply_theme(dir).await {
-                                        eprintln!("Failed to apply theme: {}", e);
-                                    }
-                                })
-                                .detach();
-                            })),
+                            .on_click(cx.listener(|this, _, _window, _cx| this.apply_theme())),
                     )
                     .child(
-                        div().flex_1().min_w_0().child(
-                            TabBar::new("theme-edit-tabs")
-                                .cursor_pointer()
-                                .selected_index(self.active_tab)
-                                .on_click(cx.listener(|view, index, _, cx| {
-                                    view.active_tab = *index;
-                                    cx.notify();
-                                }))
-                                .children(tabs.iter().map(|tab| Tab::new().label(tab.as_str()))),
-                        ),
+                        tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)
+                            .flex_1()
+                            .min_w_0()
+                            .on_action(cx.listener(|this, _: &focus::tab_strip::Prev, _, cx| {
+                                this.prev_tab(cx);
+                            }))
+                            .on_action(cx.listener(|this, _: &focus::tab_strip::Next, _, cx| {
+                                this.next_tab(cx);
+                            }))
+                            .on_action(cx.listener(|this, _: &focus::tab_strip::First, _, cx| {
+                                this.set_tab(0, cx);
+                            }))
+                            .on_action(cx.listener(|this, _: &focus::tab_strip::Last, _, cx| {
+                                this.set_tab(usize::MAX, cx);
+                            }))
+                            .on_action(cx.listener(
+                                |this, _: &focus::tab_strip::Activate, window, _cx| {
+                                    focus::focus_first_in(&this.content_focus, window);
+                                },
+                            ))
+                            .child(
+                                TabBar::new("theme-edit-tabs")
+                                    .cursor_pointer()
+                                    .selected_index(self.active_tab)
+                                    .on_click(cx.listener(|view, index, _, cx| {
+                                        view.set_tab(*index, cx);
+                                    }))
+                                    .children(
+                                        tabs.iter().map(|tab| Tab::new().label(tab.as_str())),
+                                    ),
+                            ),
                     ),
             )
             .children(
@@ -285,8 +312,10 @@ impl Render for ThemeEditPage {
                 // Tab content area with scrolling
                 div()
                     .id("tab-content")
+                    .track_focus(&self.content_focus)
                     .flex_1()
                     .overflow_y_scroll()
+                    .track_scroll(&self.scroll)
                     .pt_4()
                     .pb_8()
                     .child(self.render_tab_content(window, cx)),

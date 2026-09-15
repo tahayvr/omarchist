@@ -1,8 +1,10 @@
 use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
+    color_picker_with_clipboard, error_message, focus_section, form_section, help_text,
+    tab_container,
 };
 use gpui::*;
 use gpui_component::{
@@ -12,7 +14,6 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
-    switch::Switch,
 };
 
 pub struct GeneralTab {
@@ -23,12 +24,14 @@ pub struct GeneralTab {
     accent_picker: Entity<ColorPickerState>,
     is_saving: bool,
     error_message: Option<String>,
+    scroll: ScrollHandle,
 }
 
 impl GeneralTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -61,6 +64,7 @@ impl GeneralTab {
             accent_picker,
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         };
 
         // Subscribe to name input changes
@@ -207,7 +211,9 @@ impl Render for GeneralTab {
         let can_rename = current_name != self.original_theme_name && !current_name.is_empty();
 
         tab_container()
-            .child(
+            .child(focus_section(
+                "general-name",
+                &self.scroll,
                 // Theme Name Section with Rename button
                 form_section()
                     .child(
@@ -235,8 +241,10 @@ impl Render for GeneralTab {
                                     })),
                             ),
                     ),
-            )
-            .child(
+            ))
+            .child(focus_section(
+                "general-author",
+                &self.scroll,
                 // Author Section
                 form_section()
                     .child(
@@ -249,30 +257,28 @@ impl Render for GeneralTab {
                             .w_80()
                             .child(Input::new(&self.author_input).cleanable(true)),
                     ),
-            )
-            .child(
+            ))
+            .child(focus_section(
+                "general-accent",
+                &self.scroll,
                 // Accent Color Section
                 form_section().child(color_picker_with_clipboard(
                     "accent-color",
                     "Accent Color",
                     &self.accent_picker,
                 )),
-            )
-            .child(
+            ))
+            .child(focus_section(
+                "general-light",
+                &self.scroll,
                 // Light Mode Toggle Section
-                h_flex()
-                    .gap_4()
-                    .items_center()
-                    .child(Label::new("Light Theme"))
-                    .child(
-                        Switch::new("light-theme-toggle")
-                            .checked(is_light)
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, checked, window, cx| {
-                                this.on_light_mode_toggle(*checked, window, cx);
-                            })),
-                    ),
-            )
+                FocusableSwitch::new("light-theme-toggle")
+                    .label("Light Theme")
+                    .checked(is_light)
+                    .on_change(cx.listener(|this, checked, window, cx| {
+                        this.on_light_mode_toggle(*checked, window, cx);
+                    })),
+            ))
             .child(
                 // Help Text
                 help_text(

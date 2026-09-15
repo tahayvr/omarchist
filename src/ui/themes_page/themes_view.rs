@@ -1,39 +1,30 @@
 use crate::system::themes::custom_themes::get_user_themes;
 use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::ThemeOrigin;
-use crate::ui::menu::app_menu;
-use crate::ui::themes_page::theme_grid::{ThemeFilter, ThemeGrid};
-use gpui::prelude::FluentBuilder;
+use crate::ui::focus::{self, tab_strip_container};
+use crate::ui::themes_page::theme_grid::{self, ThemeFilter, ThemeGrid};
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
-    scroll::ScrollableElement,
     tab::{Tab, TabBar},
     v_flex,
 };
 
 const KEY_CONTEXT: &str = "ThemesPage";
-
-// Which part of the themes page has focus
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThemesFocus {
-    Tabs,
-    Grid,
-}
+const TAB_COUNT: usize = 2;
 
 pub struct ThemesPage {
     active_tab: usize,
     theme_grid: Entity<ThemeGrid>,
-    focus: ThemesFocus,
-    has_global_focus: bool,
+    /// The "All / Omarchist" strip is one tab stop; left/right switch tabs.
+    tabs_focus: FocusHandle,
     pub focus_handle: FocusHandle,
 }
 
 impl ThemesPage {
-    pub fn new(cx: &mut Context<Self>) -> Self {
+    pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
         // Start with an empty grid so the main thread is not blocked at startup.
         // Themes are loaded on a background thread and pushed into the grid once ready.
-        let theme_grid = cx.new(|cx| ThemeGrid::new(cx, vec![]));
+        let theme_grid = cx.new(|cx| ThemeGrid::new(vec![], window, cx));
 
         cx.spawn(async move |this, cx| {
             let themes = smol::unblock(Self::load_all_themes).await;
@@ -50,101 +41,26 @@ impl ThemesPage {
         Self {
             active_tab: 0,
             theme_grid,
-            focus: ThemesFocus::Tabs,
-            has_global_focus: false,
+            tabs_focus: focus::tab_stop(cx),
             focus_handle: cx.focus_handle(),
         }
     }
 
-    /// Focuses the page for keyboard navigation.
+    /// Focuses the tab strip, the page's first control.
     pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.focus_handle.focus(window);
+        self.tabs_focus.focus(window);
     }
 
-    pub fn current_focus(&self) -> ThemesFocus {
-        self.focus
-    }
-
-    pub fn reset_focus(&mut self, cx: &mut Context<Self>) {
-        self.focus = ThemesFocus::Tabs;
-        self.theme_grid.update(cx, |grid, _cx| {
-            grid.clear_focus();
-        });
-        cx.notify();
-    }
-
-    pub fn handle_next_item(&mut self, cx: &mut Context<Self>) {
-        match self.focus {
-            ThemesFocus::Tabs => {
-                self.focus = ThemesFocus::Grid;
-                cx.notify();
-            }
-            ThemesFocus::Grid => {
-                self.theme_grid.update(cx, |grid, cx| {
-                    grid.move_down(cx);
-                });
-            }
+    fn set_tab(&mut self, index: usize, cx: &mut Context<Self>) {
+        let index = index.min(TAB_COUNT - 1);
+        if self.active_tab != index {
+            self.active_tab = index;
+            cx.notify();
         }
     }
 
-    pub fn handle_prev_item(&mut self, cx: &mut Context<Self>) {
-        match self.focus {
-            ThemesFocus::Tabs => {}
-            ThemesFocus::Grid => {
-                // If we can't move up (already at top row), move focus back to tabs
-                let moved = self.theme_grid.update(cx, |grid, cx| grid.move_up(cx));
-                if !moved {
-                    self.focus = ThemesFocus::Tabs;
-                    cx.notify();
-                }
-            }
-        }
-    }
-
-    pub fn handle_select_next(&mut self, cx: &mut Context<Self>) {
-        match self.focus {
-            ThemesFocus::Tabs => {
-                if self.active_tab < 1 {
-                    self.active_tab += 1;
-                    cx.notify();
-                }
-            }
-            ThemesFocus::Grid => {
-                self.theme_grid.update(cx, |grid, cx| {
-                    grid.move_right(cx);
-                });
-            }
-        }
-    }
-
-    pub fn handle_select_prev(&mut self, cx: &mut Context<Self>) {
-        match self.focus {
-            ThemesFocus::Tabs => {
-                if self.active_tab > 0 {
-                    self.active_tab -= 1;
-                    cx.notify();
-                }
-            }
-            ThemesFocus::Grid => {
-                self.theme_grid.update(cx, |grid, cx| {
-                    grid.move_left(cx);
-                });
-            }
-        }
-    }
-
-    pub fn handle_activate(&mut self, cx: &mut Context<Self>) {
-        match self.focus {
-            ThemesFocus::Tabs => {
-                self.focus = ThemesFocus::Grid;
-                cx.notify();
-            }
-            ThemesFocus::Grid => {
-                self.theme_grid.update(cx, |grid, cx| {
-                    grid.activate_focused(cx);
-                });
-            }
-        }
+    fn focus_grid(&self, window: &mut Window, cx: &Context<Self>) {
+        self.theme_grid.read(cx).focus.focus(window);
     }
 
     pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
@@ -175,9 +91,7 @@ impl ThemesPage {
 
 impl Render for ThemesPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        self.has_global_focus = self.focus_handle.contains_focused(window, cx);
         let filter = match self.active_tab {
-            0 => ThemeFilter::All,
             1 => ThemeFilter::Only(ThemeOrigin::Omarchist),
             _ => ThemeFilter::All,
         };
@@ -186,62 +100,52 @@ impl Render for ThemesPage {
             grid.set_filter(filter);
         });
 
-        let tabs_has_focus = self.has_global_focus && self.focus == ThemesFocus::Tabs;
-        let grid_has_focus = self.has_global_focus && self.focus == ThemesFocus::Grid;
-
-        self.theme_grid.update(cx, |grid, _cx| {
-            grid.set_has_focus(grid_has_focus);
-        });
-
-        let secondary_bg = cx.theme().secondary;
-
         v_flex()
             .id("themes-page")
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
             .size_full()
-            .overflow_y_scrollbar()
-            .overflow_x_hidden()
+            .overflow_hidden()
             .gap_4()
-            .on_action(cx.listener(|this, _: &app_menu::NextItem, _window, cx| {
-                this.handle_next_item(cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::PrevItem, _window, cx| {
-                this.handle_prev_item(cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::SelectNext, _window, cx| {
-                this.handle_select_next(cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::SelectPrev, _window, cx| {
-                // If at the tabs level and trying to go left, bubble to MainWindow
-                // so it can move focus back to the sidebar
-                if this.focus != ThemesFocus::Tabs {
-                    this.handle_select_prev(cx);
-                }
-            }))
-            .on_action(
-                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
-                    this.handle_activate(cx);
-                }),
-            )
-            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
-                this.reset_focus(cx);
+            .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, _cx| {
+                this.tabs_focus.focus(window);
             }))
             .child(
-                div()
-                    .when(tabs_has_focus, move |this| this.bg(secondary_bg))
+                tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)
+                    .on_action(cx.listener(|this, _: &focus::tab_strip::Prev, _, cx| {
+                        this.set_tab(this.active_tab.saturating_sub(1), cx);
+                    }))
+                    .on_action(cx.listener(|this, _: &focus::tab_strip::Next, _, cx| {
+                        this.set_tab(this.active_tab + 1, cx);
+                    }))
+                    .on_action(cx.listener(|this, _: &focus::tab_strip::First, _, cx| {
+                        this.set_tab(0, cx);
+                    }))
+                    .on_action(cx.listener(|this, _: &focus::tab_strip::Last, _, cx| {
+                        this.set_tab(TAB_COUNT - 1, cx);
+                    }))
+                    .on_action(
+                        cx.listener(|this, _: &focus::tab_strip::Activate, window, cx| {
+                            this.focus_grid(window, cx);
+                        }),
+                    )
                     .child(
                         TabBar::new("theme-tabs")
                             .cursor_pointer()
                             .selected_index(self.active_tab)
                             .on_click(cx.listener(|view, index, _, cx| {
-                                view.active_tab = *index;
-                                cx.notify();
+                                view.set_tab(*index, cx);
                             }))
                             .child(Tab::new().label("All Themes"))
                             .child(Tab::new().label("Omarchist Themes")),
                     ),
             )
-            .child(self.theme_grid.clone())
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .w_full()
+                    .child(self.theme_grid.clone()),
+            )
     }
 }

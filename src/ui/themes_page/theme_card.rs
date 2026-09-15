@@ -4,11 +4,12 @@ use crate::types::themes::ThemeEntry;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable, button::*, h_flex, menu::DropdownMenu, menu::PopupMenuItem,
-    v_flex,
+    ActiveTheme, IconName, Sizable, WindowExt, button::*, h_flex, menu::DropdownMenu,
+    menu::PopupMenuItem, v_flex,
 };
 use smol;
 use std::path::PathBuf;
@@ -47,6 +48,50 @@ impl ThemeCard {
         })
         .detach();
     }
+
+    /// Opens the Theme Designer for editable themes.
+    pub fn edit(&self, cx: &mut App) {
+        if self.theme.origin.is_editable() {
+            emit(
+                cx,
+                AppEvent::Navigate(ActivePage::ThemeEdit(self.theme.dir.clone())),
+            );
+        }
+    }
+
+    pub fn open_folder(&self) {
+        let is_system = matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
+        let _ = open_theme_folder(&self.theme.dir, is_system);
+    }
+
+    /// Asks before deleting; system themes cannot be deleted.
+    pub fn confirm_delete(&self, window: &mut Window, cx: &mut App) {
+        if self.theme.origin.is_deletable() {
+            confirm_delete_theme(&self.theme, window, cx);
+        }
+    }
+}
+
+fn confirm_delete_theme(theme: &ThemeEntry, window: &mut Window, cx: &mut App) {
+    let dir = theme.dir.clone();
+    let is_system = matches!(theme.origin, crate::types::themes::ThemeOrigin::System);
+    open_confirm_dialog(
+        ConfirmDialog {
+            title: "Delete theme",
+            message: format!(
+                "Delete \"{}\" and all of its files? This cannot be undone.",
+                theme.title
+            ),
+            confirm_label: "Delete",
+            danger: true,
+        },
+        move |window, cx| match delete_theme(&dir, is_system) {
+            Ok(()) => emit(cx, AppEvent::RefreshThemes),
+            Err(e) => window.push_notification(format!("Failed to delete theme: {e}"), cx),
+        },
+        window,
+        cx,
+    );
 }
 
 fn color_palette_display(colors: &crate::types::themes::ThemeColors) -> Div {
@@ -110,6 +155,7 @@ impl Render for ThemeCard {
                         let is_system =
                             matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
                         let theme_dir_clone = self.theme.dir.clone();
+                        let theme_entry = self.theme.clone();
                         Button::new(("menu", self.index))
                             .icon(IconName::EllipsisVertical)
                             .xsmall()
@@ -118,7 +164,7 @@ impl Render for ThemeCard {
                             .dropdown_menu(move |menu, _, _cx| {
                                 let theme_dir_open = theme_dir_clone.clone();
                                 let theme_dir_edit = theme_dir_clone.clone();
-                                let theme_dir_delete = theme_dir_clone.clone();
+                                let theme_to_delete = theme_entry.clone();
                                 menu.item(PopupMenuItem::new("Open Folder").on_click(
                                     move |_event, _window, _cx| {
                                         let _ = open_theme_folder(&theme_dir_open, is_system);
@@ -139,16 +185,8 @@ impl Render for ThemeCard {
                                 .separator()
                                 .when(is_deletable, |this| {
                                     this.item(PopupMenuItem::new("Delete Theme").on_click(
-                                        move |_event, _window, cx| match delete_theme(
-                                            &theme_dir_delete,
-                                            is_system,
-                                        ) {
-                                            Ok(()) => {
-                                                emit(cx, AppEvent::RefreshThemes);
-                                            }
-                                            Err(e) => {
-                                                eprintln!("Failed to delete theme: {}", e);
-                                            }
+                                        move |_event, window, cx| {
+                                            confirm_delete_theme(&theme_to_delete, window, cx);
                                         },
                                     ))
                                 })

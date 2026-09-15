@@ -1,3 +1,4 @@
+use crate::ui::focus::FocusSection;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize,
@@ -126,6 +127,16 @@ pub trait TabInputHandler: Sized {
     );
 
     fn trigger_save(&mut self, window: &mut Window, cx: &mut Context<Self>);
+}
+
+/// Wraps a section so the Designer scrolls it into view when keyboard
+/// focus enters it.
+pub fn focus_section(
+    id: impl Into<ElementId>,
+    scroll: &ScrollHandle,
+    content: impl IntoElement,
+) -> FocusSection {
+    FocusSection::new(id, scroll).child(content)
 }
 
 pub fn tab_container() -> Div {

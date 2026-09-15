@@ -80,7 +80,7 @@ impl MainWindowView {
         cx: &mut Context<Self>,
     ) -> Self {
         // The Themes page is the default landing page — created eagerly.
-        let themes_view = cx.new(ThemesPage::new);
+        let themes_view = cx.new(|cx| ThemesPage::new(window, cx));
         let themes_root = cx
             .new(|cx| Root::new(themes_view.clone(), window, cx))
             .into();

@@ -3,9 +3,11 @@
 // same table, so a shortcut cannot be bound without being documented.
 use gpui::{Action, KeyBinding};
 
-use crate::ui::focus;
+use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
+use crate::ui::theme_edit_page::theme_edit_view as theme_edit;
+use crate::ui::themes_page::theme_grid;
 
 pub struct Shortcut {
     pub keys: &'static str,
@@ -42,6 +44,10 @@ macro_rules! shortcut {
 
 pub const GLOBAL: &str = "Global";
 pub const SIDEBAR: &str = "Sidebar";
+pub const TABS: &str = "Tab strips";
+pub const THEMES: &str = "Themes";
+pub const THEME_EDIT: &str = "Theme Designer";
+pub const DIALOGS: &str = "Dialogs";
 
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
@@ -173,6 +179,208 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("Sidebar"),
         SIDEBAR,
         "Open the item"
+    ),
+    // Tab strips (Themes filter, Designer tabs)
+    shortcut!(
+        "left",
+        tab_strip::Prev,
+        Some("TabStrip"),
+        TABS,
+        "Previous tab"
+    ),
+    shortcut!("right", tab_strip::Next, Some("TabStrip"), TABS, "Next tab"),
+    shortcut!(
+        "home",
+        tab_strip::First,
+        Some("TabStrip"),
+        TABS,
+        "First tab"
+    ),
+    shortcut!("end", tab_strip::Last, Some("TabStrip"), TABS, "Last tab"),
+    shortcut!(
+        "enter",
+        tab_strip::Activate,
+        Some("TabStrip"),
+        TABS,
+        "Go to the tab's content"
+    ),
+    shortcut!(
+        "down",
+        tab_strip::Activate,
+        Some("TabStrip"),
+        TABS,
+        "Go to the tab's content"
+    ),
+    // Theme grid
+    shortcut!(
+        "up",
+        theme_grid::Up,
+        Some("ThemeGrid"),
+        THEMES,
+        "Card above"
+    ),
+    shortcut!(
+        "down",
+        theme_grid::Down,
+        Some("ThemeGrid"),
+        THEMES,
+        "Card below"
+    ),
+    shortcut!(
+        "left",
+        theme_grid::Left,
+        Some("ThemeGrid"),
+        THEMES,
+        "Previous card"
+    ),
+    shortcut!(
+        "right",
+        theme_grid::Right,
+        Some("ThemeGrid"),
+        THEMES,
+        "Next card"
+    ),
+    shortcut!(
+        "home",
+        theme_grid::First,
+        Some("ThemeGrid"),
+        THEMES,
+        "First card"
+    ),
+    shortcut!(
+        "end",
+        theme_grid::Last,
+        Some("ThemeGrid"),
+        THEMES,
+        "Last card"
+    ),
+    shortcut!(
+        "pageup",
+        theme_grid::PageUp,
+        Some("ThemeGrid"),
+        THEMES,
+        "Page up"
+    ),
+    shortcut!(
+        "pagedown",
+        theme_grid::PageDown,
+        Some("ThemeGrid"),
+        THEMES,
+        "Page down"
+    ),
+    shortcut!(
+        "enter",
+        theme_grid::Apply,
+        Some("ThemeGrid"),
+        THEMES,
+        "Apply the theme"
+    ),
+    shortcut!(
+        "e",
+        theme_grid::Edit,
+        Some("ThemeGrid"),
+        THEMES,
+        "Edit the theme"
+    ),
+    shortcut!(
+        "o",
+        theme_grid::OpenFolder,
+        Some("ThemeGrid"),
+        THEMES,
+        "Open the theme folder"
+    ),
+    shortcut!(
+        "delete",
+        theme_grid::Delete,
+        Some("ThemeGrid"),
+        THEMES,
+        "Delete the theme"
+    ),
+    shortcut!(
+        "escape",
+        theme_grid::LeaveGrid,
+        Some("ThemeGrid"),
+        THEMES,
+        "Back to the filter tabs"
+    ),
+    // Theme Designer
+    shortcut!(
+        "escape",
+        app_menu::NavigateBack,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Back to Themes"
+    ),
+    shortcut!(
+        "alt-left",
+        app_menu::NavigateBack,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Back to Themes"
+    ),
+    shortcut!(
+        "ctrl-pagedown",
+        app_menu::ThemeEditNextTab,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Next tab"
+    ),
+    shortcut!(
+        "ctrl-pageup",
+        app_menu::ThemeEditPrevTab,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Previous tab"
+    ),
+    shortcut!(
+        "ctrl-tab",
+        app_menu::ThemeEditNextTab,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Next tab"
+    ),
+    shortcut!(
+        "ctrl-shift-tab",
+        app_menu::ThemeEditPrevTab,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Previous tab"
+    ),
+    shortcut!(
+        "ctrl-s",
+        theme_edit::ApplyTheme,
+        Some("ThemeEditPage"),
+        THEME_EDIT,
+        "Apply the theme"
+    ),
+    // Dialogs
+    shortcut!(
+        "ctrl-enter",
+        dialog::Submit,
+        Some("DialogBody"),
+        DIALOGS,
+        "Confirm"
+    ),
+    shortcut!(
+        "ctrl-enter",
+        dialog::Submit,
+        Some("DialogBody > Input"),
+        DIALOGS,
+        "Confirm (from a text field)"
+    ),
+    shortcut!(
+        "tab",
+        focus::FocusNext,
+        Some("DialogBody > Input"),
+        DIALOGS,
+        "Next control (from a text field)"
+    ),
+    shortcut!(
+        "shift-tab",
+        focus::FocusPrev,
+        Some("DialogBody > Input"),
+        DIALOGS,
+        "Previous control (from a text field)"
     ),
 ];
 

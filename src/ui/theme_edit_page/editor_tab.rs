@@ -1,7 +1,9 @@
 use crate::system::omarchy_paths::user_themes_dir;
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::EditingTheme;
-use crate::ui::theme_edit_page::shared::{error_message, form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    error_message, focus_section, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -27,12 +29,14 @@ pub struct EditorTab {
     vscode_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
+    scroll: ScrollHandle,
 }
 
 impl EditorTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -66,6 +70,7 @@ impl EditorTab {
             vscode_input,
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         };
 
         cx.subscribe_in(
@@ -197,7 +202,9 @@ impl Render for EditorTab {
             .child(
                 v_flex()
                     .gap_6()
-                    .child(
+                    .child(focus_section(
+                        "editor-neovim",
+                        &self.scroll,
                         form_section()
                             .gap_4()
                             .child(
@@ -216,8 +223,10 @@ impl Render for EditorTab {
                                         .appearance(false),
                                 ),
                             ),
-                    )
-                    .child(
+                    ))
+                    .child(focus_section(
+                        "editor-vscode",
+                        &self.scroll,
                         form_section()
                             .gap_4()
                             .child(
@@ -236,7 +245,7 @@ impl Render for EditorTab {
                                         .appearance(false),
                                 ),
                             ),
-                    ),
+                    )),
             )
     }
 }

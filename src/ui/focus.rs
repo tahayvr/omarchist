@@ -6,6 +6,7 @@
 // the theme grid, the keybinds table) are a single tab stop whose arrow
 // keys move an index inside them. Focus rings are always derived from
 // `FocusHandle::is_focused`, never from shadow state.
+use std::cell::Cell;
 use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder;
@@ -148,4 +149,143 @@ impl RenderOnce for FocusableSwitch {
                 this.on_click(move |_, window, cx| handler(&!checked, window, cx))
             })
     }
+}
+
+pub mod tab_strip {
+    gpui::actions!(tab_strip, [Prev, Next, First, Last, Activate]);
+}
+
+pub mod dialog {
+    gpui::actions!(dialog, [Submit]);
+}
+
+pub const TAB_STRIP_CONTEXT: &str = "TabStrip";
+pub const DIALOG_BODY_CONTEXT: &str = "DialogBody";
+
+/// Container for a `TabBar` that makes the whole strip one tab stop.
+/// The owner handles the `tab_strip` actions (left/right/home/end/enter).
+pub fn tab_strip_container(
+    id: impl Into<ElementId>,
+    focus: &FocusHandle,
+    window: &Window,
+    cx: &App,
+) -> Stateful<Div> {
+    let focused = focus.is_focused(window);
+    div()
+        .id(id)
+        .key_context(TAB_STRIP_CONTEXT)
+        .track_focus(focus)
+        .rounded(cx.theme().radius)
+        .border_1()
+        .border_color(focus_border(focused, cx.theme().transparent, cx))
+}
+
+/// The body of a dialog: traps Tab/Shift-Tab inside `focus` and runs
+/// `on_submit` for the `dialog::Submit` action (Ctrl+Enter). Enter itself is
+/// left to the focused control so a focused Cancel button cancels.
+pub fn dialog_body(
+    id: impl Into<ElementId>,
+    focus: &FocusHandle,
+    on_submit: impl Fn(&mut Window, &mut App) + 'static,
+) -> Stateful<Div> {
+    let next = focus.clone();
+    let prev = focus.clone();
+    div()
+        .id(id)
+        .key_context(DIALOG_BODY_CONTEXT)
+        .track_focus(focus)
+        .on_action(move |_: &FocusNext, window, cx| {
+            focus_next_within(&next, true, window, cx);
+        })
+        .on_action(move |_: &FocusPrev, window, cx| {
+            focus_next_within(&prev, false, window, cx);
+        })
+        .on_action(move |_: &dialog::Submit, window, cx| on_submit(window, cx))
+}
+
+struct SectionState {
+    focus: FocusHandle,
+    bounds: Rc<Cell<Bounds<Pixels>>>,
+    was_focused: bool,
+}
+
+/// A form section inside a scrolling container. When keyboard focus enters
+/// the section and it is not fully visible, the container scrolls just
+/// enough to show it. Wrap each `form_section()` of a Designer tab in one.
+#[derive(IntoElement)]
+pub struct FocusSection {
+    id: ElementId,
+    scroll: ScrollHandle,
+    children: Vec<AnyElement>,
+}
+
+impl FocusSection {
+    pub fn new(id: impl Into<ElementId>, scroll: &ScrollHandle) -> Self {
+        Self {
+            id: id.into(),
+            scroll: scroll.clone(),
+            children: Vec::new(),
+        }
+    }
+}
+
+impl ParentElement for FocusSection {
+    fn extend(&mut self, elements: impl IntoIterator<Item = AnyElement>) {
+        self.children.extend(elements);
+    }
+}
+
+impl RenderOnce for FocusSection {
+    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let state = window.use_keyed_state(self.id.clone(), cx, |_, cx| SectionState {
+            focus: cx.focus_handle(),
+            bounds: Rc::new(Cell::new(Bounds::default())),
+            was_focused: false,
+        });
+        let (focus, bounds, was_focused) = {
+            let state = state.read(cx);
+            (state.focus.clone(), state.bounds.clone(), state.was_focused)
+        };
+        let focused = focus.contains_focused(window, cx);
+        if focused != was_focused {
+            state.update(cx, |state, _| state.was_focused = focused);
+        }
+        if focused && !was_focused {
+            scroll_into_view(&self.scroll, bounds.get());
+        }
+
+        let record = bounds.clone();
+        div()
+            .id(self.id)
+            .relative()
+            .track_focus(&focus)
+            .child(
+                canvas(move |bounds, _, _| record.set(bounds), |_, _, _, _| {})
+                    .absolute()
+                    .top_0()
+                    .left_0()
+                    .size_full(),
+            )
+            .children(self.children)
+    }
+}
+
+/// Scrolls `scroll` the minimum distance that brings `target` (window
+/// coordinates from the last frame) into its viewport.
+fn scroll_into_view(scroll: &ScrollHandle, target: Bounds<Pixels>) {
+    let viewport = scroll.bounds();
+    if viewport.size.height <= px(0.) || target.size.height <= px(0.) {
+        return;
+    }
+    let mut offset = scroll.offset();
+    if target.top() < viewport.top() {
+        offset.y += viewport.top() - target.top();
+    } else if target.bottom() > viewport.bottom() {
+        let overflow = target.bottom() - viewport.bottom();
+        let slack = target.top() - viewport.top();
+        offset.y -= overflow.min(slack);
+    } else {
+        return;
+    }
+    scroll.set_offset(offset);
 }
