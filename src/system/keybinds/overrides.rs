@@ -29,6 +29,19 @@ pub struct BindSpec {
 }
 
 impl BindSpec {
+    /// The identity this spec will have once Hyprland registers it, so an
+    /// Omarchist-origin bind found by the scanner can be matched back to
+    /// the override that emitted it.
+    pub fn identity(&self) -> BindIdentity {
+        BindIdentity {
+            keys: Chord::parse(&self.keys)
+                .map(|c| c.to_omarchy_string())
+                .unwrap_or_else(|_| self.keys.clone()),
+            description: self.description.clone(),
+            dispatcher: self.dispatcher.identity(),
+        }
+    }
+
     pub fn from_keybind(bind: &Keybind) -> Self {
         Self {
             keys: bind.chord.to_omarchy_string(),

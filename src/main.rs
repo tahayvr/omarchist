@@ -13,6 +13,7 @@ use std::rc::Rc;
 fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
         Some(ViewOption::Config) => ActivePage::Configuration,
+        Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,
@@ -171,6 +172,7 @@ fn main() {
             // Global page navigation shortcuts
             KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
             KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
+            KeyBinding::new("ctrl-3", app_menu::NavigateToKeybinds, None),
             // Keyboard navigation bindings - using MainWindow context
             KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
@@ -217,6 +219,10 @@ fn main() {
             KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
             KeyBinding::new("space", app_menu::ActivateItem, Some("AboutView")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
+            // Keybinds page keyboard navigation
+            KeyBinding::new("tab", app_menu::NextFocus, Some("KeybindsPage")),
+            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("KeybindsPage")),
+            KeyBinding::new("escape", app_menu::EscapeFocus, Some("KeybindsPage")),
             // Omarchy page keyboard navigation
             KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),

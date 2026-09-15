@@ -25,6 +25,7 @@ actions!(
         // Page navigation shortcuts
         NavigateToThemes,
         NavigateToConfig,
+        NavigateToKeybinds,
         // Theme edit actions
         ThemeEditNextTab,
         ThemeEditPrevTab,
