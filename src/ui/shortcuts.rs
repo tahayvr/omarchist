@@ -3,6 +3,7 @@
 // same table, so a shortcut cannot be bound without being documented.
 use gpui::{Action, KeyBinding};
 
+use crate::ui::config_page::config_view::config_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
@@ -48,6 +49,7 @@ pub const TABS: &str = "Tab strips";
 pub const THEMES: &str = "Themes";
 pub const THEME_EDIT: &str = "Theme Designer";
 pub const DIALOGS: &str = "Dialogs";
+pub const CONFIG: &str = "Configuration";
 
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
@@ -352,6 +354,56 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("ThemeEditPage"),
         THEME_EDIT,
         "Apply the theme"
+    ),
+    // Configuration
+    shortcut!(
+        "up",
+        config_nav::Prev,
+        Some("ConfigNav"),
+        CONFIG,
+        "Previous section"
+    ),
+    shortcut!(
+        "down",
+        config_nav::Next,
+        Some("ConfigNav"),
+        CONFIG,
+        "Next section"
+    ),
+    shortcut!(
+        "home",
+        config_nav::First,
+        Some("ConfigNav"),
+        CONFIG,
+        "First section"
+    ),
+    shortcut!(
+        "end",
+        config_nav::Last,
+        Some("ConfigNav"),
+        CONFIG,
+        "Last section"
+    ),
+    shortcut!(
+        "enter",
+        config_nav::Activate,
+        Some("ConfigNav"),
+        CONFIG,
+        "Go to the section's settings"
+    ),
+    shortcut!(
+        "right",
+        config_nav::Activate,
+        Some("ConfigNav"),
+        CONFIG,
+        "Go to the section's settings"
+    ),
+    shortcut!(
+        "escape",
+        config_nav::Back,
+        Some("ConfigContent"),
+        CONFIG,
+        "Back to the section list"
     ),
     // Dialogs
     shortcut!(
