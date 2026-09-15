@@ -287,7 +287,7 @@ Quattro moved Hyprland's config from hyprlang text to real Lua (`~/.config/hypr/
 
 - **Navigation:** `src/ui/app_view.rs`
 - **Theme Creation:** `src/ui/dialogs/create_theme_dialog.rs`
-- **Theme Editing:** `src/ui/theme_edit_page/theme_edit.rs`
+- **Theme Editing:** `src/ui/theme_edit_page/theme_edit_view.rs`
 - **Theme Management:** `src/system/themes/theme_management.rs`
 - **Type Definitions:** `src/types/themes.rs`
 - **Omarchy Paths:** `src/system/omarchy_paths.rs`

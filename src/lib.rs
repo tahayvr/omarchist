@@ -15,6 +15,6 @@ pub use ui::menu::app_menu;
 pub use ui::menu::title_bar::MainTitleBar;
 pub use ui::settings_page;
 pub use ui::theme_edit_page;
-pub use ui::theme_edit_page::theme_edit::{NavigateToThemes, ThemeEditPage};
+pub use ui::theme_edit_page::theme_edit_view::{NavigateToThemes, ThemeEditPage};
 pub use ui::themes_page;
-pub use ui::themes_page::themes::ThemesPage;
+pub use ui::themes_page::themes_view::ThemesPage;

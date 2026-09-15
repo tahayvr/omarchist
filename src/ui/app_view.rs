@@ -6,8 +6,8 @@ use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
-use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
-use crate::ui::themes_page::themes::ThemesPage;
+use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
+use crate::ui::themes_page::themes_view::ThemesPage;
 use gpui::*;
 use gpui_component::{
     Collapsible, Icon, IconName, Root, Side, h_flex,
@@ -451,8 +451,8 @@ impl Render for MainWindowView {
             self.navigate_to_theme_edit(theme_name, window, cx);
         }
 
-        let pending_navigate = crate::ui::theme_edit_page::theme_edit::PENDING_NAVIGATE_TO_THEMES
-            .with(|flag| {
+        let pending_navigate =
+            crate::ui::theme_edit_page::theme_edit_view::PENDING_NAVIGATE_TO_THEMES.with(|flag| {
                 let value = *flag.borrow();
                 if value {
                     *flag.borrow_mut() = false;

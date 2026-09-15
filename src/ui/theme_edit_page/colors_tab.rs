@@ -1,5 +1,6 @@
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
+use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, form_section, help_text, tab_container,
 };
@@ -77,24 +78,13 @@ impl ColorsTab {
         input
     }
 
-    fn hex_to_hsla(hex: &str) -> Option<Hsla> {
-        let hex = hex.trim_start_matches('#');
-        if hex.len() != 6 {
-            return None;
-        }
-        let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
-        let g = u8::from_str_radix(&hex[2..4], 16).ok()?;
-        let b = u8::from_str_radix(&hex[4..6], 16).ok()?;
-        Some(gpui::rgb(u32::from_be_bytes([0, r, g, b])).into())
-    }
-
     fn create_color_picker(
         window: &mut Window,
         cx: &mut Context<Self>,
         hex: &str,
         setter: impl Fn(&mut ColorsConfig, String) + 'static + Copy,
     ) -> Entity<ColorPickerState> {
-        let color = Self::hex_to_hsla(hex).unwrap_or(gpui::rgb(0x0F0F19).into());
+        let color = hex_to_hsla(hex).unwrap_or(gpui::rgb(0x0F0F19).into());
         let picker = cx.new(|cx| ColorPickerState::new(window, cx).default_value(color));
 
         cx.subscribe_in(

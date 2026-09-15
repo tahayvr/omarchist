@@ -1,7 +1,7 @@
 use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
-use crate::types::themes::{EditingTheme, ThemeEditTab};
+use crate::types::themes::EditingTheme;
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
@@ -19,6 +19,42 @@ use gpui_component::{
 };
 
 const KEY_CONTEXT: &str = "ThemeEditPage";
+
+// Tab order of the Theme Designer. UI-only, so it lives with the page
+// rather than in the shared theme data types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeEditTab {
+    General,
+    Colors,
+    FileManager,
+    Editor,
+    Overrides,
+    Backgrounds,
+}
+
+impl ThemeEditTab {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ThemeEditTab::General => "General",
+            ThemeEditTab::Colors => "Colors",
+            ThemeEditTab::FileManager => "File Manager",
+            ThemeEditTab::Editor => "Editor",
+            ThemeEditTab::Overrides => "Overrides",
+            ThemeEditTab::Backgrounds => "Backgrounds",
+        }
+    }
+
+    pub fn all() -> Vec<ThemeEditTab> {
+        vec![
+            ThemeEditTab::General,
+            ThemeEditTab::Colors,
+            ThemeEditTab::FileManager,
+            ThemeEditTab::Editor,
+            ThemeEditTab::Overrides,
+            ThemeEditTab::Backgrounds,
+        ]
+    }
+}
 
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
