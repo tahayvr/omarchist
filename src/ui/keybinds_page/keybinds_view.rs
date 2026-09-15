@@ -191,6 +191,11 @@ impl KeybindsView {
         view
     }
 
+    /// Focuses the search box.
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.search.update(cx, |input, cx| input.focus(window, cx));
+    }
+
     /// Rescans the Hyprland config and reloads the overrides file.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         if self.loading {

@@ -98,6 +98,22 @@ impl ConfigView {
         }
     }
 
+    /// Focuses the first control on the page.
+    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    }
+
+    /// Re-reads the saved configuration from disk.
+    pub fn reload(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        match HyprlandConfigManager::load() {
+            Ok(manager) => {
+                *self.config_manager.borrow_mut() = manager;
+                cx.notify();
+            }
+            Err(e) => eprintln!("Failed to reload Hyprland config: {}", e),
+        }
+    }
+
     fn update_config<F>(&mut self, cx: &mut Context<Self>, f: F)
     where
         F: FnOnce(&mut HyprlandConfig),

@@ -56,9 +56,9 @@ impl ThemesPage {
         }
     }
 
-    pub fn set_global_focus(&mut self, has_focus: bool, cx: &mut Context<Self>) {
-        self.has_global_focus = has_focus;
-        cx.notify();
+    /// Focuses the page for keyboard navigation.
+    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
+        self.focus_handle.focus(window);
     }
 
     pub fn current_focus(&self) -> ThemesFocus {
@@ -174,7 +174,8 @@ impl ThemesPage {
 }
 
 impl Render for ThemesPage {
-    fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.has_global_focus = self.focus_handle.contains_focused(window, cx);
         let filter = match self.active_tab {
             0 => ThemeFilter::All,
             1 => ThemeFilter::Only(ThemeOrigin::Omarchist),

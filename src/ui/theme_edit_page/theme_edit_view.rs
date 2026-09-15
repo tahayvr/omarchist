@@ -139,6 +139,11 @@ impl ThemeEditPage {
         }
     }
 
+    /// Focuses the page for keyboard navigation.
+    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
+        self.focus_handle.focus(window);
+    }
+
     pub fn theme_name(&self) -> &str {
         &self.theme_name
     }

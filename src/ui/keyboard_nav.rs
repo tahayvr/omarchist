@@ -1,45 +1,4 @@
-// Re-export for use throughout the codebase
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct FocusState {
-    pub focused_section: FocusedSection,
-    pub sidebar_index: usize,
-    pub sidebar_count: usize,
-}
-
-impl FocusState {
-    pub fn new() -> Self {
-        Self {
-            focused_section: FocusedSection::Content,
-            sidebar_index: 0,
-            sidebar_count: 3, // Themes, Configuration, Keybinds
-        }
-    }
-
-    pub fn next_sidebar_item(&mut self) {
-        if self.sidebar_index < self.sidebar_count.saturating_sub(1) {
-            self.sidebar_index += 1;
-        }
-    }
-
-    pub fn prev_sidebar_item(&mut self) {
-        if self.sidebar_index > 0 {
-            self.sidebar_index -= 1;
-        }
-    }
-}
-
-impl Default for FocusState {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum FocusedSection {
-    Sidebar,
-    Content,
-}
+// Grid movement math for the themes page.
 
 #[derive(Debug, Clone, Copy)]
 pub struct ListNavigationState {

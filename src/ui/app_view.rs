@@ -3,25 +3,35 @@ use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
-use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
+use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 use crate::ui::themes_page::themes_view::ThemesPage;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    Collapsible, Icon, IconName, Root, Side, h_flex,
+    ActiveTheme, Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
+    v_flex,
 };
 
 use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
-const SIDEBAR_ITEM_COUNT: usize = 3;
+const SIDEBAR_CONTEXT: &str = "Sidebar";
+
+/// Sidebar entries in display order: label, icon, page.
+const SIDEBAR_ITEMS: [(&str, &str); 3] = [
+    ("THEMES", "ctrl-1"),
+    ("CONFIGURATION", "ctrl-2"),
+    ("KEYBINDS", "ctrl-3"),
+];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
@@ -56,7 +66,9 @@ pub struct MainWindowView {
     omarchy_root: Option<AnyView>,
     omarchy_view: Option<Entity<OmarchyView>>,
     sidebar_collapsed: bool,
-    focus_state: FocusState,
+    /// The sidebar is one tab stop; arrow keys move `sidebar_index`.
+    sidebar_focus: FocusHandle,
+    sidebar_index: usize,
     focus_handle: FocusHandle,
 }
 
@@ -111,16 +123,9 @@ impl MainWindowView {
             .detach();
         }
 
-        // Create focus handle for sidebar navigation; keep it focused at start
         let focus_handle = cx.focus_handle();
-        focus_handle.focus(window);
-
-        let initial_sidebar_index = match &initial_page {
-            ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
-            ActivePage::Configuration => 1,
-            ActivePage::Keybinds => 2,
-            _ => 0,
-        };
+        let sidebar_focus = focus::tab_stop(cx);
+        let initial_sidebar_index = Self::sidebar_index_for(&initial_page).unwrap_or(0);
 
         let mut view = Self {
             title_bar,
@@ -141,11 +146,8 @@ impl MainWindowView {
             omarchy_root: None,
             omarchy_view: None,
             sidebar_collapsed: true,
-            focus_state: FocusState {
-                focused_section: FocusedSection::Sidebar,
-                sidebar_index: initial_sidebar_index,
-                sidebar_count: SIDEBAR_ITEM_COUNT,
-            },
+            sidebar_focus,
+            sidebar_index: initial_sidebar_index,
             focus_handle,
         };
 
@@ -159,12 +161,24 @@ impl MainWindowView {
         })
         .detach();
 
-        // Navigate to the initial page if it's not the default Themes page
+        // A page requested on the command line gets focus; otherwise the
+        // sidebar does.
         if initial_page != ActivePage::Themes {
             view.navigate_to(initial_page, window, cx);
+        } else {
+            view.sidebar_focus.focus(window);
         }
 
         view
+    }
+
+    fn sidebar_index_for(page: &ActivePage) -> Option<usize> {
+        match page {
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(0),
+            ActivePage::Configuration => Some(1),
+            ActivePage::Keybinds => Some(2),
+            ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
+        }
     }
 
     /// Ensures the view and root for `page` have been created.  Called at the
@@ -274,48 +288,83 @@ impl MainWindowView {
         }
 
         self.active_page = page;
+        if let Some(ix) = Self::sidebar_index_for(&self.active_page) {
+            self.sidebar_index = ix;
+        }
 
-        // Transfer GPUI focus to the newly active page so its key_context
-        // and on_action handlers are in the dispatch chain.
-        self.transfer_focus_to_active_page(window, cx);
+        // Keyboard users land on the page's first control.
+        self.focus_page_entry(window, cx);
 
         cx.notify();
     }
 
-    fn transfer_focus_to_active_page(&self, window: &mut Window, cx: &mut Context<Self>) {
-        let handle = match &self.active_page {
-            ActivePage::Themes => Some(self.themes_view.read(cx).focus_handle.clone()),
-            ActivePage::ThemeEdit(_) => self
-                .theme_edit_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::About => self
-                .about_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::Omarchy => self
-                .omarchy_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::Configuration => self
-                .config_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::Settings => self
-                .settings_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-            ActivePage::Keybinds => self
-                .keybinds_view
-                .as_ref()
-                .map(|v| v.read(cx).focus_handle.clone()),
-        };
+    /// Focuses the active page's entry control (search box, tab strip, …).
+    fn focus_page_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        match &self.active_page {
+            ActivePage::Themes => self
+                .themes_view
+                .update(cx, |v, cx| v.focus_entry(window, cx)),
+            ActivePage::ThemeEdit(_) => {
+                if let Some(view) = &self.theme_edit_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::About => {
+                if let Some(view) = &self.about_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::Omarchy => {
+                if let Some(view) = &self.omarchy_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::Configuration => {
+                if let Some(view) = &self.config_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::Settings => {
+                if let Some(view) = &self.settings_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::Keybinds => {
+                if let Some(view) = &self.keybinds_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+        }
+    }
 
-        if let Some(fh) = handle {
-            fh.focus(window);
+    /// Escape toggles between the sidebar and the page.
+    fn handle_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.sidebar_focus.is_focused(window) {
+            self.focus_page_entry(window, cx);
         } else {
-            // Return focus to the main window (sidebar)
-            self.focus_handle.focus(window);
+            self.sidebar_focus.focus(window);
+        }
+        cx.notify();
+    }
+
+    /// Ctrl+R: reload whatever the active page shows.
+    fn reload_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match &self.active_page {
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => {
+                self.themes_view
+                    .update(cx, |page, cx| page.refresh_themes(cx));
+            }
+            ActivePage::Keybinds => {
+                if let Some(view) = &self.keybinds_view {
+                    view.update(cx, |view, cx| view.refresh(cx));
+                }
+            }
+            ActivePage::Configuration => {
+                if let Some(view) = &self.config_view {
+                    view.update(cx, |view, cx| view.reload(window, cx));
+                }
+            }
+            ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => {}
         }
     }
 
@@ -409,110 +458,102 @@ impl MainWindowView {
         }
     }
 
-    fn activate_focused_sidebar_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let page = self.page_from_sidebar_index(self.focus_state.sidebar_index);
-        self.focus_state.focused_section = FocusedSection::Content;
-        self.navigate_to(page, window, cx);
-    }
-
-    fn is_sidebar_item_focused(&self, index: usize) -> bool {
-        self.focus_state.focused_section == FocusedSection::Sidebar
-            && self.focus_state.sidebar_index == index
-    }
-
-    fn handle_next_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.focus_state.focused_section = FocusedSection::Content;
-                // Transfer GPUI focus to the active page
-                self.transfer_focus_to_active_page(window, cx);
-            }
-            FocusedSection::Content => {
-                self.focus_state.focused_section = FocusedSection::Sidebar;
-                // Return GPUI focus to the main window for sidebar navigation
-                self.focus_handle.focus(window);
-            }
+    fn activate_sidebar_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let page = self.page_from_sidebar_index(self.sidebar_index);
+        if self.active_page == page {
+            self.focus_page_entry(window, cx);
+        } else {
+            self.navigate_to(page, window, cx);
         }
+    }
+
+    fn move_sidebar_index(&mut self, index: usize, cx: &mut Context<Self>) {
+        self.sidebar_index = index.min(SIDEBAR_ITEMS.len() - 1);
         cx.notify();
     }
 
-    fn handle_prev_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.focus_state.focused_section {
-            FocusedSection::Sidebar => {
-                self.focus_state.focused_section = FocusedSection::Content;
-                // Transfer GPUI focus to the active page
-                self.transfer_focus_to_active_page(window, cx);
-            }
-            FocusedSection::Content => {
-                self.focus_state.focused_section = FocusedSection::Sidebar;
-                // Return GPUI focus to the main window for sidebar navigation
-                self.focus_handle.focus(window);
-            }
-        }
-        cx.notify();
+    fn render_sidebar_item(
+        &self,
+        ix: usize,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let (label, keys) = SIDEBAR_ITEMS[ix];
+        let page = self.page_from_sidebar_index(ix);
+        let icon = match ix {
+            0 => Icon::new(IconName::LayoutDashboard),
+            1 => Icon::new(IconName::Settings),
+            _ => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
+        };
+        let focused = self.sidebar_focus.is_focused(window) && self.sidebar_index == ix;
+        let border = focus::focus_border(focused, cx.theme().transparent, cx);
+        let collapsed = self.sidebar_should_be_collapsed(window);
+
+        div()
+            .id(("sidebar-item", ix))
+            .rounded(cx.theme().radius)
+            .border_1()
+            .border_color(border)
+            .child(
+                SidebarMenuItem::new(label)
+                    .icon(icon)
+                    .collapsed(collapsed)
+                    .active(self.is_page_active(page.clone()))
+                    .when(!collapsed, |this| {
+                        this.suffix(Kbd::new(Keystroke::parse(keys).unwrap()))
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.sidebar_index = ix;
+                        this.navigate_to(page.clone(), window, cx);
+                    })),
+            )
     }
 
-    fn handle_next_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Sidebar {
-            self.focus_state.next_sidebar_item();
-            cx.notify();
-        }
-        // Content navigation is handled by the child page views directly
+    fn sidebar_should_be_collapsed(&self, window: &Window) -> bool {
+        // Responsive sidebar: auto-collapse on small windows (< 768px)
+        let is_small_window = window.viewport_size().width < px(768.0);
+        is_small_window || self.sidebar_collapsed
+    }
+}
+
+/// The sidebar page list as one focusable composite. `SidebarGroup` only
+/// accepts `Collapsible` children, so this stands in for `SidebarMenu`.
+#[derive(IntoElement)]
+struct SidebarNav {
+    focus: FocusHandle,
+    collapsed: bool,
+    items: Vec<AnyElement>,
+}
+
+impl Collapsible for SidebarNav {
+    fn is_collapsed(&self) -> bool {
+        self.collapsed
     }
 
-    fn handle_prev_item(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Sidebar {
-            self.focus_state.prev_sidebar_item();
-            cx.notify();
-        }
-        // Content navigation is handled by the child page views directly
+    fn collapsed(mut self, collapsed: bool) -> Self {
+        self.collapsed = collapsed;
+        self
     }
+}
 
-    fn handle_select_next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Sidebar {
-            self.activate_focused_sidebar_item(window, cx);
-        }
-        // Content navigation is handled by the child page views directly
-    }
-
-    fn handle_select_prev(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Content {
-            // Child views consume this if they still have internal items to navigate left.
-            // If they bubble it up (e.g. ThemesPage at Tabs level), we move to sidebar.
-            self.focus_state.focused_section = FocusedSection::Sidebar;
-            self.focus_handle.focus(window);
-            cx.notify();
-        }
-    }
-
-    fn handle_activate_item(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Sidebar {
-            self.activate_focused_sidebar_item(window, cx);
-        }
-        // Content activation is handled by the child page views directly
-    }
-
-    fn handle_escape_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.focus_state.focused_section == FocusedSection::Content {
-            self.focus_state.focused_section = FocusedSection::Sidebar;
-            self.focus_handle.focus(window);
-            cx.notify();
-        }
+impl RenderOnce for SidebarNav {
+    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
+        v_flex()
+            .id("sidebar-nav")
+            .key_context(SIDEBAR_CONTEXT)
+            .track_focus(&self.focus)
+            .gap_2()
+            .cursor_pointer()
+            .children(self.items)
     }
 }
 
 impl Render for MainWindowView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Responsive sidebar: auto-collapse on small windows (< 768px)
-        let viewport_width = window.viewport_size().width;
-        let is_small_window = viewport_width < px(768.0);
-        let sidebar_should_be_collapsed = is_small_window || self.sidebar_collapsed;
+        let sidebar_should_be_collapsed = self.sidebar_should_be_collapsed(window);
 
-        // Update themes_page with collapsed state and global focus state
-        let content_has_focus = self.focus_state.focused_section == FocusedSection::Content;
         self.themes_view.update(cx, |themes_page, cx| {
             themes_page.set_sidebar_collapsed(sidebar_should_be_collapsed, cx);
-            themes_page.set_global_focus(content_has_focus, cx);
         });
 
         div()
@@ -547,69 +588,56 @@ impl Render for MainWindowView {
                     .detach();
                 },
             ))
+            .on_action(
+                cx.listener(|_, _: &crate::ui::menu::app_menu::NewTheme, window, cx| {
+                    crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog(window, cx);
+                }),
+            )
             // Global page shortcuts
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToThemes, window, cx| {
-                    this.focus_state.sidebar_index = 0;
-                    this.focus_state.focused_section = FocusedSection::Content;
                     this.navigate_to(ActivePage::Themes, window, cx);
                 },
             ))
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToConfig, window, cx| {
-                    this.focus_state.sidebar_index = 1;
-                    this.focus_state.focused_section = FocusedSection::Content;
                     this.navigate_to(ActivePage::Configuration, window, cx);
                 },
             ))
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToKeybinds, window, cx| {
-                    this.focus_state.sidebar_index = 2;
-                    this.focus_state.focused_section = FocusedSection::Content;
                     this.navigate_to(ActivePage::Keybinds, window, cx);
                 },
             ))
-            // Sidebar keyboard navigation actions
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NextFocus, window, cx| {
-                    this.handle_next_focus(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::PrevFocus, window, cx| {
-                    this.handle_prev_focus(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NextItem, window, cx| {
-                    this.handle_next_item(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::PrevItem, window, cx| {
-                    this.handle_prev_item(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::SelectNext, window, cx| {
-                    this.handle_select_next(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::SelectPrev, window, cx| {
-                    this.handle_select_prev(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::ActivateItem, window, cx| {
-                    this.handle_activate_item(window, cx);
-                },
-            ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::EscapeFocus, window, cx| {
-                    this.handle_escape_focus(window, cx);
-                },
-            ))
+            // Focus traversal (native GPUI tab stops)
+            .on_action(cx.listener(|_, _: &focus::FocusNext, window, _cx| {
+                window.focus_next();
+            }))
+            .on_action(cx.listener(|_, _: &focus::FocusPrev, window, _cx| {
+                window.focus_prev();
+            }))
+            .on_action(cx.listener(|this, _: &focus::EscapeToSidebar, window, cx| {
+                this.handle_escape(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &focus::ReloadPage, window, cx| {
+                this.reload_page(window, cx);
+            }))
+            // Sidebar composite
+            .on_action(cx.listener(|this, _: &sidebar_nav::Next, _, cx| {
+                this.move_sidebar_index(this.sidebar_index + 1, cx);
+            }))
+            .on_action(cx.listener(|this, _: &sidebar_nav::Prev, _, cx| {
+                this.move_sidebar_index(this.sidebar_index.saturating_sub(1), cx);
+            }))
+            .on_action(cx.listener(|this, _: &sidebar_nav::First, _, cx| {
+                this.move_sidebar_index(0, cx);
+            }))
+            .on_action(cx.listener(|this, _: &sidebar_nav::Last, _, cx| {
+                this.move_sidebar_index(SIDEBAR_ITEMS.len() - 1, cx);
+            }))
+            .on_action(cx.listener(|this, _: &sidebar_nav::Activate, window, cx| {
+                this.activate_sidebar_item(window, cx);
+            }))
             .child(self.title_bar.clone())
             .child(
                 h_flex()
@@ -620,67 +648,16 @@ impl Render for MainWindowView {
                         Sidebar::new(Side::Left)
                             .collapsed(sidebar_should_be_collapsed)
                             .child(
-                                SidebarGroup::new("Navigation").child(
-                                    SidebarMenu::new()
-                                        .cursor_pointer()
-                                        .child(
-                                            SidebarMenuItem::new("THEMES")
-                                                .icon(Icon::new(IconName::LayoutDashboard))
-                                                .active(
-                                                    self.is_page_active(ActivePage::Themes)
-                                                        || self.is_sidebar_item_focused(0),
-                                                )
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.focus_state.sidebar_index = 0;
-                                                    this.focus_state.focused_section =
-                                                        FocusedSection::Content;
-                                                    this.navigate_to(
-                                                        ActivePage::Themes,
-                                                        window,
-                                                        cx,
-                                                    );
-                                                })),
-                                        )
-                                        .child(
-                                            SidebarMenuItem::new("CONFIGURATION")
-                                                .icon(Icon::new(IconName::Settings))
-                                                .active(
-                                                    self.is_page_active(ActivePage::Configuration)
-                                                        || self.is_sidebar_item_focused(1),
-                                                )
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.focus_state.sidebar_index = 1;
-                                                    this.focus_state.focused_section =
-                                                        FocusedSection::Content;
-                                                    this.navigate_to(
-                                                        ActivePage::Configuration,
-                                                        window,
-                                                        cx,
-                                                    );
-                                                })),
-                                        )
-                                        .child(
-                                            SidebarMenuItem::new("KEYBINDS")
-                                                .icon(
-                                                    Icon::new(Icon::empty())
-                                                        .path("icons/keyboard.svg"),
-                                                )
-                                                .active(
-                                                    self.is_page_active(ActivePage::Keybinds)
-                                                        || self.is_sidebar_item_focused(2),
-                                                )
-                                                .on_click(cx.listener(|this, _, window, cx| {
-                                                    this.focus_state.sidebar_index = 2;
-                                                    this.focus_state.focused_section =
-                                                        FocusedSection::Content;
-                                                    this.navigate_to(
-                                                        ActivePage::Keybinds,
-                                                        window,
-                                                        cx,
-                                                    );
-                                                })),
-                                        ),
-                                ),
+                                SidebarGroup::new("Navigation").child(SidebarNav {
+                                    focus: self.sidebar_focus.clone(),
+                                    collapsed: sidebar_should_be_collapsed,
+                                    items: (0..SIDEBAR_ITEMS.len())
+                                        .map(|ix| {
+                                            self.render_sidebar_item(ix, window, cx)
+                                                .into_any_element()
+                                        })
+                                        .collect(),
+                                }),
                             )
                             .footer(
                                 SidebarGroup::new("")
@@ -692,6 +669,7 @@ impl Render for MainWindowView {
                                                 .suffix(Kbd::new(
                                                     Keystroke::parse("ctrl-b").unwrap(),
                                                 ))
+                                                .collapsed(sidebar_should_be_collapsed)
                                                 .on_click(cx.listener(|this, _, _, cx| {
                                                     this.sidebar_collapsed =
                                                         !this.sidebar_collapsed;

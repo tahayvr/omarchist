@@ -13,9 +13,8 @@ actions!(
         Cut,
         RefreshTheme,
         ToggleSidebar,
-        // Keyboard navigation actions
-        NextFocus,
-        PrevFocus,
+        NewTheme,
+        // Themes page keyboard navigation (see themes_view.rs)
         NextItem,
         PrevItem,
         ActivateItem,

@@ -165,31 +165,12 @@ fn main() {
         })
         .detach();
 
+        // App-wide shortcuts come from one table so the help dialog and key
+        // hints cannot drift from what is bound.
+        cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
         cx.bind_keys([
-            KeyBinding::new("ctrl-q", app_menu::Quit, None),
-            KeyBinding::new("ctrl-,", app_menu::NavigateToSettings, None),
-            KeyBinding::new("ctrl-alt-l", app_menu::SwitchToLight, None),
-            KeyBinding::new("ctrl-alt-d", app_menu::SwitchToDark, None),
-            KeyBinding::new("ctrl-z", gpui_component::input::Undo, None),
+            // Editing keys that gpui-component does not bind on Linux.
             KeyBinding::new("ctrl-shift-z", gpui_component::input::Redo, None),
-            KeyBinding::new("ctrl-x", gpui_component::input::Cut, None),
-            KeyBinding::new("ctrl-c", gpui_component::input::Copy, None),
-            KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
-            KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
-            KeyBinding::new("ctrl-b", app_menu::ToggleSidebar, None),
-            // Global page navigation shortcuts
-            KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
-            KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
-            KeyBinding::new("ctrl-3", app_menu::NavigateToKeybinds, None),
-            // Keyboard navigation bindings - using MainWindow context
-            KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
-            KeyBinding::new("down", app_menu::NextItem, Some("MainWindow")),
-            KeyBinding::new("up", app_menu::PrevItem, Some("MainWindow")),
-            KeyBinding::new("right", app_menu::SelectNext, Some("MainWindow")),
-            KeyBinding::new("left", app_menu::SelectPrev, Some("MainWindow")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("MainWindow")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("MainWindow")),
             // Themes page keyboard navigation
             KeyBinding::new("down", app_menu::NextItem, Some("ThemesPage")),
             KeyBinding::new("up", app_menu::PrevItem, Some("ThemesPage")),
@@ -197,8 +178,6 @@ fn main() {
             KeyBinding::new("left", app_menu::SelectPrev, Some("ThemesPage")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("ThemesPage")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("ThemesPage")),
-            KeyBinding::new("tab", app_menu::NextFocus, Some("ThemesPage")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("ThemesPage")),
             // Theme edit page navigation
             KeyBinding::new("right", app_menu::ThemeEditNextTab, Some("ThemeEditPage")),
             KeyBinding::new("left", app_menu::ThemeEditPrevTab, Some("ThemeEditPage")),
@@ -213,20 +192,7 @@ fn main() {
                 Some("ThemeEditPage"),
             ),
             KeyBinding::new("escape", app_menu::NavigateBack, Some("ThemeEditPage")),
-            // Settings page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("SettingsPage")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("SettingsPage")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("SettingsPage")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("SettingsPage")),
-            // About page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("AboutView")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("AboutView")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
             // Keybinds page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("KeybindsPage")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("KeybindsPage")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("KeybindsPage")),
             KeyBinding::new("enter", app_menu::ActivateItem, Some("KeybindsPage")),
             // Keystroke recorder (only while it is focused but not recording)
             KeyBinding::new(
@@ -249,11 +215,6 @@ fn main() {
                 keystroke_input::ClearKeystrokes,
                 Some("KeystrokeInput"),
             ),
-            // Omarchy page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("OmarchyView")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("OmarchyView")),
         ]);
 
         cx.spawn(async move |cx| {
