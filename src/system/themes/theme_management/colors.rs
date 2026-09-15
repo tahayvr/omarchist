@@ -11,7 +11,6 @@ pub fn render_colors_toml(colors: &ColorsConfig) -> String {
         r#"mode = "{}"
 
 accent = "{}"
-cursor = "{}"
 foreground = "{}"
 background = "{}"
 selection_foreground = "{}"
@@ -36,7 +35,6 @@ color15 = "{}"
 "#,
         colors.mode,
         colors.accent,
-        colors.cursor,
         colors.foreground,
         colors.background,
         colors.selection_foreground,

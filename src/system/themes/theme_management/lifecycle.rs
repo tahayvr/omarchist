@@ -39,6 +39,45 @@ pub fn generate_unique_theme_name() -> String {
     }
 }
 
+// Turns arbitrary text (typically an image file stem) into a theme folder
+// name Omarchy accepts: lowercase ASCII letters, digits and single dashes.
+// `omarchy-theme-set` itself only lowercases and swaps spaces, and rejects
+// names starting with a dot or containing a slash.
+pub fn slugify_theme_name(input: &str) -> String {
+    let mut slug = String::with_capacity(input.len());
+    let mut pending_dash = false;
+    for ch in input.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_dash && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_dash = false;
+            slug.push(ch.to_ascii_lowercase());
+        } else {
+            pending_dash = true;
+        }
+    }
+    if slug.is_empty() {
+        "custom-theme".to_string()
+    } else {
+        slug
+    }
+}
+
+// `base`, or `base-2`, `base-3`, ... — the first that isn't already a theme.
+pub fn unique_theme_name(base: &str) -> String {
+    let Some(themes_dir) = get_custom_themes_dir() else {
+        return base.to_string();
+    };
+    if !themes_dir.join(base).exists() {
+        return base.to_string();
+    }
+    (2..)
+        .map(|n| format!("{base}-{n}"))
+        .find(|name| !themes_dir.join(name).exists())
+        .unwrap_or_else(|| format!("{base}-{}", Utc::now().timestamp()))
+}
+
 pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     let themes_dir = get_custom_themes_dir()
         .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
@@ -256,4 +295,26 @@ fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::slugify_theme_name;
+
+    #[test]
+    fn slugify_lowercases_and_collapses_separators() {
+        assert_eq!(
+            slugify_theme_name("My Wallpaper (1).png"),
+            "my-wallpaper-1-png"
+        );
+        assert_eq!(slugify_theme_name("IMG_2024  final"), "img-2024-final");
+        assert_eq!(slugify_theme_name("--Tokyo Night--"), "tokyo-night");
+        assert_eq!(slugify_theme_name("café ☕"), "caf");
+    }
+
+    #[test]
+    fn slugify_falls_back_when_nothing_survives() {
+        assert_eq!(slugify_theme_name("☕☕"), "custom-theme");
+        assert_eq!(slugify_theme_name(""), "custom-theme");
+    }
 }

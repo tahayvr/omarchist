@@ -4,9 +4,7 @@ use crate::system::themes::color_extractor::{
     ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::color_utils::{adjust_brightness, hex_to_rgb};
-use crate::system::themes::theme_management::{
-    create_theme_from_defaults, save_theme_data, update_icons_theme,
-};
+use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
 use crate::types::themes::{ColorsConfig, EditingTheme};
 
 // Available icon themes mapped to their representative colors (RGB)
@@ -29,7 +27,7 @@ fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
 }
 
 // Select the best matching icon theme based on the accent color
-fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
+fn select_icon_theme(accent_hex: &str) -> &'static str {
     let accent_rgb = match hex_to_rgb(accent_hex) {
         Some(rgb) => rgb,
         None => return "Yaru-blue", // Default fallback
@@ -47,65 +45,28 @@ fn select_icon_theme(accent_hex: &str, _is_light_theme: bool) -> &'static str {
         .unwrap_or("Yaru-blue")
 }
 
-// Progress callback for theme generation
-pub type ProgressCallback = Box<dyn Fn(&str) + Send>;
-
 // Create a complete theme from an image
-pub fn create_theme_from_image(
-    image_path: &Path,
-    theme_name: &str,
-    progress: Option<ProgressCallback>,
-) -> Result<String, String> {
-    let report = |msg: &str| {
-        if let Some(ref cb) = progress {
-            cb(msg);
-        }
-    };
-
-    report("Analyzing image...");
-
-    // Extract color palette
+pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<String, String> {
     let palette = extract_palette(image_path)?;
 
-    report("Creating theme structure...");
-
-    // Create base theme from defaults
     create_theme_from_defaults(theme_name)?;
 
-    report("Applying colors...");
-
-    // Build complete theme with extracted colors
-    let editing_theme = build_theme_from_palette(&palette, theme_name)?;
-
-    // Save all configs
+    // save_theme_data writes colors.toml and icons.theme from the manifest.
+    let editing_theme = build_theme_from_palette(&palette, theme_name);
     save_theme_data(theme_name, &editing_theme)?;
 
-    report("Copying background image...");
-
-    // Copy image to backgrounds folder
     copy_image_to_backgrounds(image_path, theme_name)?;
-
-    report("Done!");
 
     Ok(theme_name.to_string())
 }
 
 // Build a complete EditingTheme from a color palette
-fn build_theme_from_palette(
-    palette: &ColorPalette,
-    theme_name: &str,
-) -> Result<EditingTheme, String> {
+fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> EditingTheme {
     use chrono::Utc;
 
     let now = Utc::now().to_rfc3339();
 
-    // Select the best matching icon theme based on accent color
-    let icon_theme_name = select_icon_theme(&palette.accent, palette.is_light_theme);
-
-    // Save the icons.theme file directly
-    let _ = update_icons_theme(theme_name, icon_theme_name);
-
-    // Create icons config for the theme data
+    let icon_theme_name = select_icon_theme(&palette.accent);
     let icons_config = serde_json::json!({
         "theme_name": icon_theme_name
     });
@@ -121,7 +82,6 @@ fn build_theme_from_palette(
         }
         .to_string(),
         accent: palette.accent.clone(),
-        cursor: palette.accent.clone(),
         foreground: palette.foreground.clone(),
         background: palette.background.clone(),
         selection_foreground: palette.foreground.clone(),
@@ -149,7 +109,7 @@ fn build_theme_from_palette(
         hyprland_inactive_border: None,
     };
 
-    Ok(EditingTheme {
+    EditingTheme {
         version: "2.0.0".to_string(),
         name: theme_name.to_string(),
         created_at: now.clone(),
@@ -167,5 +127,5 @@ fn build_theme_from_palette(
         },
         colors: colors_config,
         is_light_theme: palette.is_light_theme,
-    })
+    }
 }

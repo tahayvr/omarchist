@@ -102,6 +102,8 @@ impl Default for EditingTheme {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ColorsConfig {
+    // No `cursor` key: Omarchy's resolver unconditionally derives it from
+    // `bright_foreground` (color15), so a stored value would never be read.
     // Explicit dark/light marker, written into colors.toml's `mode` key —
     // Omarchy's own resolver otherwise has to fall back to a `light.mode`
     // marker file or background-luminance auto-detection, and Omarchist
@@ -109,7 +111,6 @@ pub struct ColorsConfig {
     #[serde(default = "default_mode")]
     pub mode: String,
     pub accent: String,
-    pub cursor: String,
     pub foreground: String,
     pub background: String,
     pub selection_foreground: String,
@@ -150,7 +151,6 @@ impl Default for ColorsConfig {
         Self {
             mode: default_mode(),
             accent: "#33A1FF".to_string(),
-            cursor: "#EDEDFE".to_string(),
             foreground: "#EDEDFE".to_string(),
             background: "#0F0F19".to_string(),
             selection_foreground: "#EDEDFE".to_string(),

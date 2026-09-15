@@ -42,7 +42,7 @@ Set basic information about your theme.
 Set the full palette in `colors.toml`. Omarchy generates configurations for **Alacritty**, **Ghostty**, **Kitty**, and **Foot** from these values.
 
 - **Primary Colors**: Background and foreground colors.
-- **Cursor and Selection**: Cursor color plus selection foreground and background.
+- **Selection Colors**: Selection foreground and background.
 - **Normal/Bright Colors**: The 8 standard ANSI colors for both normal and bright variants.
 - **Window Borders**: Optional Hyprland border colors. Omarchy uses the accent color for the active border and a neutral grey for inactive ones. Any Hyprland color works, including gradients such as `rgba(26a269ee) rgba(2ec27eee) 45deg`. Leave a field blank for the default.
 
