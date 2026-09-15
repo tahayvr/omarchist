@@ -118,9 +118,10 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    crate::ui::app_view::PENDING_OMARCHY_UPDATE_STATUS.with(|flag| {
-                        *flag.borrow_mut() = Some(update_available);
-                    });
+                    let _ = crate::ui::app_events::emit_async(
+                        cx,
+                        crate::ui::app_events::AppEvent::OmarchyUpdateStatus(update_available),
+                    );
                 }
                 Err(e) => {
                     eprintln!("Post-update omarchy version check failed: {e}");

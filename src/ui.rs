@@ -1,4 +1,5 @@
 pub mod about_page;
+pub mod app_events;
 pub mod app_view;
 pub mod color_utils;
 pub mod config_page;

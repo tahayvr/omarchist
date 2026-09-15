@@ -137,23 +137,19 @@ pub struct NavigateToThemes;
 
 ### State Management
 
-Use `thread_local!` + `RefCell` for cross-component state:
+Cross-component requests go through the `AppEvents` global in `src/ui/app_events.rs`, never through `thread_local!` flags polled from `render`:
 
 ```rust
-thread_local! {
-    pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = RefCell::new(None);
-}
+use crate::ui::app_events::{emit, emit_async, AppEvent};
 
-// Set
-PENDING_THEME_NAVIGATION.with(|nav| {
-    *nav.borrow_mut() = Some(theme_name);
-});
+// From a click handler or anything with `&mut App`
+emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(theme_name)));
 
-// Read
-let pending = PENDING_THEME_NAVIGATION.with(|nav| nav.borrow_mut().take());
+// From a background task with an `AsyncApp`
+let _ = emit_async(cx, AppEvent::RefreshThemes);
 ```
 
-Always call `cx.refresh_windows()` after state changes that need UI updates.
+`MainWindowView::new` registers `cx.observe_global_in::<AppEvents>` and drains the queue in `handle_app_event`. Add a variant to `AppEvent` and a match arm there for any new request. Local UI state still lives on the entity and is updated with `cx.notify()`.
 
 ### UI Patterns
 
