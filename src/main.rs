@@ -231,6 +231,7 @@ fn main() {
             KeyBinding::new("tab", app_menu::NextFocus, Some("KeybindsPage")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("KeybindsPage")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("KeybindsPage")),
+            KeyBinding::new("enter", app_menu::ActivateItem, Some("KeybindsPage")),
             // Keystroke recorder (only while it is focused but not recording)
             KeyBinding::new(
                 "enter",

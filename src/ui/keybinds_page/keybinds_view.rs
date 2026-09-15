@@ -6,9 +6,11 @@
 // two with conflict detection, the active filter, and the search query, and
 // hands the rows to the table delegate.
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
+use gpui_component::WindowExt;
 use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable,
     button::{Button, ButtonVariants},
@@ -20,17 +22,37 @@ use gpui_component::{
 
 use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::conflicts::find_conflicts;
-use crate::system::keybinds::overrides::{KeybindOverrides, Override};
+use crate::system::keybinds::overrides::{KeybindOverrides, Override, restore_specs};
 use crate::system::keybinds::replay::{ScanResult, scan_keybinds};
 use crate::system::keybinds::search::score;
-use crate::system::keybinds::store::load_overrides;
-use crate::system::keybinds::{BindStatus, Keybind, Origin};
+use crate::system::keybinds::store::{load_overrides, save_overrides};
+use crate::system::keybinds::{BindIdentity, BindStatus, Keybind, Origin};
+use crate::ui::keybinds_page::keybind_dialog::{
+    DialogMode, KeybindDialog, KeybindDialogEvent, open_keybind_dialog,
+};
 use crate::ui::keybinds_page::keybinds_table::{
     EmptyReason, KeybindRow, KeybindsTableDelegate, RowKind,
 };
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
+use crate::ui::menu::app_menu;
 
 const KEY_CONTEXT: &str = "KeybindsPage";
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = keybinds, no_json)]
+pub struct EditRow(pub usize);
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = keybinds, no_json)]
+pub struct DisableRow(pub usize);
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = keybinds, no_json)]
+pub struct ResetRow(pub usize);
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = keybinds, no_json)]
+pub struct CopyCommand(pub usize);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeybindFilter {
@@ -95,13 +117,17 @@ pub struct KeybindsView {
     loading: bool,
     error: Option<String>,
     counts: Counts,
+    dialog: Option<(Entity<KeybindDialog>, Subscription)>,
+    /// Row to select once the rescan after a save completes.
+    pending_reselect: Option<BindIdentity>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl KeybindsView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let focus_handle = cx.focus_handle();
         let table = cx.new(|cx| {
-            TableState::new(KeybindsTableDelegate::new(), window, cx)
+            TableState::new(KeybindsTableDelegate::new(focus_handle.clone()), window, cx)
                 .row_selectable(true)
                 .col_resizable(true)
         });
@@ -144,7 +170,7 @@ impl KeybindsView {
         ];
 
         let mut view = Self {
-            focus_handle: cx.focus_handle(),
+            focus_handle,
             scan: None,
             overrides: KeybindOverrides::default(),
             table,
@@ -157,6 +183,8 @@ impl KeybindsView {
             loading: false,
             error: None,
             counts: Counts::default(),
+            dialog: None,
+            pending_reselect: None,
             _subscriptions: subscriptions,
         };
         view.refresh(cx);
@@ -257,9 +285,209 @@ impl KeybindsView {
         }
     }
 
-    fn on_row_activated(&mut self, _row_ix: usize, _window: &mut Window, cx: &mut Context<Self>) {
-        // Editing arrives with the keybind dialog.
-        cx.notify();
+    fn on_row_activated(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_edit(row_ix, window, cx);
+    }
+
+    fn row(&self, row_ix: usize, cx: &App) -> Option<KeybindRow> {
+        self.table.read(cx).delegate().row(row_ix).cloned()
+    }
+
+    fn snapshot(&self) -> Rc<Vec<Keybind>> {
+        Rc::new(
+            self.scan
+                .as_ref()
+                .map(|s| s.binds.clone())
+                .unwrap_or_default(),
+        )
+    }
+
+    fn open_dialog(&mut self, mode: DialogMode, window: &mut Window, cx: &mut Context<Self>) {
+        let dialog = open_keybind_dialog(mode, self.snapshot(), window, cx);
+        let subscription = cx.subscribe_in(
+            &dialog,
+            window,
+            |this, _, event: &KeybindDialogEvent, window, cx| {
+                this.handle_dialog_event(event.clone(), window, cx);
+            },
+        );
+        self.dialog = Some((dialog, subscription));
+    }
+
+    fn open_edit(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.row(row_ix, cx) else {
+            return;
+        };
+        if row.kind == RowKind::UnboundByUser {
+            window.push_notification(
+                "This keybind was removed in your ~/.config/hypr/bindings.lua; edit it there",
+                cx,
+            );
+            return;
+        }
+        let existing = row
+            .override_ix
+            .and_then(|ix| self.overrides.overrides.get(ix).cloned());
+        self.open_dialog(
+            DialogMode::Edit {
+                row: Box::new(row),
+                existing,
+            },
+            window,
+            cx,
+        );
+    }
+
+    fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_dialog(DialogMode::Add, window, cx);
+    }
+
+    fn close_dialog(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.take().is_some() {
+            window.close_dialog(cx);
+        }
+    }
+
+    fn handle_dialog_event(
+        &mut self,
+        event: KeybindDialogEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let row_ix = self.table.read(cx).selected_row();
+        let row = row_ix.and_then(|ix| self.row(ix, cx));
+        match event {
+            KeybindDialogEvent::Cancel => self.close_dialog(window, cx),
+            KeybindDialogEvent::Save(override_) => {
+                let reselect = override_.bind().map(|spec| spec.identity());
+                let replace_ix = row
+                    .as_ref()
+                    .filter(|_| matches!(override_, Override::Add { .. }))
+                    .and_then(|r| r.override_ix);
+                self.commit(
+                    |overrides| match replace_ix {
+                        Some(ix) if ix < overrides.overrides.len() => {
+                            overrides.overrides[ix] = override_;
+                        }
+                        _ => overrides.upsert(override_),
+                    },
+                    "Keybind saved",
+                    reselect,
+                    window,
+                    cx,
+                );
+            }
+            KeybindDialogEvent::Disable => {
+                if let Some(ix) = row_ix {
+                    self.disable_row(ix, window, cx);
+                }
+            }
+            KeybindDialogEvent::Reset => {
+                if let Some(ix) = row_ix {
+                    self.reset_row(ix, window, cx);
+                }
+            }
+        }
+    }
+
+    fn disable_row(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.row(row_ix, cx) else {
+            return;
+        };
+        if row.bind.origin == Origin::Omarchist || row.kind != RowKind::Plain {
+            return;
+        }
+        let binds = self.snapshot();
+        let target = row.bind.identity();
+        let override_ = Override::Disable {
+            target: target.clone(),
+            restore: restore_specs(&row.bind, &binds),
+        };
+        self.commit(
+            |overrides| overrides.upsert(override_),
+            "Keybind disabled",
+            Some(target),
+            window,
+            cx,
+        );
+    }
+
+    fn reset_row(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.row(row_ix, cx) else {
+            return;
+        };
+        let Some(ix) = row.override_ix else {
+            return;
+        };
+        let reselect = self
+            .overrides
+            .overrides
+            .get(ix)
+            .and_then(|o| o.target().cloned());
+        self.commit(
+            |overrides| {
+                overrides.remove(ix);
+            },
+            "Keybind reset to default",
+            reselect,
+            window,
+            cx,
+        );
+    }
+
+    fn copy_command(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(row) = self.row(row_ix, cx) {
+            cx.write_to_clipboard(ClipboardItem::new_string(
+                row.bind.dispatcher.text().to_string(),
+            ));
+            window.push_notification("Command copied", cx);
+        }
+    }
+
+    /// Applies `mutate` to a copy of the overrides, saves them (json +
+    /// omarchist.lua + hyprctl reload), then rescans so the table shows
+    /// what Hyprland now runs.
+    fn commit(
+        &mut self,
+        mutate: impl FnOnce(&mut KeybindOverrides),
+        success: &'static str,
+        reselect: Option<BindIdentity>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut overrides = self.overrides.clone();
+        mutate(&mut overrides);
+        match save_overrides(&overrides) {
+            Ok(()) => {
+                self.overrides = overrides;
+                self.close_dialog(window, cx);
+                window.push_notification(success, cx);
+                self.pending_reselect = reselect;
+                self.refresh(cx);
+            }
+            Err(e) => {
+                window.push_notification(format!("Could not save keybind: {e}"), cx);
+            }
+        }
+    }
+
+    fn reselect_pending(&mut self, cx: &mut Context<Self>) {
+        let Some(identity) = self.pending_reselect.take() else {
+            return;
+        };
+        let row_ix = self
+            .table
+            .read(cx)
+            .delegate()
+            .rows()
+            .iter()
+            .position(|row| row.bind.identity() == identity);
+        if let Some(row_ix) = row_ix {
+            self.table.update(cx, |table, cx| {
+                table.set_selected_row(row_ix, cx);
+                table.scroll_to_row(row_ix, cx);
+            });
+        }
     }
 
     /// Every displayable row, before filtering and search.
@@ -385,6 +613,9 @@ impl KeybindsView {
             table.refresh(cx);
             cx.notify();
         });
+        if !self.loading {
+            self.reselect_pending(cx);
+        }
         cx.notify();
     }
 
@@ -490,6 +721,25 @@ impl Render for KeybindsView {
             .id("keybinds-page")
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, action: &EditRow, window, cx| {
+                this.open_edit(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &DisableRow, window, cx| {
+                this.disable_row(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &ResetRow, window, cx| {
+                this.reset_row(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &CopyCommand, window, cx| {
+                this.copy_command(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &app_menu::ActivateItem, window, cx| {
+                if this.dialog.is_none()
+                    && let Some(row_ix) = this.table.read(cx).selected_row()
+                {
+                    this.open_edit(row_ix, window, cx);
+                }
+            }))
             .size_full()
             .p_4()
             .gap_3()
@@ -530,6 +780,15 @@ impl Render for KeybindsView {
                         }))
                     })
                     .child(self.render_filters(cx))
+                    .child(
+                        Button::new("kb-add")
+                            .primary()
+                            .small()
+                            .icon(IconName::Plus)
+                            .label("Add keybind")
+                            .cursor_pointer()
+                            .on_click(cx.listener(|this, _, window, cx| this.open_add(window, cx))),
+                    )
                     .child(
                         Button::new("kb-refresh")
                             .ghost()

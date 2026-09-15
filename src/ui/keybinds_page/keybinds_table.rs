@@ -5,6 +5,7 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, h_flex,
+    menu::PopupMenu,
     table::{Column, TableDelegate, TableState},
     tag::Tag,
     tooltip::Tooltip,
@@ -12,6 +13,7 @@ use gpui_component::{
 
 use crate::system::keybinds::{Keybind, Origin};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
+use crate::ui::keybinds_page::keybinds_view::{CopyCommand, DisableRow, EditRow, ResetRow};
 
 /// How a row relates to the user's overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,11 +64,15 @@ pub struct KeybindsTableDelegate {
     loading: bool,
     empty_reason: EmptyReason,
     error: Option<String>,
+    /// The page's focus handle: context-menu actions are dispatched there
+    /// so the page's `on_action` handlers receive them.
+    page_focus: FocusHandle,
 }
 
 impl KeybindsTableDelegate {
-    pub fn new() -> Self {
+    pub fn new(page_focus: FocusHandle) -> Self {
         Self {
+            page_focus,
             columns: vec![
                 Column::new("edit", "").width(px(36.)).resizable(false),
                 Column::new("action", "Action").width(px(260.)),
@@ -221,12 +227,6 @@ impl KeybindsTableDelegate {
     }
 }
 
-impl Default for KeybindsTableDelegate {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 pub fn row_group(row_ix: usize) -> SharedString {
     SharedString::from(format!("kb-row-{row_ix}"))
 }
@@ -263,6 +263,30 @@ impl TableDelegate for KeybindsTableDelegate {
             this.bg(danger.opacity(0.08))
         })
         .when(row.is_greyed(), |this: Stateful<Div>| this.opacity(0.5))
+    }
+
+    fn context_menu(
+        &mut self,
+        row_ix: usize,
+        menu: PopupMenu,
+        _window: &mut Window,
+        _cx: &mut Context<TableState<Self>>,
+    ) -> PopupMenu {
+        let Some(row) = self.rows.get(row_ix) else {
+            return menu;
+        };
+        let editable = row.kind != RowKind::UnboundByUser;
+        let can_disable = row.bind.origin != Origin::Omarchist && row.kind == RowKind::Plain;
+        menu.action_context(self.page_focus.clone())
+            .menu_with_disabled("Edit", Box::new(EditRow(row_ix)), !editable)
+            .menu("Copy command", Box::new(CopyCommand(row_ix)))
+            .separator()
+            .menu_with_disabled("Disable", Box::new(DisableRow(row_ix)), !can_disable)
+            .menu_with_disabled(
+                "Reset to default",
+                Box::new(ResetRow(row_ix)),
+                row.override_ix.is_none(),
+            )
     }
 
     fn render_td(
