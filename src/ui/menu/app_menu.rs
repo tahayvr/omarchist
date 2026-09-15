@@ -14,8 +14,6 @@ actions!(
         RefreshTheme,
         ToggleSidebar,
         NewTheme,
-        // Keybinds page: open the selected row
-        ActivateItem,
         // Page navigation shortcuts
         NavigateToThemes,
         NavigateToConfig,

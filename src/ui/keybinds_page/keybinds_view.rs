@@ -16,7 +16,7 @@ use gpui_component::{
     button::{Button, ButtonVariants},
     h_flex,
     input::{Input, InputEvent, InputState},
-    table::{Table, TableEvent, TableState},
+    table::{Table, TableDelegate, TableEvent, TableState},
     v_flex,
 };
 
@@ -27,6 +27,7 @@ use crate::system::keybinds::replay::{ScanResult, scan_keybinds};
 use crate::system::keybinds::search::score;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
 use crate::system::keybinds::{BindIdentity, BindStatus, Keybind, Origin};
+use crate::ui::focus;
 use crate::ui::keybinds_page::keybind_dialog::{
     DialogMode, KeybindDialog, KeybindDialogEvent, open_keybind_dialog,
 };
@@ -34,9 +35,45 @@ use crate::ui::keybinds_page::keybinds_table::{
     EmptyReason, KeybindRow, KeybindsTableDelegate, RowKind,
 };
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
-use crate::ui::menu::app_menu;
 
 const KEY_CONTEXT: &str = "KeybindsPage";
+/// Wraps the search box (text or keystroke) so Down/Escape can hand off to
+/// the table from inside the input.
+pub const SEARCH_CONTEXT: &str = "KeybindsSearch";
+/// Wraps the filter buttons: one tab stop, left/right cycle.
+pub const FILTERS_CONTEXT: &str = "KeybindsFilters";
+/// Wraps the table: row actions and Home/End/PageUp/PageDown.
+pub const TABLE_CONTEXT: &str = "KeybindsTable";
+/// Rows moved by PageUp/PageDown when the table has not reported its
+/// visible range yet.
+const FALLBACK_PAGE_ROWS: usize = 12;
+
+pub mod keybinds_nav {
+    gpui::actions!(
+        keybinds,
+        [
+            FocusSearch,
+            FocusTable,
+            ClearSearch,
+            ToggleChordSearch,
+            AddKeybind,
+            EditSelected,
+            DisableSelected,
+            CopySelectedCommand,
+            FilterPrev,
+            FilterNext,
+            TableFirst,
+            TableLast,
+            TablePageUp,
+            TablePageDown,
+        ]
+    );
+
+    #[derive(gpui::Action, Clone, PartialEq, Eq, Debug)]
+    #[action(namespace = keybinds, no_json)]
+    pub struct SetFilter(pub usize);
+}
+use keybinds_nav::*;
 
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = keybinds, no_json)]
@@ -114,6 +151,8 @@ pub struct KeybindsView {
     chord_query: Option<Chord>,
     mods_query: Option<ModMask>,
     filter: KeybindFilter,
+    /// The filter strip is one tab stop; left/right cycle the filter.
+    filters_focus: FocusHandle,
     loading: bool,
     error: Option<String>,
     counts: Counts,
@@ -136,7 +175,18 @@ impl KeybindsView {
 
         let chord_search = cx.new(|cx| KeystrokeInput::new(None, true, window, cx));
 
+        // The table is a tab stop; tabbing into it selects the first row.
+        let table_focus = table.read(cx).focus_handle(cx).tab_stop(true);
+
         let subscriptions = vec![
+            cx.on_focus(&table_focus, window, |this, _, cx| {
+                if this.table.read(cx).selected_row().is_none()
+                    && this.table.read(cx).delegate().rows_count(cx) > 0
+                {
+                    this.table
+                        .update(cx, |table, cx| table.set_selected_row(0, cx));
+                }
+            }),
             cx.subscribe_in(
                 &chord_search,
                 window,
@@ -180,6 +230,7 @@ impl KeybindsView {
             chord_query: None,
             mods_query: None,
             filter: KeybindFilter::All,
+            filters_focus: focus::tab_stop(cx),
             loading: false,
             error: None,
             counts: Counts::default(),
@@ -292,6 +343,71 @@ impl KeybindsView {
 
     fn on_row_activated(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         self.open_edit(row_ix, window, cx);
+    }
+
+    fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.chord_search_on {
+            self.chord_search.update(cx, |input, cx| {
+                input.focus_handle(cx).focus(window);
+            });
+        } else {
+            self.search.update(cx, |input, cx| input.focus(window, cx));
+        }
+    }
+
+    fn focus_table(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let focus = self.table.read(cx).focus_handle(cx);
+        focus.focus(window);
+    }
+
+    /// Escape in the search box: clear it, or move to the table when it is
+    /// already empty.
+    fn clear_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.chord_search_on {
+            self.toggle_chord_search(window, cx);
+            return;
+        }
+        if self.search.read(cx).value().is_empty() {
+            self.focus_table(window, cx);
+        } else {
+            self.search
+                .update(cx, |input, cx| input.set_value("", window, cx));
+        }
+    }
+
+    fn selected_row(&self, cx: &App) -> Option<usize> {
+        self.table.read(cx).selected_row()
+    }
+
+    fn select_row(&mut self, row_ix: usize, cx: &mut Context<Self>) {
+        let count = self.table.read(cx).delegate().rows_count(cx);
+        if count == 0 {
+            return;
+        }
+        let row_ix = row_ix.min(count - 1);
+        self.table.update(cx, |table, cx| {
+            table.set_selected_row(row_ix, cx);
+            table.scroll_to_row(row_ix, cx);
+        });
+    }
+
+    fn page_rows(&self, cx: &App) -> usize {
+        let visible = self.table.read(cx).visible_range().rows().len();
+        if visible > 1 {
+            visible - 1
+        } else {
+            FALLBACK_PAGE_ROWS
+        }
+    }
+
+    fn cycle_filter(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let current = KeybindFilter::ALL
+            .iter()
+            .position(|f| *f == self.filter)
+            .unwrap_or(0) as isize;
+        let len = KeybindFilter::ALL.len() as isize;
+        let next = (current + delta).rem_euclid(len) as usize;
+        self.set_filter(KeybindFilter::ALL[next], cx);
     }
 
     fn row(&self, row_ix: usize, cx: &App) -> Option<KeybindRow> {
@@ -624,8 +740,19 @@ impl KeybindsView {
         cx.notify();
     }
 
-    fn render_filters(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_filters(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let focused = self.filters_focus.is_focused(window);
+        let ring = focus::focus_border(focused, cx.theme().transparent, cx);
         h_flex()
+            .id("kb-filters")
+            .key_context(FILTERS_CONTEXT)
+            .track_focus(&self.filters_focus)
+            .on_action(cx.listener(|this, _: &FilterPrev, _, cx| this.cycle_filter(-1, cx)))
+            .on_action(cx.listener(|this, _: &FilterNext, _, cx| this.cycle_filter(1, cx)))
+            .rounded(cx.theme().radius)
+            .border_1()
+            .border_color(ring)
+            .p_0p5()
             .gap_1()
             .flex_wrap()
             .children(KeybindFilter::ALL.iter().enumerate().map(|(ix, &filter)| {
@@ -641,6 +768,7 @@ impl KeybindsView {
                 let button = Button::new(("kb-filter", ix))
                     .label(label)
                     .small()
+                    .tab_stop(false)
                     .cursor_pointer();
                 let button = if self.filter == filter {
                     button.primary()
@@ -721,11 +849,66 @@ impl KeybindsView {
 }
 
 impl Render for KeybindsView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .id("keybinds-page")
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
+                this.focus_search(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &FocusTable, window, cx| {
+                this.focus_table(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
+                this.clear_search(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &ToggleChordSearch, window, cx| {
+                this.toggle_chord_search(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &AddKeybind, window, cx| {
+                if this.dialog.is_none() {
+                    this.open_add(window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, action: &SetFilter, _, cx| {
+                if let Some(filter) = KeybindFilter::ALL.get(action.0).copied() {
+                    this.set_filter(filter, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &EditSelected, window, cx| {
+                if this.dialog.is_none()
+                    && let Some(row_ix) = this.selected_row(cx)
+                {
+                    this.open_edit(row_ix, window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &DisableSelected, window, cx| {
+                if this.dialog.is_none()
+                    && let Some(row_ix) = this.selected_row(cx)
+                {
+                    this.disable_row(row_ix, window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &CopySelectedCommand, window, cx| {
+                if let Some(row_ix) = this.selected_row(cx) {
+                    this.copy_command(row_ix, window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &TableFirst, _, cx| this.select_row(0, cx)))
+            .on_action(cx.listener(|this, _: &TableLast, _, cx| {
+                this.select_row(usize::MAX, cx);
+            }))
+            .on_action(cx.listener(|this, _: &TablePageUp, _, cx| {
+                let page = this.page_rows(cx);
+                let current = this.selected_row(cx).unwrap_or(0);
+                this.select_row(current.saturating_sub(page), cx);
+            }))
+            .on_action(cx.listener(|this, _: &TablePageDown, _, cx| {
+                let page = this.page_rows(cx);
+                let current = this.selected_row(cx).unwrap_or(0);
+                this.select_row(current + page, cx);
+            }))
             .on_action(cx.listener(|this, action: &EditRow, window, cx| {
                 this.open_edit(action.0, window, cx);
             }))
@@ -738,13 +921,6 @@ impl Render for KeybindsView {
             .on_action(cx.listener(|this, action: &CopyCommand, window, cx| {
                 this.copy_command(action.0, window, cx);
             }))
-            .on_action(cx.listener(|this, _: &app_menu::ActivateItem, window, cx| {
-                if this.dialog.is_none()
-                    && let Some(row_ix) = this.table.read(cx).selected_row()
-                {
-                    this.open_edit(row_ix, window, cx);
-                }
-            }))
             .size_full()
             .p_4()
             .gap_3()
@@ -754,17 +930,23 @@ impl Render for KeybindsView {
                     .flex_wrap()
                     .gap_2()
                     .items_center()
-                    .child(div().flex_1().min_w(px(220.)).map(|this| {
-                        if self.chord_search_on {
-                            this.child(self.chord_search.clone())
-                        } else {
-                            this.child(
-                                Input::new(&self.search)
-                                    .cleanable(true)
-                                    .prefix(Icon::new(IconName::Search).size_4()),
-                            )
-                        }
-                    }))
+                    .child(
+                        div()
+                            .key_context(SEARCH_CONTEXT)
+                            .flex_1()
+                            .min_w(px(220.))
+                            .map(|this| {
+                                if self.chord_search_on {
+                                    this.child(self.chord_search.clone())
+                                } else {
+                                    this.child(
+                                        Input::new(&self.search)
+                                            .cleanable(true)
+                                            .prefix(Icon::new(IconName::Search).size_4()),
+                                    )
+                                }
+                            }),
+                    )
                     .child({
                         let button = Button::new("kb-chord-search")
                             .small()
@@ -784,7 +966,7 @@ impl Render for KeybindsView {
                             this.toggle_chord_search(window, cx);
                         }))
                     })
-                    .child(self.render_filters(cx))
+                    .child(self.render_filters(window, cx))
                     .child(
                         Button::new("kb-add")
                             .primary()
@@ -808,6 +990,7 @@ impl Render for KeybindsView {
             .children(self.render_notice(cx))
             .child(
                 div()
+                    .key_context(TABLE_CONTEXT)
                     .flex_1()
                     .min_h_0()
                     .w_full()

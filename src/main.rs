@@ -171,8 +171,6 @@ fn main() {
         cx.bind_keys([
             // Editing keys that gpui-component does not bind on Linux.
             KeyBinding::new("ctrl-shift-z", gpui_component::input::Redo, None),
-            // Keybinds page keyboard navigation
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("KeybindsPage")),
             // Keystroke recorder (only while it is focused but not recording)
             KeyBinding::new(
                 "enter",

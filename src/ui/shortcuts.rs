@@ -5,6 +5,7 @@ use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
+use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view as theme_edit;
@@ -50,6 +51,7 @@ pub const THEMES: &str = "Themes";
 pub const THEME_EDIT: &str = "Theme Designer";
 pub const DIALOGS: &str = "Dialogs";
 pub const CONFIG: &str = "Configuration";
+pub const KEYBINDS: &str = "Keybinds";
 
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
@@ -404,6 +406,175 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("ConfigContent"),
         CONFIG,
         "Back to the section list"
+    ),
+    // Keybinds page
+    shortcut!(
+        "ctrl-f",
+        keybinds_nav::FocusSearch,
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Search"
+    ),
+    shortcut!(
+        "/",
+        keybinds_nav::FocusSearch,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Search"
+    ),
+    shortcut!(
+        "/",
+        keybinds_nav::FocusSearch,
+        Some("KeybindsFilters"),
+        KEYBINDS,
+        "Search"
+    ),
+    shortcut!(
+        "ctrl-k",
+        keybinds_nav::ToggleChordSearch,
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Search by pressing keys"
+    ),
+    shortcut!(
+        "ctrl-shift-n",
+        keybinds_nav::AddKeybind,
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Add a keybind"
+    ),
+    shortcut!(
+        "alt-1",
+        keybinds_nav::SetFilter(0),
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Show all"
+    ),
+    shortcut!(
+        "alt-2",
+        keybinds_nav::SetFilter(1),
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Show modified"
+    ),
+    shortcut!(
+        "alt-3",
+        keybinds_nav::SetFilter(2),
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Show conflicts"
+    ),
+    shortcut!(
+        "alt-4",
+        keybinds_nav::SetFilter(3),
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Show Omarchy defaults"
+    ),
+    shortcut!(
+        "alt-5",
+        keybinds_nav::SetFilter(4),
+        Some("KeybindsPage"),
+        KEYBINDS,
+        "Show your keybinds"
+    ),
+    shortcut!(
+        "down",
+        keybinds_nav::FocusTable,
+        Some("KeybindsSearch"),
+        KEYBINDS,
+        "From the search box to the table"
+    ),
+    shortcut!(
+        "down",
+        keybinds_nav::FocusTable,
+        Some("KeybindsSearch > Input"),
+        KEYBINDS,
+        "From the search box to the table"
+    ),
+    shortcut!(
+        "escape",
+        keybinds_nav::ClearSearch,
+        Some("KeybindsSearch"),
+        KEYBINDS,
+        "Clear the search, then go to the table"
+    ),
+    shortcut!(
+        "escape",
+        keybinds_nav::ClearSearch,
+        Some("KeybindsSearch > Input"),
+        KEYBINDS,
+        "Clear the search, then go to the table"
+    ),
+    shortcut!(
+        "left",
+        keybinds_nav::FilterPrev,
+        Some("KeybindsFilters"),
+        KEYBINDS,
+        "Previous filter"
+    ),
+    shortcut!(
+        "right",
+        keybinds_nav::FilterNext,
+        Some("KeybindsFilters"),
+        KEYBINDS,
+        "Next filter"
+    ),
+    shortcut!(
+        "enter",
+        keybinds_nav::EditSelected,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Edit the selected keybind"
+    ),
+    shortcut!(
+        "delete",
+        keybinds_nav::DisableSelected,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Disable the selected keybind"
+    ),
+    shortcut!(
+        "ctrl-c",
+        keybinds_nav::CopySelectedCommand,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Copy the command"
+    ),
+    shortcut!(
+        "home",
+        keybinds_nav::TableFirst,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "First row"
+    ),
+    shortcut!(
+        "end",
+        keybinds_nav::TableLast,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Last row"
+    ),
+    shortcut!(
+        "pageup",
+        keybinds_nav::TablePageUp,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Page up"
+    ),
+    shortcut!(
+        "pagedown",
+        keybinds_nav::TablePageDown,
+        Some("KeybindsTable"),
+        KEYBINDS,
+        "Page down"
+    ),
+    shortcut!(
+        "escape",
+        keybinds_nav::FocusSearch,
+        Some("KeybindsTable > Table"),
+        KEYBINDS,
+        "Back to the search box"
     ),
     // Dialogs
     shortcut!(
