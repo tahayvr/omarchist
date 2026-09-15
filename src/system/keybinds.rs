@@ -16,9 +16,11 @@
 pub mod chord;
 pub mod conflicts;
 pub mod keymap;
+pub mod overrides;
 pub mod replay;
 pub mod scanner;
 pub mod search;
+pub mod store;
 
 use std::path::PathBuf;
 
