@@ -25,6 +25,7 @@ pub struct OmarchyView {
     update_available: Option<bool>,
     latest_tag: Option<String>,
     release_notes: Option<String>,
+    release_notes_error: Option<String>,
     pub focus_handle: FocusHandle,
     notes_focus: FocusHandle,
     notes_scroll: ScrollHandle,
@@ -51,6 +52,10 @@ impl OmarchyView {
                 }
                 Err(e) => {
                     eprintln!("Failed to fetch release notes: {e}");
+                    this.update(cx, |this, _cx| {
+                        this.release_notes_error = Some(e.to_string());
+                    })
+                    .ok();
                 }
             },
         )
@@ -64,6 +69,7 @@ impl OmarchyView {
             update_available: None,
             latest_tag: None,
             release_notes: None,
+            release_notes_error: None,
             focus_handle: cx.focus_handle(),
             notes_focus: crate::ui::focus::tab_stop(cx),
             notes_scroll: ScrollHandle::new(),
@@ -332,6 +338,10 @@ impl Render for OmarchyView {
                         .child(div().w_full().pb_2().child(markdown_view)),
                 )
         } else {
+            let (label, detail) = match &self.release_notes_error {
+                Some(error) => ("Release notes unavailable.", Some(error.clone())),
+                None => ("Loading release notes...", None),
+            };
             v_flex()
                 .gap_2()
                 .w_full()
@@ -342,8 +352,14 @@ impl Render for OmarchyView {
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("Loading release notes..."),
+                        .child(label),
                 )
+                .children(detail.map(|detail| {
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(detail)
+                }))
         };
 
         v_flex()

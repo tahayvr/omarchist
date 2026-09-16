@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 use isahc::AsyncReadResponseExt;
+use isahc::config::{Configurable, RedirectPolicy};
 
 use serde::Deserialize;
 
@@ -16,9 +17,9 @@ pub async fn check_omarchy_update(current_version: &str) -> Result<bool> {
         return Ok(false);
     }
 
-    // Fetch latest release from GitHub using isahc (runtime-agnostic)
     let request = isahc::Request::builder()
         .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
+        .redirect_policy(RedirectPolicy::Follow)
         .header("User-Agent", "omarchist")
         .body(())
         .map_err(|e| Error::Network(format!("Failed to build request: {e}")))?;
