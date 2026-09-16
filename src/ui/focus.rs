@@ -20,6 +20,7 @@ actions!(
         FocusPrev,
         EscapeToSidebar,
         ReloadPage,
+        ShowCommands,
         ShowShortcuts
     ]
 );

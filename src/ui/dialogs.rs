@@ -1,3 +1,4 @@
+pub mod command_palette;
 pub mod confirm_dialog;
 pub mod create_theme_dialog;
 pub mod shortcuts_dialog;

@@ -616,6 +616,13 @@ impl Render for MainWindowView {
             .on_action(cx.listener(|_, _: &focus::ShowShortcuts, window, cx| {
                 crate::ui::dialogs::shortcuts_dialog::open_shortcuts_dialog(window, cx);
             }))
+            .on_action(cx.listener(|this, _: &focus::ShowCommands, window, cx| {
+                crate::ui::dialogs::command_palette::open_command_palette(
+                    this.focus_handle.clone(),
+                    window,
+                    cx,
+                );
+            }))
             // Sidebar composite
             .on_action(cx.listener(|this, _: &sidebar_nav::Next, _, cx| {
                 this.move_sidebar_index(this.sidebar_index + 1, cx);
