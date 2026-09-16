@@ -4,7 +4,7 @@ outline: deep
 
 # Keyboard Navigation
 
-Everything in Omarchist can be reached from the keyboard. Press <kbd>Ctrl</kbd> + <kbd>/</kbd> at any time (or <kbd>?</kbd> while a list, grid, or table has focus) to open the same shortcut list inside the app.
+Everything in Omarchist can be reached from the keyboard. Press <kbd>Ctrl</kbd> + <kbd>/</kbd> at any time (or <kbd>?</kbd> while a list, grid, or table has focus) to open the same shortcut list inside the app, or <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> to open the command palette and run any app-wide command by name.
 
 ## The basics
 
@@ -25,6 +25,7 @@ Everything in Omarchist can be reached from the keyboard. Press <kbd>Ctrl</kbd> 
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> | Re-apply the current Omarchy theme |
 | <kbd>Ctrl</kbd> + <kbd>B</kbd> | Show or hide the sidebar |
 | <kbd>Ctrl</kbd> + <kbd>/</kbd> | Keyboard shortcuts |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> (or <kbd>Ctrl</kbd> + <kbd>P</kbd>) | Command palette: type to filter, <kbd>Enter</kbd> runs the command |
 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd> | Light or dark appearance |
 | <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit |
 

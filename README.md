@@ -45,7 +45,7 @@ Browse, search, and change every Hyprland keybind on your system. Record a new k
 
 ### **Keyboard first:**
 
-Every page, dialog, and control works without a mouse: Tab walks the controls, arrows move inside lists and grids, and `Ctrl+/` shows every shortcut.
+Every page, dialog, and control works without a mouse: Tab walks the controls, arrows move inside lists and grids, `Ctrl+/` shows every shortcut, and `Ctrl+Shift+P` opens a command palette.
 
 ## Acknowledgements
 
