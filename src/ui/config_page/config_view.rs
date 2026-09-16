@@ -15,6 +15,7 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     menu::{DropdownMenu, PopupMenuItem},
+    scroll::ScrollableElement as _,
     select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
     sidebar::SidebarMenuItem,
     v_flex,
@@ -712,10 +713,16 @@ impl ConfigView {
                     })
                     .into_any_element()
             }
-            FieldDef::KeyboardLayout => Select::new(&self.keyboard_layout_select)
-                .search_placeholder("Search layouts...")
-                .small()
+            // `Select` renders a full-width root, so it must be boxed or it
+            // squeezes the label column to nothing.
+            FieldDef::KeyboardLayout => div()
                 .w(px(260.))
+                .flex_none()
+                .child(
+                    Select::new(&self.keyboard_layout_select)
+                        .search_placeholder("Search layouts...")
+                        .small(),
+                )
                 .into_any_element(),
         };
 
@@ -739,7 +746,7 @@ impl ConfigView {
                             .child(item.description),
                     ),
             )
-            .child(control)
+            .child(div().flex_none().child(control))
     }
 
     fn render_group(
@@ -832,7 +839,7 @@ impl ConfigView {
             }))
             .flex_1()
             .min_w_0()
-            .min_h_0()
+            .h_full()
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
             .child(v_flex().gap_4().pb_8().pr_4().children(sections))
@@ -856,12 +863,17 @@ impl Render for ConfigView {
                 ),
             )
             .child(
-                h_flex()
+                // A plain flex row (align-items: stretch), not `h_flex`, which
+                // centres children: the nav must sit at the top and the
+                // content pane must fill the row's height so it can scroll.
+                div()
+                    .flex()
+                    .flex_row()
                     .flex_1()
                     .min_h_0()
-                    .items_start()
                     .child(self.render_nav(window, cx))
-                    .child(self.render_content(cx)),
+                    .child(self.render_content(cx))
+                    .vertical_scrollbar(&self.scroll),
             )
     }
 }
