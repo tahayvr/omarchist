@@ -5,8 +5,9 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
-    divider::Divider,
-    h_flex, v_flex,
+    h_flex,
+    separator::Separator,
+    v_flex,
 };
 use smol;
 
@@ -65,7 +66,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                         }),
                                 ),
                         )
-                        .child(Divider::vertical().color(cx.theme().border))
+                        .child(Separator::vertical().color(cx.theme().border))
                         .child(
                             // Right Column - Create Manually
                             v_flex()
@@ -126,7 +127,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                 ),
             )
     });
-    focus::focus_first_in(&body_focus, window);
+    focus::focus_first_in(&body_focus, window, cx);
 }
 
 fn open_image_picker(window: &mut Window, cx: &mut App) {

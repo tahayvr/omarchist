@@ -75,13 +75,13 @@ impl OmarchyView {
     }
 
     /// Focuses the first control on the page.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window, cx);
     }
 
     fn scroll_notes_by(&self, delta: f32, cx: &mut Context<Self>) {
         let mut offset = self.notes_scroll.offset();
-        let max = self.notes_scroll.max_offset().height;
+        let max = self.notes_scroll.max_offset().y;
         offset.y = (offset.y - px(delta)).clamp(-max, px(0.));
         self.notes_scroll.set_offset(offset);
         cx.notify();
@@ -92,7 +92,7 @@ impl OmarchyView {
         offset.y = if top {
             px(0.)
         } else {
-            -self.notes_scroll.max_offset().height
+            -self.notes_scroll.max_offset().y
         };
         self.notes_scroll.set_offset(offset);
         cx.notify();
@@ -110,11 +110,9 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    title_bar
-                        .update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
+                    title_bar.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
                 }
                 Err(e) => {
                     eprintln!("Failed to check for omarchy updates: {e}");
@@ -149,7 +147,7 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    let _ = crate::ui::app_events::emit_async(
+                    crate::ui::app_events::emit_async(
                         cx,
                         crate::ui::app_events::AppEvent::OmarchyUpdateStatus(update_available),
                     );
@@ -282,7 +280,7 @@ impl Render for OmarchyView {
                 ..Default::default()
             };
 
-            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx)
+            let markdown_view = TextView::markdown("release-notes", notes.clone())
                 .style(style)
                 .line_height(rems(1.6))
                 .selectable(true);

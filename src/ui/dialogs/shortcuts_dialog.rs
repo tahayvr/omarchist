@@ -150,5 +150,5 @@ pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
                 ),
             )
     });
-    focus::focus_first_in(&body_focus, window);
+    focus::focus_first_in(&body_focus, window, cx);
 }

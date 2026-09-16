@@ -123,14 +123,14 @@ impl KeystrokeInput {
         self.submap_error = None;
         let held = window.modifiers();
         self.pending = held.modified().then(|| modifiers_to_modmask(&held));
-        self.inner_focus.focus(window);
+        self.inner_focus.focus(window, cx);
         cx.notify();
     }
 
     pub fn stop_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.is_recording(window) {
             // Focus-out on the inner handle does the teardown.
-            self.outer_focus.focus(window);
+            self.outer_focus.focus(window, cx);
         }
         cx.notify();
     }

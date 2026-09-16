@@ -16,7 +16,7 @@ use gpui_component::{
     button::{Button, ButtonVariants},
     h_flex,
     input::{Input, InputEvent, InputState},
-    table::{Table, TableDelegate, TableEvent, TableState},
+    table::{DataTable, TableDelegate, TableEvent, TableState},
     v_flex,
 };
 
@@ -348,7 +348,7 @@ impl KeybindsView {
     fn focus_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.chord_search_on {
             self.chord_search.update(cx, |input, cx| {
-                input.focus_handle(cx).focus(window);
+                input.focus_handle(cx).focus(window, cx);
             });
         } else {
             self.search.update(cx, |input, cx| input.focus(window, cx));
@@ -357,7 +357,7 @@ impl KeybindsView {
 
     fn focus_table(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let focus = self.table.read(cx).focus_handle(cx);
-        focus.focus(window);
+        focus.focus(window, cx);
     }
 
     /// Escape in the search box: clear it, or move to the table when it is
@@ -1003,7 +1003,7 @@ impl Render for KeybindsView {
                     .flex_1()
                     .min_h_0()
                     .w_full()
-                    .child(Table::new(&self.table).stripe(true).bordered(true)),
+                    .child(DataTable::new(&self.table).stripe(true).bordered(true)),
             )
             .child(self.render_footer(cx))
     }

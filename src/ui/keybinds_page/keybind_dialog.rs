@@ -600,6 +600,6 @@ pub fn open_keybind_dialog(
             .child(view.clone())
     });
     // The first tab stop inside the body is the recorder.
-    focus::focus_first_in(&body_focus, window);
+    focus::focus_first_in(&body_focus, window, cx);
     dialog
 }

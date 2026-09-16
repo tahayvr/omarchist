@@ -8,10 +8,10 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
-    divider::Divider,
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
+    separator::Separator,
     v_flex,
 };
 
@@ -465,9 +465,9 @@ impl Render for ColorsTab {
                 v_flex()
                     .gap_6()
                     .child(focus_section("colors-primary", &self.scroll, primary_section))
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     .child(focus_section("colors-selection", &self.scroll, selection_section))
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     // Normal + Bright — 2 cols on wide, stacked on narrow
                     .child(if wide {
                         div()
@@ -484,7 +484,7 @@ impl Render for ColorsTab {
                             .child(focus_section("colors-normal", &self.scroll, normal_section))
                             .child(focus_section("colors-bright", &self.scroll, bright_section))
                     })
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     .child(focus_section("colors-borders", &self.scroll, borders_section)),
             )
             .children(

@@ -1,4 +1,4 @@
-use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
+use gpui::{App, AppContext, KeyBinding, WindowOptions};
 use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
@@ -90,7 +90,7 @@ fn main() {
     // Parse CLI arguments before starting the application
     let cli_args = CliArgs::parse_args();
 
-    let app = Application::new().with_assets(CombinedAssets::new());
+    let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
         // Determine initial page from CLI arguments

@@ -55,8 +55,8 @@ impl ThemeCreationProgressDialog {
             // Handle result
             match result {
                 Ok(created_name) => {
-                    let _ = emit_async(cx, AppEvent::RefreshThemes);
-                    let _ = emit_async(
+                    emit_async(cx, AppEvent::RefreshThemes);
+                    emit_async(
                         cx,
                         AppEvent::Navigate(ActivePage::ThemeEdit(created_name.clone())),
                     );

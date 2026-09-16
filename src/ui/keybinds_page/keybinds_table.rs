@@ -1,4 +1,4 @@
-// The keybind table: a `gpui_component::table::Table` delegate over the
+// The keybind table: a `gpui_component::table::DataTable` delegate over the
 // page's filtered rows. The delegate only renders; the page owns the data
 // and pushes new rows with `set_rows`.
 use gpui::prelude::FluentBuilder;
@@ -240,8 +240,8 @@ impl TableDelegate for KeybindsTableDelegate {
         self.rows.len()
     }
 
-    fn column(&self, col_ix: usize, _cx: &App) -> &Column {
-        &self.columns[col_ix]
+    fn column(&self, col_ix: usize, _cx: &App) -> Column {
+        self.columns[col_ix].clone()
     }
 
     fn loading(&self, _cx: &App) -> bool {

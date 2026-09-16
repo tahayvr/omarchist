@@ -663,7 +663,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
     shortcut!(
         "escape",
         keybinds_nav::FocusSearch,
-        Some("KeybindsTable > Table"),
+        Some("KeybindsTable > DataTable"),
         KEYBINDS,
         "Back to the search box"
     ),

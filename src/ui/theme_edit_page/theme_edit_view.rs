@@ -119,7 +119,7 @@ impl ThemeEditPage {
 
         let focus_handle = cx.focus_handle();
         let tabs_focus = focus::tab_stop(cx);
-        tabs_focus.focus(window);
+        tabs_focus.focus(window, cx);
 
         Self {
             theme_name,
@@ -140,8 +140,8 @@ impl ThemeEditPage {
     }
 
     /// Focuses the tab strip, the page's first control after Back/Apply.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.tabs_focus.focus(window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs_focus.focus(window, cx);
     }
 
     fn apply_theme(&self) {
@@ -296,8 +296,8 @@ impl Render for ThemeEditPage {
                                 this.set_tab(usize::MAX, cx);
                             }))
                             .on_action(cx.listener(
-                                |this, _: &focus::tab_strip::Activate, window, _cx| {
-                                    focus::focus_first_in(&this.content_focus, window);
+                                |this, _: &focus::tab_strip::Activate, window, cx| {
+                                    focus::focus_first_in(&this.content_focus, window, cx);
                                 },
                             ))
                             .child(

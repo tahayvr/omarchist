@@ -47,8 +47,8 @@ impl ThemesPage {
     }
 
     /// Focuses the tab strip, the page's first control.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.tabs_focus.focus(window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs_focus.focus(window, cx);
     }
 
     fn set_tab(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -59,8 +59,9 @@ impl ThemesPage {
         }
     }
 
-    fn focus_grid(&self, window: &mut Window, cx: &Context<Self>) {
-        self.theme_grid.read(cx).focus.focus(window);
+    fn focus_grid(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let focus = self.theme_grid.read(cx).focus.clone();
+        focus.focus(window, cx);
     }
 
     pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
@@ -107,8 +108,8 @@ impl Render for ThemesPage {
             .size_full()
             .overflow_hidden()
             .gap_4()
-            .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, _cx| {
-                this.tabs_focus.focus(window);
+            .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, cx| {
+                this.tabs_focus.focus(window, cx);
             }))
             .child(
                 tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)

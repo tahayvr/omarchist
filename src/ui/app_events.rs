@@ -45,7 +45,8 @@ pub fn emit(cx: &mut App, event: AppEvent) {
     cx.update_global::<AppEvents, _>(|events, _| events.queue.borrow_mut().push(event));
 }
 
-// For background tasks. Fails only when the app has already shut down.
-pub fn emit_async(cx: &AsyncApp, event: AppEvent) -> anyhow::Result<()> {
-    cx.update_global::<AppEvents, _>(|events, _| events.queue.borrow_mut().push(event))
+// For background tasks. The async context panics once the app is gone, but
+// foreground tasks are dropped with the app before that can happen.
+pub fn emit_async(cx: &AsyncApp, event: AppEvent) {
+    cx.update_global::<AppEvents, _>(|events, _| events.queue.borrow_mut().push(event));
 }

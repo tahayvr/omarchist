@@ -7,7 +7,7 @@ use crate::ui::theme_edit_page::shared::{
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
-    input::{Input, InputEvent, InputState},
+    input::{Editor, EditorState, InputEvent},
     v_flex,
 };
 use std::fs;
@@ -25,8 +25,8 @@ const VSCODE_FILE: &str = "vscode.json";
 pub struct EditorTab {
     theme_name: String,
     theme_data: EditingTheme,
-    neovim_input: Entity<InputState>,
-    vscode_input: Entity<InputState>,
+    neovim_input: Entity<EditorState>,
+    vscode_input: Entity<EditorState>,
     is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
@@ -44,8 +44,8 @@ impl EditorTab {
         let vscode_content = Self::load_override(&theme_name, VSCODE_FILE);
 
         let neovim_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("lua")
+            EditorState::new(window, cx)
+                .language("lua")
                 .line_number(false)
                 .placeholder(
                     "Leave empty to use the Neovim colorscheme Omarchy generates from colors.toml",
@@ -54,8 +54,8 @@ impl EditorTab {
         });
 
         let vscode_input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .code_editor("json")
+            EditorState::new(window, cx)
+                .language("json")
                 .line_number(false)
                 .placeholder(
                     "Leave empty to use the VS Code theme Omarchy generates from colors.toml",
@@ -215,7 +215,7 @@ impl Render for EditorTab {
                             )
                             .child(
                                 div().bg(cx.theme().background).h(px(300.)).child(
-                                    Input::new(&self.neovim_input)
+                                    Editor::new(&self.neovim_input)
                                         .bg(cx.theme().background)
                                         .border_1()
                                         .border_color(cx.theme().border)
@@ -237,7 +237,7 @@ impl Render for EditorTab {
                             )
                             .child(
                                 div().bg(cx.theme().background).h(px(200.)).child(
-                                    Input::new(&self.vscode_input)
+                                    Editor::new(&self.vscode_input)
                                         .bg(cx.theme().background)
                                         .border_1()
                                         .border_color(cx.theme().border)

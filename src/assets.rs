@@ -87,10 +87,10 @@ impl AssetSource for OmarchistAssets {
     }
 }
 
-// Combined asset source that tries OmarchistAssets first, then gpui_component_assets
+// Combined asset source that tries OmarchistAssets first, then gpui_kit_assets
 pub struct CombinedAssets {
     omarchist: OmarchistAssets,
-    gpui_component: gpui_component_assets::Assets,
+    gpui_component: gpui_kit_assets::Assets,
 }
 
 impl Default for CombinedAssets {
@@ -103,7 +103,7 @@ impl CombinedAssets {
     pub fn new() -> Self {
         Self {
             omarchist: OmarchistAssets,
-            gpui_component: gpui_component_assets::Assets,
+            gpui_component: gpui_kit_assets::Assets,
         }
     }
 }
@@ -119,7 +119,7 @@ impl AssetSource for CombinedAssets {
             return Ok(Some(data));
         }
 
-        // Fall back to gpui_component_assets
+        // Fall back to gpui_kit_assets
         self.gpui_component.load(path)
     }
 

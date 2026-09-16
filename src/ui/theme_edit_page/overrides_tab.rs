@@ -12,9 +12,9 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
-    divider::Divider,
     h_flex,
     label::Label,
+    separator::Separator,
     v_flex,
 };
 
@@ -485,9 +485,9 @@ impl Render for OverridesTab {
                 v_flex()
                     .gap_6()
                     .child(focus_section("overrides-browser", &self.scroll, browser))
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     .child(focus_section("overrides-lock", &self.scroll, lock))
-                    .child(Divider::horizontal())
+                    .child(Separator::horizontal())
                     .child(focus_section("overrides-btop", &self.scroll, btop)),
             )
     }

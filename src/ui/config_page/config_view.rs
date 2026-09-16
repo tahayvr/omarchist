@@ -17,7 +17,7 @@ use gpui_component::{
     menu::{DropdownMenu, PopupMenuItem},
     scroll::ScrollableElement as _,
     select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
-    sidebar::SidebarMenuItem,
+    sidebar::{SidebarItem, SidebarMenuItem},
     v_flex,
 };
 
@@ -553,8 +553,8 @@ impl ConfigView {
     }
 
     /// Focuses the page list, the page's first control.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.nav_focus.focus(window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.nav_focus.focus(window, cx);
     }
 
     /// Re-reads the saved configuration from disk and refreshes the fields.
@@ -614,7 +614,7 @@ impl ConfigView {
             || item.description.to_lowercase().contains(query)
     }
 
-    fn render_nav(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_nav(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let nav_focused = self.nav_focus.is_focused(window);
         let radius = cx.theme().radius;
         let transparent = cx.theme().transparent;
@@ -635,8 +635,8 @@ impl ConfigView {
             .on_action(cx.listener(|this, _: &config_nav::Last, _, cx| {
                 this.set_page(usize::MAX, cx);
             }))
-            .on_action(cx.listener(|this, _: &config_nav::Activate, window, _cx| {
-                focus::focus_first_in(&this.content_focus, window);
+            .on_action(cx.listener(|this, _: &config_nav::Activate, window, cx| {
+                focus::focus_first_in(&this.content_focus, window, cx);
             }))
             .w(px(220.))
             .flex_none()
@@ -654,9 +654,10 @@ impl ConfigView {
                         SidebarMenuItem::new(page.title)
                             .active(self.active_page == ix)
                             .on_click(cx.listener(move |this, _, window, cx| {
-                                this.nav_focus.focus(window);
+                                this.nav_focus.focus(window, cx);
                                 this.set_page(ix, cx);
-                            })),
+                            }))
+                            .render(("config-page-item", ix), window, cx),
                     )
             }))
     }
@@ -834,8 +835,8 @@ impl ConfigView {
             .id("config-content")
             .key_context(CONTENT_CONTEXT)
             .track_focus(&self.content_focus)
-            .on_action(cx.listener(|this, _: &config_nav::Back, window, _cx| {
-                this.nav_focus.focus(window);
+            .on_action(cx.listener(|this, _: &config_nav::Back, window, cx| {
+                this.nav_focus.focus(window, cx);
             }))
             .flex_1()
             .min_w_0()
