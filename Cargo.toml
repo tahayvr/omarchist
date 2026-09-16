@@ -52,7 +52,6 @@ xkbcommon = { version = "0.8", default-features = false }
 [dev-dependencies]
 # Headless UI tests (`tests/keyboard_nav.rs`) drive the real window through
 # gpui-kit's test harness. Same pins as above.
-gpui = { package = "gpui-pre", version = "=0.3.4", features = ["test-support"] }
 gpui-kit = { version = "=0.6.1", default-features = false, features = ["component", "test-support"] }
 
 [profile.release]

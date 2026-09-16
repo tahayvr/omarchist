@@ -19,6 +19,7 @@ use gpui_component::{
 };
 
 use crate::system::ui_theme_watcher;
+use gpui_kit::TestSupportExt;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
@@ -524,12 +525,15 @@ impl Collapsible for SidebarNav {
 impl SidebarItem for SidebarNav {
     fn render(
         self,
-        id: impl Into<ElementId>,
+        _id: impl Into<ElementId>,
         window: &mut Window,
         cx: &mut App,
     ) -> impl IntoElement {
+        // A stable id of our own (the group would assign "0-0"); it is the
+        // sidebar's test target.
         div()
-            .id(id)
+            .id("sidebar-nav")
+            .test_support()
             .key_context(SIDEBAR_CONTEXT)
             .track_focus(&self.focus)
             .cursor_pointer()

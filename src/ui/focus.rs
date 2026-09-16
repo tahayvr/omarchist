@@ -12,6 +12,7 @@ use std::rc::Rc;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, Disableable, h_flex, switch::Switch};
+use gpui_kit::TestSupportExt;
 
 actions!(
     focus,
@@ -205,13 +206,17 @@ pub fn tab_strip_container(
 /// (Ctrl+Enter). Enter itself is left to the focused control so a focused
 /// Cancel button cancels. Tab is trapped by the dialog itself (gpui-kit
 /// wraps every dialog in a focus trap), so nothing is needed here for it.
+///
+/// The body is a test target (`.test_support()`), which wraps the element
+/// under `test-support`, hence the trait-bound return type.
 pub fn dialog_body(
     id: impl Into<ElementId>,
     focus: &FocusHandle,
     on_submit: impl Fn(&mut Window, &mut App) + 'static,
-) -> Stateful<Div> {
+) -> impl ParentElement + StatefulInteractiveElement + Styled + IntoElement {
     div()
         .id(id)
+        .test_support()
         .key_context(DIALOG_BODY_CONTEXT)
         .track_focus(focus)
         .on_action(move |_: &dialog::Submit, window, cx| on_submit(window, cx))
