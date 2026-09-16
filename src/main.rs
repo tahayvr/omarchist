@@ -204,6 +204,7 @@ fn main() {
             };
             let window_handle = cx.open_window(window_options, |window, cx| {
                 let title_bar = cx.new(|_| MainTitleBar::new());
+                MainWindowView::spawn_omarchy_update_watcher(title_bar.clone(), cx);
                 let main_view =
                     cx.new(|cx| MainWindowView::new(title_bar, initial_page.clone(), window, cx));
                 cx.new(|cx| Root::new(main_view, window, cx))

@@ -83,40 +83,6 @@ impl MainWindowView {
             .new(|cx| Root::new(themes_view.clone(), window, cx))
             .into();
 
-        // Spawn a background task that checks for Omarchy updates at startup
-        // and repeats every PERIODIC_CHECK_INTERVAL_SECS.  This keeps the
-        // title-bar badge current without requiring the user to open the
-        // Omarchy page.
-        {
-            let title_bar_watcher = title_bar.clone();
-            cx.spawn(async move |_this, cx| {
-                // Initial check
-                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-                if let Ok(update_available) = check_omarchy_update(&version).await {
-                    title_bar_watcher.update(cx, |tb, _| {
-                        tb.set_omarchy_update_available(update_available);
-                    });
-                }
-
-                // Periodic re-checks
-                loop {
-                    smol::Timer::after(std::time::Duration::from_secs(
-                        PERIODIC_CHECK_INTERVAL_SECS,
-                    ))
-                    .await;
-
-                    let version =
-                        get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-                    if let Ok(update_available) = check_omarchy_update(&version).await {
-                        title_bar_watcher.update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        });
-                    }
-                }
-            })
-            .detach();
-        }
-
         let focus_handle = cx.focus_handle();
         let sidebar_focus = focus::tab_stop(cx);
         let initial_sidebar_index = Self::sidebar_index_for(&initial_page).unwrap_or(0);
@@ -254,6 +220,43 @@ impl MainWindowView {
             // Themes is always present.
             ActivePage::Themes => {}
         }
+    }
+
+    /// Checks for Omarchy updates at startup and every
+    /// `PERIODIC_CHECK_INTERVAL_SECS`, keeping the title-bar badge current
+    /// without the user opening the Omarchy page. App-level, so `main.rs`
+    /// starts it: the window itself (and its tests) stays free of network
+    /// tasks.
+    pub fn spawn_omarchy_update_watcher(title_bar: Entity<MainTitleBar>, cx: &mut App) {
+        cx.spawn(async move |cx| {
+            let mut first = true;
+            loop {
+                if !first {
+                    smol::Timer::after(std::time::Duration::from_secs(
+                        PERIODIC_CHECK_INTERVAL_SECS,
+                    ))
+                    .await;
+                }
+                first = false;
+                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+                if let Ok(update_available) = check_omarchy_update(&version).await {
+                    title_bar.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
+                }
+            }
+        })
+        .detach();
+    }
+
+    /// The page currently shown.
+    pub fn active_page(&self) -> &ActivePage {
+        &self.active_page
+    }
+
+    /// The sidebar entry the keyboard cursor is on.
+    pub fn sidebar_index(&self) -> usize {
+        self.sidebar_index
     }
 
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {

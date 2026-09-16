@@ -29,6 +29,9 @@ gpui_platform = { package = "gpui-pre-platform", version = "=0.3.4", features = 
 gpui-base = "=0.6.1"
 gpui-component = { version = "=0.6.1", features = ["tree-sitter-lua"] }
 gpui-kit-assets = "=0.6.1"
+# The facade is required once it is in the graph at all: gpui's macros resolve
+# their paths through `gpui_kit` when the crate is present.
+gpui-kit = { version = "=0.6.1", default-features = false, features = ["component"] }
 anyhow = "1.0.101"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
@@ -45,6 +48,12 @@ color-thief = "0.2.2"
 palette = "0.7.6"
 thiserror = "2"
 xkbcommon = { version = "0.8", default-features = false }
+
+[dev-dependencies]
+# Headless UI tests (`tests/keyboard_nav.rs`) drive the real window through
+# gpui-kit's test harness. Same pins as above.
+gpui = { package = "gpui-pre", version = "=0.3.4", features = ["test-support"] }
+gpui-kit = { version = "=0.6.1", default-features = false, features = ["component", "test-support"] }
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

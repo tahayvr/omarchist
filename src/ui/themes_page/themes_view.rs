@@ -27,7 +27,9 @@ impl ThemesPage {
         let theme_grid = cx.new(|cx| ThemeGrid::new(vec![], window, cx));
 
         cx.spawn(async move |this, cx| {
-            let themes = smol::unblock(Self::load_all_themes).await;
+            // gpui's own pool rather than `smol::unblock`, so the test
+            // scheduler can drive the load deterministically.
+            let themes = cx.background_spawn(async { Self::load_all_themes() }).await;
             this.update(cx, |this, cx| {
                 this.theme_grid.update(cx, |grid, cx| {
                     grid.update_themes(themes, cx);

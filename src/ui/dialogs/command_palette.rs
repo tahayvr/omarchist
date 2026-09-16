@@ -171,6 +171,9 @@ pub fn open_command_palette(target: FocusHandle, window: &mut Window, cx: &mut A
             .child(command)
     });
 
+    // Focus the search field now and again once the dialog has rendered, the
+    // same two-step `focus_first_in` uses for every other dialog.
+    state.update(cx, |state, cx| state.focus(window, cx));
     window.on_next_frame(move |window, cx| {
         state.update(cx, |state, cx| state.focus(window, cx));
     });
