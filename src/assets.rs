@@ -114,12 +114,10 @@ impl AssetSource for CombinedAssets {
             return Ok(None);
         }
 
-        // Try OmarchistAssets first
         if let Some(data) = self.omarchist.load(path)? {
             return Ok(Some(data));
         }
 
-        // Fall back to gpui_kit_assets
         self.gpui_component.load(path)
     }
 

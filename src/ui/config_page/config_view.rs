@@ -425,7 +425,6 @@ impl ConfigView {
             }
         };
 
-        // Build keyboard layout items
         let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
         let mut layout_items: Vec<KeyboardLayoutItem> = match catalog {
             Ok(c) => c
@@ -446,7 +445,6 @@ impl ConfigView {
         };
         layout_items.sort_by(|a, b| a.label.cmp(&b.label));
 
-        // Find the index of the currently active layout
         let current_kb = config_manager.get().input.kb_layout.clone();
         let initial_index = layout_items
             .iter()
@@ -714,8 +712,7 @@ impl ConfigView {
                     })
                     .into_any_element()
             }
-            // `Select` renders a full-width root, so it must be boxed or it
-            // squeezes the label column to nothing.
+            // `Select` renders a full-width root; the box keeps it off the label column.
             FieldDef::KeyboardLayout => div()
                 .w(px(260.))
                 .flex_none()
@@ -864,9 +861,8 @@ impl Render for ConfigView {
                 ),
             )
             .child(
-                // A plain flex row (align-items: stretch), not `h_flex`, which
-                // centres children: the nav must sit at the top and the
-                // content pane must fill the row's height so it can scroll.
+                // Not `h_flex`: its `items_center` would stop the content pane from
+                // filling the row height, which it needs to scroll.
                 div()
                     .flex()
                     .flex_row()
@@ -881,8 +877,7 @@ impl Render for ConfigView {
 
 #[cfg(test)]
 mod tests {
-    // Not `use super::*`: that would import gpui's `test` attribute macro
-    // through the page's glob import and shadow the built-in `#[test]`.
+    // `use super::*` would import gpui's `test` attribute macro and shadow `#[test]`.
     use super::{FieldDef, HyprlandConfig, PAGES, format_number};
     use std::collections::HashSet;
 

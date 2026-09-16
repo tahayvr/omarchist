@@ -84,10 +84,8 @@ pub struct ThemeEditPage {
 
 impl ThemeEditPage {
     pub fn new(theme_name: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // Determine if this is a system theme or custom theme
         let is_system = is_system_theme(&theme_name);
 
-        // Load theme data
         let theme_data = match load_theme_for_editing(&theme_name) {
             Ok(data) => data,
             Err(e) => {
@@ -189,30 +187,12 @@ impl ThemeEditPage {
             .unwrap_or(ThemeEditTab::General);
 
         match active_tab {
-            ThemeEditTab::General => {
-                // Use the GeneralTab entity
-                self.general_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Colors => {
-                // Use the ColorsTab entity
-                self.colors_tab.clone().into_any_element()
-            }
-            ThemeEditTab::FileManager => {
-                // Use the FileManagerTab entity
-                self.file_manager_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Editor => {
-                // Use the EditorTab entity
-                self.editor_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Overrides => {
-                // Use the OverridesTab entity
-                self.overrides_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Backgrounds => {
-                // Use the BackgroundsTab entity
-                self.backgrounds_tab.clone().into_any_element()
-            }
+            ThemeEditTab::General => self.general_tab.clone().into_any_element(),
+            ThemeEditTab::Colors => self.colors_tab.clone().into_any_element(),
+            ThemeEditTab::FileManager => self.file_manager_tab.clone().into_any_element(),
+            ThemeEditTab::Editor => self.editor_tab.clone().into_any_element(),
+            ThemeEditTab::Overrides => self.overrides_tab.clone().into_any_element(),
+            ThemeEditTab::Backgrounds => self.backgrounds_tab.clone().into_any_element(),
         }
     }
 }
@@ -319,7 +299,6 @@ impl Render for ThemeEditPage {
                     .map(|error| error_message(error.clone(), cx)),
             )
             .child(
-                // Tab content area with scrolling
                 div()
                     .id("tab-content")
                     .track_focus(&self.content_focus)

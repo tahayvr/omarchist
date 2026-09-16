@@ -38,11 +38,8 @@ impl OmarchyView {
     ) -> Self {
         let local_version = version.unwrap_or_else(|| "unknown".to_string());
 
-        // Spawn async task to check for updates and update both the in-page
-        // display and the title bar badge.
         Self::spawn_version_check(local_version.clone(), title_bar.clone(), cx);
 
-        // Spawn async task to fetch latest release notes
         cx.spawn(
             async move |this, cx| match fetch_latest_release_notes().await {
                 Ok((tag, notes)) => {
@@ -59,9 +56,8 @@ impl OmarchyView {
         )
         .detach();
 
-        // Note: the 30-minute periodic version-check loop lives in
-        // MainWindowView::new() (via the background spawn) so the
-        // title-bar badge stays fresh even if this page is never opened.
+        // The periodic check that keeps the title-bar badge fresh is started
+        // from main.rs.
 
         Self {
             local_version,
@@ -134,7 +130,6 @@ impl OmarchyView {
             let current_version =
                 get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
 
-            // Update local_version and set to checking state
             this.update(cx, |this, _cx| {
                 this.local_version = current_version.clone();
                 this.update_available = None;
@@ -173,26 +168,22 @@ impl Render for OmarchyView {
         let page_height = self.notes_scroll.bounds().size.height;
 
         let version_status = match self.update_available {
-            None => {
-                // Still checking
-                v_flex()
-                    .gap_1()
-                    .items_center()
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version)),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("Checking for updates..."),
-                    )
-            }
+            None => v_flex()
+                .gap_1()
+                .items_center()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("Version {}", self.local_version)),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("Checking for updates..."),
+                ),
             Some(true) => {
-                // Update available
                 v_flex()
                     .gap_1()
                     .items_center()
@@ -221,7 +212,6 @@ impl Render for OmarchyView {
                                     {
                                         eprintln!("{e}");
                                     } else {
-                                        // Show "Checking..." immediately while the update runs
                                         this.update_available = None;
                                         cx.notify();
                                         // Schedule a re-check after the update has had time to complete
@@ -231,27 +221,24 @@ impl Render for OmarchyView {
                             ),
                     )
             }
-            Some(false) => {
-                // Up to date
-                v_flex()
-                    .gap_1()
-                    .items_center()
-                    .child(
+            Some(false) => v_flex()
+                .gap_1()
+                .items_center()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("Version {}", self.local_version)),
+                )
+                .child(
+                    h_flex().gap_4().items_center().child(
                         div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version)),
-                    )
-                    .child(
-                        h_flex().gap_4().items_center().child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.green)
-                                .font_weight(FontWeight::BOLD)
-                                .child("Up to date"),
-                        ),
-                    )
-            }
+                            .text_xs()
+                            .text_color(theme.green)
+                            .font_weight(FontWeight::BOLD)
+                            .child("Up to date"),
+                    ),
+                ),
         };
 
         let release_notes_section = if let Some(notes) = &self.release_notes {

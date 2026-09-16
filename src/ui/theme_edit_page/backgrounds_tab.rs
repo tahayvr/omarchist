@@ -46,7 +46,6 @@ impl BackgroundsTab {
             scroll: scroll.clone(),
         };
 
-        // Load background images
         tab.load_images(cx);
 
         tab
@@ -80,13 +79,10 @@ impl BackgroundsTab {
     fn add_images(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.error_message = None;
 
-        // Clone data needed for async context
         let theme_name = self.theme_name.clone();
         let is_system_theme = self.is_system_theme;
 
-        // Spawn async task to open file dialog without blocking the UI
         cx.spawn(async move |this, cx| {
-            // Run the blocking file dialog in a background thread
             let result = smol::unblock(|| {
                 rfd::FileDialog::new()
                     .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
@@ -95,9 +91,7 @@ impl BackgroundsTab {
             })
             .await;
 
-            // Process the result back on the main thread
             if let Some(paths) = result {
-                // Perform file operations (these are blocking I/O but should be fast)
                 let mut added_count = 0;
                 let mut errors = Vec::new();
 
@@ -108,12 +102,9 @@ impl BackgroundsTab {
                     }
                 }
 
-                // Update the component state
                 let _ = this.update(cx, |this, cx| {
-                    // Reload images to show new ones
                     this.load_images(cx);
 
-                    // Show error if any files failed
                     if !errors.is_empty() {
                         this.error_message = Some(format!(
                             "Added {} images. Failed to add: {}",
@@ -135,7 +126,6 @@ impl BackgroundsTab {
 
         match remove_background_image(&self.theme_name, self.is_system_theme, filename) {
             Ok(()) => {
-                // Remove from local list
                 self.images.retain(|img| img.filename != filename);
             }
             Err(e) => {
@@ -169,7 +159,6 @@ impl Render for BackgroundsTab {
             .child(focus_section(
                 "backgrounds-header",
                 &self.scroll,
-                // Header section with title and action button
                 h_flex()
                     .items_center()
                     .justify_between()
@@ -193,7 +182,6 @@ impl Render for BackgroundsTab {
                 cx.theme().muted_foreground,
             ))
             .child(
-                // Image count display
                 Label::new(format!(
                     "{} image{}",
                     images.len(),
@@ -205,7 +193,6 @@ impl Render for BackgroundsTab {
             .child(focus_section(
                 "backgrounds-grid",
                 &self.scroll,
-                // Image grid or empty state
                 if is_loading {
                     v_flex()
                         .p_8()
@@ -213,7 +200,6 @@ impl Render for BackgroundsTab {
                         .child(Label::new("Loading...").text_color(cx.theme().muted_foreground))
                         .into_any_element()
                 } else if images.is_empty() {
-                    // Empty state
                     v_flex()
                         .p_8()
                         .gap_4()
@@ -237,11 +223,9 @@ impl Render for BackgroundsTab {
                         ))
                         .into_any_element()
                 } else {
-                    // Image grid
                     let mut grid = v_flex().gap_6();
                     let mut image_index: usize = 0;
 
-                    // Group images into rows
                     for row_images in images.chunks(images_per_row) {
                         let mut row = h_flex().gap_6();
 
@@ -252,12 +236,10 @@ impl Render for BackgroundsTab {
                             image_index += 1;
 
                             row = row.child(
-                                // Image card
                                 v_flex()
                                     .w(px(150.))
                                     .gap_2()
                                     .child(
-                                        // Image container with delete button overlay
                                         div()
                                             .relative()
                                             .w(px(150.))
@@ -272,7 +254,6 @@ impl Render for BackgroundsTab {
                                                     .object_fit(ObjectFit::Cover),
                                             )
                                             .child(
-                                                // Delete button overlay (top-right)
                                                 div().absolute().top_1().right_1().child(
                                                     Button::new(("delete-bg", current_index))
                                                         .icon(IconName::Close)
@@ -291,7 +272,6 @@ impl Render for BackgroundsTab {
                                             ),
                                     )
                                     .child(
-                                        // Filename label (truncated)
                                         div().w(px(150.)).child(
                                             Label::new(&filename)
                                                 .text_xs()

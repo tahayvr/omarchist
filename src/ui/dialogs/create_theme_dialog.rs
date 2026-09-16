@@ -131,12 +131,9 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
 }
 
 fn open_image_picker(window: &mut Window, cx: &mut App) {
-    // Get window handle for use in async context
     let window_handle = window.window_handle();
 
-    // Spawn async task to open file dialog without blocking the UI
     cx.spawn(async move |cx| {
-        // Run the blocking file dialog in a background thread
         let result = smol::unblock(|| {
             rfd::FileDialog::new()
                 .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
@@ -145,7 +142,6 @@ fn open_image_picker(window: &mut Window, cx: &mut App) {
         })
         .await;
 
-        // Process the result back on the main thread
         if let Some(path) = result {
             let _ = window_handle.update(cx, |_view, window, cx| {
                 process_image_and_create_theme(window, cx, path);
@@ -166,6 +162,5 @@ fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path:
         .map(|base| unique_theme_name(&base))
         .unwrap_or_else(generate_unique_theme_name);
 
-    // Open progress dialog and start async theme creation
     open_theme_creation_progress_dialog(theme_name, image_path, window, cx);
 }

@@ -22,15 +22,15 @@ include = [
 ]
 
 [dependencies]
-# GPUI Kit. `gpui-pre` is a weekly snapshot of Zed's unstable gpui, so every
-# crate here is pinned exactly and bumped together on purpose.
+# gpui-pre is a weekly snapshot of Zed's unstable gpui; every gpui crate is
+# pinned exactly and bumped together.
 gpui = { package = "gpui-pre", version = "=0.3.4" }
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.4", features = ["wayland", "x11"] }
 gpui-base = "=0.6.1"
 gpui-component = { version = "=0.6.1", features = ["tree-sitter-lua"] }
 gpui-kit-assets = "=0.6.1"
-# The facade is required once it is in the graph at all: gpui's macros resolve
-# their paths through `gpui_kit` when the crate is present.
+# gpui's macros resolve their paths through gpui_kit whenever it is in the
+# dependency graph, so it must be a normal dependency.
 gpui-kit = { version = "=0.6.1", default-features = false, features = ["component"] }
 anyhow = "1.0.101"
 serde = { version = "1.0.228", features = ["derive"] }
@@ -50,8 +50,7 @@ thiserror = "2"
 xkbcommon = { version = "0.8", default-features = false }
 
 [dev-dependencies]
-# Headless UI tests (`tests/keyboard_nav.rs`) drive the real window through
-# gpui-kit's test harness. Same pins as above.
+# Headless UI tests under tests/.
 gpui-kit = { version = "=0.6.1", default-features = false, features = ["component", "test-support"] }
 
 [profile.release]

@@ -1,11 +1,10 @@
-// The command palette (Ctrl+Shift+P): every app-wide command in one
-// searchable list, each with its shortcut looked up from the live keymap.
+// The command palette: every app-wide command in one searchable list, with
+// shortcuts looked up from the keymap.
 //
-// Items carry no `CommandItem::action`: the palette would dispatch it from
-// inside the dialog, where the main window's handlers are not on the path.
-// Instead `on_confirm` closes the dialog and dispatches through the main
-// window's focus handle, so page navigation and app-level handlers both run
-// exactly once.
+// Items carry no `CommandItem::action`. The palette dispatches that from
+// inside the dialog, which is outside the main view's element path, so
+// `on_confirm` closes the dialog and dispatches through the main window's
+// focus handle instead.
 use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder;
@@ -39,8 +38,7 @@ fn entry(label: &'static str, keywords: &'static [&'static str], action: impl Ac
     }
 }
 
-/// The palette's contents. Shortcut hints are not listed here: they come
-/// from the keymap, so the shortcuts table stays the single source of truth.
+/// The palette's contents; shortcut hints come from the keymap.
 fn groups() -> Vec<Group> {
     vec![
         Group {
@@ -171,16 +169,14 @@ pub fn open_command_palette(target: FocusHandle, window: &mut Window, cx: &mut A
             .child(command)
     });
 
-    // Focus the search field now and again once the dialog has rendered, the
-    // same two-step `focus_first_in` uses for every other dialog.
+    // Focus now and again after the dialog's first frame, as `focus_first_in` does.
     state.update(cx, |state, cx| state.focus(window, cx));
     window.on_next_frame(move |window, cx| {
         state.update(cx, |state, cx| state.focus(window, cx));
     });
 }
 
-/// A row: label on the left, the command's current shortcut (if any) on the
-/// right. Matching uses the label and keywords.
+/// A palette row: the label and, when bound, its shortcut.
 fn palette_item(entry: &Entry) -> CommandItem {
     let label = entry.label;
     let action = entry.action.boxed_clone();

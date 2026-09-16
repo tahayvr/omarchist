@@ -113,8 +113,7 @@ impl MainWindowView {
         };
 
         // Cross-component requests (dialogs, cards, title bar, background
-        // tasks) arrive through the AppEvents global; handle them as they
-        // are emitted instead of polling flags from render.
+        // tasks) arrive through the AppEvents global.
         cx.observe_global_in::<AppEvents>(window, |this, window, cx| {
             for event in AppEvents::drain(cx) {
                 this.handle_app_event(event, window, cx);
@@ -225,9 +224,8 @@ impl MainWindowView {
 
     /// Checks for Omarchy updates at startup and every
     /// `PERIODIC_CHECK_INTERVAL_SECS`, keeping the title-bar badge current
-    /// without the user opening the Omarchy page. App-level, so `main.rs`
-    /// starts it: the window itself (and its tests) stays free of network
-    /// tasks.
+    /// without the Omarchy page being opened. Started from `main.rs` so the
+    /// window itself owns no network task.
     pub fn spawn_omarchy_update_watcher(title_bar: Entity<MainTitleBar>, cx: &mut App) {
         cx.spawn(async move |cx| {
             let mut first = true;
@@ -470,8 +468,7 @@ impl MainWindowView {
         cx.notify();
     }
 
-    /// One page entry. The focus ring is drawn on the item itself
-    /// (`SidebarMenuItem` is `Styled` now), so no wrapper element is needed.
+    /// One sidebar page entry, with its focus ring.
     fn sidebar_item(&self, ix: usize, window: &Window, cx: &mut Context<Self>) -> SidebarMenuItem {
         let (label, keys) = SIDEBAR_ITEMS[ix];
         let page = self.page_from_sidebar_index(ix);
@@ -529,8 +526,7 @@ impl SidebarItem for SidebarNav {
         window: &mut Window,
         cx: &mut App,
     ) -> impl IntoElement {
-        // A stable id of our own (the group would assign "0-0"); it is the
-        // sidebar's test target.
+        // Fixed id: the sidebar's test target.
         div()
             .id("sidebar-nav")
             .test_support()
@@ -677,7 +673,6 @@ impl Render for MainWindowView {
                                             })
                                             .on_click(cx.listener(|this, _, _, cx| {
                                                 this.sidebar_collapsed = !this.sidebar_collapsed;
-                                                // Update themes page with new sidebar state
                                                 this.themes_view.update(cx, |themes_page, cx| {
                                                     themes_page.set_sidebar_collapsed(
                                                         this.sidebar_collapsed,

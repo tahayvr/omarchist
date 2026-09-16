@@ -38,10 +38,8 @@ impl GeneralTab {
         // Store the folder name for saving (not the display name from JSON)
         let original_theme_name = theme_name;
 
-        // Extract author value before moving theme_data
         let author_value = theme_data.author.clone().unwrap_or_default();
 
-        // Create input states with current values
         let name_input = cx.new(|cx| InputState::new(window, cx).default_value(&theme_data.name));
 
         let author_input = cx.new(|cx| {
@@ -50,7 +48,6 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        // Create accent color picker
         let accent_color =
             hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
         let accent_picker =
@@ -67,7 +64,6 @@ impl GeneralTab {
             scroll: scroll.clone(),
         };
 
-        // Subscribe to name input changes
         cx.subscribe_in(
             &tab.name_input,
             window,
@@ -83,7 +79,6 @@ impl GeneralTab {
         )
         .detach();
 
-        // Subscribe to author input changes
         cx.subscribe_in(
             &tab.author_input,
             window,
@@ -101,7 +96,6 @@ impl GeneralTab {
         )
         .detach();
 
-        // Subscribe to accent color picker changes
         cx.subscribe_in(
             &tab.accent_picker,
             window,
@@ -127,7 +121,6 @@ impl GeneralTab {
             return;
         }
 
-        // Don't save if theme name is empty
         if self.original_theme_name.is_empty() {
             self.error_message = Some("Theme name cannot be empty".to_string());
             cx.notify();
@@ -174,7 +167,6 @@ impl GeneralTab {
         let new_name = self.theme_data.name.clone();
         let old_name = self.original_theme_name.clone();
 
-        // Don't rename if names are the same or new name is empty
         if new_name == old_name || new_name.is_empty() {
             return;
         }
@@ -186,9 +178,7 @@ impl GeneralTab {
         match rename_theme(&old_name, &new_name) {
             Ok(()) => {
                 self.is_saving = false;
-                // Update the original theme name to the new name
                 self.original_theme_name = new_name.clone();
-                // Also update the header display
                 // TODO: Notify parent that theme name changed
             }
             Err(e) => {
@@ -206,7 +196,6 @@ impl Render for GeneralTab {
         let is_light = self.theme_data.is_light_theme;
         let _viewport_width = window.viewport_size().width;
 
-        // Check if theme name has changed for rename button
         let current_name = self.name_input.read(cx).value().to_string();
         let can_rename = current_name != self.original_theme_name && !current_name.is_empty();
 
@@ -214,7 +203,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-name",
                 &self.scroll,
-                // Theme Name Section with Rename button
                 form_section()
                     .child(
                         Label::new("Theme Name")
@@ -245,7 +233,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-author",
                 &self.scroll,
-                // Author Section
                 form_section()
                     .child(
                         Label::new("Author")
@@ -261,7 +248,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-accent",
                 &self.scroll,
-                // Accent Color Section
                 form_section().child(color_picker_with_clipboard(
                     "accent-color",
                     "Accent Color",
@@ -271,7 +257,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-light",
                 &self.scroll,
-                // Light Mode Toggle Section
                 FocusableSwitch::new("light-theme-toggle")
                     .label("Light Theme")
                     .checked(is_light)
@@ -279,13 +264,10 @@ impl Render for GeneralTab {
                         this.on_light_mode_toggle(*checked, window, cx);
                     })),
             ))
-            .child(
-                // Help Text
-                help_text(
-                    "Themes are in dark mode by default.",
-                    cx.theme().muted_foreground,
-                ),
-            )
+            .child(help_text(
+                "Themes are in dark mode by default.",
+                cx.theme().muted_foreground,
+            ))
             .children(
                 self.error_message
                     .as_ref()

@@ -1,7 +1,6 @@
-// Headless keyboard-navigation tests, written the way the GPUI Kit testing
-// guide (gpui-kit.com/docs/test) lays out: the production `Root` and
-// `MainWindowView` rendered in a headless window, driven through
-// `TestWindowExt`, with UI snapshots checked alongside the view's own state.
+// Headless keyboard-navigation tests: the production `Root` and
+// `MainWindowView` in a headless window, driven through gpui-kit's
+// `TestWindowExt`.
 use std::time::Duration;
 
 use gpui_kit::component::{Root, WindowExt};
@@ -131,9 +130,7 @@ fn dialog_traps_tab_inside_its_controls(cx: &mut TestAppContext) {
             "focus lands on its first control"
         );
 
-        // Tab may visit the dialog's own close button, which is outside our
-        // body but inside the trap; it must never reach the page behind, and
-        // it must come back around to the body's controls.
+        // The dialog's close button is outside the body but inside the trap.
         let mut left_body = false;
         let mut returned_to_body = false;
         for _ in 0..8 {

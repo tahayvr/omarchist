@@ -48,11 +48,9 @@ pub fn focus_first_in(container: &FocusHandle, window: &mut Window, cx: &mut App
     });
 }
 
-/// Moves focus to the next (or previous) tab stop, honouring the active
-/// gpui-kit focus trap: every dialog is one, so Tab wraps inside it instead
-/// of escaping to the page behind. This mirrors what `Root` does for its own
-/// Tab binding and is used where a control's own `tab` binding is overridden
-/// (single-line inputs).
+/// Moves focus to the next (or previous) tab stop without leaving the active
+/// focus trap (every dialog is one). Equivalent to `Root`'s own Tab handling;
+/// used where a control's `tab` binding is overridden.
 pub fn focus_next_trapped(forward: bool, window: &mut Window, cx: &mut App) {
     let step = |window: &mut Window, cx: &mut App| {
         if forward {
@@ -67,8 +65,7 @@ pub fn focus_next_trapped(forward: bool, window: &mut Window, cx: &mut App) {
     };
     let start = window.focused(cx);
     step(window, cx);
-    // Bounded by the number of tab stops in the window; the loop only runs
-    // long when the trap has no stops at all.
+    // A trap without tab stops would otherwise never terminate.
     for _ in 0..256 {
         if trap.contains_focused(window, cx) || window.focused(cx) == start {
             return;
@@ -203,12 +200,11 @@ pub fn tab_strip_container(
 }
 
 /// The body of a dialog: runs `on_submit` for the `dialog::Submit` action
-/// (Ctrl+Enter). Enter itself is left to the focused control so a focused
-/// Cancel button cancels. Tab is trapped by the dialog itself (gpui-kit
-/// wraps every dialog in a focus trap), so nothing is needed here for it.
+/// (Ctrl+Enter). Enter is left to the focused control so a focused Cancel
+/// button cancels; Tab is trapped by the dialog itself.
 ///
-/// The body is a test target (`.test_support()`), which wraps the element
-/// under `test-support`, hence the trait-bound return type.
+/// `test_support` wraps the element when the test feature is on, so the
+/// return type is a trait bound rather than `Stateful<Div>`.
 pub fn dialog_body(
     id: impl Into<ElementId>,
     focus: &FocusHandle,

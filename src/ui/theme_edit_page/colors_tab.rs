@@ -255,7 +255,6 @@ impl Render for ColorsTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let wide = window.viewport_size().width >= px(1000.0);
 
-        // Selection Colors section
         let selection_section = form_section()
             .gap_4()
             .child(
@@ -280,7 +279,6 @@ impl Render for ColorsTab {
                     )),
             );
 
-        // Primary Colors section
         let primary_section = form_section()
             .gap_4()
             .child(
@@ -305,7 +303,6 @@ impl Render for ColorsTab {
                     )),
             );
 
-        // Normal Colors section
         let normal_section = form_section()
             .gap_4()
             .child(
@@ -365,7 +362,6 @@ impl Render for ColorsTab {
                     )),
             );
 
-        // Bright Colors section
         let bright_section = form_section()
             .gap_4()
             .child(
@@ -425,7 +421,6 @@ impl Render for ColorsTab {
                     )),
             );
 
-        // Hyprland border overrides
         let border_input = |label: &'static str, state: &Entity<InputState>| {
             v_flex()
                 .gap_2()

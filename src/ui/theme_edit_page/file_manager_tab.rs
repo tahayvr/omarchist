@@ -66,7 +66,6 @@ impl FileManagerTab {
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Self {
-        // Get current icon theme or use default
         let selected_color = Self::get_current_icon_theme(&theme_data);
 
         Self {
@@ -93,7 +92,6 @@ impl FileManagerTab {
     fn update_icon_theme(&mut self, color: String) {
         self.selected_color = color.clone();
 
-        // Create or update the icons config
         let icons_config = serde_json::json!({
             "theme_name": color
         });
@@ -106,7 +104,6 @@ impl FileManagerTab {
             return;
         }
 
-        // Validate theme name
         if self.theme_name.is_empty() {
             self.error_message = Some("Theme name cannot be empty".to_string());
             cx.notify();
@@ -160,10 +157,7 @@ impl FileManagerTab {
                         this.save(window, cx);
                     })),
             )
-            .child(
-                // Color square
-                div().size_6().bg(gpui::rgb(color_hex)).border_1(),
-            )
+            .child(div().size_6().bg(gpui::rgb(color_hex)).border_1())
     }
 }
 

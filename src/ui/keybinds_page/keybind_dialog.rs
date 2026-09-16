@@ -63,7 +63,7 @@ pub struct KeybindDialog {
     lost_siblings: Vec<String>,
     confirm_pending: bool,
     error: Option<String>,
-    /// Tab/Shift-Tab stay inside this handle while the dialog is open.
+    /// Focus scope of the dialog body.
     body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
