@@ -1,16 +1,13 @@
 use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
-use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, focus_section, form_section, help_text,
-    tab_container,
+    error_message, focus_section, form_section, help_text, tab_container,
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Colorize, Disableable, Sizable,
+    ActiveTheme, Disableable, Sizable,
     button::Button,
-    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
@@ -29,7 +26,6 @@ pub struct GeneralTab {
     original_theme_name: String,
     name_input: Entity<InputState>,
     author_input: Entity<InputState>,
-    accent_picker: Entity<ColorPickerState>,
     is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
@@ -56,17 +52,11 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        let accent_color =
-            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
-        let accent_picker =
-            cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
-
         let tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
-            accent_picker,
             is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
@@ -104,19 +94,6 @@ impl GeneralTab {
         )
         .detach();
 
-        cx.subscribe_in(
-            &tab.accent_picker,
-            window,
-            |this, _picker, event: &ColorPickerEvent, window, cx| {
-                if let ColorPickerEvent::Change(Some(color)) = event {
-                    let hex = color.to_hex();
-                    this.theme_data.colors.accent = hex;
-                    this.save(window, cx);
-                }
-            },
-        )
-        .detach();
-
         tab
     }
 
@@ -142,16 +119,14 @@ impl GeneralTab {
         // Save using the ORIGINAL theme name (folder name); the display name
         // lives in theme_data.name. Only this tab's fields are written so a
         // stale snapshot never overwrites another tab's edits.
-        let (name, author, accent, is_light) = (
+        let (name, author, is_light) = (
             self.theme_data.name.clone(),
             self.theme_data.author.clone(),
-            self.theme_data.colors.accent.clone(),
             self.theme_data.is_light_theme,
         );
         match update_theme(&self.original_theme_name, |theme| {
             theme.name = name;
             theme.author = author;
-            theme.colors.accent = accent;
             theme.is_light_theme = is_light;
         }) {
             Ok(()) => {
@@ -252,15 +227,6 @@ impl Render for GeneralTab {
                             .w_80()
                             .child(Input::new(&self.author_input).cleanable(true)),
                     ),
-            ))
-            .child(focus_section(
-                "general-accent",
-                &self.scroll,
-                form_section().child(color_picker_with_clipboard(
-                    "accent-color",
-                    "Accent Color",
-                    &self.accent_picker,
-                )),
             ))
             .child(focus_section(
                 "general-light",

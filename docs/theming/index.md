@@ -35,16 +35,14 @@ Set basic information about your theme.
 - **Theme Name**: The name appears in your theme list.
 - **Author**: Enter your name or handle.
 - **Light Mode**: Toggle this if you create a light theme. Omarchist writes it as the `mode` key in `colors.toml`.
-- **Accent Color**: Omarchy uses this color for window borders, the bar, and other highlights.
 
 ### Colors
 
 Set the full palette in `colors.toml`. Omarchy generates configurations for **Alacritty**, **Ghostty**, **Kitty**, and **Foot** from these values.
 
-- **Primary Colors**: Background and foreground colors.
+- **Primary Colors**: Accent, background, and foreground colors. Omarchy uses the accent for window borders, the bar, and other highlights.
 - **Selection Colors**: Selection foreground and background.
 - **Normal/Bright Colors**: The 8 standard ANSI colors for both normal and bright variants.
-- **Window Borders**: Optional Hyprland border colors. Omarchy uses the accent color for the active border and a neutral grey for inactive ones. Any Hyprland color works, including gradients such as `rgba(26a269ee) rgba(2ec27eee) 45deg`. Leave a field blank for the default.
 
 ### File Manager
 
@@ -63,10 +61,11 @@ Clearing a field removes the override file.
 
 ### Overrides
 
-Omarchy generates these app configs from your palette every time you apply the theme. Turn an override on only when an app needs colors that differ from the generated ones. Turning it off removes the file so the app follows the palette again.
+Omarchy generates these configs from your palette every time you apply the theme. Fill in an override only when something needs colors that differ from the generated ones. Clearing a field or turning an override off returns it to the palette.
 
-Each override starts from the same colors Omarchy would generate, so you only change what you need.
+Each app override starts from the same colors Omarchy would generate, so you only change what you need.
 
+- **Window Borders**: Hyprland border colors. Omarchy uses the accent color for the active border and a neutral grey for inactive ones. Any Hyprland color works, including gradients such as `rgba(26a269ee) rgba(2ec27eee) 45deg`. Leave a field blank for the default.
 - **Browser**: The Chromium theme color. Omarchy uses the theme background by default.
 - **Lock Screen**: Text, placeholder, error, and border colors for the lock screen input.
 - **Btop**: Main, selection, status, box outline, and gradient colors for the btop system monitor.

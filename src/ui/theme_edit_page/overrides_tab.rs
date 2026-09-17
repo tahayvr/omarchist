@@ -1,7 +1,9 @@
 use crate::system::themes::theme_management::{
     default_browser_config, default_btop_config, default_lock_config, update_theme,
 };
-use crate::types::themes::{BrowserConfig, BtopConfig, EditingTheme, LockScreenConfig};
+use crate::types::themes::{
+    BrowserConfig, BtopConfig, ColorsConfig, EditingTheme, LockScreenConfig,
+};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
@@ -13,6 +15,7 @@ use gpui_component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
+    input::{Input, InputEvent, InputState},
     label::Label,
     separator::Separator,
     v_flex,
@@ -188,6 +191,10 @@ pub struct OverridesTab {
     browser_pickers: Vec<Entity<ColorPickerState>>,
     lock_pickers: Vec<Entity<ColorPickerState>>,
     btop_pickers: Vec<Entity<ColorPickerState>>,
+    // Free-text because Hyprland border specs can be gradients
+    // ("rgba(..ee) rgba(..ee) 45deg"), which a color picker cannot express.
+    active_border_input: Entity<InputState>,
+    inactive_border_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
@@ -201,12 +208,29 @@ impl OverridesTab {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
+        let active_border_input = Self::border_input(
+            window,
+            cx,
+            theme_data.colors.hyprland_active_border.as_deref(),
+            "Default: accent color",
+            |c, v| c.hyprland_active_border = v,
+        );
+        let inactive_border_input = Self::border_input(
+            window,
+            cx,
+            theme_data.colors.hyprland_inactive_border.as_deref(),
+            "Default: rgba(595959aa)",
+            |c, v| c.hyprland_inactive_border = v,
+        );
+
         let mut tab = Self {
             theme_name,
             theme_data,
             browser_pickers: Vec::new(),
             lock_pickers: Vec::new(),
             btop_pickers: Vec::new(),
+            active_border_input,
+            inactive_border_input,
             is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
@@ -219,6 +243,37 @@ impl OverridesTab {
 
     pub fn theme_data(&self) -> &EditingTheme {
         &self.theme_data
+    }
+
+    fn border_input(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        value: Option<&str>,
+        placeholder: &str,
+        setter: fn(&mut ColorsConfig, Option<String>),
+    ) -> Entity<InputState> {
+        let input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder(placeholder.to_string())
+                .default_value(value.unwrap_or_default().to_string())
+        });
+
+        cx.subscribe_in(
+            &input,
+            window,
+            move |this, input, event: &InputEvent, _window, cx| {
+                if let InputEvent::Change = event {
+                    let raw = input.read(cx).value().to_string();
+                    let trimmed = raw.trim();
+                    let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
+                    setter(&mut this.theme_data.colors, value);
+                    this.save(cx);
+                }
+            },
+        )
+        .detach();
+
+        input
     }
 
     fn is_enabled(&self, kind: Override) -> bool {
@@ -348,10 +403,16 @@ impl OverridesTab {
             self.theme_data.apps.lock.clone(),
             self.theme_data.apps.btop.clone(),
         );
+        let (active_border, inactive_border) = (
+            self.theme_data.colors.hyprland_active_border.clone(),
+            self.theme_data.colors.hyprland_inactive_border.clone(),
+        );
         let result = update_theme(&self.theme_name, |theme| {
             theme.apps.chromium = chromium;
             theme.apps.lock = lock;
             theme.apps.btop = btop;
+            theme.colors.hyprland_active_border = active_border;
+            theme.colors.hyprland_inactive_border = inactive_border;
         });
 
         if let Err(e) = result {
@@ -441,6 +502,36 @@ impl OverridesTab {
 
 impl Render for OverridesTab {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let border_input = |label: &'static str, state: &Entity<InputState>| {
+            v_flex()
+                .gap_2()
+                .flex_1()
+                .min_w(px(220.))
+                .child(Label::new(label).text_sm())
+                .child(Input::new(state).cleanable(true))
+        };
+        let borders = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Window Borders"),
+            )
+            .child(help_text(
+                "Hyprland border colors. Omarchy uses the accent color for the active border \
+                 and a neutral grey for inactive ones unless you override them. Any Hyprland \
+                 color works, including gradients such as rgba(26a269ee) rgba(2ec27eee) 45deg.",
+                cx.theme().muted_foreground,
+            ))
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(border_input("Active Border", &self.active_border_input))
+                    .child(border_input("Inactive Border", &self.inactive_border_input)),
+            );
+
         let browser = self.render_section(
             Override::Browser,
             "Browser",
@@ -470,10 +561,9 @@ impl Render for OverridesTab {
 
         tab_container()
             .child(help_text(
-                "Omarchy generates these app configs from your palette every time the theme \
-                 is applied. Turn an override on only when an app needs colors that differ \
-                 from the generated ones; turning it off removes the file so it follows the \
-                 palette again.",
+                "Omarchy generates these configs from your palette every time the theme is \
+                 applied. Fill in an override only when something needs colors that differ \
+                 from the generated ones; clearing it or turning it off returns to the palette.",
                 cx.theme().muted_foreground,
             ))
             .children(
@@ -484,6 +574,8 @@ impl Render for OverridesTab {
             .child(
                 v_flex()
                     .gap_6()
+                    .child(focus_section("overrides-borders", &self.scroll, borders))
+                    .child(Separator::horizontal())
                     .child(focus_section("overrides-browser", &self.scroll, browser))
                     .child(Separator::horizontal())
                     .child(focus_section("overrides-lock", &self.scroll, lock))
