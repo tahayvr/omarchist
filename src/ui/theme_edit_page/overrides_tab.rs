@@ -3,8 +3,10 @@ use crate::system::themes::theme_management::{
 };
 use crate::types::themes::{BrowserConfig, BtopConfig, EditingTheme, LockScreenConfig};
 use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
+    color_picker_with_clipboard, error_message, focus_section, form_section, help_text,
+    tab_container,
 };
 use gpui::*;
 use gpui_component::{
@@ -13,7 +15,6 @@ use gpui_component::{
     divider::Divider,
     h_flex,
     label::Label,
-    switch::Switch,
     v_flex,
 };
 
@@ -189,12 +190,14 @@ pub struct OverridesTab {
     btop_pickers: Vec<Entity<ColorPickerState>>,
     is_saving: bool,
     error_message: Option<String>,
+    scroll: ScrollHandle,
 }
 
 impl OverridesTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -206,6 +209,7 @@ impl OverridesTab {
             btop_pickers: Vec::new(),
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         };
         tab.rebuild_pickers(Override::Browser, window, cx);
         tab.rebuild_pickers(Override::Lock, window, cx);
@@ -400,14 +404,11 @@ impl OverridesTab {
                         .text_sm()
                         .text_color(cx.theme().muted_foreground),
                     )
-                    .child(
-                        Switch::new(switch_id)
-                            .checked(enabled)
-                            .cursor_pointer()
-                            .on_click(cx.listener(move |this, checked, window, cx| {
-                                this.set_enabled(kind, *checked, window, cx);
-                            })),
-                    ),
+                    .child(FocusableSwitch::new(switch_id).checked(enabled).on_change(
+                        cx.listener(move |this, checked, window, cx| {
+                            this.set_enabled(kind, *checked, window, cx);
+                        }),
+                    )),
             );
 
         let mut section = form_section().gap_4().child(header);
@@ -483,11 +484,11 @@ impl Render for OverridesTab {
             .child(
                 v_flex()
                     .gap_6()
-                    .child(browser)
+                    .child(focus_section("overrides-browser", &self.scroll, browser))
                     .child(Divider::horizontal())
-                    .child(lock)
+                    .child(focus_section("overrides-lock", &self.scroll, lock))
                     .child(Divider::horizontal())
-                    .child(btop),
+                    .child(focus_section("overrides-btop", &self.scroll, btop)),
             )
     }
 }

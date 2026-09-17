@@ -72,7 +72,7 @@ impl KeystrokeInput {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let outer_focus = cx.focus_handle();
+        let outer_focus = crate::ui::focus::tab_stop(cx);
         let inner_focus = cx.focus_handle();
 
         let subscriptions = vec![

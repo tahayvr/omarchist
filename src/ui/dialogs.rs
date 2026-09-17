@@ -1,4 +1,6 @@
+pub mod confirm_dialog;
 pub mod create_theme_dialog;
+pub mod shortcuts_dialog;
 pub mod theme_creation_progress_dialog;
 
 pub use theme_creation_progress_dialog::open_theme_creation_progress_dialog;

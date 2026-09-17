@@ -2,7 +2,7 @@ use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, form_section, help_text, tab_container,
+    color_picker_with_clipboard, focus_section, form_section, help_text, tab_container,
 };
 use gpui::*;
 use gpui_component::{
@@ -44,6 +44,7 @@ pub struct ColorsTab {
     inactive_border_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
+    scroll: ScrollHandle,
 }
 
 impl ColorsTab {
@@ -108,6 +109,7 @@ impl ColorsTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -200,6 +202,7 @@ impl ColorsTab {
             inactive_border_input,
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         }
     }
 
@@ -461,9 +464,9 @@ impl Render for ColorsTab {
             .child(
                 v_flex()
                     .gap_6()
-                    .child(primary_section)
+                    .child(focus_section("colors-primary", &self.scroll, primary_section))
                     .child(Divider::horizontal())
-                    .child(selection_section)
+                    .child(focus_section("colors-selection", &self.scroll, selection_section))
                     .child(Divider::horizontal())
                     // Normal + Bright — 2 cols on wide, stacked on narrow
                     .child(if wide {
@@ -471,18 +474,18 @@ impl Render for ColorsTab {
                             .grid()
                             .grid_cols(2)
                             .gap_6()
-                            .child(normal_section)
-                            .child(bright_section)
+                            .child(focus_section("colors-normal", &self.scroll, normal_section))
+                            .child(focus_section("colors-bright", &self.scroll, bright_section))
                     } else {
                         div()
                             .flex()
                             .flex_col()
                             .gap_6()
-                            .child(normal_section)
-                            .child(bright_section)
+                            .child(focus_section("colors-normal", &self.scroll, normal_section))
+                            .child(focus_section("colors-bright", &self.scroll, bright_section))
                     })
                     .child(Divider::horizontal())
-                    .child(borders_section),
+                    .child(focus_section("colors-borders", &self.scroll, borders_section)),
             )
             .children(
                 self.error_message

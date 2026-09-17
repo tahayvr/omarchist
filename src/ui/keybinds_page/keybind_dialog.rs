@@ -27,6 +27,7 @@ use crate::system::keybinds::overrides::{
     BindSpec, Override, restore_specs, unrestorable_siblings,
 };
 use crate::system::keybinds::{Dispatcher, Keybind, Origin};
+use crate::ui::focus;
 use crate::ui::keybinds_page::keybinds_table::{KeybindRow, RowKind};
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
 
@@ -62,6 +63,8 @@ pub struct KeybindDialog {
     lost_siblings: Vec<String>,
     confirm_pending: bool,
     error: Option<String>,
+    /// Tab/Shift-Tab stay inside this handle while the dialog is open.
+    body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -169,6 +172,7 @@ impl KeybindDialog {
             lost_siblings: Vec::new(),
             confirm_pending: false,
             error: None,
+            body_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         };
         dialog.recompute(cx);
@@ -498,7 +502,12 @@ impl Render for KeybindDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let rebindable = self.is_rebindable();
+        let view = cx.entity();
 
+        focus::dialog_body("keybind-dialog", &self.body_focus, move |_, cx| {
+            view.update(cx, |this, cx| this.on_save(cx));
+        })
+        .child(
         v_flex()
             .gap_4()
             .when(rebindable, |this| {
@@ -558,7 +567,8 @@ impl Render for KeybindDialog {
             .when_some(self.error.clone(), |this, error| {
                 this.child(self.render_notice(error, theme.danger, cx))
             })
-            .child(self.render_footer(cx))
+            .child(self.render_footer(cx)),
+        )
     }
 }
 
@@ -575,6 +585,7 @@ pub fn open_keybind_dialog(
     };
     let dialog = cx.new(|cx| KeybindDialog::new(mode, binds, window, cx));
     let view = dialog.clone();
+    let body_focus = dialog.read(cx).body_focus.clone();
     window.open_dialog(cx, move |d, _, _| {
         let on_close_view = view.clone();
         d.title(title)
@@ -588,5 +599,7 @@ pub fn open_keybind_dialog(
             })
             .child(view.clone())
     });
+    // The first tab stop inside the body is the recorder.
+    focus::focus_first_in(&body_focus, window);
     dialog
 }

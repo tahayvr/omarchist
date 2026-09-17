@@ -1,4 +1,3 @@
-use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, button::Button, h_flex, text::TextView, text::TextViewStyle, v_flex,
@@ -8,10 +7,16 @@ use crate::system::omarchy::{
     omarchy_version::{check_omarchy_update, get_local_omarchy_version},
     release_notes::fetch_latest_release_notes,
 };
-use crate::ui::menu::app_menu;
 use crate::ui::menu::title_bar::MainTitleBar;
 
 const KEY_CONTEXT: &str = "OmarchyView";
+const RELEASE_NOTES_CONTEXT: &str = "ReleaseNotes";
+const SCROLL_STEP: f32 = 48.0;
+
+actions!(
+    release_notes,
+    [ScrollUp, ScrollDown, PageUp, PageDown, Top, Bottom]
+);
 
 const POST_UPDATE_RECHECK_SECS: u64 = 60;
 
@@ -21,7 +26,8 @@ pub struct OmarchyView {
     latest_tag: Option<String>,
     release_notes: Option<String>,
     pub focus_handle: FocusHandle,
-    update_btn_focused: bool,
+    notes_focus: FocusHandle,
+    notes_scroll: ScrollHandle,
 }
 
 impl OmarchyView {
@@ -63,8 +69,33 @@ impl OmarchyView {
             latest_tag: None,
             release_notes: None,
             focus_handle: cx.focus_handle(),
-            update_btn_focused: false,
+            notes_focus: crate::ui::focus::tab_stop(cx),
+            notes_scroll: ScrollHandle::new(),
         }
+    }
+
+    /// Focuses the first control on the page.
+    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    }
+
+    fn scroll_notes_by(&self, delta: f32, cx: &mut Context<Self>) {
+        let mut offset = self.notes_scroll.offset();
+        let max = self.notes_scroll.max_offset().height;
+        offset.y = (offset.y - px(delta)).clamp(-max, px(0.));
+        self.notes_scroll.set_offset(offset);
+        cx.notify();
+    }
+
+    fn scroll_notes_to(&self, top: bool, cx: &mut Context<Self>) {
+        let mut offset = self.notes_scroll.offset();
+        offset.y = if top {
+            px(0.)
+        } else {
+            -self.notes_scroll.max_offset().height
+        };
+        self.notes_scroll.set_offset(offset);
+        cx.notify();
     }
 
     fn spawn_version_check(
@@ -139,9 +170,9 @@ impl OmarchyView {
 impl Render for OmarchyView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let update_available = self.update_available == Some(true);
-        let update_btn_focused = self.update_btn_focused && update_available;
-        let focused_border = theme.ring;
+        let notes_focused = self.notes_focus.is_focused(window);
+        let notes_border = crate::ui::focus::focus_border(notes_focused, theme.border, cx);
+        let page_height = self.notes_scroll.bounds().size.height;
 
         let version_status = match self.update_available {
             None => {
@@ -184,27 +215,21 @@ impl Render for OmarchyView {
                                     .child("Update available"),
                             )
                             .child(
-                                div()
-                                    .rounded_md()
-                                    .when(update_btn_focused, move |this: gpui::Div| {
-                                        this.border_2().border_color(focused_border)
-                                    })
-                                    .child(
-                                        Button::new("update-omarchy")
-                                            .label("Update Omarchy")
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                                                    eprintln!("{e}");
-                                                } else {
-                                                    // Show "Checking..." immediately while the update runs
-                                                    this.update_available = None;
-                                                    this.update_btn_focused = false;
-                                                    cx.notify();
-                                                    // Schedule a re-check after the update has had time to complete
-                                                    Self::spawn_delayed_recheck(cx);
-                                                }
-                                            })),
-                                    ),
+                                Button::new("update-omarchy")
+                                    .label("Update Omarchy")
+                                    .on_click(cx.listener(|this, _, _, cx| {
+                                    if let Err(e) =
+                                        crate::shell::omarchy_sh_commands::launch_omarchy_update()
+                                    {
+                                        eprintln!("{e}");
+                                    } else {
+                                        // Show "Checking..." immediately while the update runs
+                                        this.update_available = None;
+                                        cx.notify();
+                                        // Schedule a re-check after the update has had time to complete
+                                        Self::spawn_delayed_recheck(cx);
+                                    }
+                                })),
                             ),
                     )
             }
@@ -289,15 +314,36 @@ impl Render for OmarchyView {
                 .child(
                     div()
                         .id("release-notes-content")
+                        .key_context(RELEASE_NOTES_CONTEXT)
+                        .track_focus(&self.notes_focus)
+                        .on_action(cx.listener(|this, _: &ScrollUp, _, cx| {
+                            this.scroll_notes_by(-SCROLL_STEP, cx)
+                        }))
+                        .on_action(cx.listener(|this, _: &ScrollDown, _, cx| {
+                            this.scroll_notes_by(SCROLL_STEP, cx)
+                        }))
+                        .on_action(cx.listener(move |this, _: &PageUp, _, cx| {
+                            this.scroll_notes_by(-f32::from(page_height) * 0.9, cx)
+                        }))
+                        .on_action(cx.listener(move |this, _: &PageDown, _, cx| {
+                            this.scroll_notes_by(f32::from(page_height) * 0.9, cx)
+                        }))
+                        .on_action(
+                            cx.listener(|this, _: &Top, _, cx| this.scroll_notes_to(true, cx)),
+                        )
+                        .on_action(
+                            cx.listener(|this, _: &Bottom, _, cx| this.scroll_notes_to(false, cx)),
+                        )
                         .flex_1()
                         .min_h(px(0.))
                         .px_5()
                         .py_4()
                         .bg(cx.theme().muted)
                         .border_1()
-                        .border_color(cx.theme().border)
+                        .border_color(notes_border)
                         .rounded_lg()
                         .overflow_y_scroll()
+                        .track_scroll(&self.notes_scroll)
                         .child(div().w_full().pb_2().child(markdown_view)),
                 )
         } else {
@@ -325,39 +371,6 @@ impl Render for OmarchyView {
             .justify_start()
             .pt_8()
             .px_4()
-            .on_action(cx.listener(|this, _: &app_menu::NextFocus, _window, cx| {
-                if this.update_available == Some(true) {
-                    this.update_btn_focused = true;
-                    cx.notify();
-                }
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::PrevFocus, _window, cx| {
-                // Shift-Tab: if button is focused, unfocus it and let the action
-                // bubble to MainWindow to return focus to the sidebar
-                if this.update_btn_focused {
-                    this.update_btn_focused = false;
-                    cx.notify();
-                }
-                // If button was not focused, do nothing — bubble up to MainWindow
-            }))
-            .on_action(
-                cx.listener(|this, _: &app_menu::ActivateItem, _window, cx| {
-                    if this.update_btn_focused {
-                        if let Err(e) = crate::shell::omarchy_sh_commands::launch_omarchy_update() {
-                            eprintln!("{e}");
-                        } else {
-                            this.update_available = None;
-                            this.update_btn_focused = false;
-                            cx.notify();
-                            Self::spawn_delayed_recheck(cx);
-                        }
-                    }
-                }),
-            )
-            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
-                this.update_btn_focused = false;
-                cx.notify();
-            }))
             .child(
                 div()
                     // set to specific dimensions of Omarchy logo

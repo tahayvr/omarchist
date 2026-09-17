@@ -1,18 +1,14 @@
 use gpui::*;
-use gpui_component::{ActiveTheme, h_flex, label::Label, switch::Switch, v_flex};
+use gpui_component::{ActiveTheme, h_flex, label::Label, v_flex};
 
 use crate::system::config::config_setup::{read_settings, save_settings};
-use crate::ui::menu::app_menu;
+use crate::ui::focus::FocusableSwitch;
 
 const KEY_CONTEXT: &str = "SettingsPage";
-/// Number of keyboard-navigable settings rows (currently just one).
-const SETTINGS_ITEM_COUNT: usize = 1;
 
 pub struct SettingsView {
     auto_apply_theme: bool,
     pub focus_handle: FocusHandle,
-    /// Which settings row currently has keyboard focus (`None` = none).
-    focused_index: Option<usize>,
 }
 
 impl SettingsView {
@@ -25,8 +21,12 @@ impl SettingsView {
         Self {
             auto_apply_theme,
             focus_handle: cx.focus_handle(),
-            focused_index: None,
         }
+    }
+
+    /// Focuses the first control on the page.
+    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window);
     }
 
     fn toggle_auto_apply_theme(
@@ -43,34 +43,6 @@ impl SettingsView {
 
         cx.notify();
     }
-
-    fn handle_next_focus(&mut self, cx: &mut Context<Self>) {
-        self.focused_index = Some(match self.focused_index {
-            None => 0,
-            Some(_i) => SETTINGS_ITEM_COUNT - 1,
-        });
-        cx.notify();
-    }
-
-    fn handle_prev_focus(&mut self, cx: &mut Context<Self>) {
-        self.focused_index = Some(match self.focused_index {
-            None | Some(0) => 0,
-            Some(i) => i - 1,
-        });
-        cx.notify();
-    }
-
-    fn handle_activate(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(0) = self.focused_index {
-            let new_val = !self.auto_apply_theme;
-            self.toggle_auto_apply_theme(new_val, window, cx);
-        }
-    }
-
-    fn handle_escape(&mut self, cx: &mut Context<Self>) {
-        self.focused_index = None;
-        cx.notify();
-    }
 }
 
 fn save_auto_apply_theme(value: bool) -> crate::error::Result<()> {
@@ -83,7 +55,6 @@ impl Render for SettingsView {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let auto_apply_theme = self.auto_apply_theme;
-        let row_focused = self.focused_index == Some(0);
 
         v_flex()
             .id("settings-page")
@@ -92,18 +63,6 @@ impl Render for SettingsView {
             .size_full()
             .p_6()
             .gap_6()
-            .on_action(cx.listener(|this, _: &app_menu::NextFocus, _window, cx| {
-                this.handle_next_focus(cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::PrevFocus, _window, cx| {
-                this.handle_prev_focus(cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::ActivateItem, window, cx| {
-                this.handle_activate(window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &app_menu::EscapeFocus, _window, cx| {
-                this.handle_escape(cx);
-            }))
             .child(
                 // Page header
                 v_flex()
@@ -134,7 +93,6 @@ impl Render for SettingsView {
                             .child("Themes"),
                     )
                     .child(
-                        // auto_apply_theme row — keyboard focus ring when focused_index == 0
                         h_flex()
                             .gap_3()
                             .items_center()
@@ -142,11 +100,7 @@ impl Render for SettingsView {
                             .p_4()
                             .rounded(theme.radius)
                             .border_1()
-                            .border_color(if row_focused {
-                                theme.ring
-                            } else {
-                                theme.border
-                            })
+                            .border_color(theme.border)
                             .child(
                                 v_flex()
                                     .gap_1()
@@ -162,10 +116,9 @@ impl Render for SettingsView {
                                     ),
                             )
                             .child(
-                                Switch::new("auto-apply-theme")
+                                FocusableSwitch::new("auto-apply-theme")
                                     .checked(auto_apply_theme)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, checked, window, cx| {
+                                    .on_change(cx.listener(|this, checked, window, cx| {
                                         this.toggle_auto_apply_theme(*checked, window, cx);
                                     })),
                             ),

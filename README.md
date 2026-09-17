@@ -43,6 +43,10 @@ Edit Hyprland settings from a GUI. Omarchist keeps its own settings in `~/.confi
 
 Browse, search, and change every Hyprland keybind on your system. Record a new key combination the way you would in an editor, or type it in Omarchy's syntax for keys the compositor keeps to itself. Changes go to `~/.config/hypr/omarchist.lua`; your `bindings.lua` is never touched.
 
+### **Keyboard first:**
+
+Every page, dialog, and control works without a mouse: Tab walks the controls, arrows move inside lists and grids, and `Ctrl+/` shows every shortcut.
+
 ## Acknowledgements
 
 - Thanks [@dhh](https://github.com/dhh) for Omarchy.

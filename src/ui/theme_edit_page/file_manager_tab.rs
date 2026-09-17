@@ -1,7 +1,7 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::EditingTheme;
-use crate::ui::theme_edit_page::shared::{form_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{focus_section, form_section, help_text, tab_container};
 use gpui::*;
 use gpui_component::{ActiveTheme, button::Button, h_flex, radio::Radio, v_flex};
 
@@ -55,12 +55,14 @@ pub struct FileManagerTab {
     selected_color: String,
     is_saving: bool,
     error_message: Option<String>,
+    scroll: ScrollHandle,
 }
 
 impl FileManagerTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Self {
@@ -73,6 +75,7 @@ impl FileManagerTab {
             selected_color,
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         }
     }
 
@@ -173,7 +176,9 @@ impl Render for FileManagerTab {
         }
 
         tab_container()
-            .child(
+            .child(focus_section(
+                "file-manager-header",
+                &self.scroll,
                 h_flex()
                     .justify_between()
                     .items_center()
@@ -188,7 +193,11 @@ impl Render for FileManagerTab {
                                 this.launch_file_manager();
                             })),
                     ),
-            )
-            .child(form_section().child(container))
+            ))
+            .child(focus_section(
+                "file-manager-colors",
+                &self.scroll,
+                form_section().child(container),
+            ))
     }
 }

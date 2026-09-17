@@ -13,15 +13,7 @@ actions!(
         Cut,
         RefreshTheme,
         ToggleSidebar,
-        // Keyboard navigation actions
-        NextFocus,
-        PrevFocus,
-        NextItem,
-        PrevItem,
-        ActivateItem,
-        EscapeFocus,
-        SelectNext,
-        SelectPrev,
+        NewTheme,
         // Page navigation shortcuts
         NavigateToThemes,
         NavigateToConfig,

@@ -35,6 +35,9 @@ impl MainTitleBar {
 
 impl Render for MainTitleBar {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        // A tab group with a later index than the sidebar and page (0), so
+        // Tab reaches the title-bar menus last instead of first.
+        div().tab_index(1).tab_group().child(
         TitleBar::new()
             .child(
                 h_flex()
@@ -57,6 +60,7 @@ impl Render for MainTitleBar {
                             .dropdown_menu(|menu: PopupMenu, _window, _cx| {
                                 menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
+                                    .menu("Keyboard Shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
                             }),
@@ -147,7 +151,8 @@ impl Render for MainTitleBar {
                                 cx.open_url("https://github.com/tahayvr/omarchist")
                             }),
                     ),
-            )
+            ),
+        )
     }
 }
 

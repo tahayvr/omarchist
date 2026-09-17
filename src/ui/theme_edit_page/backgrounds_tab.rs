@@ -1,7 +1,7 @@
 use crate::system::themes::theme_file_ops::{
     add_background_image, list_background_images, remove_background_image,
 };
-use crate::ui::theme_edit_page::shared::{error_message, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{error_message, focus_section, help_text, tab_container};
 use anyhow;
 use gpui::*;
 use gpui_component::{
@@ -26,12 +26,14 @@ pub struct BackgroundsTab {
     images: Vec<BackgroundImage>,
     error_message: Option<String>,
     is_loading: bool,
+    scroll: ScrollHandle,
 }
 
 impl BackgroundsTab {
     pub fn new(
         theme_name: String,
         is_system_theme: bool,
+        scroll: &ScrollHandle,
         _window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -41,6 +43,7 @@ impl BackgroundsTab {
             images: Vec::new(),
             error_message: None,
             is_loading: true,
+            scroll: scroll.clone(),
         };
 
         // Load background images
@@ -163,7 +166,9 @@ impl Render for BackgroundsTab {
         let images_per_row = self.images_per_row(window);
 
         tab_container()
-            .child(
+            .child(focus_section(
+                "backgrounds-header",
+                &self.scroll,
                 // Header section with title and action button
                 h_flex()
                     .items_center()
@@ -182,7 +187,7 @@ impl Render for BackgroundsTab {
                                 this.add_images(window, cx);
                             })),
                     ),
-            )
+            ))
             .child(help_text(
                 "Manage background images for this theme.",
                 cx.theme().muted_foreground,
@@ -197,7 +202,9 @@ impl Render for BackgroundsTab {
                 .text_sm()
                 .text_color(cx.theme().muted_foreground),
             )
-            .child(
+            .child(focus_section(
+                "backgrounds-grid",
+                &self.scroll,
                 // Image grid or empty state
                 if is_loading {
                     v_flex()
@@ -298,7 +305,7 @@ impl Render for BackgroundsTab {
                     }
                     grid.into_any_element()
                 },
-            )
+            ))
             .children(
                 self.error_message
                     .as_ref()
