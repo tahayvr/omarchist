@@ -1,7 +1,7 @@
 //! Flows: named sequences of actions that run one after another, triggered
 //! from a keybind, the app launcher, startup, or `omarchist flow run`.
 //!
-//! A flow is one JSON file under `~/.config/omarchist/flows/`. Its steps
+//! A flow is one TOML file under `~/.config/omarchist/flows/`. Its steps
 //! reuse the keybind dispatcher vocabulary (`Exec` and `Lua` map onto
 //! [`Dispatcher`]) and add the flow-only kinds `Wait`, `Notify`, and `Flow`.
 use serde::{Deserialize, Serialize};
@@ -30,11 +30,13 @@ pub struct Flow {
     #[serde(default = "default_icon")]
     pub icon: String,
     #[serde(default)]
-    pub steps: Vec<Step>,
-    #[serde(default)]
     pub on_error: OnError,
+    /// Declared before `steps` so the TOML file lists it before the
+    /// `[[steps]]` tables rather than after them.
     #[serde(default)]
     pub triggers: Triggers,
+    #[serde(default)]
+    pub steps: Vec<Step>,
 }
 
 fn default_icon() -> String {
@@ -379,6 +381,40 @@ mod tests {
         );
         assert_eq!(run_command_id("omarchist flow list"), None);
         assert_eq!(run_command_id("omarchy-launch-terminal"), None);
+    }
+
+    #[test]
+    fn flows_round_trip_through_toml() {
+        let mut flow = Flow::new("focus-mode".into(), "Focus mode".into());
+        flow.triggers.launcher = true;
+        flow.steps = vec![
+            Step::new(StepKind::Lua {
+                expr: "hl.dsp.focus({ workspace = \"2\" })".into(),
+            }),
+            Step {
+                kind: StepKind::Wait { ms: 500 },
+                enabled: false,
+            },
+            Step::new(StepKind::Exec {
+                command: "omarchy-launch-editor".into(),
+                detach: true,
+            }),
+        ];
+        let text = toml::to_string_pretty(&flow).unwrap();
+        assert!(
+            text.contains(
+                "[[steps]]\ntype = \"lua\"\nexpr = 'hl.dsp.focus({ workspace = \"2\" })'"
+            )
+        );
+        assert!(text.contains("type = \"wait\"\nms = 500\nenabled = false"));
+        assert!(text.contains("[triggers]\nlauncher = true\n\n[[steps]]"));
+        let back: Flow = toml::from_str(&text).unwrap();
+        assert_eq!(back, flow);
+
+        let minimal: Flow = toml::from_str("id = \"x\"\nname = \"X\"\n").unwrap();
+        assert_eq!(minimal.icon, DEFAULT_ICON);
+        assert!(minimal.steps.is_empty());
+        assert_eq!(minimal.on_error, OnError::Stop);
     }
 
     #[test]

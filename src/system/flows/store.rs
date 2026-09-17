@@ -1,4 +1,4 @@
-//! Reads and writes flows under `~/.config/omarchist/flows/`, one JSON file
+//! Reads and writes flows under `~/.config/omarchist/flows/`, one TOML file
 //! per flow named after its id, and keeps the trigger files in step.
 use std::fs;
 use std::path::PathBuf;
@@ -21,7 +21,7 @@ pub fn flow_path(id: &str) -> Result<PathBuf> {
     if !is_slug(id) {
         return Err(Error::Invalid(format!("Invalid flow id '{id}'")));
     }
-    Ok(flows_dir()?.join(format!("{id}.json")))
+    Ok(flows_dir()?.join(format!("{id}.toml")))
 }
 
 /// Every flow on disk, sorted by name. A file that does not parse is
@@ -36,7 +36,7 @@ pub fn load_flows() -> Result<Vec<Flow>> {
     let mut flows = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
-        if path.extension().and_then(|e| e.to_str()) != Some("json") {
+        if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
         match read_flow(&path) {
@@ -50,8 +50,8 @@ pub fn load_flows() -> Result<Vec<Flow>> {
 
 fn read_flow(path: &PathBuf) -> Result<Flow> {
     let content = fs::read_to_string(path).map_err(|e| Error::io("Failed to read flow", e))?;
-    let flow: Flow =
-        serde_json::from_str(&content).map_err(|e| Error::json("Failed to parse flow", e))?;
+    let flow: Flow = toml::from_str(&content)
+        .map_err(|e| Error::Invalid(format!("Failed to parse flow {}: {e}", path.display())))?;
     let stem = path
         .file_stem()
         .and_then(|s| s.to_str())
@@ -104,8 +104,8 @@ pub fn save_flow(flow: &Flow) -> Result<()> {
     {
         fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create flows directory", e))?;
     }
-    let content = serde_json::to_string_pretty(flow)
-        .map_err(|e| Error::json("Failed to serialize flow", e))?;
+    let content = toml::to_string_pretty(flow)
+        .map_err(|e| Error::Invalid(format!("Failed to serialize flow: {e}")))?;
     fs::write(&path, content).map_err(|e| Error::io("Failed to write flow", e))?;
     launcher::sync_triggers(flow)
 }

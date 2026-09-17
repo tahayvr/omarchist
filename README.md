@@ -45,7 +45,7 @@ Browse, search, and change every Hyprland keybind on your system. Record a new k
 
 ### **Flows:**
 
-String actions together, like Shortcuts on a Mac: open apps, switch workspaces, wait, notify. Run a flow from a keybind, the app launcher, at startup, or from anywhere with `omarchist flow run <name>`. Each flow is one JSON file in `~/.config/omarchist/flows/`.
+String actions together, like Shortcuts on a Mac: open apps, switch workspaces, wait, notify. Run a flow from a keybind, the app launcher, at startup, or from anywhere with `omarchist flow run <name>`. Each flow is one TOML file in `~/.config/omarchist/flows/`.
 
 ### **Keyboard first:**
 

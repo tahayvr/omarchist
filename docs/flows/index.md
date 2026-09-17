@@ -61,22 +61,30 @@ The **Run it from** section wires that command up for you:
 
 ## Where flows live
 
-Each flow is one JSON file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine or shared:
+Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine, shared, or edited by hand (comments welcome):
 
-```json
-{
-  "id": "focus-mode",
-  "name": "Focus mode",
-  "description": "Moves to workspace 2 and opens your editor.",
-  "icon": "target",
-  "steps": [
-    { "type": "lua", "expr": "hl.dsp.focus({ workspace = \"2\" })" },
-    { "type": "exec", "command": "omarchy-launch-editor" },
-    { "type": "notify", "title": "Focus mode", "body": "Everything else can wait" }
-  ],
-  "on_error": "stop",
-  "triggers": { "launcher": true }
-}
+```toml
+id = "focus-mode"
+name = "Focus mode"
+description = "Moves to workspace 2 and opens your editor."
+icon = "target"
+on_error = "stop"
+
+[triggers]
+launcher = true
+
+[[steps]]
+type = "lua"
+expr = 'hl.dsp.focus({ workspace = "2" })'
+
+[[steps]]
+type = "exec"
+command = "omarchy-launch-editor"
+
+[[steps]]
+type = "notify"
+title = "Focus mode"
+body = "Everything else can wait"
 ```
 
-Step types are `exec` (with an optional `"detach": true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `"enabled": false` is skipped.
+Step types are `exec` (with an optional `detach = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.

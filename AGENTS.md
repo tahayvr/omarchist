@@ -29,7 +29,7 @@ cargo add <crate_name>
 - **Components:** GPUI Kit 0.6 — `gpui-component` (styled), `gpui-base` (unstyled behaviour, focus traps), `gpui-kit` (facade; required in the graph because gpui's macros resolve paths through it), `gpui-kit-assets` (Lucide icons, no brand icons)
 - **Pinning:** every `gpui*` crate is pinned exactly (`=`) and bumped together; `gpui-pre` patch releases are not semver-stable.
 - **Async Runtime:** smol 2.0.2
-- **Serialization:** serde + serde_json
+- **Serialization:** serde + serde_json (app state), toml (flow files)
 - **Date/Time:** chrono
 
 ## Configuration Directories
@@ -37,7 +37,7 @@ cargo add <crate_name>
 Important distinction between two config directories:
 
 - **`~/.config/omarchy`** - Belongs to Omarchy Linux system. Used to store themes created by Omarchist app (the OS reads themes from here)
-- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state, `flows/*.json`)
+- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state, `flows/*.toml`)
 
 Omarchy (Quattro/v4) itself is installed at `$OMARCHY_PATH`, defaulting to `/usr/share/omarchy` — see `src/system/omarchy_paths.rs`, the single canonical source for every Omarchy-related path.
 
@@ -328,7 +328,7 @@ Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, op
 
 ### Flows — Sequences Triggered From Anywhere
 
-A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reuse the keybind dispatcher vocabulary (`StepKind::Exec`/`Lua` ↔ `Dispatcher`, so the same `ActionBuilder` edits both) plus the flow-only `Wait`, `Notify`, and `Flow` (nesting). Each flow is one JSON file `~/.config/omarchist/flows/<id>.json` (`store.rs`); the id is a slug fixed at creation because keybinds, desktop entries, and the CLI refer to it. `validate()` applies the same `hl.dsp.*(...)` guard as keybind overrides.
+A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reuse the keybind dispatcher vocabulary (`StepKind::Exec`/`Lua` ↔ `Dispatcher`, so the same `ActionBuilder` edits both) plus the flow-only `Wait`, `Notify`, and `Flow` (nesting). Each flow is one TOML file `~/.config/omarchist/flows/<id>.toml` (`store.rs`; TOML rather than JSON because flows are meant to be shared and hand-edited, and single-quoted TOML strings carry Lua and shell text without escaping); the id is a slug fixed at creation because keybinds, desktop entries, and the CLI refer to it. `validate()` applies the same `hl.dsp.*(...)` guard as keybind overrides.
 
 - `runner.rs` runs steps synchronously (`sh -c`, or `setsid -f` for detached commands; `hyprctl dispatch` for Lua; `notify-send`), reports `RunEvent`s, honours `OnError`, and refuses nested loops via a call stack. `Runner::with_loader` takes a flow loader so tests never touch disk.
 - Triggers: `omarchist flow run <id-or-name>` (`cli.rs`, handled in `main()` before the window opens); a keybind via `Action::Flow` (dispatcher `omarchist flow run '<id>'`, offered as the **Flow** kind in the action builder); `launcher.rs` writes a `.desktop` entry (`~/.local/share/applications/omarchist-flow-<id>.desktop`, icon SVG under `~/.local/share/omarchist/flows/`) and a `post-boot.d` hook script for startup. `store::save_flow` keeps those files in sync with `flow.triggers`; `delete_flow` removes them and any keybind override that ran the flow.
