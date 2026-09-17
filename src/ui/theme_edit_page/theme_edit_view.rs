@@ -234,10 +234,9 @@ impl Render for ThemeEditPage {
                 this.apply_theme();
             }))
             .child(
-                // Back button + Tabs row - wraps on narrow screens
                 h_flex()
                     .gap_4()
-                    .items_start()
+                    .items_center()
                     .flex_wrap()
                     .child(
                         Button::new("back-btn")
