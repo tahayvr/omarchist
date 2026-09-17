@@ -1,15 +1,8 @@
 pub mod backgrounds_tab;
-pub mod browser_tab;
-pub mod btop_tab;
+pub mod colors_tab;
 pub mod editor_tab;
 pub mod file_manager_tab;
 pub mod general_tab;
-pub mod lockscreen_tab;
-pub mod menu_tab;
-pub mod notification_tab;
+pub mod overrides_tab;
 pub mod shared;
-pub mod swayosd_tab;
-pub mod terminal_tab;
 pub mod theme_edit;
-pub mod waybar_tab;
-pub mod windows_tab;

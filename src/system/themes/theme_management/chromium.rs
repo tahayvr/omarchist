@@ -1,8 +1,17 @@
 use std::fs;
+use std::path::Path;
 
-use crate::types::themes::BrowserConfig;
+use crate::types::themes::{BrowserConfig, ColorsConfig};
 
 use super::paths::get_custom_themes_dir;
+
+// What Quattro's `chromium.theme.tpl` would generate (`{{ background_rgb }}`),
+// used to seed the override when the user turns it on.
+pub fn default_browser_config(colors: &ColorsConfig) -> BrowserConfig {
+    BrowserConfig {
+        theme_color: colors.background.clone(),
+    }
+}
 
 pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Result<(), String> {
     let themes_dir = get_custom_themes_dir()
@@ -24,4 +33,46 @@ pub fn update_chromium_config(theme_name: &str, config: &BrowserConfig) -> Resul
         .map_err(|e| format!("Failed to write chromium.theme: {}", e))?;
 
     Ok(())
+}
+
+// Reads a `chromium.theme` (`R,G,B` decimal, as Omarchy's browser policy
+// expects) back into a hex `BrowserConfig`. Returns None when the file is
+// absent or malformed, which the caller treats as "override off".
+pub(super) fn parse_chromium_theme_file(path: &Path) -> Option<BrowserConfig> {
+    let content = fs::read_to_string(path).ok()?;
+    let mut parts = content
+        .trim()
+        .split(',')
+        .map(|p| p.trim().parse::<u8>().ok());
+    let (r, g, b) = (parts.next()??, parts.next()??, parts.next()??);
+    Some(BrowserConfig {
+        theme_color: format!("#{:02X}{:02X}{:02X}", r, g, b),
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_browser_config_uses_background() {
+        let colors = ColorsConfig::default();
+        assert_eq!(
+            default_browser_config(&colors).theme_color,
+            colors.background
+        );
+    }
+
+    #[test]
+    fn parse_chromium_theme_file_round_trips_rgb() {
+        let dir = std::env::temp_dir().join(format!("omarchist-chromium-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("chromium.theme");
+        std::fs::write(&path, "15,15,25\n").unwrap();
+        let parsed = parse_chromium_theme_file(&path).expect("valid file parses");
+        assert_eq!(parsed.theme_color, "#0F0F19");
+        std::fs::write(&path, "garbage").unwrap();
+        assert!(parse_chromium_theme_file(&path).is_none());
+        let _ = std::fs::remove_dir_all(&dir);
+    }
 }

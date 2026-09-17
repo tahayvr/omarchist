@@ -1,6 +1,4 @@
-use dirs;
 use isahc::AsyncReadResponseExt;
-use std::process::Command;
 
 use serde::Deserialize;
 
@@ -19,7 +17,7 @@ pub async fn check_omarchy_update(current_version: &str) -> Result<bool, String>
 
     // Fetch latest release from GitHub using isahc (runtime-agnostic)
     let request = isahc::Request::builder()
-        .uri("https://api.github.com/repos/basecamp/omarchy/releases/latest")
+        .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
         .header("User-Agent", "omarchist")
         .body(())
         .map_err(|e| format!("Failed to build request: {e}"))?;
@@ -74,41 +72,20 @@ fn compare_versions(current: &str, latest: &str) -> bool {
     false
 }
 
-// Get local Omarchy version from git tags
+// Get the installed Omarchy version from `$OMARCHY_PATH/version` (Quattro
+// ships as a pacman package, not a git checkout, so this plain version file —
+// e.g. containing `4.0.0.alpha` — is the authoritative source, not `git
+// describe`).
 pub fn get_local_omarchy_version() -> Result<String, String> {
-    // Get the home directory
-    let home_dir = dirs::home_dir().ok_or_else(|| "Failed to get home directory".to_string())?;
+    let version_file = crate::system::omarchy_paths::omarchy_version_file();
 
-    let omarchy_path = home_dir.join(".local/share/omarchy");
-
-    // Run git command to get the latest tag
-    let output = Command::new("git")
-        .args([
-            "-C",
-            omarchy_path
-                .to_str()
-                .ok_or("Failed to convert path to string")?,
-            "describe",
-            "--tags",
-            "--abbrev=0",
-        ])
-        .output();
-
-    match output {
-        Ok(result) => {
-            if result.status.success() {
-                let version = String::from_utf8(result.stdout)
-                    .map_err(|e| format!("Failed to parse git output: {e}"))?
-                    .trim()
-                    .to_string();
-
-                if version.is_empty() {
-                    Ok("unknown".to_string())
-                } else {
-                    Ok(version)
-                }
-            } else {
+    match std::fs::read_to_string(&version_file) {
+        Ok(version) => {
+            let trimmed = version.trim().to_string();
+            if trimmed.is_empty() {
                 Ok("unknown".to_string())
+            } else {
+                Ok(trimmed)
             }
         }
         Err(_) => Ok("unknown".to_string()),

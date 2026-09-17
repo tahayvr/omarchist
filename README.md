@@ -18,6 +18,7 @@ yay -S omarchist-bin
 
 > [!NOTE]
 > This goes without saying: Omarchist only works on Omarchy Linux. duh
+> Version 2.x targets Omarchy Quattro (v4). For Omarchy 3.x use an Omarchist 1.x release.
 
 > [!NOTE]
 > Omarchist is still in early development, so expect some rough edges and missing features.
@@ -32,14 +33,11 @@ Design, preview, and fine-tune your themes with color pickers, easy updates, and
 
 ### **Config Management:**
 
-Edit and generate configs for Waybar, Omarchy, Hyprland, etc (WIP).
+Edit Hyprland settings from a GUI. Omarchist keeps its own settings in `~/.config/omarchist/` and writes them to `~/.config/hypr/omarchist.lua`, so your `hyprland.lua` stays yours.
 
   <img src="screenshots/omarchist-screenshot-2.png" alt="Omarchist Theme Designer" width="800">
   
   <img src="screenshots/omarchist-screenshot-3.png" alt="Omarchist Theme Designer" width="800">
-
-> [!IMPORTANT]
-> Omarchist puts your current waybar config in `~/.config/omarchist/waybar/backup-original/` for safekeeping. You can restore it anytime from the app.
 
 ## Acknowledgements
 

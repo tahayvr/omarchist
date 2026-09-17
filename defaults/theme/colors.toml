@@ -1,5 +1,6 @@
+mode = "dark"
+
 accent = "#33A1FF"
-cursor = "#EDEDFE"
 foreground = "#EDEDFE"
 background = "#0F0F19"
 selection_foreground = "#EDEDFE"

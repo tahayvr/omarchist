@@ -6,18 +6,11 @@ use chrono::Utc;
 use crate::types::themes::EditingTheme;
 
 use super::btop::parse_btop_theme;
-use super::chromium::update_chromium_config;
-use super::colors::colors_config_from_terminal;
+use super::chromium::{parse_chromium_theme_file, update_chromium_config};
 use super::colors::update_colors_toml;
-use super::hyprland::{parse_hyprland_conf, update_hyprland_conf};
-use super::hyprlock::{parse_hyprlock_conf, update_hyprlock_conf};
 use super::icons::{parse_icons_theme, update_icons_theme};
-use super::mako::{parse_mako_ini, update_mako_ini};
+use super::lock::{parse_lock_toml, update_lock_toml};
 use super::paths::get_custom_themes_dir;
-use super::swayosd::{parse_swayosd_css, update_swayosd_css};
-use super::terminal::update_terminal_configs;
-use super::walker::update_walker_css;
-use super::waybar::{parse_waybar_css, update_waybar_css};
 use crate::assets::extract_default_dir;
 
 pub fn generate_unique_theme_name() -> String {
@@ -44,6 +37,45 @@ pub fn generate_unique_theme_name() -> String {
             return format!("custom-theme-{}", Utc::now().timestamp());
         }
     }
+}
+
+// Turns arbitrary text (typically an image file stem) into a theme folder
+// name Omarchy accepts: lowercase ASCII letters, digits and single dashes.
+// `omarchy-theme-set` itself only lowercases and swaps spaces, and rejects
+// names starting with a dot or containing a slash.
+pub fn slugify_theme_name(input: &str) -> String {
+    let mut slug = String::with_capacity(input.len());
+    let mut pending_dash = false;
+    for ch in input.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_dash && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_dash = false;
+            slug.push(ch.to_ascii_lowercase());
+        } else {
+            pending_dash = true;
+        }
+    }
+    if slug.is_empty() {
+        "custom-theme".to_string()
+    } else {
+        slug
+    }
+}
+
+// `base`, or `base-2`, `base-3`, ... — the first that isn't already a theme.
+pub fn unique_theme_name(base: &str) -> String {
+    let Some(themes_dir) = get_custom_themes_dir() else {
+        return base.to_string();
+    };
+    if !themes_dir.join(base).exists() {
+        return base.to_string();
+    }
+    (2..)
+        .map(|n| format!("{base}-{n}"))
+        .find(|name| !themes_dir.join(name).exists())
+        .unwrap_or_else(|| format!("{base}-{}", Utc::now().timestamp()))
 }
 
 pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
@@ -106,23 +138,10 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         EditingTheme::default()
     };
 
-    editing_theme.is_light_theme = theme_dir.join("light.mode").exists();
-
-    let waybar_css_path = theme_dir.join("waybar.css");
-    if waybar_css_path.exists()
-        && let Ok(css_content) = fs::read_to_string(&waybar_css_path)
-        && let Some(config) = parse_waybar_css(&css_content)
-    {
-        editing_theme.apps.waybar = Some(config);
-    }
-
-    let hyprland_conf_path = theme_dir.join("hyprland.conf");
-    if hyprland_conf_path.exists()
-        && let Ok(conf_content) = fs::read_to_string(&hyprland_conf_path)
-        && let Some(config) = parse_hyprland_conf(&conf_content)
-    {
-        editing_theme.apps.hyprland = Some(config);
-    }
+    // `mode` in colors.toml is authoritative; the `light.mode` marker file is
+    // only honored for themes written by pre-Quattro versions of Omarchist.
+    editing_theme.is_light_theme =
+        editing_theme.colors.mode == "light" || theme_dir.join("light.mode").exists();
 
     let icons_theme_path = theme_dir.join("icons.theme");
     if icons_theme_path.exists()
@@ -132,37 +151,16 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
         editing_theme.apps.icons = Some(icons_config);
     }
 
-    let hyprlock_conf_path = theme_dir.join("hyprlock.conf");
-    if hyprlock_conf_path.exists()
-        && let Ok(conf_content) = fs::read_to_string(&hyprlock_conf_path)
-        && let Some(config) = parse_hyprlock_conf(&conf_content)
-    {
-        editing_theme.apps.hyprlock = Some(config);
-    }
-
-    let mako_ini_path = theme_dir.join("mako.ini");
-    if mako_ini_path.exists()
-        && let Ok(ini_content) = fs::read_to_string(&mako_ini_path)
-        && let Some(config) = parse_mako_ini(&ini_content)
-    {
-        editing_theme.apps.mako = Some(config);
-    }
-
-    let btop_theme_path = theme_dir.join("btop.theme");
-    if btop_theme_path.exists()
-        && let Ok(theme_content) = fs::read_to_string(&btop_theme_path)
-        && let Some(config) = parse_btop_theme(&theme_content)
-    {
-        editing_theme.apps.btop = Some(config);
-    }
-
-    let swayosd_css_path = theme_dir.join("swayosd.css");
-    if swayosd_css_path.exists()
-        && let Ok(css_content) = fs::read_to_string(&swayosd_css_path)
-        && let Some(config) = parse_swayosd_css(&css_content)
-    {
-        editing_theme.apps.swayosd = Some(config);
-    }
+    // Override files are the source of truth: present on disk means the
+    // override is on, absent means Omarchy generates it. The manifest's copy
+    // is only a cache of what was last written.
+    editing_theme.apps.btop = fs::read_to_string(theme_dir.join("btop.theme"))
+        .ok()
+        .and_then(|content| parse_btop_theme(&content));
+    editing_theme.apps.chromium = parse_chromium_theme_file(&theme_dir.join("chromium.theme"));
+    editing_theme.apps.lock = fs::read_to_string(theme_dir.join("shell.lock.toml"))
+        .ok()
+        .and_then(|content| parse_lock_toml(&content));
 
     Ok(editing_theme)
 }
@@ -179,6 +177,14 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 
     let mut updated_theme = theme_data.clone();
     updated_theme.modified_at = Utc::now().to_rfc3339();
+    // `is_light_theme` is runtime-only; `colors.mode` is what persists (in
+    // both the manifest and colors.toml) and what `load_theme_for_editing`
+    // reads back, so keep them in sync here.
+    updated_theme.colors.mode = if theme_data.is_light_theme {
+        "light".to_string()
+    } else {
+        "dark".to_string()
+    };
 
     let json_path = theme_dir.join("omarchist.json");
     let json_content = serde_json::to_string_pretty(&updated_theme)
@@ -186,44 +192,29 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     fs::write(&json_path, json_content)
         .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
 
-    update_light_mode_file(&theme_dir, theme_data.is_light_theme)?;
+    remove_legacy_light_mode_file(&theme_dir)?;
 
-    if let Some(ref waybar_config) = theme_data.apps.waybar {
-        update_waybar_css(theme_name, waybar_config)?;
+    // colors.toml is Omarchist's source of truth for the theme's palette —
+    // written unconditionally on every save. Everything else a theme could
+    // need (terminal configs, the bar, notifications, window border colors,
+    // etc.) is template-generated by Omarchy itself from this file.
+    update_colors_toml(theme_name, &updated_theme.colors)?;
+
+    // Optional overrides: write when set, delete when unset so Omarchy's
+    // template-generated version takes over on the next apply.
+    match theme_data.apps.chromium {
+        Some(ref chromium_config) => update_chromium_config(theme_name, chromium_config)?,
+        None => remove_override_file(&theme_dir, "chromium.theme")?,
     }
 
-    if let Some(ref hyprland_config) = theme_data.apps.hyprland {
-        update_hyprland_conf(theme_name, hyprland_config)?;
+    match theme_data.apps.btop {
+        Some(ref btop_config) => super::btop::update_btop_theme(theme_name, btop_config)?,
+        None => remove_override_file(&theme_dir, "btop.theme")?,
     }
 
-    if let Some(ref walker_config) = theme_data.apps.walker {
-        update_walker_css(theme_name, walker_config)?;
-    }
-
-    if let Some(ref terminal_config) = theme_data.apps.terminal {
-        update_terminal_configs(theme_name, terminal_config)?;
-        let colors = colors_config_from_terminal(terminal_config, &theme_data.colors.accent);
-        update_colors_toml(theme_name, &colors)?;
-    }
-
-    if let Some(ref chromium_config) = theme_data.apps.chromium {
-        update_chromium_config(theme_name, chromium_config)?;
-    }
-
-    if let Some(ref hyprlock_config) = theme_data.apps.hyprlock {
-        update_hyprlock_conf(theme_name, hyprlock_config)?;
-    }
-
-    if let Some(ref mako_config) = theme_data.apps.mako {
-        update_mako_ini(theme_name, mako_config)?;
-    }
-
-    if let Some(ref btop_config) = theme_data.apps.btop {
-        super::btop::update_btop_theme(theme_name, btop_config)?;
-    }
-
-    if let Some(ref swayosd_config) = theme_data.apps.swayosd {
-        update_swayosd_css(theme_name, swayosd_config)?;
+    match theme_data.apps.lock {
+        Some(ref lock_config) => update_lock_toml(theme_name, lock_config)?,
+        None => remove_override_file(&theme_dir, "shell.lock.toml")?,
     }
 
     if let Some(ref icons_config) = theme_data.apps.icons
@@ -232,6 +223,27 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
         update_icons_theme(theme_name, theme_name_val)?;
     }
 
+    Ok(())
+}
+
+// Loads the theme fresh from disk, applies `edit`, and saves. Every tab of
+// the Theme Designer holds its own snapshot of the theme, so tabs must go
+// through this to change only the fields they own rather than saving a whole
+// stale snapshot over another tab's work.
+pub fn update_theme<F>(theme_name: &str, edit: F) -> Result<(), String>
+where
+    F: FnOnce(&mut EditingTheme),
+{
+    let mut theme = load_theme_for_editing(theme_name)?;
+    edit(&mut theme);
+    save_theme_data(theme_name, &theme)
+}
+
+fn remove_override_file(theme_dir: &Path, file_name: &str) -> Result<(), String> {
+    let path = theme_dir.join(file_name);
+    if path.exists() {
+        fs::remove_file(&path).map_err(|e| format!("Failed to remove {file_name}: {e}"))?;
+    }
     Ok(())
 }
 
@@ -270,18 +282,39 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn update_light_mode_file(theme_dir: &Path, is_light: bool) -> Result<(), String> {
+// Pre-Quattro Omarchist marked light themes with an empty `light.mode` file.
+// Omarchy's resolver (`omarchy-theme-color`) now treats that file as a legacy
+// fallback behind the `mode` key in colors.toml, which Omarchist always writes,
+// so the marker is removed on save rather than kept in sync.
+fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<(), String> {
     let light_mode_path = theme_dir.join("light.mode");
 
-    if is_light {
-        if !light_mode_path.exists() {
-            fs::write(&light_mode_path, "")
-                .map_err(|e| format!("Failed to create light.mode file: {}", e))?;
-        }
-    } else if light_mode_path.exists() {
+    if light_mode_path.exists() {
         fs::remove_file(&light_mode_path)
-            .map_err(|e| format!("Failed to remove light.mode file: {}", e))?;
+            .map_err(|e| format!("Failed to remove legacy light.mode file: {}", e))?;
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::slugify_theme_name;
+
+    #[test]
+    fn slugify_lowercases_and_collapses_separators() {
+        assert_eq!(
+            slugify_theme_name("My Wallpaper (1).png"),
+            "my-wallpaper-1-png"
+        );
+        assert_eq!(slugify_theme_name("IMG_2024  final"), "img-2024-final");
+        assert_eq!(slugify_theme_name("--Tokyo Night--"), "tokyo-night");
+        assert_eq!(slugify_theme_name("café ☕"), "caf");
+    }
+
+    #[test]
+    fn slugify_falls_back_when_nothing_survives() {
+        assert_eq!(slugify_theme_name("☕☕"), "custom-theme");
+        assert_eq!(slugify_theme_name(""), "custom-theme");
+    }
 }

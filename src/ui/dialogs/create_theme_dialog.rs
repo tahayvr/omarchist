@@ -12,7 +12,7 @@ use gpui_component::{
 use smol;
 
 use crate::system::themes::theme_management::{
-    create_theme_from_defaults, generate_unique_theme_name,
+    create_theme_from_defaults, generate_unique_theme_name, slugify_theme_name, unique_theme_name,
 };
 use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
 
@@ -152,11 +152,12 @@ fn open_image_picker(window: &mut Window, cx: &mut App) {
 }
 
 fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path: PathBuf) {
-    // Generate theme name from filename
+    // Theme folder name from the image's file stem, made safe and unique.
     let theme_name = image_path
         .file_stem()
         .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase().replace(' ', "-"))
+        .map(slugify_theme_name)
+        .map(|base| unique_theme_name(&base))
         .unwrap_or_else(generate_unique_theme_name);
 
     // Open progress dialog and start async theme creation

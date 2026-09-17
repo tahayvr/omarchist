@@ -2,49 +2,60 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::system::omarchy_paths::{omarchist_hyprland_dir, user_hyprland_config_dir};
 use crate::types::hyprland_config::HyprlandConfig;
 
-const CONFIG_DIR: &str = ".config/omarchist/hyprland";
-const CONFIG_FILE: &str = "hyprland.conf";
+const STATE_FILE: &str = "state.json";
+const LUA_FILE: &str = "omarchist.lua";
 
 pub struct HyprlandConfigManager {
-    config_path: PathBuf,
+    state_path: PathBuf,
+    lua_path: PathBuf,
     config: HyprlandConfig,
 }
 
 impl HyprlandConfigManager {
     pub fn load() -> Result<Self, String> {
-        let config_path = get_config_path()?;
+        let state_path = get_state_path()?;
+        let lua_path = get_lua_path()?;
 
-        // Ensure config directory exists
         ensure_config_dir()?;
 
         // Always seed from the live compositor values so the UI reflects what
         // Hyprland is actually running, regardless of whether we have a saved
-        // config file.  If a saved file exists, parse it on top so any stored
-        // overrides take precedence.
+        // state file. If a saved state file exists, its values take
+        // precedence over the live snapshot.
         let base = super::hyprctl_reader::read_from_hyprctl();
 
-        let config = if config_path.exists() {
-            let content = fs::read_to_string(&config_path)
-                .map_err(|e| format!("Failed to read config file: {}", e))?;
-            super::parser::parse_config_onto(&content, base)
+        let config = if state_path.exists() {
+            let content = fs::read_to_string(&state_path)
+                .map_err(|e| format!("Failed to read state file: {}", e))?;
+            serde_json::from_str(&content).unwrap_or(base)
         } else {
             base
         };
 
         Ok(Self {
-            config_path,
+            state_path,
+            lua_path,
             config,
         })
     }
 
     pub fn save(&self) -> Result<(), String> {
-        let content = super::writer::write_config(&self.config);
-        fs::write(&self.config_path, content)
-            .map_err(|e| format!("Failed to write config file: {}", e))?;
+        // state.json is the round-trip source of truth Omarchist reads back
+        // on the next load — never parsed from Lua.
+        let state_content = serde_json::to_string_pretty(&self.config)
+            .map_err(|e| format!("Failed to serialize Hyprland state: {}", e))?;
+        fs::write(&self.state_path, state_content)
+            .map_err(|e| format!("Failed to write state file: {}", e))?;
 
-        // Reload Hyprland to apply changes
+        // omarchist.lua is write-only — generated fresh every save, never
+        // read back.
+        let lua_content = super::lua_writer::write_lua_config(&self.config);
+        fs::write(&self.lua_path, lua_content)
+            .map_err(|e| format!("Failed to write omarchist.lua: {}", e))?;
+
         Self::reload_hyprland();
 
         Ok(())
@@ -81,7 +92,7 @@ impl HyprlandConfigManager {
     }
 
     pub fn config_path(&self) -> &Path {
-        &self.config_path
+        &self.lua_path
     }
 
     pub fn reset_to_defaults(&mut self) {
@@ -92,23 +103,28 @@ impl HyprlandConfigManager {
 impl Clone for HyprlandConfigManager {
     fn clone(&self) -> Self {
         Self {
-            config_path: self.config_path.clone(),
+            state_path: self.state_path.clone(),
+            lua_path: self.lua_path.clone(),
             config: self.config.clone(),
         }
     }
 }
 
-fn get_config_path() -> Result<PathBuf, String> {
-    let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-    Ok(home_dir.join(CONFIG_DIR).join(CONFIG_FILE))
+fn get_state_path() -> Result<PathBuf, String> {
+    let dir = omarchist_hyprland_dir().ok_or("Could not determine home directory")?;
+    Ok(dir.join(STATE_FILE))
+}
+
+fn get_lua_path() -> Result<PathBuf, String> {
+    let dir = user_hyprland_config_dir().ok_or("Could not determine home directory")?;
+    Ok(dir.join(LUA_FILE))
 }
 
 fn ensure_config_dir() -> Result<(), String> {
-    let home_dir = dirs::home_dir().ok_or("Could not determine home directory")?;
-    let config_dir = home_dir.join(CONFIG_DIR);
+    let dir = omarchist_hyprland_dir().ok_or("Could not determine home directory")?;
 
-    if !config_dir.exists() {
-        fs::create_dir_all(&config_dir)
+    if !dir.exists() {
+        fs::create_dir_all(&dir)
             .map_err(|e| format!("Failed to create config directory: {}", e))?;
     }
 
@@ -116,14 +132,19 @@ fn ensure_config_dir() -> Result<(), String> {
 }
 
 pub fn config_exists() -> bool {
-    get_config_path().map(|p| p.exists()).unwrap_or(false)
+    get_state_path().map(|p| p.exists()).unwrap_or(false)
 }
 
 pub fn delete_config() -> Result<(), String> {
-    let config_path = get_config_path()?;
-    if config_path.exists() {
-        fs::remove_file(&config_path)
-            .map_err(|e| format!("Failed to delete config file: {}", e))?;
+    let state_path = get_state_path()?;
+    if state_path.exists() {
+        fs::remove_file(&state_path).map_err(|e| format!("Failed to delete state file: {}", e))?;
     }
+
+    let lua_path = get_lua_path()?;
+    if lua_path.exists() {
+        fs::remove_file(&lua_path).map_err(|e| format!("Failed to delete omarchist.lua: {}", e))?;
+    }
+
     Ok(())
 }

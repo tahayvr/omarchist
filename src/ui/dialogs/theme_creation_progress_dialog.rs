@@ -47,7 +47,7 @@ impl ThemeCreationProgressDialog {
             let result = smol::unblock({
                 let theme_name = theme_name.clone();
                 let image_path = image_path.clone();
-                move || create_theme_from_image(&image_path, &theme_name, None)
+                move || create_theme_from_image(&image_path, &theme_name)
             })
             .await;
 

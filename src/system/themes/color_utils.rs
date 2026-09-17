@@ -84,3 +84,26 @@ pub fn is_dark_color(hex: &str) -> bool {
     let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     luminance < 0.5
 }
+
+// Linear RGB mix of two hex colors: `amount` is the weight of `end` in
+// [0.0, 1.0]. Mirrors `mix_color` in Omarchy's `omarchy-theme-color`, so
+// seeded overrides match what Omarchy's own templates would produce.
+pub fn mix_hex(start: &str, end: &str, amount: f32) -> String {
+    let amount = amount.clamp(0.0, 1.0);
+    let (sr, sg, sb) = hex_to_rgb(start).unwrap_or((0, 0, 0));
+    let (er, eg, eb) = hex_to_rgb(end).unwrap_or((0, 0, 0));
+    let mix = |a: u8, b: u8| (a as f32 * (1.0 - amount) + b as f32 * amount + 0.5) as u8;
+    format!("#{:02x}{:02x}{:02x}", mix(sr, er), mix(sg, eg), mix(sb, eb))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mix_hex;
+
+    #[test]
+    fn mix_hex_endpoints_and_midpoint() {
+        assert_eq!(mix_hex("#000000", "#ffffff", 0.0), "#000000");
+        assert_eq!(mix_hex("#000000", "#ffffff", 1.0), "#ffffff");
+        assert_eq!(mix_hex("#000000", "#ffffff", 0.5), "#808080");
+    }
+}

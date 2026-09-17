@@ -3,22 +3,11 @@ use std::path::PathBuf;
 use std::process::Command;
 
 fn get_system_theme_path(theme_name: &str) -> Option<PathBuf> {
-    dirs::home_dir().map(|h| {
-        h.join(".local")
-            .join("share")
-            .join("omarchy")
-            .join("themes")
-            .join(theme_name)
-    })
+    Some(crate::system::omarchy_paths::system_themes_dir().join(theme_name))
 }
 
 fn get_custom_theme_path(theme_name: &str) -> Option<PathBuf> {
-    dirs::home_dir().map(|h| {
-        h.join(".config")
-            .join("omarchy")
-            .join("themes")
-            .join(theme_name)
-    })
+    crate::system::omarchy_paths::user_themes_dir().map(|d| d.join(theme_name))
 }
 
 pub fn get_theme_path(theme_name: &str, is_system: bool) -> Option<PathBuf> {

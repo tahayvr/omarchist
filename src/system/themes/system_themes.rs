@@ -7,12 +7,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 fn get_system_themes_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| {
-        h.join(".local")
-            .join("share")
-            .join("omarchy")
-            .join("themes")
-    })
+    Some(crate::system::omarchy_paths::system_themes_dir())
 }
 
 fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
@@ -39,7 +34,7 @@ fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
     })
 }
 
-// Scan `~/.local/share/omarchy/themes/`
+// Scan `$OMARCHY_PATH/themes/` (default `/usr/share/omarchy/themes/`)
 pub fn get_system_themes() -> Result<Vec<ThemeEntry>, String> {
     let themes_dir = get_system_themes_dir()
         .ok_or_else(|| "Could not determine system themes directory".to_string())?;

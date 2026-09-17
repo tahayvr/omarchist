@@ -17,7 +17,7 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "Omarchist, Omarchy Linux, Hyprland, Waybar, Linux theming, GUI app, Linux customization",
+          "Omarchist, Omarchy Linux, Hyprland, Linux theming, GUI app, Linux customization",
       },
     ],
     ["meta", { name: "author", content: "Taha Nejad" }],
@@ -98,7 +98,6 @@ export default defineConfig({
         text: "CONFIGURATION",
         items: [
           { text: "Hyprland", link: "/configuring/" },
-          { text: "Status Bar", link: "/configuring/status-bar" },
         ],
       },
     ],

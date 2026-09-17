@@ -2,11 +2,8 @@ Welcome to Omarchist! A GUI application for [Omarchy](https://omarchy.org/) Linu
 
 ## Features
 
-- **Theme Designer**: Create and customize themes for Omarchy.
-- **Hyprland Configuration**: Configure Hyprland settings easily.
-- **Omarchy Configuration**: Manage your Omarchy settings effortlessly.
-  - Keyboard settings
-  - Mouse & Touchpad settings
+- **Theme Designer**: Create and customize themes for Omarchy. Omarchist writes `colors.toml` and Omarchy generates the rest.
+- **Hyprland Configuration**: Configure window gaps, borders, blur, keyboard, mouse, and touchpad settings without touching `hyprland.lua`.
 
 <img src="/images/omarchist-social.png" alt="Omarchist Screenshot" class="light-only">
 <img src="/images/omarchist-screenshot.png" alt="Omarchist Screenshot" class="dark-only">
@@ -20,5 +17,5 @@ yay -S omarchist-bin
 ```
 
 ::: tip
-Requires Omarchy ^v3.0.0
+Omarchist 2.x requires Omarchy Quattro (v4). Use an Omarchist 1.x release with Omarchy 3.x.
 :::
