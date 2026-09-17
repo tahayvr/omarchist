@@ -484,6 +484,9 @@ impl FlowEditPage {
                     this.commit_keybind(Some(override_.clone()), window, cx);
                     window.close_dialog(cx);
                 }
+                // The dialog took focus with it; without a focused element the
+                // page's shortcuts would not fire until the next click.
+                this.focus_entry(window, cx);
             },
         );
         self.keybind_dialog = Some((dialog, subscription));
