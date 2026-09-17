@@ -60,7 +60,7 @@ Omarchy defines its keybinds in Lua, and Hyprland cannot report what a bind does
 
 Your changes are saved to `~/.config/omarchist/hyprland/keybinds.json` and written as `hl.unbind` and `hl.bind` calls into `~/.config/hypr/omarchist.lua`, which loads after your own `bindings.lua`. Omarchist never edits `bindings.lua`. Hyprland reloads immediately.
 
-While recording, Omarchist switches Hyprland into an empty submap so the compositor does not act on the keys you press, and switches back when recording ends, when the window loses focus, and when the app quits. If Omarchist is killed mid-recording and your shortcuts stop responding, run:
+While recording, Omarchist switches Hyprland into an empty submap so the compositor does not act on the keys you press, and switches back when recording ends, when the window loses focus, and when the app quits. An input method such as fcitx5 sits below the compositor and keeps its own hotkeys (fcitx5 takes <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>P</kbd> to toggle preedit by default), so a combination it owns cannot be recorded by pressing it; type it in the keys field instead, or change the hotkey in the input method's settings. If Omarchist is killed mid-recording and your shortcuts stop responding, run:
 
 ```bash
 hyprctl dispatch 'hl.dsp.submap("reset")'
