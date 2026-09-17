@@ -33,7 +33,7 @@ pub struct Flow {
     pub on_error: OnError,
     /// Declared before `steps` so the TOML file lists it before the
     /// `[[steps]]` tables rather than after them.
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Triggers::is_empty")]
     pub triggers: Triggers,
     #[serde(default)]
     pub steps: Vec<Step>,
@@ -74,6 +74,12 @@ pub struct Triggers {
     /// Omarchy's `post-boot` hook, run once per session start.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub startup: bool,
+}
+
+impl Triggers {
+    pub fn is_empty(&self) -> bool {
+        !self.launcher && !self.startup
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -448,7 +454,7 @@ mod tests {
         assert_eq!(json["steps"][1]["enabled"], false);
         assert_eq!(json["steps"][1]["ms"], 500);
         assert_eq!(json["icon"], "workflow");
-        assert!(json.get("triggers").is_some());
+        assert!(json.get("triggers").is_none(), "no triggers, no table");
 
         let back: Flow = serde_json::from_value(json).unwrap();
         assert_eq!(back, flow);

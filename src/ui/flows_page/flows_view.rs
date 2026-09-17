@@ -720,23 +720,26 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &GridFirst, _, cx| this.set_focused(0, cx)))
             .on_action(cx.listener(|this, _: &GridLast, _, cx| this.set_focused(usize::MAX, cx)))
             .child(self.render_toolbar(cx))
-            .child(
-                div()
+            .map(|this| {
+                let scroll = div()
                     .id("flows-grid")
-                    .key_context(GRID_CONTEXT)
-                    .track_focus(&self.grid_focus)
                     .flex_1()
                     .min_h_0()
                     .overflow_y_scroll()
                     .track_scroll(&self.scroll)
-                    .pb_8()
-                    .map(|this| {
-                        if self.filtered.is_empty() {
-                            this.child(self.render_empty(cx))
-                        } else {
-                            this.child(self.render_grid(window, cx))
-                        }
-                    }),
-            )
+                    .pb_8();
+                if self.filtered.is_empty() {
+                    // The empty state's buttons are ordinary tab stops, so it
+                    // stays outside the grid's roving focus container.
+                    this.child(scroll.child(self.render_empty(cx)))
+                } else {
+                    this.child(
+                        scroll
+                            .key_context(GRID_CONTEXT)
+                            .track_focus(&self.grid_focus)
+                            .child(self.render_grid(window, cx)),
+                    )
+                }
+            })
     }
 }
