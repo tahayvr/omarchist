@@ -124,6 +124,18 @@ pub enum StepKind {
 }
 
 impl StepKind {
+    /// The literal thing the step does: the command, the dispatcher
+    /// expression, the pause, the notification title, or the flow id.
+    pub fn text(&self) -> String {
+        match self {
+            StepKind::Exec { command, .. } => command.clone(),
+            StepKind::Lua { expr } => expr.clone(),
+            StepKind::Wait { ms } => format!("wait {}", format_duration(*ms)),
+            StepKind::Notify { title, .. } => format!("notify \"{title}\""),
+            StepKind::Flow { id } => run_command(id),
+        }
+    }
+
     /// The dispatcher form of an `Exec` or `Lua` step, for the action builder.
     pub fn dispatcher(&self) -> Option<Dispatcher> {
         match self {
@@ -213,6 +225,17 @@ pub fn run_command_id(command: &str) -> Option<String> {
             Some(id.clone())
         }
         _ => None,
+    }
+}
+
+/// "250 ms", "1.5 s", "2 s".
+pub fn format_duration(ms: u64) -> String {
+    if ms < 1000 {
+        format!("{ms} ms")
+    } else if ms.is_multiple_of(1000) {
+        format!("{} s", ms / 1000)
+    } else {
+        format!("{:.1} s", ms as f64 / 1000.0)
     }
 }
 
@@ -329,6 +352,18 @@ mod tests {
         assert_eq!(unique_id("Focus", &taken), "focus-3");
         assert_eq!(unique_id("Other", &taken), "other");
         assert_eq!(unique_id("!!!", &[]), "flow");
+    }
+
+    #[test]
+    fn durations_and_step_text() {
+        assert_eq!(format_duration(250), "250 ms");
+        assert_eq!(format_duration(1000), "1 s");
+        assert_eq!(format_duration(1500), "1.5 s");
+        assert_eq!(StepKind::Wait { ms: 2000 }.text(), "wait 2 s");
+        assert_eq!(
+            StepKind::Flow { id: "x".into() }.text(),
+            "omarchist flow run 'x'"
+        );
     }
 
     #[test]
