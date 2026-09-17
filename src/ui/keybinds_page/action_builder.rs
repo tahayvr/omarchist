@@ -14,10 +14,12 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::flows::Flow;
+use crate::system::flows::store::load_flows;
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::action::{
     Action, ActionKind, AppLaunch, Direction, OMARCHY_ACTIONS, WindowAction, WindowActionKind,
-    WindowParam, WorkspaceTarget, omarchy_entry, webapp_name,
+    WindowParam, WorkspaceTarget, omarchy_entry, program_name,
 };
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
@@ -124,10 +126,9 @@ impl SelectItem for LabeledItem {
 
 type Picker = Entity<SelectState<SearchableVec<LabeledItem>>>;
 
-/// The program a command line starts, without its directory.
-fn program_name(exec: &str) -> &str {
-    let first = exec.split_whitespace().next().unwrap_or(exec);
-    first.rsplit('/').next().unwrap_or(first)
+fn step_count(flow: &Flow) -> String {
+    let n = flow.enabled_steps();
+    format!("{n} step{}", if n == 1 { "" } else { "s" })
 }
 
 fn same_url(a: &str, b: &str) -> bool {
@@ -186,6 +187,10 @@ pub struct ActionBuilder {
     resize_y: Entity<InputState>,
     /// A dispatcher the builder cannot express, kept until replaced.
     kept_lua: Option<String>,
+
+    flows: Vec<Flow>,
+    flow_select: Picker,
+    flow_id: Option<String>,
 
     command: Entity<InputState>,
 
@@ -253,6 +258,10 @@ impl ActionBuilder {
             Some(Action::Window(action)) => Some(action.clone()),
             _ => None,
         };
+        let flow_id = match &initial_action {
+            Some(Action::Flow(id)) => Some(id.clone()),
+            _ => None,
+        };
         let command_value = match &initial_action {
             Some(Action::Command(command)) => command.clone(),
             _ => String::new(),
@@ -316,6 +325,16 @@ impl ActionBuilder {
             .unwrap_or((100, 0));
         let resize_x = text(window, cx, "0", &dx.to_string());
         let resize_y = text(window, cx, "0", &dy.to_string());
+        let flows = load_flows().unwrap_or_default();
+        let flow_items = flows
+            .iter()
+            .map(|f| LabeledItem {
+                id: f.id.clone(),
+                label: f.name.clone().into(),
+                group: step_count(f).into(),
+            })
+            .collect();
+        let flow_select = picker(window, cx, flow_items, flow_id.as_deref());
         let command = text(
             window,
             cx,
@@ -404,6 +423,17 @@ impl ActionBuilder {
             },
         ));
 
+        subscriptions.push(cx.subscribe_in(
+            &flow_select,
+            window,
+            |this, _, event: &SelectEvent<SearchableVec<LabeledItem>>, _window, cx| {
+                if let SelectEvent::Confirm(Some(id)) = event {
+                    this.flow_id = Some(id.clone());
+                    this.changed(cx);
+                }
+            },
+        ));
+
         let builder = Self {
             kind,
             kind_focus: focus::tab_stop(cx),
@@ -427,6 +457,9 @@ impl ActionBuilder {
             resize_x,
             resize_y,
             kept_lua,
+            flows,
+            flow_select,
+            flow_id,
             command,
             _subscriptions: subscriptions,
         };
@@ -622,6 +655,11 @@ impl ActionBuilder {
                 .clone()
                 .map(Action::Window)
                 .ok_or_else(|| "Choose a window action".to_string()),
+            ActionKind::Flow => self
+                .flow_id
+                .clone()
+                .map(Action::Flow)
+                .ok_or_else(|| "Choose a flow to run".to_string()),
             ActionKind::Command => {
                 let command = self.command.read(cx).value().trim().to_string();
                 if command.is_empty() {
@@ -648,38 +686,12 @@ impl ActionBuilder {
     pub fn suggested_description(&self, cx: &App) -> Option<String> {
         match self.action(cx).ok()? {
             Action::App { .. } => self.app.as_ref().map(|(_, name)| name.clone()),
-            Action::WebApp { url, name, .. } => Some(if name.is_empty() {
-                let host = webapp_name(&url);
-                let mut chars = host.chars();
-                match chars.next() {
-                    Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
-                    None => host,
-                }
-            } else {
-                name
-            }),
-            Action::Terminal { command, .. } => {
-                command.split_whitespace().next().map(str::to_string)
-            }
-            Action::Omarchy(entry) => Some(entry.label.to_string()),
-            Action::Window(action) => {
-                let direction = action.direction.label().to_lowercase();
-                let workspace = action.workspace.label().to_lowercase();
-                Some(match action.kind {
-                    WindowActionKind::FocusWindow => format!("Focus window {direction}"),
-                    WindowActionKind::SwapWindow => format!("Swap window {direction}"),
-                    WindowActionKind::MoveIntoGroup => {
-                        format!("Move window into group {direction}")
-                    }
-                    WindowActionKind::MoveWorkspaceToMonitor => {
-                        format!("Move workspace to {direction} monitor")
-                    }
-                    WindowActionKind::SwitchWorkspace => format!("Switch to {workspace}"),
-                    WindowActionKind::MoveToWorkspace => format!("Move window to {workspace}"),
-                    _ => action.kind.label().to_string(),
-                })
-            }
-            Action::Command(_) => None,
+            Action::Flow(id) => self
+                .flows
+                .iter()
+                .find(|f| f.id == id)
+                .map(|f| f.name.clone()),
+            action => action.summary(),
         }
     }
 
@@ -705,14 +717,7 @@ impl ActionBuilder {
             .gap_1()
             .flex_wrap()
             .children(ActionKind::ALL.iter().enumerate().map(|(ix, &kind)| {
-                let icon = Icon::new(Icon::empty()).path(match kind {
-                    ActionKind::App => "icons/app-window.svg",
-                    ActionKind::WebApp => "icons/globe.svg",
-                    ActionKind::Terminal => "icons/square-terminal.svg",
-                    ActionKind::Omarchy => "icons/sparkles.svg",
-                    ActionKind::Window => "icons/layout-grid.svg",
-                    ActionKind::Command => "icons/terminal.svg",
-                });
+                let icon = Icon::new(Icon::empty()).path(kind.icon_path());
                 let button = Button::new(("action-kind", ix))
                     .icon(icon)
                     .label(kind.label())
@@ -978,6 +983,28 @@ impl ActionBuilder {
                     })
                     .into_any_element()
             }
+            ActionKind::Flow => v_flex()
+                .gap_2()
+                .child(
+                    Select::new(&self.flow_select)
+                        .placeholder(if self.flows.is_empty() {
+                            "No flows yet"
+                        } else {
+                            "Choose a flow"
+                        })
+                        .search_placeholder("Search flows")
+                        .menu_max_h(px(320.))
+                        .small(),
+                )
+                .child(Self::hint(
+                    if self.flows.is_empty() {
+                        "Create a flow on the Flows page first: a sequence of actions that runs from one keybind."
+                    } else {
+                        "Runs every step of the flow, the same as the Run button on the Flows page."
+                    },
+                    cx,
+                ))
+                .into_any_element(),
             ActionKind::Command => v_flex()
                 .gap_2()
                 .child(Input::new(&self.command).small())

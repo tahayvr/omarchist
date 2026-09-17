@@ -488,6 +488,23 @@ impl WindowAction {
         }
     }
 
+    /// "Focus window left", "Switch to workspace 3", or the kind's label.
+    pub fn summary(&self) -> String {
+        let direction = self.direction.label().to_lowercase();
+        let workspace = self.workspace.label().to_lowercase();
+        match self.kind {
+            WindowActionKind::FocusWindow => format!("Focus window {direction}"),
+            WindowActionKind::SwapWindow => format!("Swap window {direction}"),
+            WindowActionKind::MoveIntoGroup => format!("Move window into group {direction}"),
+            WindowActionKind::MoveWorkspaceToMonitor => {
+                format!("Move workspace to {direction} monitor")
+            }
+            WindowActionKind::SwitchWorkspace => format!("Switch to {workspace}"),
+            WindowActionKind::MoveToWorkspace => format!("Move window to {workspace}"),
+            _ => self.kind.label().to_string(),
+        }
+    }
+
     /// The `hl.dsp.*` expression, formatted as Omarchy's own bindings are.
     pub fn lua(&self) -> String {
         let d = self.direction.code();
@@ -694,6 +711,8 @@ pub enum Action {
     },
     Omarchy(&'static OmarchyEntry),
     Window(WindowAction),
+    /// Runs a flow from the Flows page by id.
+    Flow(String),
     Command(String),
 }
 
@@ -704,16 +723,18 @@ pub enum ActionKind {
     Terminal,
     Omarchy,
     Window,
+    Flow,
     Command,
 }
 
 impl ActionKind {
-    pub const ALL: [ActionKind; 6] = [
+    pub const ALL: [ActionKind; 7] = [
         ActionKind::App,
         ActionKind::WebApp,
         ActionKind::Terminal,
         ActionKind::Omarchy,
         ActionKind::Window,
+        ActionKind::Flow,
         ActionKind::Command,
     ];
 
@@ -724,9 +745,29 @@ impl ActionKind {
             ActionKind::Terminal => "Terminal",
             ActionKind::Omarchy => "Omarchy",
             ActionKind::Window => "Window",
+            ActionKind::Flow => "Flow",
             ActionKind::Command => "Command",
         }
     }
+
+    /// The Lucide icon under `assets/icons/`.
+    pub fn icon_path(self) -> &'static str {
+        match self {
+            ActionKind::App => "icons/app-window.svg",
+            ActionKind::WebApp => "icons/globe.svg",
+            ActionKind::Terminal => "icons/square-terminal.svg",
+            ActionKind::Omarchy => "icons/sparkles.svg",
+            ActionKind::Window => "icons/layout-grid.svg",
+            ActionKind::Flow => "icons/workflow.svg",
+            ActionKind::Command => "icons/terminal.svg",
+        }
+    }
+}
+
+/// The program a command line starts, without its directory.
+pub fn program_name(exec: &str) -> &str {
+    let first = exec.split_whitespace().next().unwrap_or(exec);
+    first.rsplit('/').next().unwrap_or(first)
 }
 
 impl Action {
@@ -737,7 +778,30 @@ impl Action {
             Action::Terminal { .. } => ActionKind::Terminal,
             Action::Omarchy(_) => ActionKind::Omarchy,
             Action::Window(_) => ActionKind::Window,
+            Action::Flow(_) => ActionKind::Flow,
             Action::Command(_) => ActionKind::Command,
+        }
+    }
+
+    /// A short description of the action for a bind or a flow step, e.g.
+    /// "Focus window left". Apps are named by their program and flows by
+    /// their id; callers with the desktop entry or the flow at hand
+    /// substitute the friendlier name. `None` for a bare command.
+    pub fn summary(&self) -> Option<String> {
+        match self {
+            Action::App { app, .. } => Some(program_name(&app.exec).to_string()),
+            Action::WebApp { url, name, .. } => Some(if name.is_empty() {
+                capitalize(&webapp_name(url))
+            } else {
+                name.clone()
+            }),
+            Action::Terminal { command, .. } => {
+                command.split_whitespace().next().map(str::to_string)
+            }
+            Action::Omarchy(entry) => Some(entry.label.to_string()),
+            Action::Window(action) => Some(action.summary()),
+            Action::Flow(id) => Some(format!("Run flow {id}")),
+            Action::Command(_) => None,
         }
     }
 
@@ -784,6 +848,7 @@ impl Action {
             )),
             Action::Omarchy(entry) => Dispatcher::Exec(entry.command.to_string()),
             Action::Window(action) => Dispatcher::Lua(action.lua()),
+            Action::Flow(id) => Dispatcher::Exec(crate::system::flows::run_command(id)),
             Action::Command(command) => Dispatcher::Exec(command.trim().to_string()),
         }
     }
@@ -799,6 +864,9 @@ impl Action {
     }
 
     fn from_exec(command: &str) -> Action {
+        if let Some(id) = crate::system::flows::run_command_id(command) {
+            return Action::Flow(id);
+        }
         if let Some(entry) = omarchy_entry_for_command(command.trim()) {
             return Action::Omarchy(entry);
         }
@@ -851,6 +919,14 @@ impl Action {
     }
 }
 
+fn capitalize(word: &str) -> String {
+    let mut chars = word.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+        None => String::new(),
+    }
+}
+
 /// A window-title pattern for a URL, used when a web app has no name yet.
 pub fn webapp_name(url: &str) -> String {
     let host = url
@@ -884,6 +960,37 @@ mod tests {
             shell_split(r#"a "b c" d\ e 'it'\''s'"#),
             vec!["a", "b c", "d e", "it's"]
         );
+    }
+
+    #[test]
+    fn flow_actions_round_trip_and_summarize() {
+        let action = Action::Flow("morning-start".into());
+        let dispatcher = action.dispatcher();
+        assert_eq!(
+            dispatcher,
+            Dispatcher::Exec("omarchist flow run 'morning-start'".into())
+        );
+        assert_eq!(Action::from_dispatcher(&dispatcher), Some(action.clone()));
+        assert_eq!(action.kind(), ActionKind::Flow);
+        assert_eq!(action.summary().as_deref(), Some("Run flow morning-start"));
+
+        let mut focus = WindowAction::new(WindowActionKind::FocusWindow);
+        focus.direction = Direction::Right;
+        assert_eq!(
+            Action::Window(focus).summary().as_deref(),
+            Some("Focus window right")
+        );
+        assert_eq!(
+            Action::WebApp {
+                url: "https://mail.google.com/".into(),
+                name: String::new(),
+                focus: false
+            }
+            .summary()
+            .as_deref(),
+            Some("Mail")
+        );
+        assert_eq!(Action::Command("ls".into()).summary(), None);
     }
 
     #[test]
