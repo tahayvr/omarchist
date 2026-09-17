@@ -27,7 +27,8 @@ impl ThemesPage {
         let theme_grid = cx.new(|cx| ThemeGrid::new(vec![], window, cx));
 
         cx.spawn(async move |this, cx| {
-            let themes = smol::unblock(Self::load_all_themes).await;
+            // Not `smol::unblock`: the test scheduler only drives gpui's own executor.
+            let themes = cx.background_spawn(async { Self::load_all_themes() }).await;
             this.update(cx, |this, cx| {
                 this.theme_grid.update(cx, |grid, cx| {
                     grid.update_themes(themes, cx);
@@ -47,8 +48,8 @@ impl ThemesPage {
     }
 
     /// Focuses the tab strip, the page's first control.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.tabs_focus.focus(window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs_focus.focus(window, cx);
     }
 
     fn set_tab(&mut self, index: usize, cx: &mut Context<Self>) {
@@ -59,8 +60,9 @@ impl ThemesPage {
         }
     }
 
-    fn focus_grid(&self, window: &mut Window, cx: &Context<Self>) {
-        self.theme_grid.read(cx).focus.focus(window);
+    fn focus_grid(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let focus = self.theme_grid.read(cx).focus.clone();
+        focus.focus(window, cx);
     }
 
     pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
@@ -107,8 +109,8 @@ impl Render for ThemesPage {
             .size_full()
             .overflow_hidden()
             .gap_4()
-            .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, _cx| {
-                this.tabs_focus.focus(window);
+            .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, cx| {
+                this.tabs_focus.focus(window, cx);
             }))
             .child(
                 tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)

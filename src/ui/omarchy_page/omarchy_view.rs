@@ -25,6 +25,7 @@ pub struct OmarchyView {
     update_available: Option<bool>,
     latest_tag: Option<String>,
     release_notes: Option<String>,
+    release_notes_error: Option<String>,
     pub focus_handle: FocusHandle,
     notes_focus: FocusHandle,
     notes_scroll: ScrollHandle,
@@ -38,11 +39,8 @@ impl OmarchyView {
     ) -> Self {
         let local_version = version.unwrap_or_else(|| "unknown".to_string());
 
-        // Spawn async task to check for updates and update both the in-page
-        // display and the title bar badge.
         Self::spawn_version_check(local_version.clone(), title_bar.clone(), cx);
 
-        // Spawn async task to fetch latest release notes
         cx.spawn(
             async move |this, cx| match fetch_latest_release_notes().await {
                 Ok((tag, notes)) => {
@@ -54,20 +52,24 @@ impl OmarchyView {
                 }
                 Err(e) => {
                     eprintln!("Failed to fetch release notes: {e}");
+                    this.update(cx, |this, _cx| {
+                        this.release_notes_error = Some(e.to_string());
+                    })
+                    .ok();
                 }
             },
         )
         .detach();
 
-        // Note: the 30-minute periodic version-check loop lives in
-        // MainWindowView::new() (via the background spawn) so the
-        // title-bar badge stays fresh even if this page is never opened.
+        // The periodic check that keeps the title-bar badge fresh is started
+        // from main.rs.
 
         Self {
             local_version,
             update_available: None,
             latest_tag: None,
             release_notes: None,
+            release_notes_error: None,
             focus_handle: cx.focus_handle(),
             notes_focus: crate::ui::focus::tab_stop(cx),
             notes_scroll: ScrollHandle::new(),
@@ -75,13 +77,13 @@ impl OmarchyView {
     }
 
     /// Focuses the first control on the page.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window, cx);
     }
 
     fn scroll_notes_by(&self, delta: f32, cx: &mut Context<Self>) {
         let mut offset = self.notes_scroll.offset();
-        let max = self.notes_scroll.max_offset().height;
+        let max = self.notes_scroll.max_offset().y;
         offset.y = (offset.y - px(delta)).clamp(-max, px(0.));
         self.notes_scroll.set_offset(offset);
         cx.notify();
@@ -92,7 +94,7 @@ impl OmarchyView {
         offset.y = if top {
             px(0.)
         } else {
-            -self.notes_scroll.max_offset().height
+            -self.notes_scroll.max_offset().y
         };
         self.notes_scroll.set_offset(offset);
         cx.notify();
@@ -110,11 +112,9 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    title_bar
-                        .update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
+                    title_bar.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
                 }
                 Err(e) => {
                     eprintln!("Failed to check for omarchy updates: {e}");
@@ -136,7 +136,6 @@ impl OmarchyView {
             let current_version =
                 get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
 
-            // Update local_version and set to checking state
             this.update(cx, |this, _cx| {
                 this.local_version = current_version.clone();
                 this.update_available = None;
@@ -149,7 +148,7 @@ impl OmarchyView {
                         this.update_available = Some(update_available);
                     })
                     .ok();
-                    let _ = crate::ui::app_events::emit_async(
+                    crate::ui::app_events::emit_async(
                         cx,
                         crate::ui::app_events::AppEvent::OmarchyUpdateStatus(update_available),
                     );
@@ -175,26 +174,22 @@ impl Render for OmarchyView {
         let page_height = self.notes_scroll.bounds().size.height;
 
         let version_status = match self.update_available {
-            None => {
-                // Still checking
-                v_flex()
-                    .gap_1()
-                    .items_center()
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version)),
-                    )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child("Checking for updates..."),
-                    )
-            }
+            None => v_flex()
+                .gap_1()
+                .items_center()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("Version {}", self.local_version)),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child("Checking for updates..."),
+                ),
             Some(true) => {
-                // Update available
                 v_flex()
                     .gap_1()
                     .items_center()
@@ -223,7 +218,6 @@ impl Render for OmarchyView {
                                     {
                                         eprintln!("{e}");
                                     } else {
-                                        // Show "Checking..." immediately while the update runs
                                         this.update_available = None;
                                         cx.notify();
                                         // Schedule a re-check after the update has had time to complete
@@ -233,27 +227,24 @@ impl Render for OmarchyView {
                             ),
                     )
             }
-            Some(false) => {
-                // Up to date
-                v_flex()
-                    .gap_1()
-                    .items_center()
-                    .child(
+            Some(false) => v_flex()
+                .gap_1()
+                .items_center()
+                .child(
+                    div()
+                        .text_sm()
+                        .text_color(theme.muted_foreground)
+                        .child(format!("Version {}", self.local_version)),
+                )
+                .child(
+                    h_flex().gap_4().items_center().child(
                         div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version)),
-                    )
-                    .child(
-                        h_flex().gap_4().items_center().child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.green)
-                                .font_weight(FontWeight::BOLD)
-                                .child("Up to date"),
-                        ),
-                    )
-            }
+                            .text_xs()
+                            .text_color(theme.green)
+                            .font_weight(FontWeight::BOLD)
+                            .child("Up to date"),
+                    ),
+                ),
         };
 
         let release_notes_section = if let Some(notes) = &self.release_notes {
@@ -282,7 +273,7 @@ impl Render for OmarchyView {
                 ..Default::default()
             };
 
-            let markdown_view = TextView::markdown("release-notes", notes.clone(), window, cx)
+            let markdown_view = TextView::markdown("release-notes", notes.clone())
                 .style(style)
                 .line_height(rems(1.6))
                 .selectable(true);
@@ -347,6 +338,10 @@ impl Render for OmarchyView {
                         .child(div().w_full().pb_2().child(markdown_view)),
                 )
         } else {
+            let (label, detail) = match &self.release_notes_error {
+                Some(error) => ("Release notes unavailable.", Some(error.clone())),
+                None => ("Loading release notes...", None),
+            };
             v_flex()
                 .gap_2()
                 .w_full()
@@ -357,8 +352,14 @@ impl Render for OmarchyView {
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child("Loading release notes..."),
+                        .child(label),
                 )
+                .children(detail.map(|detail| {
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(detail)
+                }))
         };
 
         v_flex()

@@ -1,6 +1,6 @@
 use gpui::FontWeight;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, Sizable, button::*, h_flex, v_flex};
+use gpui_component::{ActiveTheme, Icon, Sizable, button::*, h_flex, v_flex};
 
 const KEY_CONTEXT: &str = "AboutView";
 
@@ -16,8 +16,8 @@ impl AboutView {
     }
 
     /// Focuses the first link button.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window, cx);
     }
 }
 
@@ -75,7 +75,7 @@ impl Render for AboutView {
                     )
                     .child(
                         Button::new("github")
-                            .icon(Icon::new(IconName::GitHub).size_8())
+                            .icon(Icon::new(Icon::empty()).path("icons/github.svg").size_8())
                             .ghost()
                             .cursor_pointer()
                             .large()

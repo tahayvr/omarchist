@@ -9,9 +9,10 @@ cargo check
 cargo run
 
 # Testing
-cargo test                 # Run all tests
+cargo test                 # Run all tests (unit + headless UI tests)
 cargo test <test_name>     # Run single test
 cargo test <module>::      # Run tests in module
+cargo test --test keyboard_nav   # Headless keyboard-navigation tests only
 
 # Code quality
 cargo clippy              # Run linter
@@ -24,8 +25,9 @@ cargo add <crate_name>
 ## Tech Stack
 
 - **Rust Edition:** 2024
-- **UI Framework:** GPUI 0.2.2 (GPU-accelerated)
-- **Components:** gpui-component 0.5.1
+- **UI Framework:** GPUI via `gpui-pre` 0.3.x (longbridge's weekly snapshot of Zed's gpui; Zed's crates.io `gpui` stopped at 0.2.2). Renamed in `Cargo.toml` so code keeps `use gpui::*`. `gpui-pre-platform` (as `gpui_platform`, features `wayland` + `x11`) owns `application()`.
+- **Components:** GPUI Kit 0.6 — `gpui-component` (styled), `gpui-base` (unstyled behaviour, focus traps), `gpui-kit` (facade; required in the graph because gpui's macros resolve paths through it), `gpui-kit-assets` (Lucide icons, no brand icons)
+- **Pinning:** every `gpui*` crate is pinned exactly (`=`) and bumped together; `gpui-pre` patch releases are not semver-stable.
 - **Async Runtime:** smol 2.0.2
 - **Serialization:** serde + serde_json
 - **Date/Time:** chrono
@@ -137,7 +139,7 @@ Define actions with `actions!(namespace, [..])` (in a `pub mod` when several com
 pub struct SetFilter(pub usize);
 ```
 
-Every key binding lives in `src/ui/shortcuts.rs` (`SHORTCUTS`): `main.rs` registers `key_bindings()`, the help dialog renders `help_rows()`, and a test rejects duplicate `(keys, context)` pairs. Never call `cx.bind_keys` with app shortcuts anywhere else. Never bind a bare printable key (`space`, letters) in a context that can contain an `Input`: the binding wins over the input and the character is never typed. To override a component's own key (Input binds `tab`, `down`, `escape`, `ctrl-enter`) use a child predicate registered later, e.g. `Some("KeybindsSearch > Input")`.
+Every key binding lives in `src/ui/shortcuts.rs` (`SHORTCUTS`): `main.rs` registers `key_bindings()`, the help dialog renders `help_rows()`, the command palette (`src/ui/dialogs/command_palette.rs`) looks its key hints up from the live keymap, and a test rejects duplicate `(keys, context)` pairs. App-wide commands belong in the palette's `groups()` too. Never call `cx.bind_keys` with app shortcuts anywhere else. Never bind a bare printable key (`space`, letters) in a context that can contain an `Input`: the binding wins over the input and the character is never typed. To override a component's own key (Input binds `tab`, `down`, `escape`, `ctrl-enter`) use a child predicate registered later, e.g. `Some("KeybindsSearch > Input")`.
 
 ### State Management
 
@@ -241,7 +243,9 @@ GPUI focus is the only source of truth; never keep a shadow "focused index" that
 - Every interactive element is a tab stop (`focus::tab_stop(cx)` or gpui-component's `Button`/`Input`/`Select`/`Radio`/`ColorPicker`). `Switch` is mouse-only: use `FocusableSwitch`.
 - Composites (sidebar, tab strips, theme grid, keybinds table and filters, config section list) are one tab stop with a roving index; their arrow keys are actions in their own `key_context`. Tab never stops on individual items inside them.
 - Each page exposes `focus_entry(&self, window, cx)`; `MainWindowView::navigate_to` calls it so keyboard users land on the first control. `Escape` (`focus::EscapeToSidebar`) toggles between the sidebar and the page.
-- Dialogs wrap their content in `focus::dialog_body(...)` (traps Tab, handles `dialog::Submit` = Ctrl+Enter) and call `focus::focus_first_in(&body_focus, window)` after `open_dialog`.
+- Dialogs wrap their content in `focus::dialog_body(...)` (handles `dialog::Submit` = Ctrl+Enter) and call `focus::focus_first_in(&body_focus, window, cx)` after `open_dialog`. Tab is trapped by gpui-kit itself: every dialog is a `focus_trap`, and `Root`'s Tab handler stays inside the active trap. Where a control's own `tab` binding is overridden (`... > Input`), route it to `focus::FocusNext`/`FocusPrev`, whose handler (`focus_next_trapped`) honours the trap the same way.
+- Commands dispatched from inside a dialog (the palette) never reach `MainWindowView`'s handlers, because the dialog is rendered by `Root` outside the main view's element path. Close the dialog and dispatch through the main view's `FocusHandle::dispatch_action` instead.
+- Headless UI tests (`tests/keyboard_nav.rs`) follow the GPUI Kit testing guide (gpui-kit.com/docs/test): `#[gpui_kit::test]`, types from the Kit root (`gpui_kit::{TestAppContext, ..}`, `gpui_kit::component::Root`), `cx.update(gpui_kit::init)`, `cx.open_window(size, ..)` around the production `Root`/`MainWindowView`, `window.render_frame(cx)` before the first query, `TestWindowExt` for `find`/`press`/`input`, `wait_for` for async work, and model state checked next to UI snapshots. Elements that tests query carry a stable `.id(..)` followed by `.test_support()` *before* `.track_focus(..)` (`SidebarNav`, `focus::dialog_body`); `test_support()` is inert in normal builds but wraps the element under `test-support`, so such helpers return `impl ParentElement + StatefulInteractiveElement + ..` rather than `Stateful<Div>`. The window must be free of network tasks (the Omarchy update watcher starts from `main.rs`) and background work runs on gpui's executor (`cx.background_spawn`, not `smol::unblock`) so the test scheduler can drive it.
 - Scrolling content wraps sections in `FocusSection` so a focused section scrolls into view.
 - Focus rings come from `handle.is_focused(window)` and `focus::focus_border`.
 
@@ -275,6 +279,13 @@ Changes persist automatically (no save button):
 - **`actions!` does not create a module** — the namespace is only the action name. Wrap it in `pub mod name { gpui::actions!(name, [...]); }` when you want `name::Action` paths.
 - **`use super::*` in a test module** of a file that has `use gpui::*` imports gpui's `test` attribute macro and breaks `#[test]` (recursion limit). Import the specific items instead.
 - **gpui-component `Settings`** keeps its page selection in private keyed state and cannot be driven from the keyboard; the Configuration page renders its own section list and `GroupBox`es from a declarative table instead.
+- **`SidebarMenuItem` is not an element on its own** — it implements `SidebarItem`; render it with `.render(id, window, cx)` outside a `Sidebar`/`SidebarMenu`. It is `Styled`, so focus rings go on the item itself. `Sidebar::new(id).side(..)`; `.suffix()` takes a builder closure.
+- **`Select` renders a full-width root** — box it in a fixed-width `flex_none` div or it squeezes its siblings.
+- **`h_flex()` centres its children** (`items_center`), and gpui has no `items_stretch`; use `div().flex().flex_row()` when a child must fill the row's height (e.g. a scroll container).
+- **`AlertDialog`** can only be opened from its own trigger element (`with_base_alert_dialog` is crate-private), so programmatic confirmations use `dialogs::confirm_dialog`.
+- **`FocusHandle::focus`, `Window::focus_next/prev` take `cx`**; `Entity::update` on an `AsyncApp` is infallible (it panics once the app is gone, which cannot happen to a foreground task); `ScrollHandle::max_offset()` is a `Point`.
+- **Key contexts:** the data table's context is `DataTable` (not `Table`); `Input` binds `tab`, `up`, `down`, `escape`; `Root` binds `tab`, `shift-tab`, `ctrl-c`.
+- **Inline code in `TextView::markdown` (gpui-base 0.6.1)** is drawn over the neighbouring words of its line. Fixed upstream after 0.6.1 (gpui-kit PRs #3038 and #3046); goes away with the next pinned bump.
 
 ## Theme System (Quattro)
 
@@ -313,7 +324,7 @@ Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, op
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
-- **Keyboard:** `src/ui/shortcuts.rs` (every binding), `src/ui/focus.rs` (tab stops, focus trap, focusable switch, scroll-into-view), `src/ui/dialogs/shortcuts_dialog.rs`
+- **Keyboard:** `src/ui/shortcuts.rs` (every binding), `src/ui/focus.rs` (tab stops, trap-aware focus moves, focusable switch, scroll-into-view), `src/ui/dialogs/shortcuts_dialog.rs`, `src/ui/dialogs/command_palette.rs`, `tests/keyboard_nav.rs`
 - **Theme Creation:** `src/ui/dialogs/create_theme_dialog.rs`
 - **Theme Editing:** `src/ui/theme_edit_page/theme_edit_view.rs`
 - **Theme Management:** `src/system/themes/theme_management.rs`
@@ -351,7 +362,7 @@ To extend: add variants to `ViewOption` enum and handle them in `cli_args_to_act
 ## Dependencies
 
 Always use `cargo add` to add dependencies. Key crates:
-- `gpui`, `gpui-component` - UI framework
+- `gpui` (= `gpui-pre`), `gpui_platform` (= `gpui-pre-platform`), `gpui-component`, `gpui-base`, `gpui-kit`, `gpui-kit-assets` - UI framework (GPUI Kit; keep the pins in step)
 - `smol` - Async runtime
 - `serde`, `serde_json` - Serialization
 - `dirs` - Cross-platform directories
@@ -360,7 +371,7 @@ Always use `cargo add` to add dependencies. Key crates:
 
 ## External Resources
 
-- [gpui-component](https://github.com/longbridge/gpui-component)
+- [GPUI Kit](https://github.com/longbridge/gpui-kit) and [gpui-kit.com](https://gpui-kit.com) (component, base, and headless-testing docs)
 - [GPUI docs](https://github.com/zed-industries/zed/tree/main/crates/gpui)
 
 ## Rules for Omarchist Documentation Site

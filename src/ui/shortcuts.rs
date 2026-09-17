@@ -134,6 +134,20 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Show keyboard shortcuts"
     ),
     shortcut!(
+        "ctrl-shift-p",
+        focus::ShowCommands,
+        None,
+        GLOBAL,
+        "Command palette"
+    ),
+    shortcut!(
+        "ctrl-p",
+        focus::ShowCommands,
+        None,
+        GLOBAL,
+        "Command palette"
+    ),
+    shortcut!(
         "?",
         focus::ShowShortcuts,
         Some("Sidebar"),
@@ -663,7 +677,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
     shortcut!(
         "escape",
         keybinds_nav::FocusSearch,
-        Some("KeybindsTable > Table"),
+        Some("KeybindsTable > DataTable"),
         KEYBINDS,
         "Back to the search box"
     ),

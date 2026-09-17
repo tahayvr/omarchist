@@ -184,7 +184,7 @@ impl ThemeGrid {
     }
 
     fn select_card(&mut self, filtered_index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        self.focus.focus(window);
+        self.focus.focus(window, cx);
         let moved = self.nav.set(filtered_index);
         self.move_focus(moved, cx);
     }

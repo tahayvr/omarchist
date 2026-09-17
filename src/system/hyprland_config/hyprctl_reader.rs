@@ -32,9 +32,7 @@ struct HyprctlRecord {
 }
 
 /// Every option the config page reads, fetched in one `hyprctl --batch`
-/// call. One process for all of them takes a few milliseconds; one process
-/// per option took the better part of a second and froze the window on
-/// every first visit to the Configuration page.
+/// call; one process per option is slow enough to freeze the window.
 const OPTION_KEYS: &[&str] = &[
     "general:border_size",
     "general:gaps_in",

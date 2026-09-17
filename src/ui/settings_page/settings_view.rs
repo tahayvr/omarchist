@@ -12,7 +12,6 @@ pub struct SettingsView {
 }
 
 impl SettingsView {
-    /// Constructor intended to be passed directly to `cx.new(...)`.
     pub fn new(cx: &mut Context<Self>) -> Self {
         let auto_apply_theme = read_settings()
             .map(|s| s.settings.auto_apply_theme)
@@ -25,8 +24,8 @@ impl SettingsView {
     }
 
     /// Focuses the first control on the page.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        crate::ui::focus::focus_first_in(&self.focus_handle, window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        crate::ui::focus::focus_first_in(&self.focus_handle, window, cx);
     }
 
     fn toggle_auto_apply_theme(
@@ -64,7 +63,6 @@ impl Render for SettingsView {
             .p_6()
             .gap_6()
             .child(
-                // Page header
                 v_flex()
                     .gap_1()
                     .child(
@@ -82,7 +80,6 @@ impl Render for SettingsView {
                     ),
             )
             .child(
-                // Settings section: Themes
                 v_flex()
                     .gap_4()
                     .child(

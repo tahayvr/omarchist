@@ -10,7 +10,7 @@ use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
-use crate::ui::theme_edit_page::general_tab::GeneralTab;
+use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
 use crate::ui::theme_edit_page::overrides_tab::OverridesTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use gpui::*;
@@ -84,10 +84,8 @@ pub struct ThemeEditPage {
 
 impl ThemeEditPage {
     pub fn new(theme_name: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // Determine if this is a system theme or custom theme
         let is_system = is_system_theme(&theme_name);
 
-        // Load theme data
         let theme_data = match load_theme_for_editing(&theme_name) {
             Ok(data) => data,
             Err(e) => {
@@ -101,6 +99,12 @@ impl ThemeEditPage {
 
         let general_tab = cx
             .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        // Reopening the page under the new name rebuilds every tab from disk.
+        cx.subscribe(&general_tab, |_, _, event: &GeneralTabEvent, cx| {
+            let GeneralTabEvent::Renamed(name) = event;
+            emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
+        })
+        .detach();
         let colors_tab = cx
             .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         let file_manager_tab = cx.new(|cx| {
@@ -119,7 +123,7 @@ impl ThemeEditPage {
 
         let focus_handle = cx.focus_handle();
         let tabs_focus = focus::tab_stop(cx);
-        tabs_focus.focus(window);
+        tabs_focus.focus(window, cx);
 
         Self {
             theme_name,
@@ -140,8 +144,8 @@ impl ThemeEditPage {
     }
 
     /// Focuses the tab strip, the page's first control after Back/Apply.
-    pub fn focus_entry(&self, window: &mut Window, _cx: &mut Context<Self>) {
-        self.tabs_focus.focus(window);
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.tabs_focus.focus(window, cx);
     }
 
     fn apply_theme(&self) {
@@ -189,30 +193,12 @@ impl ThemeEditPage {
             .unwrap_or(ThemeEditTab::General);
 
         match active_tab {
-            ThemeEditTab::General => {
-                // Use the GeneralTab entity
-                self.general_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Colors => {
-                // Use the ColorsTab entity
-                self.colors_tab.clone().into_any_element()
-            }
-            ThemeEditTab::FileManager => {
-                // Use the FileManagerTab entity
-                self.file_manager_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Editor => {
-                // Use the EditorTab entity
-                self.editor_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Overrides => {
-                // Use the OverridesTab entity
-                self.overrides_tab.clone().into_any_element()
-            }
-            ThemeEditTab::Backgrounds => {
-                // Use the BackgroundsTab entity
-                self.backgrounds_tab.clone().into_any_element()
-            }
+            ThemeEditTab::General => self.general_tab.clone().into_any_element(),
+            ThemeEditTab::Colors => self.colors_tab.clone().into_any_element(),
+            ThemeEditTab::FileManager => self.file_manager_tab.clone().into_any_element(),
+            ThemeEditTab::Editor => self.editor_tab.clone().into_any_element(),
+            ThemeEditTab::Overrides => self.overrides_tab.clone().into_any_element(),
+            ThemeEditTab::Backgrounds => self.backgrounds_tab.clone().into_any_element(),
         }
     }
 }
@@ -248,10 +234,9 @@ impl Render for ThemeEditPage {
                 this.apply_theme();
             }))
             .child(
-                // Back button + Tabs row - wraps on narrow screens
                 h_flex()
                     .gap_4()
-                    .items_start()
+                    .items_center()
                     .flex_wrap()
                     .child(
                         Button::new("back-btn")
@@ -296,8 +281,8 @@ impl Render for ThemeEditPage {
                                 this.set_tab(usize::MAX, cx);
                             }))
                             .on_action(cx.listener(
-                                |this, _: &focus::tab_strip::Activate, window, _cx| {
-                                    focus::focus_first_in(&this.content_focus, window);
+                                |this, _: &focus::tab_strip::Activate, window, cx| {
+                                    focus::focus_first_in(&this.content_focus, window, cx);
                                 },
                             ))
                             .child(
@@ -319,7 +304,6 @@ impl Render for ThemeEditPage {
                     .map(|error| error_message(error.clone(), cx)),
             )
             .child(
-                // Tab content area with scrolling
                 div()
                     .id("tab-content")
                     .track_focus(&self.content_focus)

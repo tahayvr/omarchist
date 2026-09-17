@@ -89,5 +89,5 @@ pub fn open_confirm_dialog(
                 ),
             )
     });
-    focus::focus_first_in(&body_focus, window);
+    focus::focus_first_in(&body_focus, window, cx);
 }

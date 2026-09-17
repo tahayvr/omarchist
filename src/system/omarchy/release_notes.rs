@@ -1,11 +1,12 @@
 use super::omarchy_version::GitHubRelease;
 use crate::error::{Error, Result};
 use isahc::AsyncReadResponseExt;
+use isahc::config::{Configurable, RedirectPolicy};
 
 pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
-    // Fetch latest release from GitHub using isahc (runtime-agnostic)
     let request = isahc::Request::builder()
-        .uri("https://api.github.com/repos/basecamp/omarchy/releases/latest")
+        .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
+        .redirect_policy(RedirectPolicy::Follow)
         .header("User-Agent", "omarchist")
         .body(())
         .map_err(|e| Error::Network(format!("Failed to build request: {e}")))?;
@@ -34,6 +35,7 @@ pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
     let tag = release.tag_name;
     let notes = release
         .body
+        .map(|body| body.replace("\r\n", "\n"))
         .unwrap_or_else(|| "No release notes available.".to_string());
 
     Ok((tag, notes))

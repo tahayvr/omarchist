@@ -342,16 +342,11 @@ pub fn spawn_ui_theme_watcher(cx: &mut App) {
         loop {
             Timer::after(POLL_INTERVAL).await;
 
-            // Stop the loop if the app has shut down.
-            if cx.update(|_| {}).is_err() {
-                break;
-            }
-
             let current_theme_name = get_active_omarchy_theme_name();
 
             if current_theme_name != last_theme_name {
                 last_theme_name = current_theme_name;
-                let _ = crate::ui::app_events::emit_async(
+                crate::ui::app_events::emit_async(
                     cx,
                     crate::ui::app_events::AppEvent::ReloadUiTheme,
                 );

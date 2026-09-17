@@ -34,9 +34,7 @@ impl ThemeCreationProgressDialog {
         let image_path = self.image_path.clone();
         let window_handle = window.window_handle();
 
-        // Spawn async task to create theme
         cx.spawn(async move |this, cx| {
-            // Update status to creating structure
             let _ = window_handle.update(cx, |_view, _window, cx| {
                 let _ = this.update(cx, |this, cx| {
                     this.status_message = "Creating theme structure...".to_string();
@@ -44,7 +42,6 @@ impl ThemeCreationProgressDialog {
                 });
             });
 
-            // Run theme creation in a blocking thread with periodic status updates
             let result = smol::unblock({
                 let theme_name = theme_name.clone();
                 let image_path = image_path.clone();
@@ -52,11 +49,10 @@ impl ThemeCreationProgressDialog {
             })
             .await;
 
-            // Handle result
             match result {
                 Ok(created_name) => {
-                    let _ = emit_async(cx, AppEvent::RefreshThemes);
-                    let _ = emit_async(
+                    emit_async(cx, AppEvent::RefreshThemes);
+                    emit_async(
                         cx,
                         AppEvent::Navigate(ActivePage::ThemeEdit(created_name.clone())),
                     );
@@ -69,7 +65,6 @@ impl ThemeCreationProgressDialog {
                         });
                     });
 
-                    // Auto-close after a short delay
                     smol::Timer::after(std::time::Duration::from_secs(1)).await;
                     let _ = window_handle.update(cx, |_view, window, cx| {
                         window.close_dialog(cx);
@@ -107,24 +102,20 @@ impl Render for ThemeCreationProgressDialog {
             .gap_4()
             .items_center()
             .justify_center()
+            .child(if self.has_error {
+                Icon::new(IconName::TriangleAlert)
+                    .size(px(48.0))
+                    .text_color(theme.red)
+            } else if self.is_complete {
+                Icon::new(IconName::Check)
+                    .size(px(48.0))
+                    .text_color(theme.green)
+            } else {
+                Icon::new(IconName::Loader)
+                    .size(px(48.0))
+                    .text_color(theme.primary)
+            })
             .child(
-                // Icon
-                if self.has_error {
-                    Icon::new(IconName::TriangleAlert)
-                        .size(px(48.0))
-                        .text_color(theme.red)
-                } else if self.is_complete {
-                    Icon::new(IconName::Check)
-                        .size(px(48.0))
-                        .text_color(theme.green)
-                } else {
-                    Icon::new(IconName::Loader)
-                        .size(px(48.0))
-                        .text_color(theme.primary)
-                },
-            )
-            .child(
-                // Title
                 div()
                     .text_lg()
                     .font_weight(FontWeight::SEMIBOLD)
@@ -132,7 +123,6 @@ impl Render for ThemeCreationProgressDialog {
                     .child("Creating Theme from Image"),
             )
             .child(
-                // Status message
                 div()
                     .text_sm()
                     .text_color(if self.has_error {
@@ -142,19 +132,16 @@ impl Render for ThemeCreationProgressDialog {
                     })
                     .child(self.status_message.clone()),
             )
-            .child(
-                // Action buttons (only show when error)
-                if self.has_error {
-                    Button::new("close-btn")
-                        .label("Close")
-                        .on_click(cx.listener(|this, _event, window, cx| {
-                            this.close(window, cx);
-                        }))
-                        .into_any_element()
-                } else {
-                    div().into_any_element()
-                },
-            )
+            .child(if self.has_error {
+                Button::new("close-btn")
+                    .label("Close")
+                    .on_click(cx.listener(|this, _event, window, cx| {
+                        this.close(window, cx);
+                    }))
+                    .into_any_element()
+            } else {
+                div().into_any_element()
+            })
     }
 }
 

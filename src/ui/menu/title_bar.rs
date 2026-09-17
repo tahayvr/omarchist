@@ -3,7 +3,7 @@ use crate::ui::app_view::ActivePage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, PixelsExt, Side, Sizable, TitleBar,
+    ActiveTheme, Icon, IconName, Side, Sizable, TitleBar,
     button::*,
     h_flex,
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
@@ -60,6 +60,7 @@ impl Render for MainTitleBar {
                             .dropdown_menu(|menu: PopupMenu, _window, _cx| {
                                 menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
+                                    .menu("Command Palette", Box::new(crate::ui::focus::ShowCommands))
                                     .menu("Keyboard Shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
@@ -126,7 +127,7 @@ impl Render for MainTitleBar {
                             .ghost()
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
-                                let font_size = cx.theme().font_size.as_f32() as i32;
+                                let font_size = f32::from(cx.theme().font_size) as i32;
                                 let is_light = cx.theme().mode == gpui_component::ThemeMode::Light;
                                 menu.label("Font Size")
                                     .check_side(Side::Right)
@@ -142,7 +143,7 @@ impl Render for MainTitleBar {
                     )
                     .child(
                         Button::new("github")
-                            .icon(IconName::GitHub)
+                            .icon(Icon::new(Icon::empty()).path("icons/github.svg"))
                             .small()
                             .ghost()
                             .cursor_pointer()

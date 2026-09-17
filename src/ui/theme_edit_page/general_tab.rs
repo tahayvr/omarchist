@@ -1,27 +1,31 @@
 use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
-use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, focus_section, form_section, help_text,
-    tab_container,
+    error_message, focus_section, form_section, help_text, tab_container,
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Colorize, Disableable, Sizable,
+    ActiveTheme, Disableable, Sizable,
     button::Button,
-    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
 };
 
+pub enum GeneralTabEvent {
+    /// The theme folder was renamed; every view holding the old name is stale.
+    Renamed(String),
+}
+
+impl EventEmitter<GeneralTabEvent> for GeneralTab {}
+
 pub struct GeneralTab {
     theme_data: EditingTheme,
-    original_theme_name: String, // Used for saving - folder name doesn't change on rename
+    /// Folder name the tab saves to; only a rename changes it.
+    original_theme_name: String,
     name_input: Entity<InputState>,
     author_input: Entity<InputState>,
-    accent_picker: Entity<ColorPickerState>,
     is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
@@ -38,10 +42,8 @@ impl GeneralTab {
         // Store the folder name for saving (not the display name from JSON)
         let original_theme_name = theme_name;
 
-        // Extract author value before moving theme_data
         let author_value = theme_data.author.clone().unwrap_or_default();
 
-        // Create input states with current values
         let name_input = cx.new(|cx| InputState::new(window, cx).default_value(&theme_data.name));
 
         let author_input = cx.new(|cx| {
@@ -50,24 +52,16 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        // Create accent color picker
-        let accent_color =
-            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
-        let accent_picker =
-            cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
-
         let tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
-            accent_picker,
             is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
         };
 
-        // Subscribe to name input changes
         cx.subscribe_in(
             &tab.name_input,
             window,
@@ -83,7 +77,6 @@ impl GeneralTab {
         )
         .detach();
 
-        // Subscribe to author input changes
         cx.subscribe_in(
             &tab.author_input,
             window,
@@ -95,20 +88,6 @@ impl GeneralTab {
                     } else {
                         Some(author)
                     };
-                    this.save(window, cx);
-                }
-            },
-        )
-        .detach();
-
-        // Subscribe to accent color picker changes
-        cx.subscribe_in(
-            &tab.accent_picker,
-            window,
-            |this, _picker, event: &ColorPickerEvent, window, cx| {
-                if let ColorPickerEvent::Change(Some(color)) = event {
-                    let hex = color.to_hex();
-                    this.theme_data.colors.accent = hex;
                     this.save(window, cx);
                 }
             },
@@ -127,7 +106,6 @@ impl GeneralTab {
             return;
         }
 
-        // Don't save if theme name is empty
         if self.original_theme_name.is_empty() {
             self.error_message = Some("Theme name cannot be empty".to_string());
             cx.notify();
@@ -141,16 +119,14 @@ impl GeneralTab {
         // Save using the ORIGINAL theme name (folder name); the display name
         // lives in theme_data.name. Only this tab's fields are written so a
         // stale snapshot never overwrites another tab's edits.
-        let (name, author, accent, is_light) = (
+        let (name, author, is_light) = (
             self.theme_data.name.clone(),
             self.theme_data.author.clone(),
-            self.theme_data.colors.accent.clone(),
             self.theme_data.is_light_theme,
         );
         match update_theme(&self.original_theme_name, |theme| {
             theme.name = name;
             theme.author = author;
-            theme.colors.accent = accent;
             theme.is_light_theme = is_light;
         }) {
             Ok(()) => {
@@ -174,7 +150,6 @@ impl GeneralTab {
         let new_name = self.theme_data.name.clone();
         let old_name = self.original_theme_name.clone();
 
-        // Don't rename if names are the same or new name is empty
         if new_name == old_name || new_name.is_empty() {
             return;
         }
@@ -186,10 +161,8 @@ impl GeneralTab {
         match rename_theme(&old_name, &new_name) {
             Ok(()) => {
                 self.is_saving = false;
-                // Update the original theme name to the new name
                 self.original_theme_name = new_name.clone();
-                // Also update the header display
-                // TODO: Notify parent that theme name changed
+                cx.emit(GeneralTabEvent::Renamed(new_name));
             }
             Err(e) => {
                 self.is_saving = false;
@@ -206,7 +179,6 @@ impl Render for GeneralTab {
         let is_light = self.theme_data.is_light_theme;
         let _viewport_width = window.viewport_size().width;
 
-        // Check if theme name has changed for rename button
         let current_name = self.name_input.read(cx).value().to_string();
         let can_rename = current_name != self.original_theme_name && !current_name.is_empty();
 
@@ -214,7 +186,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-name",
                 &self.scroll,
-                // Theme Name Section with Rename button
                 form_section()
                     .child(
                         Label::new("Theme Name")
@@ -245,7 +216,6 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-author",
                 &self.scroll,
-                // Author Section
                 form_section()
                     .child(
                         Label::new("Author")
@@ -259,19 +229,8 @@ impl Render for GeneralTab {
                     ),
             ))
             .child(focus_section(
-                "general-accent",
-                &self.scroll,
-                // Accent Color Section
-                form_section().child(color_picker_with_clipboard(
-                    "accent-color",
-                    "Accent Color",
-                    &self.accent_picker,
-                )),
-            ))
-            .child(focus_section(
                 "general-light",
                 &self.scroll,
-                // Light Mode Toggle Section
                 FocusableSwitch::new("light-theme-toggle")
                     .label("Light Theme")
                     .checked(is_light)
@@ -279,13 +238,10 @@ impl Render for GeneralTab {
                         this.on_light_mode_toggle(*checked, window, cx);
                     })),
             ))
-            .child(
-                // Help Text
-                help_text(
-                    "Themes are in dark mode by default.",
-                    cx.theme().muted_foreground,
-                ),
-            )
+            .child(help_text(
+                "Themes are in dark mode by default.",
+                cx.theme().muted_foreground,
+            ))
             .children(
                 self.error_message
                     .as_ref()

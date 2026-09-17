@@ -1,25 +1,19 @@
 // Generates `~/.config/hypr/omarchist.lua`, a write-only file Omarchist owns
-// entirely — it is never read back (the round-trip source of truth is
-// `~/.config/omarchist/hyprland/state.json`, see `manager.rs`). Confirmed
-// against the real omacom/omarchy@quattro source (`config/hypr/looknfeel.lua`,
-// `config/hypr/input.lua`): Hyprland settings are applied via one global
-// merge function, `hl.config({ <section> = { <key> = <value>, ... } })`,
-// where section/subsection names match hyprlang's own config sections
-// 1:1 (general, decoration.blur, input.touchpad, etc).
+// entirely; it is never read back (the round-trip source of truth is
+// `~/.config/omarchist/hyprland/state.json`, see `manager.rs`). Settings are
+// applied the way Omarchy's own `config/hypr/looknfeel.lua` and `input.lua`
+// do it, through `hl.config({ <section> = { <key> = <value>, ... } })`, with
+// section names matching hyprlang's 1:1 (general, decoration.blur,
+// input.touchpad, ...).
 //
-// Rather than re-encoding every field's default value a second time (as the
-// old hyprlang `writer.rs` did, in ~150 hand-written `if field != N` checks),
-// this diffs the actual config against `HyprlandConfig::default()` via JSON
-// and only emits keys that actually changed. `HyprlandConfig::default()`
-// stays the single source of truth for defaults.
+// Only keys that differ from `HyprlandConfig::default()` are emitted, found
+// by diffing the JSON forms, so the defaults have a single source of truth.
 use serde_json::Value;
 
 use crate::types::hyprland_config::HyprlandConfig;
 
-// Hyprland option names that don't match their Rust field name — hyprlang
-// itself is inconsistent here (confirmed against writer.rs / Hyprland docs:
-// touchpad's tap-to-click/tap-and-drag are hyphenated, unlike every other
-// option, which is why Rust uses underscored idents for them).
+// Hyprland option names that differ from their Rust field names: touchpad's
+// tap-to-click and tap-and-drag are hyphenated in hyprlang.
 fn hypr_key_name(rust_field: &str) -> &str {
     match rust_field {
         "tap_to_click" => "tap-to-click",

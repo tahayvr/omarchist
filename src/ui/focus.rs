@@ -12,6 +12,7 @@ use std::rc::Rc;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, Disableable, h_flex, switch::Switch};
+use gpui_kit::TestSupportExt;
 
 actions!(
     focus,
@@ -20,6 +21,7 @@ actions!(
         FocusPrev,
         EscapeToSidebar,
         ReloadPage,
+        ShowCommands,
         ShowShortcuts
     ]
 );
@@ -32,35 +34,43 @@ pub fn tab_stop(cx: &mut App) -> FocusHandle {
 /// Focuses `container`, then the first tab stop inside it once it has
 /// rendered. Used when a page becomes active so the user lands on its first
 /// control instead of on an invisible page root.
-pub fn focus_first_in(container: &FocusHandle, window: &mut Window) {
-    container.focus(window);
+pub fn focus_first_in(container: &FocusHandle, window: &mut Window, cx: &mut App) {
+    container.focus(window, cx);
     let container = container.clone();
     window.on_next_frame(move |window, cx| {
         if !container.is_focused(window) {
             return;
         }
-        window.focus_next();
+        window.focus_next(cx);
         if !container.contains_focused(window, cx) {
-            container.focus(window);
+            container.focus(window, cx);
         }
     });
 }
 
-/// Moves focus to the next (or previous) tab stop, skipping every stop
-/// outside `container`. This is the focus trap for dialogs: Tab wraps
-/// inside the dialog instead of escaping to the page behind it.
-pub fn focus_next_within(container: &FocusHandle, forward: bool, window: &mut Window, cx: &App) {
-    // Bounded by the number of tab stops in the window; the loop only runs
-    // long when the container has no stops at all.
-    for _ in 0..256 {
+/// Moves focus to the next (or previous) tab stop without leaving the active
+/// focus trap (every dialog is one). Equivalent to `Root`'s own Tab handling;
+/// used where a control's `tab` binding is overridden.
+pub fn focus_next_trapped(forward: bool, window: &mut Window, cx: &mut App) {
+    let step = |window: &mut Window, cx: &mut App| {
         if forward {
-            window.focus_next();
+            window.focus_next(cx);
         } else {
-            window.focus_prev();
+            window.focus_prev(cx);
         }
-        if container.contains_focused(window, cx) {
+    };
+    let Some(trap) = gpui_base::active_focus_trap(window, cx) else {
+        step(window, cx);
+        return;
+    };
+    let start = window.focused(cx);
+    step(window, cx);
+    // A trap without tab stops would otherwise never terminate.
+    for _ in 0..256 {
+        if trap.contains_focused(window, cx) || window.focused(cx) == start {
             return;
         }
+        step(window, cx);
     }
 }
 
@@ -189,26 +199,22 @@ pub fn tab_strip_container(
         .border_color(focus_border(focused, cx.theme().transparent, cx))
 }
 
-/// The body of a dialog: traps Tab/Shift-Tab inside `focus` and runs
-/// `on_submit` for the `dialog::Submit` action (Ctrl+Enter). Enter itself is
-/// left to the focused control so a focused Cancel button cancels.
+/// The body of a dialog: runs `on_submit` for the `dialog::Submit` action
+/// (Ctrl+Enter). Enter is left to the focused control so a focused Cancel
+/// button cancels; Tab is trapped by the dialog itself.
+///
+/// `test_support` wraps the element when the test feature is on, so the
+/// return type is a trait bound rather than `Stateful<Div>`.
 pub fn dialog_body(
     id: impl Into<ElementId>,
     focus: &FocusHandle,
     on_submit: impl Fn(&mut Window, &mut App) + 'static,
-) -> Stateful<Div> {
-    let next = focus.clone();
-    let prev = focus.clone();
+) -> impl ParentElement + StatefulInteractiveElement + Styled + IntoElement {
     div()
         .id(id)
+        .test_support()
         .key_context(DIALOG_BODY_CONTEXT)
         .track_focus(focus)
-        .on_action(move |_: &FocusNext, window, cx| {
-            focus_next_within(&next, true, window, cx);
-        })
-        .on_action(move |_: &FocusPrev, window, cx| {
-            focus_next_within(&prev, false, window, cx);
-        })
         .on_action(move |_: &dialog::Submit, window, cx| on_submit(window, cx))
 }
 

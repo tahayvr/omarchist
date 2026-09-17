@@ -11,16 +11,15 @@ use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 use crate::ui::themes_page::themes_view::ThemesPage;
-use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
-    sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
-    v_flex,
+    sidebar::{Sidebar, SidebarGroup, SidebarItem, SidebarMenu, SidebarMenuItem},
 };
 
 use crate::system::ui_theme_watcher;
+use gpui_kit::TestSupportExt;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
@@ -85,44 +84,6 @@ impl MainWindowView {
             .new(|cx| Root::new(themes_view.clone(), window, cx))
             .into();
 
-        // Spawn a background task that checks for Omarchy updates at startup
-        // and repeats every PERIODIC_CHECK_INTERVAL_SECS.  This keeps the
-        // title-bar badge current without requiring the user to open the
-        // Omarchy page.
-        {
-            let title_bar_watcher = title_bar.clone();
-            cx.spawn(async move |_this, cx| {
-                // Initial check
-                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-                if let Ok(update_available) = check_omarchy_update(&version).await {
-                    title_bar_watcher
-                        .update(cx, |tb, _| {
-                            tb.set_omarchy_update_available(update_available);
-                        })
-                        .ok();
-                }
-
-                // Periodic re-checks
-                loop {
-                    smol::Timer::after(std::time::Duration::from_secs(
-                        PERIODIC_CHECK_INTERVAL_SECS,
-                    ))
-                    .await;
-
-                    let version =
-                        get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-                    if let Ok(update_available) = check_omarchy_update(&version).await {
-                        title_bar_watcher
-                            .update(cx, |tb, _| {
-                                tb.set_omarchy_update_available(update_available);
-                            })
-                            .ok();
-                    }
-                }
-            })
-            .detach();
-        }
-
         let focus_handle = cx.focus_handle();
         let sidebar_focus = focus::tab_stop(cx);
         let initial_sidebar_index = Self::sidebar_index_for(&initial_page).unwrap_or(0);
@@ -152,8 +113,7 @@ impl MainWindowView {
         };
 
         // Cross-component requests (dialogs, cards, title bar, background
-        // tasks) arrive through the AppEvents global; handle them as they
-        // are emitted instead of polling flags from render.
+        // tasks) arrive through the AppEvents global.
         cx.observe_global_in::<AppEvents>(window, |this, window, cx| {
             for event in AppEvents::drain(cx) {
                 this.handle_app_event(event, window, cx);
@@ -166,7 +126,7 @@ impl MainWindowView {
         if initial_page != ActivePage::Themes {
             view.navigate_to(initial_page, window, cx);
         } else {
-            view.sidebar_focus.focus(window);
+            view.sidebar_focus.focus(window, cx);
         }
 
         view
@@ -262,6 +222,42 @@ impl MainWindowView {
         }
     }
 
+    /// Checks for Omarchy updates at startup and every
+    /// `PERIODIC_CHECK_INTERVAL_SECS`, keeping the title-bar badge current
+    /// without the Omarchy page being opened. Started from `main.rs` so the
+    /// window itself owns no network task.
+    pub fn spawn_omarchy_update_watcher(title_bar: Entity<MainTitleBar>, cx: &mut App) {
+        cx.spawn(async move |cx| {
+            let mut first = true;
+            loop {
+                if !first {
+                    smol::Timer::after(std::time::Duration::from_secs(
+                        PERIODIC_CHECK_INTERVAL_SECS,
+                    ))
+                    .await;
+                }
+                first = false;
+                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+                if let Ok(update_available) = check_omarchy_update(&version).await {
+                    title_bar.update(cx, |tb, _| {
+                        tb.set_omarchy_update_available(update_available);
+                    });
+                }
+            }
+        })
+        .detach();
+    }
+
+    /// The page currently shown.
+    pub fn active_page(&self) -> &ActivePage {
+        &self.active_page
+    }
+
+    /// The sidebar entry the keyboard cursor is on.
+    pub fn sidebar_index(&self) -> usize {
+        self.sidebar_index
+    }
+
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {
         if self.active_page == page {
             return;
@@ -342,7 +338,7 @@ impl MainWindowView {
         if self.sidebar_focus.is_focused(window) {
             self.focus_page_entry(window, cx);
         } else {
-            self.sidebar_focus.focus(window);
+            self.sidebar_focus.focus(window, cx);
         }
         cx.notify();
     }
@@ -472,12 +468,8 @@ impl MainWindowView {
         cx.notify();
     }
 
-    fn render_sidebar_item(
-        &self,
-        ix: usize,
-        window: &Window,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    /// One sidebar page entry, with its focus ring.
+    fn sidebar_item(&self, ix: usize, window: &Window, cx: &mut Context<Self>) -> SidebarMenuItem {
         let (label, keys) = SIDEBAR_ITEMS[ix];
         let page = self.page_from_sidebar_index(ix);
         let icon = match ix {
@@ -487,26 +479,17 @@ impl MainWindowView {
         };
         let focused = self.sidebar_focus.is_focused(window) && self.sidebar_index == ix;
         let border = focus::focus_border(focused, cx.theme().transparent, cx);
-        let collapsed = self.sidebar_should_be_collapsed(window);
 
-        div()
-            .id(("sidebar-item", ix))
-            .rounded(cx.theme().radius)
+        SidebarMenuItem::new(label)
+            .icon(icon)
             .border_1()
             .border_color(border)
-            .child(
-                SidebarMenuItem::new(label)
-                    .icon(icon)
-                    .collapsed(collapsed)
-                    .active(self.is_page_active(page.clone()))
-                    .when(!collapsed, |this| {
-                        this.suffix(Kbd::new(Keystroke::parse(keys).unwrap()))
-                    })
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.sidebar_index = ix;
-                        this.navigate_to(page.clone(), window, cx);
-                    })),
-            )
+            .active(self.is_page_active(page.clone()))
+            .suffix(move |_, _| Kbd::new(Keystroke::parse(keys).unwrap()))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.sidebar_index = ix;
+                this.navigate_to(page.clone(), window, cx);
+            }))
     }
 
     fn sidebar_should_be_collapsed(&self, window: &Window) -> bool {
@@ -516,13 +499,13 @@ impl MainWindowView {
     }
 }
 
-/// The sidebar page list as one focusable composite. `SidebarGroup` only
-/// accepts `Collapsible` children, so this stands in for `SidebarMenu`.
-#[derive(IntoElement)]
+/// The sidebar page list as one focusable composite: a `SidebarMenu` whose
+/// container carries the `Sidebar` key context and the roving focus handle.
+#[derive(Clone)]
 struct SidebarNav {
     focus: FocusHandle,
     collapsed: bool,
-    items: Vec<AnyElement>,
+    items: Vec<SidebarMenuItem>,
 }
 
 impl Collapsible for SidebarNav {
@@ -536,15 +519,26 @@ impl Collapsible for SidebarNav {
     }
 }
 
-impl RenderOnce for SidebarNav {
-    fn render(self, _window: &mut Window, _cx: &mut App) -> impl IntoElement {
-        v_flex()
+impl SidebarItem for SidebarNav {
+    fn render(
+        self,
+        _id: impl Into<ElementId>,
+        window: &mut Window,
+        cx: &mut App,
+    ) -> impl IntoElement {
+        // Fixed id: the sidebar's test target.
+        div()
             .id("sidebar-nav")
+            .test_support()
             .key_context(SIDEBAR_CONTEXT)
             .track_focus(&self.focus)
-            .gap_2()
             .cursor_pointer()
-            .children(self.items)
+            .child(
+                SidebarMenu::new()
+                    .collapsed(self.collapsed)
+                    .children(self.items)
+                    .render("sidebar-nav-menu", window, cx),
+            )
     }
 }
 
@@ -610,11 +604,11 @@ impl Render for MainWindowView {
                 },
             ))
             // Focus traversal (native GPUI tab stops)
-            .on_action(cx.listener(|_, _: &focus::FocusNext, window, _cx| {
-                window.focus_next();
+            .on_action(cx.listener(|_, _: &focus::FocusNext, window, cx| {
+                focus::focus_next_trapped(true, window, cx);
             }))
-            .on_action(cx.listener(|_, _: &focus::FocusPrev, window, _cx| {
-                window.focus_prev();
+            .on_action(cx.listener(|_, _: &focus::FocusPrev, window, cx| {
+                focus::focus_next_trapped(false, window, cx);
             }))
             .on_action(cx.listener(|this, _: &focus::EscapeToSidebar, window, cx| {
                 this.handle_escape(window, cx);
@@ -624,6 +618,13 @@ impl Render for MainWindowView {
             }))
             .on_action(cx.listener(|_, _: &focus::ShowShortcuts, window, cx| {
                 crate::ui::dialogs::shortcuts_dialog::open_shortcuts_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &focus::ShowCommands, window, cx| {
+                crate::ui::dialogs::command_palette::open_command_palette(
+                    this.focus_handle.clone(),
+                    window,
+                    cx,
+                );
             }))
             // Sidebar composite
             .on_action(cx.listener(|this, _: &sidebar_nav::Next, _, cx| {
@@ -648,48 +649,40 @@ impl Render for MainWindowView {
                     .size_full()
                     .overflow_hidden()
                     .child(
-                        Sidebar::new(Side::Left)
+                        Sidebar::new("main-sidebar")
+                            .side(Side::Left)
                             .collapsed(sidebar_should_be_collapsed)
                             .child(
                                 SidebarGroup::new("Navigation").child(SidebarNav {
                                     focus: self.sidebar_focus.clone(),
                                     collapsed: sidebar_should_be_collapsed,
                                     items: (0..SIDEBAR_ITEMS.len())
-                                        .map(|ix| {
-                                            self.render_sidebar_item(ix, window, cx)
-                                                .into_any_element()
-                                        })
+                                        .map(|ix| self.sidebar_item(ix, window, cx))
                                         .collect(),
                                 }),
                             )
                             .footer(
-                                SidebarGroup::new("")
+                                SidebarMenu::new()
+                                    .cursor_pointer()
                                     .collapsed(sidebar_should_be_collapsed)
                                     .child(
-                                        SidebarMenu::new().cursor_pointer().child(
-                                            SidebarMenuItem::new("Toggle Sidebar")
-                                                .icon(Icon::new(IconName::PanelLeft))
-                                                .suffix(Kbd::new(
-                                                    Keystroke::parse("ctrl-b").unwrap(),
-                                                ))
-                                                .collapsed(sidebar_should_be_collapsed)
-                                                .on_click(cx.listener(|this, _, _, cx| {
-                                                    this.sidebar_collapsed =
-                                                        !this.sidebar_collapsed;
-                                                    // Update themes page with new sidebar state
-                                                    this.themes_view.update(
+                                        SidebarMenuItem::new("Toggle Sidebar")
+                                            .icon(Icon::new(IconName::PanelLeft))
+                                            .suffix(|_, _| {
+                                                Kbd::new(Keystroke::parse("ctrl-b").unwrap())
+                                            })
+                                            .on_click(cx.listener(|this, _, _, cx| {
+                                                this.sidebar_collapsed = !this.sidebar_collapsed;
+                                                this.themes_view.update(cx, |themes_page, cx| {
+                                                    themes_page.set_sidebar_collapsed(
+                                                        this.sidebar_collapsed,
                                                         cx,
-                                                        |themes_page, cx| {
-                                                            themes_page.set_sidebar_collapsed(
-                                                                this.sidebar_collapsed,
-                                                                cx,
-                                                            );
-                                                        },
                                                     );
-                                                    cx.notify();
-                                                })),
-                                        ),
-                                    ),
+                                                });
+                                                cx.notify();
+                                            })),
+                                    )
+                                    .render("sidebar-footer-menu", window, cx),
                             ),
                     )
                     .child(

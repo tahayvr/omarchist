@@ -63,7 +63,7 @@ pub struct KeybindDialog {
     lost_siblings: Vec<String>,
     confirm_pending: bool,
     error: Option<String>,
-    /// Tab/Shift-Tab stay inside this handle while the dialog is open.
+    /// Focus scope of the dialog body.
     body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -600,6 +600,6 @@ pub fn open_keybind_dialog(
             .child(view.clone())
     });
     // The first tab stop inside the body is the recorder.
-    focus::focus_first_in(&body_focus, window);
+    focus::focus_first_in(&body_focus, window, cx);
     dialog
 }
