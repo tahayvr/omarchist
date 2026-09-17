@@ -285,6 +285,8 @@ Changes persist automatically (no save button):
 - **`AlertDialog`** can only be opened from its own trigger element (`with_base_alert_dialog` is crate-private), so programmatic confirmations use `dialogs::confirm_dialog`.
 - **`FocusHandle::focus`, `Window::focus_next/prev` take `cx`**; `Entity::update` on an `AsyncApp` is infallible (it panics once the app is gone, which cannot happen to a foreground task); `ScrollHandle::max_offset()` is a `Point`.
 - **Key contexts:** the data table's context is `DataTable` (not `Table`); `Input` binds `tab`, `up`, `down`, `escape`; `Root` binds `tab`, `shift-tab`, `ctrl-c`.
+- **Library dialogs bind Enter to `Confirm`**, which closes them before a focused button gets its keyboard click. `focus::dialog_body` stops the action and `shortcuts::key_bindings` adds a `NoAction` Enter binding in `DialogBody`, so Enter reaches the focused control; `Input` and `Select` keep their own deeper Enter bindings (`Select` re-propagates `Confirm` after opening).
+- **`gpui_kit_assets` embeds only the component default icon subset** (`default-icons.txt`, about 100 icons); any other Lucide icon is copied into `assets/icons/` and used through `Icon::new(Icon::empty()).path(..)`.
 - **Inline code in `TextView::markdown` (gpui-base 0.6.1)** is drawn over the neighbouring words of its line. Fixed upstream after 0.6.1 (gpui-kit PRs #3038 and #3046); goes away with the next pinned bump.
 
 ## Theme System (Quattro)

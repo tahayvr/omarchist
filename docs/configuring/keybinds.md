@@ -42,7 +42,7 @@ SUPER + code:10
 
 Modifiers are `SUPER`, `SHIFT`, `CTRL`, and `ALT`, joined with `+`, followed by one key name.
 
-You can also change the description and, for binds that run a shell command, the command itself. Binds that run a Hyprland dispatcher (such as closing a window) keep their action; only the keys change. Binds that run a Lua function inside Omarchy's config cannot be re-bound, but they can be disabled.
+You can also change the description and what the bind does; see [Choosing an action](#choosing-an-action). Binds that run a Lua function inside Omarchy's config cannot be re-bound, but they can be disabled.
 
 If the keys you chose are already in use, the dialog lists the other binds. Press **Save** again to keep both.
 
@@ -52,7 +52,20 @@ If the keys you chose are already in use, the dialog lists the other binds. Pres
 
 ## Adding a keybind
 
-Press **Add keybind**, record or type the keys, give the bind a description, and enter the command to run.
+Press **Add keybind**, record or type the keys, and choose what the bind does. The description fills itself in from your choice until you type your own.
+
+## Choosing an action
+
+The **Action** section builds the command for you. Pick a kind, then fill in its options; the line underneath always shows exactly what Hyprland will run.
+
+- **App**: an application from your menus, with a search box and icons. Turn on *Focus the window if it is already open* to switch to a running window instead of starting another copy, the way Omarchy's own Obsidian and WhatsApp binds behave.
+- **Web app**: a URL opened in its own browser window, or one of the web apps you have installed. The same focus switch applies.
+- **Terminal**: a command run inside a new terminal window, such as `btop` or `lazydocker`, with the focus switch.
+- **Omarchy**: Omarchy's own commands, grouped into apps, menus, panels, capture, notifications, media, window tweaks, display, and system. Search by name or group.
+- **Window**: Hyprland actions such as closing, floating, focusing or swapping in a direction, switching or moving to a workspace, the scratchpad, monitors, groups, and resizing. Actions that need a direction, a workspace, or an amount show those controls.
+- **Command**: any shell command, for everything else. It runs through Hyprland's `exec` dispatcher, so shell syntax such as `||` works.
+
+Editing an existing bind opens the kind that matches its command, so an Omarchy default that launches a web app opens on **Web app** with its address filled in. A dispatcher the builder cannot express is kept as is until you choose a different action.
 
 ## How it works
 
