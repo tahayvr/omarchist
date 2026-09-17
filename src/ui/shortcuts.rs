@@ -713,7 +713,18 @@ pub const SHORTCUTS: &[Shortcut] = &[
 ];
 
 pub fn key_bindings() -> Vec<KeyBinding> {
-    SHORTCUTS.iter().map(Shortcut::key_binding).collect()
+    let mut bindings: Vec<KeyBinding> = SHORTCUTS.iter().map(Shortcut::key_binding).collect();
+    // The library dialog binds Enter to `Confirm`, which would close the
+    // dialog before a focused button receives its keyboard click. `NoAction`
+    // outranks that binding inside the body without consuming the key, so
+    // the click still happens; controls with their own Enter binding
+    // (`Input`, `Select`) sit deeper and are unaffected.
+    bindings.push(KeyBinding::new(
+        "enter",
+        gpui::NoAction,
+        Some(focus::DIALOG_BODY_CONTEXT),
+    ));
+    bindings
 }
 
 /// One help row: a label and every key that triggers it.

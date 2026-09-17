@@ -1,3 +1,4 @@
+pub mod action_builder;
 pub mod chord_chips;
 pub mod keybind_dialog;
 pub mod keybinds_table;

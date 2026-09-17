@@ -13,6 +13,7 @@
 // `~/.config/omarchist/hyprland/keybinds.json` (`overrides.rs`, `store.rs`)
 // and rendered into the write-only `~/.config/hypr/omarchist.lua`, which
 // Omarchy loads after the user's own files, so it wins.
+pub mod action;
 pub mod chord;
 pub mod conflicts;
 pub mod keymap;

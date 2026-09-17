@@ -28,6 +28,7 @@ use crate::system::keybinds::overrides::{
 };
 use crate::system::keybinds::{Dispatcher, Keybind, Origin};
 use crate::ui::focus;
+use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_table::{KeybindRow, RowKind};
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
 
@@ -54,8 +55,10 @@ pub struct KeybindDialog {
     recorder: Entity<KeystrokeInput>,
     keys_text: Entity<InputState>,
     description: Entity<InputState>,
-    /// Present for shell-command binds and new binds.
-    command: Option<Entity<InputState>>,
+    /// Absent only for Lua-function binds, which cannot be re-bound.
+    builder: Option<Entity<ActionBuilder>>,
+    /// The user typed a description, so the builder stops suggesting one.
+    description_edited: bool,
     chord: Option<Chord>,
     chord_error: Option<String>,
     syncing: bool,
@@ -87,10 +90,9 @@ impl KeybindDialog {
             .map(Chord::to_omarchy_string)
             .unwrap_or_default();
         let description_value = original.map(|b| b.description.clone()).unwrap_or_default();
-        let command_value = match original.map(|b| &b.dispatcher) {
-            Some(Dispatcher::Exec(cmd)) => Some(cmd.clone()),
-            Some(_) => None,
-            None => Some(String::new()),
+        let builder = match original.map(|b| &b.dispatcher) {
+            Some(Dispatcher::Function) => None,
+            dispatcher => Some(cx.new(|cx| ActionBuilder::new(dispatcher, window, cx))),
         };
 
         let recorder = cx.new(|cx| KeystrokeInput::new(chord.clone(), false, window, cx));
@@ -102,14 +104,7 @@ impl KeybindDialog {
         let description = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder("What this keybind does")
-                .default_value(description_value)
-        });
-        let command = command_value.map(|value| {
-            cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder("Command to run, e.g. omarchy-launch-terminal")
-                    .default_value(value)
-            })
+                .default_value(description_value.clone())
         });
 
         let mut subscriptions = vec![
@@ -141,19 +136,22 @@ impl KeybindDialog {
                 window,
                 |this, _, event: &InputEvent, _window, cx| {
                     if matches!(event, InputEvent::Change) {
+                        if !this.syncing {
+                            this.description_edited = true;
+                        }
                         this.recompute(cx);
                     }
                 },
             ),
         ];
-        if let Some(command) = &command {
+        if let Some(builder) = &builder {
             subscriptions.push(cx.subscribe_in(
-                command,
+                builder,
                 window,
-                |this, _, event: &InputEvent, _window, cx| {
-                    if matches!(event, InputEvent::Change) {
-                        this.recompute(cx);
-                    }
+                |this, builder, event: &ActionBuilderEvent, window, cx| {
+                    let ActionBuilderEvent::Changed = event;
+                    this.suggest_description(builder, window, cx);
+                    this.recompute(cx);
                 },
             ));
         }
@@ -164,7 +162,8 @@ impl KeybindDialog {
             recorder,
             keys_text,
             description,
-            command,
+            builder,
+            description_edited: !description_value.is_empty(),
             chord,
             chord_error: None,
             syncing: false,
@@ -206,6 +205,25 @@ impl KeybindDialog {
         self.syncing = true;
         self.keys_text
             .update(cx, |input, cx| input.set_value(text, window, cx));
+        self.syncing = false;
+    }
+
+    /// Fills the description from the chosen action until the user types one.
+    fn suggest_description(
+        &mut self,
+        builder: &Entity<ActionBuilder>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.description_edited || !matches!(self.mode, DialogMode::Add) {
+            return;
+        }
+        let Some(suggestion) = builder.read(cx).suggested_description(cx) else {
+            return;
+        };
+        self.syncing = true;
+        self.description
+            .update(cx, |input, cx| input.set_value(suggestion, window, cx));
         self.syncing = false;
     }
 
@@ -271,18 +289,9 @@ impl KeybindDialog {
                 .unwrap_or_else(|| "Record or type a key combination".to_string()));
         };
         let description = self.description.read(cx).value().trim().to_string();
-        let command = self
-            .command
-            .as_ref()
-            .map(|c| c.read(cx).value().trim().to_string());
-
-        let dispatcher = match (self.original().map(|b| &b.dispatcher), command) {
-            (Some(Dispatcher::Function), _) => {
-                return Err("This keybind runs a Lua function and cannot be re-bound".into());
-            }
-            (Some(Dispatcher::Lua(expr)), _) => Dispatcher::Lua(expr.clone()),
-            (_, Some(cmd)) if !cmd.is_empty() => Dispatcher::Exec(cmd),
-            _ => return Err("Enter the command to run".into()),
+        let dispatcher = match &self.builder {
+            Some(builder) => builder.read(cx).dispatcher(cx)?,
+            None => return Err("This keybind runs a Lua function and cannot be re-bound".into()),
         };
         if self.original().is_none() && description.is_empty() {
             return Err("Enter a description so you can find the keybind later".into());
@@ -384,32 +393,16 @@ impl KeybindDialog {
             .into_any_element()
     }
 
-    fn render_command(&self, cx: &App) -> AnyElement {
+    fn render_action(&self, cx: &App) -> AnyElement {
         let theme = cx.theme();
-        if let Some(command) = &self.command {
-            return self.render_field(
-                "Command",
-                Some("Runs through Hyprland's exec dispatcher".to_string()),
-                Input::new(command).into_any_element(),
-                cx,
-            );
-        }
-        match self.original().map(|b| &b.dispatcher) {
-            Some(Dispatcher::Lua(expr)) => self.render_field(
+        match &self.builder {
+            Some(builder) => self.render_field(
                 "Action",
-                Some("A Hyprland dispatcher: only the keys can be changed".to_string()),
-                div()
-                    .px_2()
-                    .py_1()
-                    .rounded(theme.radius)
-                    .bg(theme.secondary)
-                    .font_family("monospace")
-                    .text_xs()
-                    .child(expr.clone())
-                    .into_any_element(),
+                None,
+                builder.clone().into_any_element(),
                 cx,
             ),
-            _ => self.render_field(
+            None => self.render_field(
                 "Action",
                 None,
                 div()
@@ -544,7 +537,7 @@ impl Render for KeybindDialog {
                 Input::new(&self.description).into_any_element(),
                 cx,
             ))
-            .child(self.render_command(cx))
+            .child(self.render_action(cx))
             .when(!self.conflicts.is_empty(), |this| {
                 let list = self.conflicts.join(", ");
                 let text = format!(

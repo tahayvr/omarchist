@@ -203,6 +203,9 @@ pub fn tab_strip_container(
 /// (Ctrl+Enter). Enter is left to the focused control so a focused Cancel
 /// button cancels; Tab is trapped by the dialog itself.
 ///
+/// The library dialog binds Enter to `Confirm`, which closes it; that action
+/// is stopped here so it never pre-empts the focused control's own click.
+///
 /// `test_support` wraps the element when the test feature is on, so the
 /// return type is a trait bound rather than `Stateful<Div>`.
 pub fn dialog_body(
@@ -215,6 +218,7 @@ pub fn dialog_body(
         .test_support()
         .key_context(DIALOG_BODY_CONTEXT)
         .track_focus(focus)
+        .on_action(|_: &gpui_component::dialog::Confirm, _, _| {})
         .on_action(move |_: &dialog::Submit, window, cx| on_submit(window, cx))
 }
 

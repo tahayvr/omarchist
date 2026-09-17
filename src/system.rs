@@ -1,3 +1,4 @@
+pub mod apps;
 pub mod config;
 pub mod hyprland_config;
 pub mod keybinds;
