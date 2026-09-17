@@ -28,7 +28,9 @@ Press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) and choos
 - **Omarchy**: one of Omarchy's own commands, such as toggling night light, taking a screenshot, or locking the screen.
 - **Window**: a Hyprland action such as switching to a workspace or moving the focused window.
 - **Flow**: another flow, run to completion before the next step. A flow cannot run itself, and a loop between flows is refused at run time.
-- **Command**: any shell command. Steps wait for their command to finish; Omarchy's launch commands return at once, so turn on **Start it and move on** only for a command that stays open.
+- **Command**: any shell command.
+
+A step that runs a command starts it and moves straight on, which is what opening an app needs. Turn on **Wait until it finishes** when the next step depends on the command having completed (a theme switch, a file copy): the flow then waits for it to exit and counts a non-zero status as a failure.
 
 Two kinds exist only in flows:
 
@@ -87,4 +89,4 @@ title = "Focus mode"
 body = "Everything else can wait"
 ```
 
-Step types are `exec` (with an optional `detach = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.
+Step types are `exec` (with an optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.

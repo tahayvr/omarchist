@@ -33,7 +33,8 @@ fn home() -> Option<PathBuf> {
     dirs::home_dir()
 }
 
-fn data_home() -> Option<PathBuf> {
+/// `$XDG_DATA_HOME`, or `~/.local/share`.
+pub fn data_home() -> Option<PathBuf> {
     std::env::var_os("XDG_DATA_HOME")
         .map(PathBuf::from)
         .or_else(|| home().map(|h| h.join(".local/share")))

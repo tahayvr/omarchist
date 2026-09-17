@@ -7,7 +7,7 @@ use super::{Flow, OnError, Step, StepKind};
 fn exec(command: &str) -> Step {
     Step::new(StepKind::Exec {
         command: command.into(),
-        detach: false,
+        wait: false,
     })
 }
 

@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use crate::OmarchistAssets;
 use crate::error::{Error, Result};
+use crate::system::apps::data_home;
 
 use super::{Flow, icon_path};
 
@@ -18,17 +19,21 @@ fn home() -> Result<PathBuf> {
     dirs::home_dir().ok_or(Error::UnknownDirectory("home"))
 }
 
-/// `~/.local/share/applications/omarchist-flow-<id>.desktop`
+fn data_dir() -> Result<PathBuf> {
+    data_home().ok_or(Error::UnknownDirectory("data"))
+}
+
+/// `$XDG_DATA_HOME/applications/omarchist-flow-<id>.desktop`
 pub fn desktop_entry_path(id: &str) -> Result<PathBuf> {
-    Ok(home()?
-        .join(".local/share/applications")
+    Ok(data_dir()?
+        .join("applications")
         .join(format!("omarchist-flow-{id}.desktop")))
 }
 
-/// `~/.local/share/omarchist/flows/<id>.svg`
+/// `$XDG_DATA_HOME/omarchist/flows/<id>.svg`
 pub fn icon_file_path(id: &str) -> Result<PathBuf> {
-    Ok(home()?
-        .join(".local/share/omarchist/flows")
+    Ok(data_dir()?
+        .join("omarchist/flows")
         .join(format!("{id}.svg")))
 }
 
@@ -39,10 +44,10 @@ pub fn startup_hook_path(id: &str) -> Result<PathBuf> {
         .join(format!("omarchist-flow-{id}")))
 }
 
-/// The desktop entry text. `%` is doubled in the name and comment because
-/// the spec treats it as a field code introducer there too.
+/// The desktop entry text. Field codes only apply to `Exec`, which is fixed
+/// here, so the name and comment need only be kept to one line.
 pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
-    let escape = |s: &str| s.replace('%', "%%").replace('\n', " ");
+    let escape = |s: &str| s.replace(['\n', '\r'], " ");
     let comment = if flow.description.trim().is_empty() {
         "Omarchist flow".to_string()
     } else {
@@ -65,10 +70,12 @@ pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
     )
 }
 
+/// Omarchy runs the `post-boot.d` scripts one after another, so the flow is
+/// started in the background rather than holding up the hooks after it.
 pub fn startup_hook(flow: &Flow) -> String {
     format!(
-        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\n{}\n",
-        flow.name.trim(),
+        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\nsetsid -f {} >/dev/null 2>&1\n",
+        flow.id,
         flow.command()
     )
 }
@@ -142,7 +149,7 @@ mod tests {
         let mut flow = Flow::new("morning".into(), "Morning 100%".into());
         flow.description = "Opens\neverything".into();
         let entry = desktop_entry(&flow, "/tmp/morning.svg");
-        assert!(entry.contains("Name=Morning 100%%\n"));
+        assert!(entry.contains("Name=Morning 100%\n"));
         assert!(entry.contains("Comment=Opens everything\n"));
         assert!(entry.contains("Exec=omarchist flow run 'morning'\n"));
         assert!(entry.contains("Icon=/tmp/morning.svg\n"));
@@ -150,7 +157,11 @@ mod tests {
 
         let hook = startup_hook(&flow);
         assert!(hook.starts_with("#!/bin/bash\n"));
-        assert!(hook.ends_with("omarchist flow run 'morning'\n"));
+        assert!(hook.ends_with("setsid -f omarchist flow run 'morning' >/dev/null 2>&1\n"));
+        assert!(
+            !hook.contains("Morning 100%"),
+            "the hook names the id, never the free-text name"
+        );
     }
 
     #[test]

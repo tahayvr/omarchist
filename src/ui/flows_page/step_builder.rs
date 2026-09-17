@@ -11,7 +11,7 @@ use gpui_component::{
 };
 
 use crate::system::flows::{StepKind, format_duration};
-use crate::system::keybinds::action::ActionKind;
+use crate::system::keybinds::action::{Action, ActionKind};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
@@ -63,8 +63,8 @@ pub struct StepBuilder {
     choice: StepChoice,
     kind_focus: FocusHandle,
     action: Entity<ActionBuilder>,
-    /// For command steps: start it and move on instead of waiting.
-    detach: bool,
+    /// Wait for the command to exit before the next step.
+    wait: bool,
     wait_ms: Entity<InputState>,
     notify_title: Entity<InputState>,
     notify_body: Entity<InputState>,
@@ -94,7 +94,7 @@ impl StepBuilder {
             Some(StepKind::Notify { .. }) => StepChoice::Notify,
             _ => StepChoice::Action(action.read(cx).kind()),
         };
-        let detach = matches!(initial, Some(StepKind::Exec { detach: true, .. }));
+        let wait = matches!(initial, Some(StepKind::Exec { wait: true, .. }));
         let (wait_value, title_value, body_value) = match initial {
             Some(StepKind::Wait { ms }) => (ms.to_string(), String::new(), String::new()),
             Some(StepKind::Notify { title, body }) => {
@@ -137,7 +137,7 @@ impl StepBuilder {
             choice,
             kind_focus: focus::tab_stop(cx),
             action,
-            detach,
+            wait,
             wait_ms,
             notify_title,
             notify_body,
@@ -181,8 +181,12 @@ impl StepBuilder {
     pub fn step(&self, cx: &App) -> Result<StepKind, String> {
         match self.choice {
             StepChoice::Action(_) => {
-                let dispatcher = self.action.read(cx).dispatcher(cx)?;
-                StepKind::from_dispatcher(dispatcher, self.detach)
+                let builder = self.action.read(cx);
+                if let Ok(Action::Flow(id)) = builder.action(cx) {
+                    return Ok(StepKind::Flow { id });
+                }
+                let dispatcher = builder.dispatcher(cx)?;
+                StepKind::from_dispatcher(dispatcher, self.wait)
                     .ok_or_else(|| "This action cannot be a step".to_string())
             }
             StepChoice::Wait => Ok(StepKind::Wait {
@@ -273,21 +277,22 @@ impl StepBuilder {
             StepChoice::Action(kind) => v_flex()
                 .gap_2()
                 .child(self.action.clone())
-                .when(kind == ActionKind::Command, |this| {
+                .when(kind != ActionKind::Window && kind != ActionKind::Flow, |this| {
                     this.child(
                         div().text_sm().child(
-                            FocusableSwitch::new("step-detach")
-                                .label("Start it and move on without waiting")
-                                .checked(self.detach)
+                            FocusableSwitch::new("step-wait")
+                                .label("Wait until it finishes")
+                                .checked(self.wait)
                                 .on_change(cx.listener(|this, checked, _window, cx| {
-                                    this.detach = *checked;
+                                    this.wait = *checked;
                                     this.changed(cx);
                                 })),
                         ),
                     )
                     .child(Self::hint(
-                        "Steps wait for their command to finish. Omarchy's launch commands \
-                         return at once; turn this on for anything that stays open.",
+                        "Off, the command is started and the flow moves on, which is what \
+                         opening an app needs. On, the flow waits for it to exit and treats \
+                         a failure as the step failing.",
                         cx,
                     ))
                 })

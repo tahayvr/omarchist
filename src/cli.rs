@@ -9,6 +9,7 @@ use crate::system::flows::store::{find_flow, load_flows};
 #[command(name = "omarchist")]
 #[command(about = "Omarchy system and theme manager")]
 #[command(version)]
+#[command(args_conflicts_with_subcommands = true)]
 pub struct CliArgs {
     #[command(subcommand)]
     pub command: Option<Command>,
@@ -106,14 +107,11 @@ pub fn run_command(command: &Command) -> ExitCode {
                 total,
                 if total == 1 { "" } else { "s" }
             );
+            let mut ran = 0;
             let outcome = Runner::new(false).run(&flow, &mut |event| match event {
                 RunEvent::Started { index } => {
-                    println!(
-                        "[{}/{}] {}",
-                        index + 1,
-                        flow.steps.len(),
-                        flow.steps[index].kind.text()
-                    );
+                    ran += 1;
+                    println!("[{ran}/{total}] {}", flow.steps[index].kind.text());
                 }
                 RunEvent::Finished {
                     error: Some(error), ..
@@ -135,7 +133,15 @@ pub fn run_command(command: &Command) -> ExitCode {
 
 fn notify_failure(message: &str) {
     let _ = std::process::Command::new("notify-send")
-        .args(["-a", "Omarchist", "-u", "normal", "Flow failed", message])
+        .args([
+            "-a",
+            "Omarchist",
+            "-u",
+            "normal",
+            "--",
+            "Flow failed",
+            message,
+        ])
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
@@ -192,6 +198,10 @@ mod tests {
         );
         assert!(CliArgs::try_parse_from(["omarchist", "flow", "run"]).is_err());
         assert!(CliArgs::try_parse_from(["omarchist", "flow"]).is_err());
+        assert!(
+            CliArgs::try_parse_from(["omarchist", "--view", "flows", "flow", "list"]).is_err(),
+            "a view cannot be combined with a subcommand that never opens the window"
+        );
     }
 
     #[test]

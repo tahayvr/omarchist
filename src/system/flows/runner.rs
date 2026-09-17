@@ -2,7 +2,7 @@
 use std::process::{Command, Stdio};
 use std::time::Duration;
 
-use crate::error::Result;
+use crate::error::{Error, Result};
 
 use super::store::load_flow;
 use super::{Flow, MAX_DEPTH, OnError, StepKind};
@@ -88,7 +88,7 @@ impl<'a> Runner<'a> {
                 continue;
             }
             on_event(RunEvent::Started { index });
-            let result = self.run_step(&step.kind, stack);
+            let result = self.run_step(&step.kind, stack).map_err(|e| e.to_string());
             outcome.ran += 1;
             on_event(RunEvent::Finished {
                 index,
@@ -105,13 +105,9 @@ impl<'a> Runner<'a> {
         outcome
     }
 
-    fn run_step(
-        &self,
-        kind: &StepKind,
-        stack: &mut Vec<String>,
-    ) -> std::result::Result<(), String> {
+    fn run_step(&self, kind: &StepKind, stack: &mut Vec<String>) -> Result<()> {
         match kind {
-            StepKind::Exec { command, detach } => self.exec(command, *detach),
+            StepKind::Exec { command, wait } => self.exec(command, *wait),
             StepKind::Lua { expr } => dispatch(expr),
             StepKind::Wait { ms } => {
                 std::thread::sleep(Duration::from_millis(*ms));
@@ -122,52 +118,57 @@ impl<'a> Runner<'a> {
         }
     }
 
-    fn exec(&self, command: &str, detach: bool) -> std::result::Result<(), String> {
-        let mut cmd = if detach {
-            // `setsid -f` forks the command into its own session and returns
-            // at once, so the flow moves on and nothing is left to reap.
-            let mut cmd = Command::new("setsid");
-            cmd.args(["-f", "sh", "-c", command]);
-            cmd
-        } else {
+    /// Omarchy's launch scripts end in `exec setsid ...`, and `setsid` only
+    /// forks when the caller already leads a process group, which a child of
+    /// `sh -c` does not; waiting would therefore last until the launched
+    /// window closes. `setsid -f` forks the command into its own session and
+    /// returns at once, leaving nothing to reap.
+    fn exec(&self, command: &str, wait: bool) -> Result<()> {
+        let mut cmd = if wait {
             let mut cmd = Command::new("sh");
             cmd.args(["-c", command]);
             cmd
+        } else {
+            let mut cmd = Command::new("setsid");
+            cmd.args(["-f", "sh", "-c", command]);
+            cmd
         };
         cmd.stdin(Stdio::null());
-        if self.quiet || detach {
+        if self.quiet || !wait {
             cmd.stdout(Stdio::null()).stderr(Stdio::null());
         }
         let status = cmd
             .status()
-            .map_err(|e| format!("Could not start the command: {e}"))?;
+            .map_err(|e| Error::io("Could not start the command", e))?;
         if status.success() {
             Ok(())
         } else {
-            Err(match status.code() {
+            Err(Error::Invalid(match status.code() {
                 Some(code) => format!("The command exited with status {code}"),
                 None => "The command was killed by a signal".to_string(),
-            })
+            }))
         }
     }
 
-    fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> std::result::Result<(), String> {
+    fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> Result<()> {
         if stack.iter().any(|s| s == id) {
-            return Err(format!(
+            return Err(Error::Invalid(format!(
                 "Flow '{id}' is already running further up this flow"
-            ));
+            )));
         }
         if stack.len() >= MAX_DEPTH {
-            return Err(format!("Flows are nested more than {MAX_DEPTH} deep"));
+            return Err(Error::Invalid(format!(
+                "Flows are nested more than {MAX_DEPTH} deep"
+            )));
         }
-        let nested = (self.load)(id).map_err(|e| e.to_string())?;
+        let nested = (self.load)(id)?;
         stack.push(nested.id.clone());
         let outcome = self.run_nested(&nested, stack, &mut |_| {});
         stack.pop();
         if outcome.is_ok() {
             Ok(())
         } else {
-            Err(outcome.summary(&nested))
+            Err(Error::Invalid(outcome.summary(&nested)))
         }
     }
 }
@@ -176,26 +177,29 @@ fn load_from_disk(id: &str) -> Result<Flow> {
     load_flow(id)
 }
 
-fn dispatch(expr: &str) -> std::result::Result<(), String> {
+fn dispatch(expr: &str) -> Result<()> {
     let output = Command::new("hyprctl")
         .args(["dispatch", expr])
         .stdin(Stdio::null())
         .output()
-        .map_err(|e| format!("Could not run hyprctl: {e}"))?;
+        .map_err(|e| Error::io("Could not run hyprctl", e))?;
     let text = String::from_utf8_lossy(&output.stdout);
     let text = text.trim();
     if output.status.success() && text == "ok" {
         Ok(())
     } else if text.is_empty() {
-        Err(String::from_utf8_lossy(&output.stderr).trim().to_string())
+        Err(Error::Invalid(
+            String::from_utf8_lossy(&output.stderr).trim().to_string(),
+        ))
     } else {
-        Err(text.to_string())
+        Err(Error::Invalid(text.to_string()))
     }
 }
 
-fn notify(title: &str, body: &str) -> std::result::Result<(), String> {
+fn notify(title: &str, body: &str) -> Result<()> {
     let mut cmd = Command::new("notify-send");
-    cmd.args(["-a", "Omarchist", title.trim()]);
+    // `--` keeps a title such as "-t 5 minutes" from being read as options.
+    cmd.args(["-a", "Omarchist", "--", title.trim()]);
     if !body.trim().is_empty() {
         cmd.arg(body.trim());
     }
@@ -204,11 +208,11 @@ fn notify(title: &str, body: &str) -> std::result::Result<(), String> {
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .status()
-        .map_err(|e| format!("Could not send the notification: {e}"))?;
+        .map_err(|e| Error::io("Could not send the notification", e))?;
     if status.success() {
         Ok(())
     } else {
-        Err("notify-send failed".to_string())
+        Err(Error::Invalid("notify-send failed".to_string()))
     }
 }
 
@@ -218,10 +222,11 @@ mod tests {
     use crate::error::Error;
     use crate::system::flows::Step;
 
+    /// A waited-for command, so its exit status reaches the outcome.
     fn exec(command: &str) -> Step {
         Step::new(StepKind::Exec {
             command: command.into(),
-            detach: false,
+            wait: true,
         })
     }
 

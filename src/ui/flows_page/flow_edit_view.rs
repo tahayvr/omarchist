@@ -16,9 +16,9 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
-use crate::system::flows::store::{existing_ids, load_flow, load_flows, save_flow};
+use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
 use crate::system::flows::templates::template;
-use crate::system::flows::{Flow, ICONS, OnError, Step, run_command, unique_id};
+use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -116,8 +116,10 @@ impl FlowEditPage {
             FlowEditSource::Existing(id) => match load_flow(id) {
                 Ok(flow) => (flow.clone(), Some(flow)),
                 Err(e) => {
-                    eprintln!("Failed to load flow '{id}': {e}");
-                    (Flow::new(id.clone(), id.clone()), None)
+                    // Opened as a new flow so Save can never replace the
+                    // unreadable file; it gets a fresh id.
+                    window.push_notification(format!("Could not read the flow: {e}"), cx);
+                    (Flow::new(String::new(), id.clone()), None)
                 }
             },
             FlowEditSource::New(template_id) => {
@@ -198,14 +200,10 @@ impl FlowEditPage {
                 this.apps = apps;
                 this.flows = flows.unwrap_or_default();
                 if let Ok(scan) = scan {
-                    let runs_this = run_command(&id);
                     this.chord = scan
                         .binds
                         .iter()
-                        .find(|b| {
-                            b.status == BindStatus::Active
-                                && matches!(&b.dispatcher, Dispatcher::Exec(c) if *c == runs_this)
-                        })
+                        .find(|b| b.status == BindStatus::Active && runs_flow(&b.dispatcher, &id))
                         .map(|b| (b.chord.clone(), b.origin == Origin::Omarchist));
                     this.binds = Rc::new(scan.binds);
                 }
@@ -500,11 +498,11 @@ impl FlowEditPage {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let runs_this = Dispatcher::Exec(self.flow.command());
+        let id = self.flow.id.clone();
         let result = load_overrides().and_then(|mut overrides| {
             overrides
                 .overrides
-                .retain(|o| o.bind().is_none_or(|b| b.dispatcher != runs_this));
+                .retain(|o| o.bind().is_none_or(|b| !runs_flow(&b.dispatcher, &id)));
             if let Some(override_) = override_ {
                 overrides.upsert(override_);
             }

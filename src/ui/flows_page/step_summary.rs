@@ -193,7 +193,7 @@ mod tests {
 
         let launch = ctx.summarize(&StepKind::Exec {
             command: "uwsm-app -- obsidian".into(),
-            detach: false,
+            wait: false,
         });
         assert_eq!(launch.title, "Open Obsidian");
         assert_eq!(
@@ -210,7 +210,7 @@ mod tests {
 
         let omarchy = ctx.summarize(&StepKind::Exec {
             command: "omarchy-launch-browser".into(),
-            detach: false,
+            wait: false,
         });
         assert_eq!(omarchy.title, "Browser");
         assert_eq!(omarchy.icon, StepIcon::Path("icons/sparkles.svg"));

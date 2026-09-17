@@ -8,7 +8,7 @@ use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
 
 use super::launcher;
-use super::{Flow, is_slug, run_command};
+use super::{Flow, is_slug, run_command_id};
 
 /// `~/.config/omarchist/flows`
 pub fn flows_dir() -> Result<PathBuf> {
@@ -73,6 +73,12 @@ pub fn load_flow(id: &str) -> Result<Flow> {
     read_flow(&path)
 }
 
+/// Whether a keybind dispatcher runs the flow with this id, however the
+/// command was quoted.
+pub fn runs_flow(dispatcher: &Dispatcher, id: &str) -> bool {
+    matches!(dispatcher, Dispatcher::Exec(command) if run_command_id(command).as_deref() == Some(id))
+}
+
 /// The flow with this id, or else the flow with this name (case-insensitive),
 /// which is what the command line accepts.
 pub fn find_flow(name_or_id: &str) -> Result<Flow> {
@@ -94,7 +100,7 @@ pub fn existing_ids() -> Vec<String> {
         .unwrap_or_default()
 }
 
-/// Validates, writes the JSON, and creates or removes the launcher entry and
+/// Validates, writes the TOML, and creates or removes the launcher entry and
 /// startup hook to match the flow's triggers.
 pub fn save_flow(flow: &Flow) -> Result<()> {
     flow.validate()?;
@@ -122,11 +128,10 @@ pub fn delete_flow(id: &str) -> Result<()> {
 
 fn remove_keybinds_running(id: &str) -> Result<()> {
     let mut overrides = load_overrides()?;
-    let runs_flow = Dispatcher::Exec(run_command(id));
     let before = overrides.overrides.len();
     overrides
         .overrides
-        .retain(|o| o.bind().is_none_or(|bind| bind.dispatcher != runs_flow));
+        .retain(|o| o.bind().is_none_or(|bind| !runs_flow(&bind.dispatcher, id)));
     if overrides.overrides.len() != before {
         save_overrides(&overrides)?;
     }

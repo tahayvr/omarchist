@@ -67,10 +67,9 @@ pub struct MainWindowView {
     keybinds_view: Option<Entity<KeybindsView>>,
     flows_root: Option<AnyView>,
     flows_view: Option<Entity<FlowsView>>,
-    // The flow editor is rebuilt for every flow (and every new flow) it opens.
+    // The flow editor is rebuilt every time it is opened.
     flow_edit_root: Option<AnyView>,
     flow_edit_view: Option<Entity<FlowEditPage>>,
-    flow_edit_page: Option<ActivePage>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -117,7 +116,6 @@ impl MainWindowView {
             flows_view: None,
             flow_edit_root: None,
             flow_edit_view: None,
-            flow_edit_page: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -214,21 +212,16 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
+            // Always rebuilt from disk, so discarded edits never resurface.
             ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
-                let reuse = matches!(page, ActivePage::FlowEdit(_))
-                    && self.flow_edit_page.as_ref() == Some(page);
-                if !reuse {
-                    let source = match page {
-                        ActivePage::FlowEdit(id) => FlowEditSource::Existing(id.clone()),
-                        ActivePage::FlowNew(template) => FlowEditSource::New(template.clone()),
-                        _ => unreachable!(),
-                    };
-                    let view = cx.new(|cx| FlowEditPage::new(source, window, cx));
-                    self.flow_edit_root =
-                        Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
-                    self.flow_edit_view = Some(view);
-                    self.flow_edit_page = Some(page.clone());
-                }
+                let source = match page {
+                    ActivePage::FlowEdit(id) => FlowEditSource::Existing(id.clone()),
+                    ActivePage::FlowNew(template) => FlowEditSource::New(template.clone()),
+                    _ => unreachable!(),
+                };
+                let view = cx.new(|cx| FlowEditPage::new(source, window, cx));
+                self.flow_edit_root = Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                self.flow_edit_view = Some(view);
             }
             ActivePage::Settings => {
                 if self.settings_root.is_none() {

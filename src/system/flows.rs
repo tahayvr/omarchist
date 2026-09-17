@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 use crate::error::{Error, Result};
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::overrides::is_dsp_call;
+use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod launcher;
 pub mod runner;
@@ -20,6 +21,7 @@ pub const DEFAULT_ICON: &str = "workflow";
 pub const MAX_DEPTH: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Flow {
     /// Stable slug that keybinds, desktop entries, and the CLI refer to.
     pub id: String,
@@ -68,6 +70,7 @@ impl OnError {
 /// Where a flow can be started from, besides the command line and a keybind
 /// (which lives in the keybind overrides, not here).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Triggers {
     /// A `.desktop` entry, so the flow appears in the app launcher.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -111,12 +114,13 @@ impl Step {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum StepKind {
-    /// A shell command. Waited for unless `detach` is set, in which case it
-    /// is started in its own session and the flow moves on.
+    /// A shell command. Started in its own session and left to run, unless
+    /// `wait` is set, in which case the flow waits for it to exit and treats
+    /// a non-zero status as a failure.
     Exec {
         command: String,
         #[serde(default, skip_serializing_if = "std::ops::Not::not")]
-        detach: bool,
+        wait: bool,
     },
     /// A Hyprland dispatcher call, `hl.dsp.*(...)`, sent through `hyprctl`.
     Lua { expr: String },
@@ -145,18 +149,25 @@ impl StepKind {
         }
     }
 
-    /// The dispatcher form of an `Exec` or `Lua` step, for the action builder.
+    /// The dispatcher form of an `Exec`, `Lua`, or `Flow` step, which is
+    /// what the action builder edits.
     pub fn dispatcher(&self) -> Option<Dispatcher> {
         match self {
             StepKind::Exec { command, .. } => Some(Dispatcher::Exec(command.clone())),
             StepKind::Lua { expr } => Some(Dispatcher::Lua(expr.clone())),
+            StepKind::Flow { id } => Some(Dispatcher::Exec(run_command(id))),
             _ => None,
         }
     }
 
-    pub fn from_dispatcher(dispatcher: Dispatcher, detach: bool) -> Option<Self> {
+    /// The inverse of [`dispatcher`](Self::dispatcher): a command that runs
+    /// a flow becomes a `Flow` step, so nesting is checked in process.
+    pub fn from_dispatcher(dispatcher: Dispatcher, wait: bool) -> Option<Self> {
         match dispatcher {
-            Dispatcher::Exec(command) => Some(StepKind::Exec { command, detach }),
+            Dispatcher::Exec(command) => Some(match run_command_id(&command) {
+                Some(id) => StepKind::Flow { id },
+                None => StepKind::Exec { command, wait },
+            }),
             Dispatcher::Lua(expr) => Some(StepKind::Lua { expr }),
             Dispatcher::Function => None,
         }
@@ -194,6 +205,11 @@ impl Flow {
         }
         if self.name.trim().is_empty() {
             return Err(Error::Invalid("A flow needs a name".to_string()));
+        }
+        if self.name.chars().any(char::is_control) {
+            return Err(Error::Invalid(
+                "A flow's name cannot contain line breaks".to_string(),
+            ));
         }
         for step in &self.steps {
             match &step.kind {
@@ -248,6 +264,18 @@ pub fn format_duration(ms: u64) -> String {
     }
 }
 
+/// The slug themes use for their directories: letters and digits kept
+/// (lowercased), runs of anything else collapsed to one hyphen, and empty
+/// when the name has neither.
+fn slug(name: &str) -> String {
+    let slug = slugify_theme_name(name);
+    if slug == "custom-theme" && !name.to_lowercase().contains("custom") {
+        String::new()
+    } else {
+        slug
+    }
+}
+
 /// Lowercase ASCII letters, digits, and single hyphens between them.
 pub fn is_slug(id: &str) -> bool {
     !id.is_empty()
@@ -257,25 +285,6 @@ pub fn is_slug(id: &str) -> bool {
         && id
             .chars()
             .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
-}
-
-/// A slug for a name: letters and digits kept (lowercased), runs of anything
-/// else collapsed to one hyphen. Empty when the name has neither.
-pub fn slug(name: &str) -> String {
-    let mut out = String::new();
-    let mut pending_hyphen = false;
-    for c in name.chars() {
-        if c.is_ascii_alphanumeric() {
-            if pending_hyphen && !out.is_empty() {
-                out.push('-');
-            }
-            pending_hyphen = false;
-            out.push(c.to_ascii_lowercase());
-        } else {
-            pending_hyphen = true;
-        }
-    }
-    out
 }
 
 /// A slug for `name` that no flow in `taken` uses: the plain slug, then
@@ -352,6 +361,7 @@ mod tests {
         assert_eq!(slug("Morning Start!"), "morning-start");
         assert_eq!(slug("  Déjà vu  "), "d-j-vu");
         assert_eq!(slug("***"), "");
+        assert_eq!(slug("Custom"), "custom");
         assert!(is_slug("focus-mode-2"));
         assert!(!is_slug("Focus"));
         assert!(!is_slug("-a"));
@@ -372,6 +382,24 @@ mod tests {
         assert_eq!(
             StepKind::Flow { id: "x".into() }.text(),
             "omarchist flow run 'x'"
+        );
+    }
+
+    #[test]
+    fn flow_commands_become_flow_steps() {
+        let step =
+            StepKind::from_dispatcher(Dispatcher::Exec("omarchist flow run 'other'".into()), false);
+        assert_eq!(step, Some(StepKind::Flow { id: "other".into() }));
+        assert_eq!(
+            StepKind::Flow { id: "other".into() }.dispatcher(),
+            Some(Dispatcher::Exec("omarchist flow run 'other'".into()))
+        );
+        assert_eq!(
+            StepKind::from_dispatcher(Dispatcher::Exec("ls".into()), true),
+            Some(StepKind::Exec {
+                command: "ls".into(),
+                wait: true
+            })
         );
     }
 
@@ -404,7 +432,7 @@ mod tests {
             },
             Step::new(StepKind::Exec {
                 command: "omarchy-launch-editor".into(),
-                detach: true,
+                wait: true,
             }),
         ];
         let text = toml::to_string_pretty(&flow).unwrap();
@@ -428,7 +456,7 @@ mod tests {
             steps: vec![
                 Step::new(StepKind::Exec {
                     command: "omarchy-launch-browser".into(),
-                    detach: false,
+                    wait: false,
                 }),
                 Step {
                     kind: StepKind::Wait { ms: 500 },
@@ -449,7 +477,7 @@ mod tests {
         assert_eq!(json["step"][0]["type"], "exec");
         assert_eq!(json["step"][0]["command"], "omarchy-launch-browser");
         assert!(json["step"][0].get("enabled").is_none());
-        assert!(json["step"][0].get("detach").is_none());
+        assert!(json["step"][0].get("wait").is_none());
         assert_eq!(json["step"][1]["enabled"], false);
         assert_eq!(json["step"][1]["ms"], 500);
         assert_eq!(json["icon"], "workflow");
@@ -482,9 +510,22 @@ mod tests {
 
         flow.steps.push(Step::new(StepKind::Exec {
             command: "  ".into(),
-            detach: false,
+            wait: false,
         }));
         assert!(flow.validate().is_err());
+        flow.steps.clear();
+
+        flow.name = "Two\nlines".into();
+        assert!(flow.validate().is_err());
+        flow.name = "Ok".into();
+
+        assert!(
+            toml::from_str::<Flow>(
+                "id = \"x\"\nname = \"X\"\n[[steps]]\ntype = \"wait\"\nms = 1\n"
+            )
+            .is_err(),
+            "a misspelled table must not load as an empty flow"
+        );
 
         let bad_id = Flow::new("Bad Id".into(), "Bad".into());
         assert!(bad_id.validate().is_err());
