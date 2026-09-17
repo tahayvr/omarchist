@@ -1,7 +1,9 @@
 use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
-use crate::types::themes::{EditingTheme, ThemeEditTab};
+use crate::types::themes::EditingTheme;
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::app_view::ActivePage;
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
@@ -20,15 +22,45 @@ use gpui_component::{
 
 const KEY_CONTEXT: &str = "ThemeEditPage";
 
+// Tab order of the Theme Designer. UI-only, so it lives with the page
+// rather than in the shared theme data types.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeEditTab {
+    General,
+    Colors,
+    FileManager,
+    Editor,
+    Overrides,
+    Backgrounds,
+}
+
+impl ThemeEditTab {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ThemeEditTab::General => "General",
+            ThemeEditTab::Colors => "Colors",
+            ThemeEditTab::FileManager => "File Manager",
+            ThemeEditTab::Editor => "Editor",
+            ThemeEditTab::Overrides => "Overrides",
+            ThemeEditTab::Backgrounds => "Backgrounds",
+        }
+    }
+
+    pub fn all() -> Vec<ThemeEditTab> {
+        vec![
+            ThemeEditTab::General,
+            ThemeEditTab::Colors,
+            ThemeEditTab::FileManager,
+            ThemeEditTab::Editor,
+            ThemeEditTab::Overrides,
+            ThemeEditTab::Backgrounds,
+        ]
+    }
+}
+
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
 pub struct NavigateToThemes;
-
-use std::cell::RefCell;
-
-thread_local! {
-    pub static PENDING_NAVIGATE_TO_THEMES: RefCell<bool> = const { RefCell::new(false) };
-}
 
 #[derive(Clone, PartialEq, Action)]
 #[action(no_json)]
@@ -111,14 +143,10 @@ impl ThemeEditPage {
         &self.theme_name
     }
 
-    fn navigate_back(&self, _window: &mut Window, _cx: &mut Context<Self>) {
-        PENDING_NAVIGATE_TO_THEMES.with(|flag| {
-            *flag.borrow_mut() = true;
-        });
-        // Also trigger themes refresh so new themes appear
-        crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
-            *flag.borrow_mut() = true;
-        });
+    fn navigate_back(&self, _window: &mut Window, cx: &mut Context<Self>) {
+        // Refresh first so a newly created theme is in the grid on arrival.
+        emit(cx, AppEvent::RefreshThemes);
+        emit(cx, AppEvent::Navigate(ActivePage::Themes));
     }
 
     fn next_tab(&mut self, cx: &mut Context<Self>) {

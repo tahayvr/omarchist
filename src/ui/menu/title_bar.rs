@@ -1,3 +1,5 @@
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::app_view::ActivePage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -97,10 +99,8 @@ impl Render for MainTitleBar {
                                     .small()
                                     .ghost()
                                     .cursor_pointer()
-                                    .on_click(|_, _, _cx| {
-                                        crate::ui::app_view::PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
-                                            *flag.borrow_mut() = true;
-                                        });
+                                    .on_click(|_, _, cx| {
+                                        emit(cx, AppEvent::Navigate(ActivePage::Omarchy));
                                     }),
                             )
                             .when(self.omarchy_update_available == Some(true), |this| {

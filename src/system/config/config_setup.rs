@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use std::fs;
@@ -25,7 +26,7 @@ pub struct Metadata {
     pub last_modified: String,
 }
 
-pub fn ensure_config() -> Result<(), String> {
+pub fn ensure_config() -> Result<()> {
     let config_dir = get_config_dir()?;
 
     // Get the default settings version from the embedded defaults
@@ -64,12 +65,12 @@ pub fn ensure_config() -> Result<(), String> {
     if settings_path.exists() {
         let timestamp = Utc::now().to_rfc3339();
         let content = fs::read_to_string(&settings_path)
-            .map_err(|e| format!("Failed to read settings.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to read settings.json", e))?;
         let updated_content = content
             .replace("{{CREATED_AT}}", &timestamp)
             .replace("{{MODIFIED_AT}}", &timestamp);
         fs::write(&settings_path, updated_content)
-            .map_err(|e| format!("Failed to write settings.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to write settings.json", e))?;
     }
 
     println!("Created default config at: {:?}", config_dir);
@@ -77,73 +78,79 @@ pub fn ensure_config() -> Result<(), String> {
     Ok(())
 }
 
-fn get_config_dir() -> Result<PathBuf, String> {
-    let home_dir =
-        dirs::home_dir().ok_or_else(|| "Could not determine home directory".to_string())?;
+fn get_config_dir() -> Result<PathBuf> {
+    let home_dir = dirs::home_dir().ok_or(Error::UnknownDirectory("home"))?;
 
     Ok(home_dir.join(".config").join("omarchist"))
 }
 
-fn validate_settings(settings_path: &Path) -> Result<(), String> {
+fn validate_settings(settings_path: &Path) -> Result<()> {
     let content = fs::read_to_string(settings_path)
-        .map_err(|e| format!("Failed to read settings.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to read settings.json", e))?;
 
     let settings: SettingsSchema = serde_json::from_str(&content)
-        .map_err(|e| format!("Invalid settings.json schema: {}", e))?;
+        .map_err(|e| Error::json("Invalid settings.json schema", e))?;
 
     // Additional validation: check required fields are not empty
     if settings.version.is_empty() {
-        return Err("settings.json: version field is empty".to_string());
+        return Err(Error::Invalid(
+            "settings.json: version field is empty".into(),
+        ));
     }
 
     if settings.settings.font_size.is_empty() {
-        return Err("settings.json: font_size field is empty".to_string());
+        return Err(Error::Invalid(
+            "settings.json: font_size field is empty".into(),
+        ));
     }
 
     if settings.metadata.created_at.is_empty() {
-        return Err("settings.json: created_at field is empty".to_string());
+        return Err(Error::Invalid(
+            "settings.json: created_at field is empty".into(),
+        ));
     }
 
     if settings.metadata.last_modified.is_empty() {
-        return Err("settings.json: last_modified field is empty".to_string());
+        return Err(Error::Invalid(
+            "settings.json: last_modified field is empty".into(),
+        ));
     }
 
     Ok(())
 }
 
-pub fn get_settings_path() -> Result<PathBuf, String> {
+pub fn get_settings_path() -> Result<PathBuf> {
     get_config_dir().map(|dir| dir.join("settings.json"))
 }
 
-pub fn read_settings() -> Result<SettingsSchema, String> {
+pub fn read_settings() -> Result<SettingsSchema> {
     let path = get_settings_path()?;
-    let content =
-        fs::read_to_string(&path).map_err(|e| format!("Failed to read settings: {}", e))?;
+    let content = fs::read_to_string(&path).map_err(|e| Error::io("Failed to read settings", e))?;
 
-    serde_json::from_str(&content).map_err(|e| format!("Failed to parse settings: {}", e))
+    serde_json::from_str(&content).map_err(|e| Error::json("Failed to parse settings", e))
 }
 
-pub fn save_settings(settings: &SettingsSchema) -> Result<(), String> {
+pub fn save_settings(settings: &SettingsSchema) -> Result<()> {
     let path = get_settings_path()?;
     let content = serde_json::to_string_pretty(settings)
-        .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+        .map_err(|e| Error::json("Failed to serialize settings", e))?;
 
-    fs::write(&path, content).map_err(|e| format!("Failed to write settings: {}", e))?;
+    fs::write(&path, content).map_err(|e| Error::io("Failed to write settings", e))?;
 
     Ok(())
 }
 
 // font_size should be one of: "small", "medium", "large"
-pub fn update_font_size(font_size: &str) -> Result<(), String> {
+pub fn update_font_size(font_size: &str) -> Result<()> {
     let mut settings = read_settings()?;
 
     // Validate font_size value
     let valid_sizes = ["small", "medium", "large"];
     if !valid_sizes.contains(&font_size) {
-        return Err(format!(
+        return Err(Error::Invalid(format!(
             "Invalid font_size '{}'. Must be one of: small, medium, large",
             font_size
-        ));
+        )));
     }
 
     settings.settings.font_size = font_size.to_string();
@@ -156,7 +163,7 @@ pub fn update_font_size(font_size: &str) -> Result<(), String> {
     Ok(())
 }
 
-pub fn get_font_size() -> Result<String, String> {
+pub fn get_font_size() -> Result<String> {
     let settings = read_settings()?;
     Ok(settings.settings.font_size)
 }
@@ -167,40 +174,40 @@ enum UpdateAction {
     Keep,
 }
 
-fn get_default_settings_version() -> Result<String, String> {
+fn get_default_settings_version() -> Result<String> {
     let content = read_default_str("omarchist/settings.json")?;
     let settings: SettingsSchema = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse default settings.json: {}", e))?;
+        .map_err(|e| Error::json("Failed to parse default settings.json", e))?;
     Ok(settings.version)
 }
 
-fn parse_version(version: &str) -> Result<(u32, u32, u32), String> {
+fn parse_version(version: &str) -> Result<(u32, u32, u32)> {
     // Remove 'v' prefix if present
     let version = version.trim_start_matches('v');
 
     let parts: Vec<&str> = version.split('.').collect();
     if parts.len() != 3 {
-        return Err(format!(
+        return Err(Error::Invalid(format!(
             "Invalid version format '{}', expected X.Y.Z",
             version
-        ));
+        )));
     }
 
     let major = parts[0]
         .parse::<u32>()
-        .map_err(|e| format!("Invalid major version '{}': {}", parts[0], e))?;
+        .map_err(|e| Error::Invalid(format!("Invalid major version '{}': {}", parts[0], e)))?;
     let minor = parts[1]
         .parse::<u32>()
-        .map_err(|e| format!("Invalid minor version '{}': {}", parts[1], e))?;
+        .map_err(|e| Error::Invalid(format!("Invalid minor version '{}': {}", parts[1], e)))?;
     let patch = parts[2]
         .parse::<u32>()
-        .map_err(|e| format!("Invalid patch version '{}': {}", parts[2], e))?;
+        .map_err(|e| Error::Invalid(format!("Invalid patch version '{}': {}", parts[2], e)))?;
 
     Ok((major, minor, patch))
 }
 
 // Compares two version strings
-fn is_version_older(user_version: &str, default_version: &str) -> Result<bool, String> {
+fn is_version_older(user_version: &str, default_version: &str) -> Result<bool> {
     let user = parse_version(user_version)?;
     let default = parse_version(default_version)?;
 
@@ -213,14 +220,11 @@ fn is_version_older(user_version: &str, default_version: &str) -> Result<bool, S
     Ok(user.2 < default.2)
 }
 
-fn should_update_settings(
-    settings_path: &Path,
-    default_version: &str,
-) -> Result<UpdateAction, String> {
+fn should_update_settings(settings_path: &Path, default_version: &str) -> Result<UpdateAction> {
     let content = fs::read_to_string(settings_path)
-        .map_err(|e| format!("Failed to read settings.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to read settings.json", e))?;
     let settings: SettingsSchema = serde_json::from_str(&content)
-        .map_err(|e| format!("Failed to parse settings.json: {}", e))?;
+        .map_err(|e| Error::json("Failed to parse settings.json", e))?;
 
     if is_version_older(&settings.version, default_version)? {
         Ok(UpdateAction::Update)
@@ -229,7 +233,7 @@ fn should_update_settings(
     }
 }
 
-fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
+fn replace_settings_file(settings_path: &Path) -> Result<()> {
     let content = read_default_str("omarchist/settings.json")?;
 
     // Update timestamps
@@ -238,13 +242,13 @@ fn replace_settings_file(settings_path: &Path) -> Result<(), String> {
         .replace("{{CREATED_AT}}", &timestamp)
         .replace("{{MODIFIED_AT}}", &timestamp);
     fs::write(settings_path, updated_content)
-        .map_err(|e| format!("Failed to write settings.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to write settings.json", e))?;
 
     Ok(())
 }
 
 // Copies settings.json from defaults when it doesn't exist
-fn copy_settings_from_default(settings_path: &Path) -> Result<(), String> {
+fn copy_settings_from_default(settings_path: &Path) -> Result<()> {
     replace_settings_file(settings_path)
 }
 
@@ -253,12 +257,12 @@ fn copy_settings_from_default(settings_path: &Path) -> Result<(), String> {
 // sourced via a glob. Quattro's Hyprland config is Lua, and Omarchist now
 // writes `~/.config/hypr/omarchist.lua` instead (see `hyprland_config`), so
 // the old generated file is dead weight — delete it if an upgrade left it behind.
-fn remove_legacy_hyprland_conf(config_dir: &Path) -> Result<(), String> {
+fn remove_legacy_hyprland_conf(config_dir: &Path) -> Result<()> {
     let legacy_conf = config_dir.join("hyprland").join("hyprland.conf");
 
     if legacy_conf.exists() {
         fs::remove_file(&legacy_conf)
-            .map_err(|e| format!("Failed to remove legacy hyprland.conf: {}", e))?;
+            .map_err(|e| Error::io("Failed to remove legacy hyprland.conf", e))?;
         println!("Removed legacy config: {}", legacy_conf.display());
     }
 

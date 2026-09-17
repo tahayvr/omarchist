@@ -1,20 +1,23 @@
+use crate::error::{Error, Result};
 use smol::unblock;
 use std::process::{Command, Stdio};
 
-pub async fn apply_theme(dir: String) -> Result<(), String> {
+pub async fn apply_theme(dir: String) -> Result<()> {
     apply_theme_with_cmd("omarchy-theme-set", dir).await
 }
 
-async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<(), String> {
+async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<()> {
     unblock(move || {
         let output = Command::new(cmd)
             .arg(&dir)
             .output()
-            .map_err(|e| format!("Failed to execute {cmd}: {e}"))?;
+            .map_err(|e| Error::io(format!("Failed to execute {cmd}"), e))?;
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to apply theme '{dir}': {stderr}"));
+            return Err(Error::Invalid(format!(
+                "Failed to apply theme '{dir}': {stderr}"
+            )));
         }
 
         Ok(())
@@ -23,28 +26,28 @@ async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<(), Stri
 }
 
 // Refresh apps to apply theme changes
-pub fn refresh_theme() -> Result<(), String> {
+pub fn refresh_theme() -> Result<()> {
     spawn_fire_and_forget("omarchy-theme-refresh")
 }
 
 // Execute a bash command without waiting for output (fire and forget)
-pub fn execute_bash_command(command: String) -> Result<(), String> {
+pub fn execute_bash_command(command: String) -> Result<()> {
     Command::new("bash")
         .arg("-c")
         .arg(&command)
         .spawn()
-        .map_err(|e| format!("Failed to spawn command: {e}"))?;
+        .map_err(|e| Error::io("Failed to spawn command", e))?;
 
     Ok(())
 }
 
-fn spawn_fire_and_forget(cmd: &str) -> Result<(), String> {
+fn spawn_fire_and_forget(cmd: &str) -> Result<()> {
     Command::new(cmd)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| format!("Failed to spawn {cmd}: {e}"))?;
+        .map_err(|e| Error::io(format!("Failed to spawn {cmd}"), e))?;
 
     Ok(())
 }
@@ -78,7 +81,7 @@ mod tests {
                 result.is_err(),
                 "expected Err when command exits non-zero, got Ok"
             );
-            let msg = result.unwrap_err();
+            let msg = result.unwrap_err().to_string();
             assert!(
                 msg.contains("my-theme"),
                 "error message should contain the theme name, got: {msg}"
@@ -93,7 +96,7 @@ mod tests {
             let result =
                 apply_theme_with_cmd("__omarchist_nonexistent_binary__", "any".to_string()).await;
             assert!(result.is_err(), "expected Err for missing binary, got Ok");
-            let msg = result.unwrap_err();
+            let msg = result.unwrap_err().to_string();
             assert!(
                 msg.contains("Failed to execute"),
                 "error message should mention 'Failed to execute', got: {msg}"
@@ -122,7 +125,7 @@ mod tests {
     fn spawn_fire_and_forget_missing_binary_returns_err_with_cmd_name() {
         let result = spawn_fire_and_forget("__omarchist_nonexistent_binary__");
         assert!(result.is_err(), "expected Err for missing binary, got Ok");
-        let msg = result.unwrap_err();
+        let msg = result.unwrap_err().to_string();
         assert!(
             msg.contains("Failed to spawn"),
             "error message should contain 'Failed to spawn', got: {msg}"

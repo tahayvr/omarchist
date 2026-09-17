@@ -4093,6 +4093,7 @@ dependencies = [
  "serde",
  "serde_json",
  "smol",
+ "thiserror 2.0.18",
 ]
 
 [[package]]

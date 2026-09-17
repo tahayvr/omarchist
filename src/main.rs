@@ -4,6 +4,7 @@ use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
 use omarchist::system::ui_theme_watcher;
+use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
@@ -103,6 +104,7 @@ fn main() {
             eprintln!("Failed to set up Hyprland config: {}", e);
         }
 
+        cx.set_global(AppEvents::default());
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
@@ -151,10 +153,7 @@ fn main() {
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {
-            omarchist::ui::app_view::PENDING_TOGGLE_SIDEBAR.with(|flag| {
-                *flag.borrow_mut() = true;
-            });
-            cx.refresh_windows();
+            app_events::emit(cx, AppEvent::ToggleSidebar);
         });
 
         cx.bind_keys([

@@ -154,7 +154,7 @@ impl GeneralTab {
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(e);
+                self.error_message = Some(e.to_string());
             }
         }
 

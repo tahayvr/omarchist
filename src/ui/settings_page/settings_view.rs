@@ -73,7 +73,7 @@ impl SettingsView {
     }
 }
 
-fn save_auto_apply_theme(value: bool) -> Result<(), String> {
+fn save_auto_apply_theme(value: bool) -> crate::error::Result<()> {
     let mut settings = read_settings()?;
     settings.settings.auto_apply_theme = value;
     save_settings(&settings)

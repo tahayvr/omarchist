@@ -5,7 +5,8 @@ use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_f
 use smol;
 
 use crate::system::themes::theme_generator::create_theme_from_image;
-use crate::ui::dialogs::create_theme_dialog::{PENDING_REFRESH_THEMES, PENDING_THEME_NAVIGATION};
+use crate::ui::app_events::{AppEvent, emit_async};
+use crate::ui::app_view::ActivePage;
 
 pub struct ThemeCreationProgressDialog {
     theme_name: String,
@@ -54,13 +55,11 @@ impl ThemeCreationProgressDialog {
             // Handle result
             match result {
                 Ok(created_name) => {
-                    // Store for navigation
-                    PENDING_THEME_NAVIGATION.with(|nav| {
-                        *nav.borrow_mut() = Some(created_name.clone());
-                    });
-                    PENDING_REFRESH_THEMES.with(|refresh| {
-                        *refresh.borrow_mut() = true;
-                    });
+                    let _ = emit_async(cx, AppEvent::RefreshThemes);
+                    let _ = emit_async(
+                        cx,
+                        AppEvent::Navigate(ActivePage::ThemeEdit(created_name.clone())),
+                    );
 
                     let _ = window_handle.update(cx, |_view, _window, cx| {
                         let _ = this.update(cx, |this, cx| {
@@ -80,7 +79,7 @@ impl ThemeCreationProgressDialog {
                     let _ = window_handle.update(cx, |_view, _window, cx| {
                         let _ = this.update(cx, |this, cx| {
                             this.has_error = true;
-                            this.error_message = Some(e.clone());
+                            this.error_message = Some(e.to_string());
                             this.status_message = format!("Error: {}", e);
                             cx.notify();
                         });

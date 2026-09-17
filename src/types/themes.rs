@@ -346,37 +346,3 @@ pub struct AppConfigs {
     pub vscode: Option<serde_json::Value>,
     pub icons: Option<serde_json::Value>,
 }
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ThemeEditTab {
-    General,
-    Colors,
-    FileManager,
-    Editor,
-    Overrides,
-    Backgrounds,
-}
-
-impl ThemeEditTab {
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            ThemeEditTab::General => "General",
-            ThemeEditTab::Colors => "Colors",
-            ThemeEditTab::FileManager => "File Manager",
-            ThemeEditTab::Editor => "Editor",
-            ThemeEditTab::Overrides => "Overrides",
-            ThemeEditTab::Backgrounds => "Backgrounds",
-        }
-    }
-
-    pub fn all() -> Vec<ThemeEditTab> {
-        vec![
-            ThemeEditTab::General,
-            ThemeEditTab::Colors,
-            ThemeEditTab::FileManager,
-            ThemeEditTab::Editor,
-            ThemeEditTab::Overrides,
-            ThemeEditTab::Backgrounds,
-        ]
-    }
-}

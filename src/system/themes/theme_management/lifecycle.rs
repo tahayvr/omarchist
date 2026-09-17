@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 use std::path::Path;
 
@@ -78,14 +79,13 @@ pub fn unique_theme_name(base: &str) -> String {
         .unwrap_or_else(|| format!("{base}-{}", Utc::now().timestamp()))
 }
 
-pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn create_theme_from_defaults(theme_name: &str) -> Result<String> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let new_theme_dir = themes_dir.join(theme_name);
 
     if new_theme_dir.exists() {
-        return Err(format!("Theme '{}' already exists", theme_name));
+        return Err(Error::ThemeExists(theme_name.to_string()));
     }
 
     extract_default_dir("theme", &new_theme_dir)?;
@@ -94,7 +94,7 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     Ok(theme_name.to_string())
 }
 
-fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), String> {
+fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<()> {
     let json_path = theme_dir.join("omarchist.json");
 
     if !json_path.exists() {
@@ -104,7 +104,7 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
     let now = Utc::now().to_rfc3339();
 
     let content = fs::read_to_string(&json_path)
-        .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
 
     let updated_content = content
         .replace("{{THEME_NAME}}", theme_name)
@@ -113,27 +113,26 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
         .replace("{{AUTHOR}}", "");
 
     fs::write(&json_path, updated_content)
-        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
 
     Ok(())
 }
 
-pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let json_path = theme_dir.join("omarchist.json");
     let mut editing_theme: EditingTheme = if json_path.exists() {
         let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
         serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?
+            .map_err(|e| Error::json("Failed to parse omarchist.json", e))?
     } else {
         EditingTheme::default()
     };
@@ -165,14 +164,13 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> 
     Ok(editing_theme)
 }
 
-pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let mut updated_theme = theme_data.clone();
@@ -188,9 +186,9 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 
     let json_path = theme_dir.join("omarchist.json");
     let json_content = serde_json::to_string_pretty(&updated_theme)
-        .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
+        .map_err(|e| Error::json("Failed to serialize theme data", e))?;
     fs::write(&json_path, json_content)
-        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
 
     remove_legacy_light_mode_file(&theme_dir)?;
 
@@ -230,7 +228,7 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
 // the Theme Designer holds its own snapshot of the theme, so tabs must go
 // through this to change only the fields they own rather than saving a whole
 // stale snapshot over another tab's work.
-pub fn update_theme<F>(theme_name: &str, edit: F) -> Result<(), String>
+pub fn update_theme<F>(theme_name: &str, edit: F) -> Result<()>
 where
     F: FnOnce(&mut EditingTheme),
 {
@@ -239,44 +237,44 @@ where
     save_theme_data(theme_name, &theme)
 }
 
-fn remove_override_file(theme_dir: &Path, file_name: &str) -> Result<(), String> {
+fn remove_override_file(theme_dir: &Path, file_name: &str) -> Result<()> {
     let path = theme_dir.join(file_name);
     if path.exists() {
-        fs::remove_file(&path).map_err(|e| format!("Failed to remove {file_name}: {e}"))?;
+        fs::remove_file(&path)
+            .map_err(|e| Error::io(format!("Failed to remove {file_name}"), e))?;
     }
     Ok(())
 }
 
-pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn rename_theme(old_name: &str, new_name: &str) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let old_path = themes_dir.join(old_name);
     let new_path = themes_dir.join(new_name);
 
     if !old_path.exists() {
-        return Err(format!("Theme '{}' not found", old_name));
+        return Err(Error::ThemeNotFound(old_name.to_string()));
     }
 
     if new_path.exists() {
-        return Err(format!("Theme '{}' already exists", new_name));
+        return Err(Error::ThemeExists(new_name.to_string()));
     }
 
-    fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to rename theme: {}", e))?;
+    fs::rename(&old_path, &new_path).map_err(|e| Error::io("Failed to rename theme", e))?;
 
     let json_path = new_path.join("omarchist.json");
     if json_path.exists() {
         let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
         let mut theme: EditingTheme = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?;
+            .map_err(|e| Error::json("Failed to parse omarchist.json", e))?;
         theme.name = new_name.to_string();
         theme.modified_at = Utc::now().to_rfc3339();
 
         let updated_content = serde_json::to_string_pretty(&theme)
-            .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
+            .map_err(|e| Error::json("Failed to serialize theme data", e))?;
         fs::write(&json_path, updated_content)
-            .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
     }
 
     Ok(())
@@ -286,12 +284,12 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
 // Omarchy's resolver (`omarchy-theme-color`) now treats that file as a legacy
 // fallback behind the `mode` key in colors.toml, which Omarchist always writes,
 // so the marker is removed on save rather than kept in sync.
-fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<(), String> {
+fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<()> {
     let light_mode_path = theme_dir.join("light.mode");
 
     if light_mode_path.exists() {
         fs::remove_file(&light_mode_path)
-            .map_err(|e| format!("Failed to remove legacy light.mode file: {}", e))?;
+            .map_err(|e| Error::io("Failed to remove legacy light.mode file", e))?;
     }
 
     Ok(())

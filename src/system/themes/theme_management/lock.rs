@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 
 use crate::system::themes::color_utils::mix_hex;
@@ -70,14 +71,13 @@ pub(super) fn parse_lock_toml(content: &str) -> Option<LockScreenConfig> {
 
 // Writes `shell.lock.toml` — confirmed key set and format against a real
 // theme in omacom/omarchy@quattro (themes/tokyo-night/shell.lock.toml).
-pub fn update_lock_toml(theme_name: &str, config: &LockScreenConfig) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn update_lock_toml(theme_name: &str, config: &LockScreenConfig) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let toml_content = format!(
@@ -92,7 +92,7 @@ pub fn update_lock_toml(theme_name: &str, config: &LockScreenConfig) -> Result<(
 
     let toml_path = theme_dir.join("shell.lock.toml");
     fs::write(&toml_path, toml_content)
-        .map_err(|e| format!("Failed to write shell.lock.toml: {}", e))?;
+        .map_err(|e| Error::io("Failed to write shell.lock.toml", e))?;
 
     Ok(())
 }

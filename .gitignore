@@ -1,44 +1,24 @@
-# Ignore everything by default
-*
+# Build output
+/target/
 
-# Root level files
-!.gitignore
-!Cargo.toml
-!Cargo.lock
-!LICENSE
-!README.md
+# Docs site (VitePress) build output and dependencies
+/docs/node_modules/
+/docs/.vitepress/dist/
+/docs/.vitepress/cache/
 
-# Source code
-!src/
-!src/**
+# Editor and OS files
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo
+.DS_Store
 
-# Assets (images, fonts, icons)
-!assets/
-!assets/**
+# Local environment
+.env
+.env.*
+*.log
 
-# Default theme templates
-!defaults/
-!defaults/**
-
-# UI themes configuration
-!ui_themes/
-!ui_themes/**
-
-# Scripts
-!justfile
-
-# Documentation
-!docs/**
-!docs/
-!screenshots/**
-!screenshots/
-
-# Github
-!.github/**
-!.github/
-
-# Cliff changelog
-!cliff.toml
-
-# Distribution
-!omarchist.desktop
+# AUR packaging lives in a separate repo; local copies only
+/PKGBUILD
+/omarchist.install

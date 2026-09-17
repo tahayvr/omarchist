@@ -1,32 +1,26 @@
 use crate::system::omarchy::omarchy_version::{check_omarchy_update, get_local_omarchy_version};
 use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
+use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
-use crate::ui::theme_edit_page::theme_edit::ThemeEditPage;
-use crate::ui::themes_page::themes::ThemesPage;
+use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
+use crate::ui::themes_page::themes_view::ThemesPage;
 use gpui::*;
 use gpui_component::{
     Collapsible, Icon, IconName, Root, Side, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarMenu, SidebarMenuItem},
 };
-use std::cell::RefCell;
 
 use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
 const SIDEBAR_ITEM_COUNT: usize = 2;
-
-thread_local! {
-    pub static PENDING_TOGGLE_SIDEBAR: RefCell<bool> = const { RefCell::new(false) };
-    pub static PENDING_NAVIGATE_TO_OMARCHY: RefCell<bool> = const { RefCell::new(false) };
-    pub static PENDING_OMARCHY_UPDATE_STATUS: RefCell<Option<bool>> = const { RefCell::new(None) };
-}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
@@ -147,6 +141,16 @@ impl MainWindowView {
             },
             focus_handle,
         };
+
+        // Cross-component requests (dialogs, cards, title bar, background
+        // tasks) arrive through the AppEvents global; handle them as they
+        // are emitted instead of polling flags from render.
+        cx.observe_global_in::<AppEvents>(window, |this, window, cx| {
+            for event in AppEvents::drain(cx) {
+                this.handle_app_event(event, window, cx);
+            }
+        })
+        .detach();
 
         // Navigate to the initial page if it's not the default Themes page
         if initial_page != ActivePage::Themes {
@@ -303,6 +307,34 @@ impl MainWindowView {
         self.navigate_to(ActivePage::ThemeEdit(theme_name), window, cx);
     }
 
+    fn handle_app_event(&mut self, event: AppEvent, window: &mut Window, cx: &mut Context<Self>) {
+        match event {
+            AppEvent::Navigate(page) => self.navigate_to(page, window, cx),
+            AppEvent::RefreshThemes => {
+                self.themes_view.update(cx, |themes_page, cx| {
+                    themes_page.refresh_themes(cx);
+                });
+            }
+            AppEvent::ToggleSidebar => {
+                self.sidebar_collapsed = !self.sidebar_collapsed;
+                let collapsed = self.sidebar_collapsed;
+                self.themes_view.update(cx, |themes_page, cx| {
+                    themes_page.set_sidebar_collapsed(collapsed, cx);
+                });
+                cx.notify();
+            }
+            AppEvent::OmarchyUpdateStatus(available) => {
+                self.title_bar.update(cx, |title_bar, _cx| {
+                    title_bar.set_omarchy_update_available(available);
+                });
+            }
+            AppEvent::ReloadUiTheme => {
+                ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+                cx.refresh_windows();
+            }
+        }
+    }
+
     fn current_page_view(&self) -> AnyView {
         match &self.active_page {
             ActivePage::Themes => self.themes_root.clone(),
@@ -444,90 +476,6 @@ impl MainWindowView {
 
 impl Render for MainWindowView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        // Check for pending theme navigation
-        let pending_theme = crate::ui::dialogs::create_theme_dialog::PENDING_THEME_NAVIGATION
-            .with(|nav| nav.borrow_mut().take());
-        if let Some(theme_name) = pending_theme {
-            self.navigate_to_theme_edit(theme_name, window, cx);
-        }
-
-        let pending_navigate = crate::ui::theme_edit_page::theme_edit::PENDING_NAVIGATE_TO_THEMES
-            .with(|flag| {
-                let value = *flag.borrow();
-                if value {
-                    *flag.borrow_mut() = false;
-                }
-                value
-            });
-        if pending_navigate {
-            self.navigate_to(ActivePage::Themes, window, cx);
-        }
-
-        let pending_refresh =
-            crate::ui::dialogs::create_theme_dialog::PENDING_REFRESH_THEMES.with(|flag| {
-                let value = *flag.borrow();
-                if value {
-                    *flag.borrow_mut() = false;
-                }
-                value
-            });
-        if pending_refresh {
-            // Refresh the themes list
-            self.themes_view.update(cx, |themes_page, cx| {
-                themes_page.refresh_themes(cx);
-            });
-        }
-
-        // Check for pending sidebar toggle
-        let pending_toggle = PENDING_TOGGLE_SIDEBAR.with(|flag| {
-            let value = *flag.borrow();
-            if value {
-                *flag.borrow_mut() = false;
-            }
-            value
-        });
-        if pending_toggle {
-            self.sidebar_collapsed = !self.sidebar_collapsed;
-            self.themes_view.update(cx, |themes_page, cx| {
-                themes_page.set_sidebar_collapsed(self.sidebar_collapsed, cx);
-            });
-            cx.notify();
-        }
-
-        // Check for pending Omarchy navigation from title bar
-        let pending_omarchy = PENDING_NAVIGATE_TO_OMARCHY.with(|flag| {
-            let value = *flag.borrow();
-            if value {
-                *flag.borrow_mut() = false;
-            }
-            value
-        });
-        if pending_omarchy {
-            self.navigate_to(ActivePage::Omarchy, window, cx);
-        }
-
-        // Sync title bar badge when OmarchyView re-checks update availability
-        let pending_update_status =
-            PENDING_OMARCHY_UPDATE_STATUS.with(|flag| flag.borrow_mut().take());
-        if let Some(update_available) = pending_update_status {
-            self.title_bar.update(cx, |title_bar, _cx| {
-                title_bar.set_omarchy_update_available(update_available);
-            });
-        }
-
-        // Check for pending UI theme hot-reload
-        let pending_ui_theme_reload = ui_theme_watcher::PENDING_UI_THEME_RELOAD.with(|flag| {
-            let value = *flag.borrow();
-            if value {
-                *flag.borrow_mut() = false;
-            }
-            value
-        });
-        if pending_ui_theme_reload {
-            ui_theme_watcher::load_and_apply_omarchy_theme(cx);
-            cx.refresh_windows();
-        }
-
         // Responsive sidebar: auto-collapse on small windows (< 768px)
         let viewport_width = window.viewport_size().width;
         let is_small_window = viewport_width < px(768.0);

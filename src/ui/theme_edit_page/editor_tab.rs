@@ -142,10 +142,10 @@ impl EditorTab {
                     _ => {}
                 });
                 if let Err(e) = result {
-                    self.error_message = Some(e);
+                    self.error_message = Some(e.to_string());
                 }
             }
-            Err(e) => self.error_message = Some(e),
+            Err(e) => self.error_message = Some(e.to_string()),
         }
 
         self.is_saving = false;
@@ -154,18 +154,25 @@ impl EditorTab {
 
     // Writes the override, or removes it when the editor is blank so Omarchy
     // falls back to its template-generated file on the next theme apply.
-    fn write_override(theme_name: &str, file_name: &str, content: &str) -> Result<(), String> {
+    fn write_override(
+        theme_name: &str,
+        file_name: &str,
+        content: &str,
+    ) -> crate::error::Result<()> {
         let path = Self::override_path(theme_name, file_name)
-            .ok_or_else(|| "Could not determine themes directory".to_string())?;
+            .ok_or(crate::error::Error::UnknownDirectory("themes"))?;
 
         if content.trim().is_empty() {
             if path.exists() {
-                fs::remove_file(&path).map_err(|e| format!("Failed to remove {file_name}: {e}"))?;
+                fs::remove_file(&path).map_err(|e| {
+                    crate::error::Error::io(format!("Failed to remove {file_name}"), e)
+                })?;
             }
             return Ok(());
         }
 
-        fs::write(&path, content).map_err(|e| format!("Failed to write {file_name}: {e}"))
+        fs::write(&path, content)
+            .map_err(|e| crate::error::Error::io(format!("Failed to write {file_name}"), e))
     }
 
     pub fn theme_data(&self) -> &EditingTheme {

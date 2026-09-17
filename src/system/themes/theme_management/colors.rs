@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 
 use crate::types::themes::ColorsConfig;
@@ -73,19 +74,18 @@ color15 = "{}"
     out
 }
 
-pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<()> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let toml_path = theme_dir.join("colors.toml");
     fs::write(&toml_path, render_colors_toml(colors))
-        .map_err(|e| format!("Failed to write colors.toml: {}", e))?;
+        .map_err(|e| Error::io("Failed to write colors.toml", e))?;
 
     Ok(())
 }

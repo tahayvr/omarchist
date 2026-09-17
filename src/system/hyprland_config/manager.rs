@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -15,7 +16,7 @@ pub struct HyprlandConfigManager {
 }
 
 impl HyprlandConfigManager {
-    pub fn load() -> Result<Self, String> {
+    pub fn load() -> Result<Self> {
         let state_path = get_state_path()?;
         let lua_path = get_lua_path()?;
 
@@ -29,7 +30,7 @@ impl HyprlandConfigManager {
 
         let config = if state_path.exists() {
             let content = fs::read_to_string(&state_path)
-                .map_err(|e| format!("Failed to read state file: {}", e))?;
+                .map_err(|e| Error::io("Failed to read state file", e))?;
             serde_json::from_str(&content).unwrap_or(base)
         } else {
             base
@@ -42,19 +43,19 @@ impl HyprlandConfigManager {
         })
     }
 
-    pub fn save(&self) -> Result<(), String> {
+    pub fn save(&self) -> Result<()> {
         // state.json is the round-trip source of truth Omarchist reads back
         // on the next load — never parsed from Lua.
         let state_content = serde_json::to_string_pretty(&self.config)
-            .map_err(|e| format!("Failed to serialize Hyprland state: {}", e))?;
+            .map_err(|e| Error::json("Failed to serialize Hyprland state", e))?;
         fs::write(&self.state_path, state_content)
-            .map_err(|e| format!("Failed to write state file: {}", e))?;
+            .map_err(|e| Error::io("Failed to write state file", e))?;
 
         // omarchist.lua is write-only — generated fresh every save, never
         // read back.
         let lua_content = super::lua_writer::write_lua_config(&self.config);
         fs::write(&self.lua_path, lua_content)
-            .map_err(|e| format!("Failed to write omarchist.lua: {}", e))?;
+            .map_err(|e| Error::io("Failed to write omarchist.lua", e))?;
 
         Self::reload_hyprland();
 
@@ -83,7 +84,7 @@ impl HyprlandConfigManager {
         f(&mut self.config);
     }
 
-    pub fn update_and_save<F>(&mut self, f: F) -> Result<(), String>
+    pub fn update_and_save<F>(&mut self, f: F) -> Result<()>
     where
         F: FnOnce(&mut HyprlandConfig),
     {
@@ -110,22 +111,21 @@ impl Clone for HyprlandConfigManager {
     }
 }
 
-fn get_state_path() -> Result<PathBuf, String> {
-    let dir = omarchist_hyprland_dir().ok_or("Could not determine home directory")?;
+fn get_state_path() -> Result<PathBuf> {
+    let dir = omarchist_hyprland_dir().ok_or(Error::UnknownDirectory("home"))?;
     Ok(dir.join(STATE_FILE))
 }
 
-fn get_lua_path() -> Result<PathBuf, String> {
-    let dir = user_hyprland_config_dir().ok_or("Could not determine home directory")?;
+fn get_lua_path() -> Result<PathBuf> {
+    let dir = user_hyprland_config_dir().ok_or(Error::UnknownDirectory("home"))?;
     Ok(dir.join(LUA_FILE))
 }
 
-fn ensure_config_dir() -> Result<(), String> {
-    let dir = omarchist_hyprland_dir().ok_or("Could not determine home directory")?;
+fn ensure_config_dir() -> Result<()> {
+    let dir = omarchist_hyprland_dir().ok_or(Error::UnknownDirectory("home"))?;
 
     if !dir.exists() {
-        fs::create_dir_all(&dir)
-            .map_err(|e| format!("Failed to create config directory: {}", e))?;
+        fs::create_dir_all(&dir).map_err(|e| Error::io("Failed to create config directory", e))?;
     }
 
     Ok(())
@@ -135,15 +135,15 @@ pub fn config_exists() -> bool {
     get_state_path().map(|p| p.exists()).unwrap_or(false)
 }
 
-pub fn delete_config() -> Result<(), String> {
+pub fn delete_config() -> Result<()> {
     let state_path = get_state_path()?;
     if state_path.exists() {
-        fs::remove_file(&state_path).map_err(|e| format!("Failed to delete state file: {}", e))?;
+        fs::remove_file(&state_path).map_err(|e| Error::io("Failed to delete state file", e))?;
     }
 
     let lua_path = get_lua_path()?;
     if lua_path.exists() {
-        fs::remove_file(&lua_path).map_err(|e| format!("Failed to delete omarchist.lua: {}", e))?;
+        fs::remove_file(&lua_path).map_err(|e| Error::io("Failed to delete omarchist.lua", e))?;
     }
 
     Ok(())
