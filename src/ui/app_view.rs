@@ -3,7 +3,7 @@ use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
-use crate::ui::flows_page::FlowsView;
+use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView};
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
@@ -67,6 +67,10 @@ pub struct MainWindowView {
     keybinds_view: Option<Entity<KeybindsView>>,
     flows_root: Option<AnyView>,
     flows_view: Option<Entity<FlowsView>>,
+    // The flow editor is rebuilt for every flow (and every new flow) it opens.
+    flow_edit_root: Option<AnyView>,
+    flow_edit_view: Option<Entity<FlowEditPage>>,
+    flow_edit_page: Option<ActivePage>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -111,6 +115,9 @@ impl MainWindowView {
             keybinds_view: None,
             flows_root: None,
             flows_view: None,
+            flow_edit_root: None,
+            flow_edit_view: None,
+            flow_edit_page: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -207,7 +214,22 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
-            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {}
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+                let reuse = matches!(page, ActivePage::FlowEdit(_))
+                    && self.flow_edit_page.as_ref() == Some(page);
+                if !reuse {
+                    let source = match page {
+                        ActivePage::FlowEdit(id) => FlowEditSource::Existing(id.clone()),
+                        ActivePage::FlowNew(template) => FlowEditSource::New(template.clone()),
+                        _ => unreachable!(),
+                    };
+                    let view = cx.new(|cx| FlowEditPage::new(source, window, cx));
+                    self.flow_edit_root =
+                        Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                    self.flow_edit_view = Some(view);
+                    self.flow_edit_page = Some(page.clone());
+                }
+            }
             ActivePage::Settings => {
                 if self.settings_root.is_none() {
                     let settings_view = cx.new(SettingsView::new);
@@ -361,7 +383,11 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
-            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {}
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+                if let Some(view) = &self.flow_edit_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
         }
     }
 
@@ -453,8 +479,12 @@ impl MainWindowView {
                 .keybinds_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => self
+            ActivePage::Flows => self
                 .flows_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => self
+                .flow_edit_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Settings => self

@@ -159,6 +159,9 @@ fn workspace_id(target: WorkspaceTarget) -> String {
 pub struct ActionBuilder {
     kind: ActionKind,
     kind_focus: FocusHandle,
+    /// Whether the builder draws its own kind selector; a host that has one
+    /// of its own (the flow step builder) hides it and calls `set_kind`.
+    kind_strip: bool,
     direction_focus: FocusHandle,
 
     apps: Vec<DesktopApp>,
@@ -437,6 +440,7 @@ impl ActionBuilder {
         let builder = Self {
             kind,
             kind_focus: focus::tab_stop(cx),
+            kind_strip: true,
             direction_focus: focus::tab_stop(cx),
             apps: Vec::new(),
             app_select,
@@ -572,11 +576,44 @@ impl ActionBuilder {
         }
     }
 
-    fn set_kind(&mut self, kind: ActionKind, cx: &mut Context<Self>) {
+    pub fn set_kind(&mut self, kind: ActionKind, cx: &mut Context<Self>) {
         if self.kind != kind {
             self.kind = kind;
             self.changed(cx);
         }
+    }
+
+    pub fn kind(&self) -> ActionKind {
+        self.kind
+    }
+
+    pub fn set_kind_strip(&mut self, shown: bool, cx: &mut Context<Self>) {
+        self.kind_strip = shown;
+        cx.notify();
+    }
+
+    /// Drops a flow from the Flow picker, so a flow cannot pick itself.
+    pub fn exclude_flow(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.flows.retain(|f| f.id != id);
+        if self.flow_id.as_deref() == Some(id) {
+            self.flow_id = None;
+        }
+        let items: Vec<LabeledItem> = self
+            .flows
+            .iter()
+            .map(|f| LabeledItem {
+                id: f.id.clone(),
+                label: f.name.clone().into(),
+                group: step_count(f).into(),
+            })
+            .collect();
+        let selected = self.flow_id.clone();
+        self.flow_select.update(cx, |select, cx| {
+            select.set_items(SearchableVec::new(items), window, cx);
+            if let Some(id) = &selected {
+                select.set_selected_value(id, window, cx);
+            }
+        });
     }
 
     fn cycle_kind(&mut self, delta: isize, cx: &mut Context<Self>) {
@@ -1049,7 +1086,9 @@ impl Render for ActionBuilder {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .gap_2()
-            .child(self.render_kinds(window, cx))
+            .when(self.kind_strip, |this| {
+                this.child(self.render_kinds(window, cx))
+            })
             .child(self.render_body(window, cx))
             .child(self.render_preview(cx))
     }

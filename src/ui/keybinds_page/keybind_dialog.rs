@@ -39,6 +39,11 @@ pub enum DialogMode {
         existing: Option<Override>,
     },
     Add,
+    /// A new bind whose action is already chosen (a flow assigning its keybind).
+    AddPreset {
+        dispatcher: Dispatcher,
+        description: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -82,15 +87,24 @@ impl KeybindDialog {
     ) -> Self {
         let original = match &mode {
             DialogMode::Edit { row, .. } => Some(&row.bind),
-            DialogMode::Add => None,
+            DialogMode::Add | DialogMode::AddPreset { .. } => None,
         };
         let chord = original.map(|b| b.chord.clone());
         let keys_value = chord
             .as_ref()
             .map(Chord::to_omarchy_string)
             .unwrap_or_default();
-        let description_value = original.map(|b| b.description.clone()).unwrap_or_default();
-        let builder = match original.map(|b| &b.dispatcher) {
+        let (preset_dispatcher, preset_description) = match &mode {
+            DialogMode::AddPreset {
+                dispatcher,
+                description,
+            } => (Some(dispatcher), description.clone()),
+            _ => (None, String::new()),
+        };
+        let description_value = original
+            .map(|b| b.description.clone())
+            .unwrap_or(preset_description);
+        let builder = match original.map(|b| &b.dispatcher).or(preset_dispatcher) {
             Some(Dispatcher::Function) => None,
             dispatcher => Some(cx.new(|cx| ActionBuilder::new(dispatcher, window, cx))),
         };
@@ -181,14 +195,14 @@ impl KeybindDialog {
     fn original(&self) -> Option<&Keybind> {
         match &self.mode {
             DialogMode::Edit { row, .. } => Some(&row.bind),
-            DialogMode::Add => None,
+            DialogMode::Add | DialogMode::AddPreset { .. } => None,
         }
     }
 
     fn row(&self) -> Option<&KeybindRow> {
         match &self.mode {
             DialogMode::Edit { row, .. } => Some(row.as_ref()),
-            DialogMode::Add => None,
+            DialogMode::Add | DialogMode::AddPreset { .. } => None,
         }
     }
 
@@ -215,7 +229,9 @@ impl KeybindDialog {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.description_edited || !matches!(self.mode, DialogMode::Add) {
+        if self.description_edited
+            || !matches!(self.mode, DialogMode::Add | DialogMode::AddPreset { .. })
+        {
             return;
         }
         let Some(suggestion) = builder.read(cx).suggested_description(cx) else {
@@ -305,7 +321,7 @@ impl KeybindDialog {
         };
 
         let override_ = match &self.mode {
-            DialogMode::Add => Override::Add { bind },
+            DialogMode::Add | DialogMode::AddPreset { .. } => Override::Add { bind },
             DialogMode::Edit { existing, row } => match existing {
                 Some(Override::Rebind {
                     target, restore, ..
@@ -574,7 +590,7 @@ pub fn open_keybind_dialog(
 ) -> Entity<KeybindDialog> {
     let title = match &mode {
         DialogMode::Edit { .. } => "Edit keybind",
-        DialogMode::Add => "New keybind",
+        DialogMode::Add | DialogMode::AddPreset { .. } => "New keybind",
     };
     let dialog = cx.new(|cx| KeybindDialog::new(mode, binds, window, cx));
     let view = dialog.clone();

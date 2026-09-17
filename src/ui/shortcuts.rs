@@ -4,6 +4,7 @@
 use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
+use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
@@ -795,6 +796,112 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowsGrid"),
         FLOWS,
         "Delete the selected flow"
+    ),
+    // Flow editor
+    shortcut!(
+        "escape",
+        app_menu::NavigateBack,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "alt-left",
+        app_menu::NavigateBack,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "ctrl-s",
+        flow_edit_nav::Save,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Save the flow"
+    ),
+    shortcut!(
+        "ctrl-enter",
+        flow_edit_nav::Run,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Run the flow"
+    ),
+    shortcut!(
+        "ctrl-shift-n",
+        flow_edit_nav::AddStep,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Add a step"
+    ),
+    shortcut!(
+        "up",
+        flow_edit_nav::StepUp,
+        Some("FlowSteps"),
+        FLOWS,
+        "Previous step"
+    ),
+    shortcut!(
+        "down",
+        flow_edit_nav::StepDown,
+        Some("FlowSteps"),
+        FLOWS,
+        "Next step"
+    ),
+    shortcut!(
+        "home",
+        flow_edit_nav::StepFirst,
+        Some("FlowSteps"),
+        FLOWS,
+        "First step"
+    ),
+    shortcut!(
+        "end",
+        flow_edit_nav::StepLast,
+        Some("FlowSteps"),
+        FLOWS,
+        "Last step"
+    ),
+    shortcut!(
+        "enter",
+        flow_edit_nav::EditStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Edit the selected step"
+    ),
+    shortcut!(
+        "delete",
+        flow_edit_nav::RemoveStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Remove the selected step"
+    ),
+    shortcut!(
+        "alt-up",
+        flow_edit_nav::MoveStepUp,
+        Some("FlowSteps"),
+        FLOWS,
+        "Move the step up"
+    ),
+    shortcut!(
+        "alt-down",
+        flow_edit_nav::MoveStepDown,
+        Some("FlowSteps"),
+        FLOWS,
+        "Move the step down"
+    ),
+    shortcut!(
+        "space",
+        flow_edit_nav::ToggleStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Turn the step on or off"
+    ),
+    shortcut!(
+        "ctrl-d",
+        flow_edit_nav::DuplicateStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Duplicate the step"
     ),
     // Dialogs
     shortcut!(
