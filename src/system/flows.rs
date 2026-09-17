@@ -24,7 +24,7 @@ pub struct Flow {
     /// Stable slug that keybinds, desktop entries, and the CLI refer to.
     pub id: String,
     pub name: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub description: String,
     /// A Lucide icon name from [`ICONS`].
     #[serde(default = "default_icon")]
@@ -125,7 +125,7 @@ pub enum StepKind {
     /// A desktop notification.
     Notify {
         title: String,
-        #[serde(default)]
+        #[serde(default, skip_serializing_if = "String::is_empty")]
         body: String,
     },
     /// Runs another flow to completion.
