@@ -16,9 +16,17 @@ use gpui_component::{
     label::Label,
 };
 
+pub enum GeneralTabEvent {
+    /// The theme folder was renamed; every view holding the old name is stale.
+    Renamed(String),
+}
+
+impl EventEmitter<GeneralTabEvent> for GeneralTab {}
+
 pub struct GeneralTab {
     theme_data: EditingTheme,
-    original_theme_name: String, // Used for saving - folder name doesn't change on rename
+    /// Folder name the tab saves to; only a rename changes it.
+    original_theme_name: String,
     name_input: Entity<InputState>,
     author_input: Entity<InputState>,
     accent_picker: Entity<ColorPickerState>,
@@ -179,7 +187,7 @@ impl GeneralTab {
             Ok(()) => {
                 self.is_saving = false;
                 self.original_theme_name = new_name.clone();
-                // TODO: Notify parent that theme name changed
+                cx.emit(GeneralTabEvent::Renamed(new_name));
             }
             Err(e) => {
                 self.is_saving = false;

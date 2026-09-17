@@ -10,7 +10,7 @@ use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::editor_tab::EditorTab;
 use crate::ui::theme_edit_page::file_manager_tab::FileManagerTab;
-use crate::ui::theme_edit_page::general_tab::GeneralTab;
+use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
 use crate::ui::theme_edit_page::overrides_tab::OverridesTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use gpui::*;
@@ -99,6 +99,12 @@ impl ThemeEditPage {
 
         let general_tab = cx
             .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        // Reopening the page under the new name rebuilds every tab from disk.
+        cx.subscribe(&general_tab, |_, _, event: &GeneralTabEvent, cx| {
+            let GeneralTabEvent::Renamed(name) = event;
+            emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
+        })
+        .detach();
         let colors_tab = cx
             .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         let file_manager_tab = cx.new(|cx| {
