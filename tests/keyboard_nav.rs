@@ -88,7 +88,7 @@ fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
         window.press("end", cx);
     })
     .unwrap();
-    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 2));
+    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 3));
 }
 
 #[gpui_kit::test]

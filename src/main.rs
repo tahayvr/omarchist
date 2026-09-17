@@ -16,6 +16,7 @@ fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
+        Some(ViewOption::Flows) => ActivePage::Flows,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,

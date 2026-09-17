@@ -56,6 +56,11 @@ fn groups() -> Vec<Group> {
                     app_menu::NavigateToKeybinds,
                 ),
                 entry(
+                    "Flows",
+                    &["page", "automation", "shortcuts", "actions"],
+                    app_menu::NavigateToFlows,
+                ),
+                entry(
                     "Omarchy",
                     &["page", "update", "release notes"],
                     app_menu::NavigateToOmarchy,

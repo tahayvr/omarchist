@@ -18,6 +18,7 @@ actions!(
         NavigateToThemes,
         NavigateToConfig,
         NavigateToKeybinds,
+        NavigateToFlows,
         // Theme edit actions
         ThemeEditNextTab,
         ThemeEditPrevTab,

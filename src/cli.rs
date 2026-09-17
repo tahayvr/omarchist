@@ -28,6 +28,7 @@ pub enum ViewOption {
     Omarchy,
     Config,
     Keybinds,
+    Flows,
 }
 
 /// Commands that run without opening the window.
@@ -162,6 +163,13 @@ mod tests {
     fn test_parse_keybinds_view() {
         let args = CliArgs::parse_from(["omarchist", "--view", "keybinds"]);
         assert_eq!(args.view, Some(ViewOption::Keybinds));
+    }
+
+    #[test]
+    fn test_parse_flows_view() {
+        let args = CliArgs::parse_from(["omarchist", "--view", "flows"]);
+        assert_eq!(args.view, Some(ViewOption::Flows));
+        assert_eq!(args.command, None);
     }
 
     #[test]

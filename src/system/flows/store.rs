@@ -4,9 +4,11 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::error::{Error, Result};
+use crate::system::keybinds::Dispatcher;
+use crate::system::keybinds::store::{load_overrides, save_overrides};
 
 use super::launcher;
-use super::{Flow, is_slug};
+use super::{Flow, is_slug, run_command};
 
 /// `~/.config/omarchist/flows`
 pub fn flows_dir() -> Result<PathBuf> {
@@ -108,10 +110,25 @@ pub fn save_flow(flow: &Flow) -> Result<()> {
     launcher::sync_triggers(flow)
 }
 
+/// Removes the flow, its trigger files, and any keybind override that ran it.
 pub fn delete_flow(id: &str) -> Result<()> {
     let path = flow_path(id)?;
     if path.exists() {
         fs::remove_file(&path).map_err(|e| Error::io("Failed to delete flow", e))?;
     }
-    launcher::remove_triggers(id)
+    launcher::remove_triggers(id)?;
+    remove_keybinds_running(id)
+}
+
+fn remove_keybinds_running(id: &str) -> Result<()> {
+    let mut overrides = load_overrides()?;
+    let runs_flow = Dispatcher::Exec(run_command(id));
+    let before = overrides.overrides.len();
+    overrides
+        .overrides
+        .retain(|o| o.bind().is_none_or(|bind| bind.dispatcher != runs_flow));
+    if overrides.overrides.len() != before {
+        save_overrides(&overrides)?;
+    }
+    Ok(())
 }

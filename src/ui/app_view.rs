@@ -3,6 +3,7 @@ use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::flows_page::FlowsView;
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
@@ -26,10 +27,11 @@ const KEY_CONTEXT: &str = "MainWindow";
 const SIDEBAR_CONTEXT: &str = "Sidebar";
 
 /// Sidebar entries in display order: label, icon, page.
-const SIDEBAR_ITEMS: [(&str, &str); 3] = [
+const SIDEBAR_ITEMS: [(&str, &str); 4] = [
     ("THEMES", "ctrl-1"),
     ("CONFIGURATION", "ctrl-2"),
     ("KEYBINDS", "ctrl-3"),
+    ("FLOWS", "ctrl-4"),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -38,6 +40,11 @@ pub enum ActivePage {
     ThemeEdit(String), // Holds the theme name being edited
     Configuration,
     Keybinds,
+    Flows,
+    /// The editor for an existing flow, by id.
+    FlowEdit(String),
+    /// The editor for a new flow, optionally started from a template id.
+    FlowNew(Option<String>),
     Settings,
     About,
     Omarchy,
@@ -58,6 +65,8 @@ pub struct MainWindowView {
     config_view: Option<Entity<ConfigView>>,
     keybinds_root: Option<AnyView>,
     keybinds_view: Option<Entity<KeybindsView>>,
+    flows_root: Option<AnyView>,
+    flows_view: Option<Entity<FlowsView>>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -100,6 +109,8 @@ impl MainWindowView {
             config_view: None,
             keybinds_root: None,
             keybinds_view: None,
+            flows_root: None,
+            flows_view: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -137,6 +148,7 @@ impl MainWindowView {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(0),
             ActivePage::Configuration => Some(1),
             ActivePage::Keybinds => Some(2),
+            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => Some(3),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -182,6 +194,20 @@ impl MainWindowView {
                     self.keybinds_view = Some(keybinds_view);
                 }
             }
+            ActivePage::Flows => {
+                if self.flows_root.is_none() {
+                    let flows_view = cx.new(|cx| FlowsView::new(window, cx));
+                    self.flows_root = Some(
+                        cx.new(|cx| Root::new(flows_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.flows_view = Some(flows_view);
+                } else if let Some(view) = &self.flows_view {
+                    // Coming back from the editor: show what it saved.
+                    view.update(cx, |view, cx| view.refresh(cx));
+                }
+            }
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {}
             ActivePage::Settings => {
                 if self.settings_root.is_none() {
                     let settings_view = cx.new(SettingsView::new);
@@ -330,6 +356,12 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
+            ActivePage::Flows => {
+                if let Some(view) = &self.flows_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {}
         }
     }
 
@@ -352,6 +384,11 @@ impl MainWindowView {
             }
             ActivePage::Keybinds => {
                 if let Some(view) = &self.keybinds_view {
+                    view.update(cx, |view, cx| view.refresh(cx));
+                }
+            }
+            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+                if let Some(view) = &self.flows_view {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
@@ -416,6 +453,10 @@ impl MainWindowView {
                 .keybinds_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => self
+                .flows_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Settings => self
                 .settings_root
                 .clone()
@@ -438,6 +479,8 @@ impl MainWindowView {
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Keybinds, ActivePage::Keybinds) => true,
+            (ActivePage::Flows, ActivePage::Flows) => true,
+            (ActivePage::FlowEdit(_) | ActivePage::FlowNew(_), ActivePage::Flows) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
@@ -450,6 +493,7 @@ impl MainWindowView {
             0 => ActivePage::Themes,
             1 => ActivePage::Configuration,
             2 => ActivePage::Keybinds,
+            3 => ActivePage::Flows,
             _ => ActivePage::Themes,
         }
     }
@@ -475,7 +519,8 @@ impl MainWindowView {
         let icon = match ix {
             0 => Icon::new(IconName::LayoutDashboard),
             1 => Icon::new(IconName::Settings),
-            _ => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
+            2 => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
+            _ => Icon::new(Icon::empty()).path("icons/workflow.svg"),
         };
         let focused = self.sidebar_focus.is_focused(window) && self.sidebar_index == ix;
         let border = focus::focus_border(focused, cx.theme().transparent, cx);
@@ -601,6 +646,11 @@ impl Render for MainWindowView {
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToKeybinds, window, cx| {
                     this.navigate_to(ActivePage::Keybinds, window, cx);
+                },
+            ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToFlows, window, cx| {
+                    this.navigate_to(ActivePage::Flows, window, cx);
                 },
             ))
             // Focus traversal (native GPUI tab stops)
