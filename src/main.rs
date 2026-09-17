@@ -6,6 +6,7 @@ use omarchist::system::config::hypr_setup;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
+use omarchist::ui::keybinds_page::keystroke_input;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
 use std::rc::Rc;
@@ -13,6 +14,7 @@ use std::rc::Rc;
 fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
         Some(ViewOption::Config) => ActivePage::Configuration,
+        Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,
@@ -156,6 +158,13 @@ fn main() {
             app_events::emit(cx, AppEvent::ToggleSidebar);
         });
 
+        // Never leave Hyprland stuck in the keystroke-recording submap.
+        cx.on_app_quit(|_cx| {
+            omarchist::system::keybinds::submap::leave_recording_submap();
+            async {}
+        })
+        .detach();
+
         cx.bind_keys([
             KeyBinding::new("ctrl-q", app_menu::Quit, None),
             KeyBinding::new("ctrl-,", app_menu::NavigateToSettings, None),
@@ -171,6 +180,7 @@ fn main() {
             // Global page navigation shortcuts
             KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
             KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
+            KeyBinding::new("ctrl-3", app_menu::NavigateToKeybinds, None),
             // Keyboard navigation bindings - using MainWindow context
             KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
@@ -217,6 +227,32 @@ fn main() {
             KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
             KeyBinding::new("space", app_menu::ActivateItem, Some("AboutView")),
             KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
+            // Keybinds page keyboard navigation
+            KeyBinding::new("tab", app_menu::NextFocus, Some("KeybindsPage")),
+            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("KeybindsPage")),
+            KeyBinding::new("escape", app_menu::EscapeFocus, Some("KeybindsPage")),
+            KeyBinding::new("enter", app_menu::ActivateItem, Some("KeybindsPage")),
+            // Keystroke recorder (only while it is focused but not recording)
+            KeyBinding::new(
+                "enter",
+                keystroke_input::StartRecording,
+                Some("KeystrokeInput"),
+            ),
+            KeyBinding::new(
+                "space",
+                keystroke_input::StartRecording,
+                Some("KeystrokeInput"),
+            ),
+            KeyBinding::new(
+                "backspace",
+                keystroke_input::ClearKeystrokes,
+                Some("KeystrokeInput"),
+            ),
+            KeyBinding::new(
+                "delete",
+                keystroke_input::ClearKeystrokes,
+                Some("KeystrokeInput"),
+            ),
             // Omarchy page keyboard navigation
             KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
             KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),

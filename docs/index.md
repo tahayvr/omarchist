@@ -4,6 +4,7 @@ Welcome to Omarchist! A GUI application for [Omarchy](https://omarchy.org/) Linu
 
 - **Theme Designer**: Create and customize themes for Omarchy. Omarchist writes `colors.toml` and Omarchy generates the rest.
 - **Hyprland Configuration**: Configure window gaps, borders, blur, keyboard, mouse, and touchpad settings without touching `hyprland.lua`.
+- **Keybinds**: Browse, search, and change every Hyprland keybind on your system, recording new key combinations the way you would in an editor.
 
 <img src="/images/omarchist-social.png" alt="Omarchist Screenshot" class="light-only">
 <img src="/images/omarchist-screenshot.png" alt="Omarchist Screenshot" class="dark-only">

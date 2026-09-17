@@ -4,6 +4,7 @@ pub mod app_view;
 pub mod color_utils;
 pub mod config_page;
 pub mod dialogs;
+pub mod keybinds_page;
 pub mod keyboard_nav;
 pub mod menu;
 pub mod omarchy_page;

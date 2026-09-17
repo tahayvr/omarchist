@@ -3,6 +3,7 @@ use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::keyboard_nav::{FocusState, FocusedSection};
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
@@ -20,13 +21,14 @@ use crate::system::ui_theme_watcher;
 
 const KEY_CONTEXT: &str = "MainWindow";
 
-const SIDEBAR_ITEM_COUNT: usize = 2;
+const SIDEBAR_ITEM_COUNT: usize = 3;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
     Configuration,
+    Keybinds,
     Settings,
     About,
     Omarchy,
@@ -45,6 +47,8 @@ pub struct MainWindowView {
     // All other pages are created lazily on first navigation
     config_root: Option<AnyView>,
     config_view: Option<Entity<ConfigView>>,
+    keybinds_root: Option<AnyView>,
+    keybinds_view: Option<Entity<KeybindsView>>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -114,6 +118,7 @@ impl MainWindowView {
         let initial_sidebar_index = match &initial_page {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => 0,
             ActivePage::Configuration => 1,
+            ActivePage::Keybinds => 2,
             _ => 0,
         };
 
@@ -127,6 +132,8 @@ impl MainWindowView {
             theme_edit_name: None,
             config_root: None,
             config_view: None,
+            keybinds_root: None,
+            keybinds_view: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -189,6 +196,16 @@ impl MainWindowView {
                             .into(),
                     );
                     self.config_view = Some(config_view);
+                }
+            }
+            ActivePage::Keybinds => {
+                if self.keybinds_root.is_none() {
+                    let keybinds_view = cx.new(|cx| KeybindsView::new(window, cx));
+                    self.keybinds_root = Some(
+                        cx.new(|cx| Root::new(keybinds_view.clone(), window, cx))
+                            .into(),
+                    );
+                    self.keybinds_view = Some(keybinds_view);
                 }
             }
             ActivePage::Settings => {
@@ -288,6 +305,10 @@ impl MainWindowView {
                 .settings_view
                 .as_ref()
                 .map(|v| v.read(cx).focus_handle.clone()),
+            ActivePage::Keybinds => self
+                .keybinds_view
+                .as_ref()
+                .map(|v| v.read(cx).focus_handle.clone()),
         };
 
         if let Some(fh) = handle {
@@ -346,6 +367,10 @@ impl MainWindowView {
                 .config_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::Keybinds => self
+                .keybinds_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Settings => self
                 .settings_root
                 .clone()
@@ -367,6 +392,7 @@ impl MainWindowView {
             (ActivePage::ThemeEdit(_), ActivePage::Themes) => true, // ThemeEdit is under Themes in sidebar
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
             (ActivePage::Configuration, ActivePage::Configuration) => true,
+            (ActivePage::Keybinds, ActivePage::Keybinds) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
@@ -378,6 +404,7 @@ impl MainWindowView {
         match index {
             0 => ActivePage::Themes,
             1 => ActivePage::Configuration,
+            2 => ActivePage::Keybinds,
             _ => ActivePage::Themes,
         }
     }
@@ -535,6 +562,13 @@ impl Render for MainWindowView {
                     this.navigate_to(ActivePage::Configuration, window, cx);
                 },
             ))
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToKeybinds, window, cx| {
+                    this.focus_state.sidebar_index = 2;
+                    this.focus_state.focused_section = FocusedSection::Content;
+                    this.navigate_to(ActivePage::Keybinds, window, cx);
+                },
+            ))
             // Sidebar keyboard navigation actions
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NextFocus, window, cx| {
@@ -620,6 +654,27 @@ impl Render for MainWindowView {
                                                         FocusedSection::Content;
                                                     this.navigate_to(
                                                         ActivePage::Configuration,
+                                                        window,
+                                                        cx,
+                                                    );
+                                                })),
+                                        )
+                                        .child(
+                                            SidebarMenuItem::new("KEYBINDS")
+                                                .icon(
+                                                    Icon::new(Icon::empty())
+                                                        .path("icons/keyboard.svg"),
+                                                )
+                                                .active(
+                                                    self.is_page_active(ActivePage::Keybinds)
+                                                        || self.is_sidebar_item_focused(2),
+                                                )
+                                                .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.focus_state.sidebar_index = 2;
+                                                    this.focus_state.focused_section =
+                                                        FocusedSection::Content;
+                                                    this.navigate_to(
+                                                        ActivePage::Keybinds,
                                                         window,
                                                         cx,
                                                     );

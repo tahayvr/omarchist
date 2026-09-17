@@ -53,20 +53,10 @@ impl HyprlandConfigManager {
 
         // omarchist.lua is write-only — generated fresh every save, never
         // read back.
-        let lua_content = super::lua_writer::write_lua_config(&self.config);
-        fs::write(&self.lua_path, lua_content)
-            .map_err(|e| Error::io("Failed to write omarchist.lua", e))?;
-
-        Self::reload_hyprland();
+        write_omarchist_lua(&self.config)?;
+        reload_hyprland();
 
         Ok(())
-    }
-
-    fn reload_hyprland() {
-        // Run hyprctl reload in background - don't block on it
-        std::thread::spawn(|| {
-            let _ = Command::new("hyprctl").arg("reload").output();
-        });
     }
 
     pub fn get(&self) -> &HyprlandConfig {
@@ -111,6 +101,41 @@ impl Clone for HyprlandConfigManager {
     }
 }
 
+/// Asks Hyprland to re-read its config, in the background so saves never
+/// block on the compositor.
+pub fn reload_hyprland() {
+    std::thread::spawn(|| {
+        let _ = Command::new("hyprctl").arg("reload").output();
+    });
+}
+
+/// The settings last saved by the Configuration page, without touching
+/// hyprctl. Used when only the keybinds block changed.
+pub fn saved_config() -> HyprlandConfig {
+    get_state_path()
+        .ok()
+        .filter(|p| p.exists())
+        .and_then(|p| fs::read_to_string(p).ok())
+        .and_then(|content| serde_json::from_str(&content).ok())
+        .unwrap_or_default()
+}
+
+/// Regenerates `~/.config/hypr/omarchist.lua` from the settings plus the
+/// saved keybind overrides. Both the Configuration page and the Keybinds
+/// page go through here so neither can drop the other's section.
+pub fn write_omarchist_lua(config: &HyprlandConfig) -> Result<()> {
+    let keybinds = crate::system::keybinds::store::load_overrides().unwrap_or_default();
+    let keybinds_lua = crate::system::keybinds::overrides::emit_keybinds_lua(&keybinds);
+    let lua_content = super::lua_writer::render_omarchist_lua(config, &keybinds_lua);
+    let lua_path = get_lua_path()?;
+    // Hyprland reloads on every write to ~/.config/hypr, so leave an
+    // up-to-date file alone.
+    if fs::read_to_string(&lua_path).is_ok_and(|current| current == lua_content) {
+        return Ok(());
+    }
+    fs::write(&lua_path, lua_content).map_err(|e| Error::io("Failed to write omarchist.lua", e))
+}
+
 fn get_state_path() -> Result<PathBuf> {
     let dir = omarchist_hyprland_dir().ok_or(Error::UnknownDirectory("home"))?;
     Ok(dir.join(STATE_FILE))
@@ -141,10 +166,6 @@ pub fn delete_config() -> Result<()> {
         fs::remove_file(&state_path).map_err(|e| Error::io("Failed to delete state file", e))?;
     }
 
-    let lua_path = get_lua_path()?;
-    if lua_path.exists() {
-        fs::remove_file(&lua_path).map_err(|e| Error::io("Failed to delete omarchist.lua", e))?;
-    }
-
-    Ok(())
+    // Keep the file (hyprland.lua requires it) with only the keybinds left.
+    write_omarchist_lua(&HyprlandConfig::default())
 }

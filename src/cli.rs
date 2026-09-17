@@ -19,6 +19,7 @@ pub enum ViewOption {
     About,
     Omarchy,
     Config,
+    Keybinds,
 }
 
 impl CliArgs {
@@ -42,6 +43,12 @@ mod tests {
     fn test_parse_config_view() {
         let args = CliArgs::parse_from(["omarchist", "--view", "config"]);
         assert_eq!(args.view, Some(ViewOption::Config));
+    }
+
+    #[test]
+    fn test_parse_keybinds_view() {
+        let args = CliArgs::parse_from(["omarchist", "--view", "keybinds"]);
+        assert_eq!(args.view, Some(ViewOption::Keybinds));
     }
 
     #[test]

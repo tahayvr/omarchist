@@ -225,6 +225,7 @@ pub enum ActivePage {
     Themes,
     ThemeEdit(String),
     Configuration,
+    Keybinds,
     Settings,
     About,
     Omarchy,
@@ -281,6 +282,17 @@ Quattro moved Hyprland's config from hyprlang text to real Lua (`~/.config/hypr/
 - `src/system/hyprland_config/hyprctl_reader.rs` still live-introspects settings via `hyprctl getoption` — untouched, version-agnostic.
 - The pre-Quattro `~/.config/omarchist/hyprland/hyprland.conf` (hyprlang, sourced by glob) is gone; `config_setup.rs` deletes a stale copy on startup.
 
+### Keybinds — Lua Scanner + Overrides
+
+Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, opts)` over Hyprland's `hl.bind`), and `hyprctl binds` cannot describe them (every dispatcher is `__lua` with an opaque id; `code:N` keys come back empty). The Keybinds page therefore works like Omarchy's own `omarchy-menu-keybindings`:
+
+- `src/system/keybinds/scan.lua` (embedded with `include_str!`) is run by the system `lua` interpreter against `~/.config/hypr/hyprland.lua` with a stubbed `hl` table. It prints one tab-separated record per `hl.bind`/`hl.unbind` call, with the declaring file (skipping Omarchy's `helpers.lua` frames), the keys, description, dispatcher (`exec` command, `lua` expression reconstructed as source text, or `fn`), and flags. `hl.get_*` getters answer `nil`; everything else is a noop.
+- `replay.rs` turns those events into the effective list with Hyprland's semantics: binds on one chord stack, and `hl.unbind` removes every earlier bind on that chord. Origin is classified from the path: `$OMARCHY_PATH/default/` → Default, `omarchist.lua` → Omarchist, otherwise User.
+- User changes are overrides in `~/.config/omarchist/hyprland/keybinds.json` (`overrides.rs`: Rebind / Disable / Add, each targeting a bind by chord + description + dispatcher, with the sibling binds to restore captured at save time). `emit_keybinds_lua` renders them as `hl.unbind(...)` + `hl.bind(...)` lines that `manager::write_omarchist_lua` appends to `omarchist.lua` after the settings section, so the Configuration page and the Keybinds page can never drop each other's block. Omarchist never edits the user's `bindings.lua`. `validate()` only accepts Lua dispatchers of the form `hl.dsp.*(...)` so a hand-edited json cannot inject code.
+- `omarchist.lua` always defines the `omarchist-recording` submap (one inert switch bind, because Hyprland only registers submaps that contain a bind). The recorder (`keystroke_input.rs`, ported from Zed's `KeystrokeInput`) switches Hyprland into it with `hyprctl dispatch 'hl.dsp.submap("omarchist-recording")'` while recording, so bound chords reach the app, and resets it on stop, blur, drop, and app quit (`submap.rs`). On this Hyprland `hyprctl dispatch` takes Lua syntax; the old `submap name` form is rejected.
+- Recording uses `cx.intercept_keystrokes` + `cx.stop_propagation()` installed on inner-focus-in and dropped on focus-out, so `is_recording()` is derived from focus and cannot desync. A Hyprland bind is one chord, so recording stops after the first complete keystroke.
+- GPUI key names are mapped to Hyprland keysym names in `keymap.rs` (shifted symbols back to base key + SHIFT, Omarchy's spellings such as `RETURN`/`comma`, XF86 names canonicalised via `xkbcommon`). Chords are parsed and compared in `chord.rs` (`code:10` ≡ `1`).
+
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
@@ -290,6 +302,7 @@ Quattro moved Hyprland's config from hyprlang text to real Lua (`~/.config/hypr/
 - **Type Definitions:** `src/types/themes.rs`
 - **Omarchy Paths:** `src/system/omarchy_paths.rs`
 - **Hyprland Config:** `src/system/hyprland_config/` (`manager.rs`, `lua_writer.rs`, `hyprctl_reader.rs`)
+- **Keybinds:** `src/system/keybinds/` (`scan.lua`, `scanner.rs`, `replay.rs`, `overrides.rs`, `store.rs`, `submap.rs`) and `src/ui/keybinds_page/` (`keybinds_view.rs`, `keybinds_table.rs`, `keystroke_input.rs`, `keybind_dialog.rs`)
 
 ## CLI Handling
 
@@ -300,7 +313,7 @@ The app supports command-line arguments via `clap`. CLI args are parsed at start
 #[derive(Parser)]
 pub struct CliArgs {
     #[arg(short, long)]
-    pub view: Option<ViewOption>,  // themes, config, settings, about, omarchy
+    pub view: Option<ViewOption>,  // themes, config, keybinds, settings, about, omarchy
     
     #[arg(short, long, requires = "view")]
     pub theme: Option<String>,     // For editing specific theme
@@ -312,6 +325,7 @@ pub struct CliArgs {
 omarchist --view config              # Open Hyprland configuration
 omarchist --view themes --theme foo  # Open theme editor for "foo"
 omarchist --view settings            # Open settings page
+omarchist --view keybinds            # Open the Keybinds page
 ```
 
 To extend: add variants to `ViewOption` enum and handle them in `cli_args_to_active_page()`.

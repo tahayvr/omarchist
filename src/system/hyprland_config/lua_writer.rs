@@ -110,8 +110,31 @@ fn lua_literal(value: &Value) -> String {
     }
 }
 
-fn lua_string(s: &str) -> String {
-    let escaped = s.replace('\\', "\\\\").replace('"', "\\\"");
+/// Renders `omarchist.lua` in full: the settings diff, the keybind
+/// overrides block (see `keybinds::overrides::emit_keybinds_lua`), and the
+/// submap the keystroke recorder relies on (see `keybinds::submap`).
+pub fn render_omarchist_lua(config: &HyprlandConfig, keybinds_lua: &str) -> String {
+    let mut output = write_lua_config(config);
+    if !keybinds_lua.is_empty() {
+        output.push_str("\n-- Keybinds (managed on the Keybinds page)\n");
+        output.push_str(keybinds_lua);
+    }
+    output.push_str(
+        "\n-- Submap the Keybinds page switches to while recording a keystroke,\n\
+         -- so Hyprland lets every chord through to Omarchist.\n",
+    );
+    output.push_str(&crate::system::keybinds::submap::define_recording_submap_lua());
+    output
+}
+
+/// A double-quoted Lua string literal. Newlines are escaped too so a
+/// value can never break out of the single-line calls this file emits.
+pub(crate) fn lua_string(s: &str) -> String {
+    let escaped = s
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r");
     format!("\"{}\"", escaped)
 }
 
@@ -180,6 +203,28 @@ mod tests {
 
         // The layout string itself should be quoted with internal quotes escaped.
         assert!(output.contains("master \\\"quoted\\\""));
+    }
+
+    #[test]
+    fn render_omarchist_lua_appends_keybinds_after_settings() {
+        let mut config = HyprlandConfig::default();
+        config.general.border_size = 4;
+
+        let plain = render_omarchist_lua(&config, "");
+        assert!(plain.starts_with(&write_lua_config(&config)));
+        assert!(plain.contains("hl.define_submap(\"omarchist-recording\""));
+        assert!(!plain.contains("-- Keybinds (managed"));
+
+        let with_keybinds = render_omarchist_lua(&config, "hl.unbind(\"SUPER + K\")\n");
+        let settings_at = with_keybinds.find("hl.config").unwrap();
+        let keybinds_at = with_keybinds.find("hl.unbind").unwrap();
+        assert!(settings_at < keybinds_at);
+        assert!(with_keybinds.contains("-- Keybinds (managed on the Keybinds page)"));
+    }
+
+    #[test]
+    fn lua_string_escapes_quotes_backslashes_and_newlines() {
+        assert_eq!(lua_string("a\"b\\c\nd"), "\"a\\\"b\\\\c\\nd\"");
     }
 
     #[test]
