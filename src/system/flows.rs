@@ -32,10 +32,11 @@ pub struct Flow {
     #[serde(default)]
     pub on_error: OnError,
     /// Declared before `steps` so the TOML file lists it before the
-    /// `[[steps]]` tables rather than after them.
+    /// `[[step]]` tables rather than after them.
     #[serde(default, skip_serializing_if = "Triggers::is_empty")]
     pub triggers: Triggers,
-    #[serde(default)]
+    /// Serialized as `step`, so each `[[step]]` table in the file is one step.
+    #[serde(default, rename = "step")]
     pub steps: Vec<Step>,
 }
 
@@ -408,12 +409,10 @@ mod tests {
         ];
         let text = toml::to_string_pretty(&flow).unwrap();
         assert!(
-            text.contains(
-                "[[steps]]\ntype = \"lua\"\nexpr = 'hl.dsp.focus({ workspace = \"2\" })'"
-            )
+            text.contains("[[step]]\ntype = \"lua\"\nexpr = 'hl.dsp.focus({ workspace = \"2\" })'")
         );
         assert!(text.contains("type = \"wait\"\nms = 500\nenabled = false"));
-        assert!(text.contains("[triggers]\nlauncher = true\n\n[[steps]]"));
+        assert!(text.contains("[triggers]\nlauncher = true\n\n[[step]]"));
         let back: Flow = toml::from_str(&text).unwrap();
         assert_eq!(back, flow);
 
@@ -447,12 +446,12 @@ mod tests {
             ..Flow::new("morning".into(), "Morning".into())
         };
         let json = serde_json::to_value(&flow).unwrap();
-        assert_eq!(json["steps"][0]["type"], "exec");
-        assert_eq!(json["steps"][0]["command"], "omarchy-launch-browser");
-        assert!(json["steps"][0].get("enabled").is_none());
-        assert!(json["steps"][0].get("detach").is_none());
-        assert_eq!(json["steps"][1]["enabled"], false);
-        assert_eq!(json["steps"][1]["ms"], 500);
+        assert_eq!(json["step"][0]["type"], "exec");
+        assert_eq!(json["step"][0]["command"], "omarchy-launch-browser");
+        assert!(json["step"][0].get("enabled").is_none());
+        assert!(json["step"][0].get("detach").is_none());
+        assert_eq!(json["step"][1]["enabled"], false);
+        assert_eq!(json["step"][1]["ms"], 500);
         assert_eq!(json["icon"], "workflow");
         assert!(json.get("triggers").is_none(), "no triggers, no table");
 

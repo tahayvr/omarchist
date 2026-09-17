@@ -73,15 +73,15 @@ on_error = "stop"
 [triggers]
 launcher = true
 
-[[steps]]
+[[step]]
 type = "lua"
 expr = 'hl.dsp.focus({ workspace = "2" })'
 
-[[steps]]
+[[step]]
 type = "exec"
 command = "omarchy-launch-editor"
 
-[[steps]]
+[[step]]
 type = "notify"
 title = "Focus mode"
 body = "Everything else can wait"
