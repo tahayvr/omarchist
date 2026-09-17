@@ -29,7 +29,7 @@ cargo add <crate_name>
 - **Components:** GPUI Kit 0.6 — `gpui-component` (styled), `gpui-base` (unstyled behaviour, focus traps), `gpui-kit` (facade; required in the graph because gpui's macros resolve paths through it), `gpui-kit-assets` (Lucide icons, no brand icons)
 - **Pinning:** every `gpui*` crate is pinned exactly (`=`) and bumped together; `gpui-pre` patch releases are not semver-stable.
 - **Async Runtime:** smol 2.0.2
-- **Serialization:** serde + serde_json
+- **Serialization:** serde + serde_json (app state), toml (flow files)
 - **Date/Time:** chrono
 
 ## Configuration Directories
@@ -37,7 +37,7 @@ cargo add <crate_name>
 Important distinction between two config directories:
 
 - **`~/.config/omarchy`** - Belongs to Omarchy Linux system. Used to store themes created by Omarchist app (the OS reads themes from here)
-- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state)
+- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state, `flows/*.toml`)
 
 Omarchy (Quattro/v4) itself is installed at `$OMARCHY_PATH`, defaulting to `/usr/share/omarchy` — see `src/system/omarchy_paths.rs`, the single canonical source for every Omarchy-related path.
 
@@ -230,6 +230,9 @@ pub enum ActivePage {
     ThemeEdit(String),
     Configuration,
     Keybinds,
+    Flows,
+    FlowEdit(String),      // the editor for an existing flow, by id
+    FlowNew(Option<String>), // the editor for a new flow, optionally from a template
     Settings,
     About,
     Omarchy,
@@ -240,7 +243,7 @@ pub enum ActivePage {
 
 GPUI focus is the only source of truth; never keep a shadow "focused index" that is not backed by a `FocusHandle`. Helpers live in `src/ui/focus.rs`:
 
-- Every interactive element is a tab stop (`focus::tab_stop(cx)` or gpui-component's `Button`/`Input`/`Select`/`Radio`/`ColorPicker`). `Switch` is mouse-only: use `FocusableSwitch`.
+- Every interactive element is a tab stop (`focus::tab_stop(cx)` or gpui-component's `Button`/`Input`/`Select`/`Radio`/`ColorPicker`). `Switch` is its own tab stop; `FocusableSwitch` wraps it with a clickable label and a row focus ring without adding a second stop.
 - Composites (sidebar, tab strips, theme grid, keybinds table and filters, config section list) are one tab stop with a roving index; their arrow keys are actions in their own `key_context`. Tab never stops on individual items inside them.
 - Each page exposes `focus_entry(&self, window, cx)`; `MainWindowView::navigate_to` calls it so keyboard users land on the first control. `Escape` (`focus::EscapeToSidebar`) toggles between the sidebar and the page.
 - Dialogs wrap their content in `focus::dialog_body(...)` (handles `dialog::Submit` = Ctrl+Enter) and call `focus::focus_first_in(&body_focus, window, cx)` after `open_dialog`. Tab is trapped by gpui-kit itself: every dialog is a `focus_trap`, and `Root`'s Tab handler stays inside the active trap. Where a control's own `tab` binding is overridden (`... > Input`), route it to `focus::FocusNext`/`FocusPrev`, whose handler (`focus_next_trapped`) honours the trap the same way.
@@ -323,6 +326,14 @@ Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, op
 - Recording uses `cx.intercept_keystrokes` + `cx.stop_propagation()` installed on inner-focus-in and dropped on focus-out, so `is_recording()` is derived from focus and cannot desync. A Hyprland bind is one chord, so recording stops after the first complete keystroke.
 - GPUI key names are mapped to Hyprland keysym names in `keymap.rs` (shifted symbols back to base key + SHIFT, Omarchy's spellings such as `RETURN`/`comma`, XF86 names canonicalised via `xkbcommon`). Chords are parsed and compared in `chord.rs` (`code:10` ≡ `1`).
 
+### Flows — Sequences Triggered From Anywhere
+
+A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reuse the keybind dispatcher vocabulary (`StepKind::Exec`/`Lua` ↔ `Dispatcher`, so the same `ActionBuilder` edits both) plus the flow-only `Wait`, `Notify`, and `Flow` (nesting). Each flow is one TOML file `~/.config/omarchist/flows/<id>.toml` (`store.rs`; TOML rather than JSON because flows are meant to be shared and hand-edited, and single-quoted TOML strings carry Lua and shell text without escaping); the id is a slug fixed at creation because keybinds, desktop entries, and the CLI refer to it. `validate()` applies the same `hl.dsp.*(...)` guard as keybind overrides.
+
+- `runner.rs` runs steps one at a time: `Exec` through `setsid -f sh -c` (Omarchy's launch scripts `exec setsid`, which does not fork under `sh -c`, so a plain wait would block until the window closes) or `sh -c` when `wait` is set; `hyprctl dispatch` for Lua; `notify-send --`. It reports `RunEvent`s, honours `OnError`, and refuses nested loops via a call stack. A dispatcher of the form `omarchist flow run '<id>'` always becomes `StepKind::Flow` (`from_dispatcher`), so nesting is checked in process. `Runner::with_loader` takes a flow loader so tests never touch disk.
+- Triggers: `omarchist flow run <id-or-name>` (`cli.rs`, handled in `main()` before the window opens); a keybind via `Action::Flow` (dispatcher `omarchist flow run '<id>'`, offered as the **Flow** kind in the action builder); `launcher.rs` writes a `.desktop` entry (`~/.local/share/applications/omarchist-flow-<id>.desktop`, icon SVG under `~/.local/share/omarchist/flows/`) and a `post-boot.d` hook script for startup. `store::save_flow` keeps those files in sync with `flow.triggers`; `delete_flow` removes them and any keybind override that ran the flow.
+- UI: `src/ui/flows_page/` — `flows_view.rs` (card grid, one tab stop with a roving index), `flow_edit_view.rs` (details, triggers, step list as one tab stop, live run states through a `smol::channel`), `step_dialog.rs` + `step_builder.rs` (hosts `ActionBuilder` with its kind strip hidden via `set_kind_strip(false)` and adds Wait/Notify), `step_summary.rs` (titles and icons for steps, resolving installed apps and flow names), `templates.rs` (starter flows on an empty page). Assigning a keybind opens `KeybindDialog` in `DialogMode::AddPreset`.
+
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
@@ -334,6 +345,7 @@ Omarchy declares every keybind in Lua (`o.bind(keys, description, dispatcher, op
 - **Omarchy Paths:** `src/system/omarchy_paths.rs`
 - **Hyprland Config:** `src/system/hyprland_config/` (`manager.rs`, `lua_writer.rs`, `hyprctl_reader.rs`)
 - **Keybinds:** `src/system/keybinds/` (`scan.lua`, `scanner.rs`, `replay.rs`, `overrides.rs`, `store.rs`, `submap.rs`) and `src/ui/keybinds_page/` (`keybinds_view.rs`, `keybinds_table.rs`, `keystroke_input.rs`, `keybind_dialog.rs`)
+- **Flows:** `src/system/flows/` (`store.rs`, `runner.rs`, `launcher.rs`, `templates.rs`) and `src/ui/flows_page/` (`flows_view.rs`, `flow_edit_view.rs`, `step_dialog.rs`, `step_builder.rs`, `step_summary.rs`)
 
 ## CLI Handling
 
@@ -344,7 +356,7 @@ The app supports command-line arguments via `clap`. CLI args are parsed at start
 #[derive(Parser)]
 pub struct CliArgs {
     #[arg(short, long)]
-    pub view: Option<ViewOption>,  // themes, config, keybinds, settings, about, omarchy
+    pub view: Option<ViewOption>,  // themes, config, keybinds, flows, settings, about, omarchy
     
     #[arg(short, long, requires = "view")]
     pub theme: Option<String>,     // For editing specific theme
@@ -357,7 +369,12 @@ omarchist --view config              # Open Hyprland configuration
 omarchist --view themes --theme foo  # Open theme editor for "foo"
 omarchist --view settings            # Open settings page
 omarchist --view keybinds            # Open the Keybinds page
+omarchist --view flows               # Open the Flows page
+omarchist flow run morning-start     # Run a flow without opening the window
+omarchist flow list
 ```
+
+Subcommands (`CliArgs::command`) are handled by `cli::run_command` in `main()` before the GPUI app starts, so they never open a window.
 
 To extend: add variants to `ViewOption` enum and handle them in `cli_args_to_active_page()`.
 

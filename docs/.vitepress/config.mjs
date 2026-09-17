@@ -102,6 +102,10 @@ export default defineConfig({
           { text: "Keybinds", link: "/configuring/keybinds" },
         ],
       },
+      {
+        text: "FLOWS",
+        items: [{ text: "Flows", link: "/flows/" }],
+      },
     ],
 
     editLink: {

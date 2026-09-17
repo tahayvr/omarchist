@@ -4,6 +4,8 @@
 use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
+use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
+use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::menu::app_menu;
@@ -52,6 +54,7 @@ pub const THEME_EDIT: &str = "Theme Designer";
 pub const DIALOGS: &str = "Dialogs";
 pub const CONFIG: &str = "Configuration";
 pub const KEYBINDS: &str = "Keybinds";
+pub const FLOWS: &str = "Flows";
 
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
@@ -75,6 +78,13 @@ pub const SHORTCUTS: &[Shortcut] = &[
         None,
         GLOBAL,
         "Keybinds page"
+    ),
+    shortcut!(
+        "ctrl-4",
+        app_menu::NavigateToFlows,
+        None,
+        GLOBAL,
+        "Flows page"
     ),
     shortcut!(
         "ctrl-,",
@@ -680,6 +690,218 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("KeybindsTable > DataTable"),
         KEYBINDS,
         "Back to the search box"
+    ),
+    // Flows page
+    shortcut!(
+        "ctrl-f",
+        flows_nav::FocusSearch,
+        Some("FlowsPage"),
+        FLOWS,
+        "Search flows"
+    ),
+    shortcut!(
+        "ctrl-shift-n",
+        flows_nav::NewFlow,
+        Some("FlowsPage"),
+        FLOWS,
+        "Create a flow"
+    ),
+    shortcut!(
+        "down",
+        flows_nav::FocusGrid,
+        Some("FlowsSearch"),
+        FLOWS,
+        "From the search box to the flows"
+    ),
+    shortcut!(
+        "down",
+        flows_nav::FocusGrid,
+        Some("FlowsSearch > Input"),
+        FLOWS,
+        "From the search box to the flows"
+    ),
+    shortcut!(
+        "escape",
+        flows_nav::ClearSearch,
+        Some("FlowsSearch > Input"),
+        FLOWS,
+        "Clear the search"
+    ),
+    shortcut!(
+        "left",
+        flows_nav::GridLeft,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Previous flow"
+    ),
+    shortcut!(
+        "right",
+        flows_nav::GridRight,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Next flow"
+    ),
+    shortcut!(
+        "up",
+        flows_nav::GridUp,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Flow above"
+    ),
+    shortcut!(
+        "down",
+        flows_nav::GridDown,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Flow below"
+    ),
+    shortcut!(
+        "home",
+        flows_nav::GridFirst,
+        Some("FlowsGrid"),
+        FLOWS,
+        "First flow"
+    ),
+    shortcut!(
+        "end",
+        flows_nav::GridLast,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Last flow"
+    ),
+    shortcut!(
+        "enter",
+        flows_nav::EditSelected,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Edit the selected flow"
+    ),
+    shortcut!(
+        "ctrl-enter",
+        flows_nav::RunSelected,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Run the selected flow"
+    ),
+    shortcut!(
+        "ctrl-d",
+        flows_nav::DuplicateSelected,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Duplicate the selected flow"
+    ),
+    shortcut!(
+        "delete",
+        flows_nav::DeleteSelected,
+        Some("FlowsGrid"),
+        FLOWS,
+        "Delete the selected flow"
+    ),
+    // Flow editor
+    shortcut!(
+        "escape",
+        app_menu::NavigateBack,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "alt-left",
+        app_menu::NavigateBack,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "ctrl-s",
+        flow_edit_nav::Save,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Save the flow"
+    ),
+    shortcut!(
+        "ctrl-enter",
+        flow_edit_nav::Run,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Run the flow"
+    ),
+    shortcut!(
+        "ctrl-shift-n",
+        flow_edit_nav::AddStep,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Add a step"
+    ),
+    shortcut!(
+        "up",
+        flow_edit_nav::StepUp,
+        Some("FlowSteps"),
+        FLOWS,
+        "Previous step"
+    ),
+    shortcut!(
+        "down",
+        flow_edit_nav::StepDown,
+        Some("FlowSteps"),
+        FLOWS,
+        "Next step"
+    ),
+    shortcut!(
+        "home",
+        flow_edit_nav::StepFirst,
+        Some("FlowSteps"),
+        FLOWS,
+        "First step"
+    ),
+    shortcut!(
+        "end",
+        flow_edit_nav::StepLast,
+        Some("FlowSteps"),
+        FLOWS,
+        "Last step"
+    ),
+    shortcut!(
+        "enter",
+        flow_edit_nav::EditStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Edit the selected step"
+    ),
+    shortcut!(
+        "delete",
+        flow_edit_nav::RemoveStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Remove the selected step"
+    ),
+    shortcut!(
+        "alt-up",
+        flow_edit_nav::MoveStepUp,
+        Some("FlowSteps"),
+        FLOWS,
+        "Move the step up"
+    ),
+    shortcut!(
+        "alt-down",
+        flow_edit_nav::MoveStepDown,
+        Some("FlowSteps"),
+        FLOWS,
+        "Move the step down"
+    ),
+    shortcut!(
+        "space",
+        flow_edit_nav::ToggleStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Turn the step on or off"
+    ),
+    shortcut!(
+        "ctrl-d",
+        flow_edit_nav::DuplicateStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Duplicate the step"
     ),
     // Dialogs
     shortcut!(

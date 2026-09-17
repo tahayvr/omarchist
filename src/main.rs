@@ -9,12 +9,14 @@ use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::keybinds_page::keystroke_input;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
+use std::process::ExitCode;
 use std::rc::Rc;
 
 fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
     match args.view {
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
+        Some(ViewOption::Flows) => ActivePage::Flows,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,
@@ -83,8 +85,13 @@ fn load_custom_fonts(cx: &mut App) {
     }
 }
 
-fn main() {
+fn main() -> ExitCode {
     let cli_args = CliArgs::parse_args();
+
+    // Subcommands such as `omarchist flow run` never open the window.
+    if let Some(command) = &cli_args.command {
+        return omarchist::cli::run_command(command);
+    }
 
     let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
@@ -207,4 +214,5 @@ fn main() {
         })
         .detach();
     });
+    ExitCode::SUCCESS
 }

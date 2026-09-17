@@ -174,7 +174,7 @@ fn validate_dispatcher(dispatcher: &Dispatcher) -> Result<()> {
 
 /// `hl.dsp.<path>(<args>)` on one line, with balanced parentheses and no
 /// statement separators, i.e. exactly the shape the scanner reconstructs.
-fn is_dsp_call(expr: &str) -> bool {
+pub(crate) fn is_dsp_call(expr: &str) -> bool {
     let Some(rest) = expr.strip_prefix("hl.dsp.") else {
         return false;
     };

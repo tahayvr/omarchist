@@ -82,9 +82,10 @@ pub fn focus_border(focused: bool, base: Hsla, cx: &App) -> Hsla {
 
 type ChangeHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
 
-/// A `Switch` inside a focusable row. gpui-component's `Switch` only reacts
-/// to the mouse; the row is a tab stop that toggles on Enter/Space (GPUI
-/// synthesizes a click for focused elements) and draws a focus ring.
+/// A `Switch` with a clickable label and a focus ring around the row. The
+/// switch itself is the tab stop (gpui-component's `Switch` handles Tab,
+/// Enter, and Space); the row only tracks a non-stop handle so it can draw
+/// the ring while the switch inside it has focus.
 #[derive(IntoElement)]
 pub struct FocusableSwitch {
     id: ElementId,
@@ -132,10 +133,12 @@ impl FocusableSwitch {
 impl RenderOnce for FocusableSwitch {
     fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
         let focus_handle = window
-            .use_keyed_state(self.id.clone(), cx, |_, cx| tab_stop(cx))
+            .use_keyed_state(self.id.clone(), cx, |_, cx| {
+                cx.focus_handle().tab_stop(false)
+            })
             .read(cx)
             .clone();
-        let focused = focus_handle.is_focused(window);
+        let focused = focus_handle.contains_focused(window, cx);
         let checked = self.checked;
         let disabled = self.disabled;
         let on_change = self.on_change.clone();
@@ -163,8 +166,8 @@ impl RenderOnce for FocusableSwitch {
                     }),
             )
             .when_some(on_change.filter(|_| !disabled), |this, handler| {
-                // Keyboard activation (and clicks on the label) toggle the
-                // switch; clicks on the switch itself are consumed by it.
+                // Clicks on the label toggle the switch; clicks and key
+                // presses on the switch itself are consumed by it.
                 this.on_click(move |_, window, cx| handler(&!checked, window, cx))
             })
     }

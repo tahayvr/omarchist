@@ -18,7 +18,7 @@ Everything in Omarchist can be reached from the keyboard. Press <kbd>Ctrl</kbd> 
 
 | Keys | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> | Themes, Configuration, Keybinds |
+| <kbd>Ctrl</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd> | Themes, Configuration, Keybinds, Flows |
 | <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd> + <kbd>N</kbd> | Create a new theme |
 | <kbd>Ctrl</kbd> + <kbd>R</kbd> | Reload the current page (rescan keybinds, reload themes or the saved configuration) |
@@ -74,6 +74,19 @@ The section list on the left is a strip: <kbd>↑</kbd> / <kbd>↓</kbd> choose 
 | <kbd>Escape</kbd> in the search box | Clear the search, then go to the table |
 
 In the table: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd>, <kbd>PgUp</kbd> / <kbd>PgDn</kbd> move, <kbd>Enter</kbd> edits, <kbd>Delete</kbd> disables, <kbd>Ctrl</kbd> + <kbd>C</kbd> copies the command, and <kbd>Escape</kbd> returns to the search box. The filter strip cycles with <kbd>←</kbd> / <kbd>→</kbd>.
+
+## Flows
+
+| Keys | Action |
+| --- | --- |
+| <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> | New flow |
+| <kbd>↓</kbd> in the search box | Go to the cards |
+| <kbd>Escape</kbd> in the search box | Clear the search |
+
+Among the cards: arrows, <kbd>Home</kbd> / <kbd>End</kbd> move, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
+
+In the flow editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back. In the step list: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd> select, <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns the step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, and <kbd>Delete</kbd> removes it. The icon picker and the step kind strip cycle with <kbd>←</kbd> / <kbd>→</kbd>.
 
 ## Dialogs
 
