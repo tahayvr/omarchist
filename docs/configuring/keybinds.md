@@ -63,6 +63,7 @@ The **Action** section builds the command for you. Pick a kind, then fill in its
 - **Terminal**: a command run inside a new terminal window, such as `btop` or `lazydocker`, with the focus switch.
 - **Omarchy**: Omarchy's own commands, grouped into apps, menus, panels, capture, notifications, media, window tweaks, display, and system. Search by name or group.
 - **Window**: Hyprland actions such as closing, floating, focusing or swapping in a direction, switching or moving to a workspace, the scratchpad, monitors, groups, and resizing. Actions that need a direction, a workspace, or an amount show those controls.
+- **Flow**: a [flow](/flows/) from the Flows page, so one key runs a whole sequence of actions.
 - **Command**: any shell command, for everything else. It runs through Hyprland's `exec` dispatcher, so shell syntax such as `||` works.
 
 Editing an existing bind opens the kind that matches its command, so an Omarchy default that launches a web app opens on **Web app** with its address filled in. A dispatcher the builder cannot express is kept as is until you choose a different action.

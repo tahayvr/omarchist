@@ -43,6 +43,10 @@ Edit Hyprland settings from a GUI. Omarchist keeps its own settings in `~/.confi
 
 Browse, search, and change every Hyprland keybind on your system. Record a new key combination the way you would in an editor, or type it in Omarchy's syntax for keys the compositor keeps to itself. Changes go to `~/.config/hypr/omarchist.lua`; your `bindings.lua` is never touched.
 
+### **Flows:**
+
+String actions together, like Shortcuts on a Mac: open apps, switch workspaces, wait, notify. Run a flow from a keybind, the app launcher, at startup, or from anywhere with `omarchist flow run <name>`. Each flow is one JSON file in `~/.config/omarchist/flows/`.
+
 ### **Keyboard first:**
 
 Every page, dialog, and control works without a mouse: Tab walks the controls, arrows move inside lists and grids, `Ctrl+/` shows every shortcut, and `Ctrl+Shift+P` opens a command palette.
