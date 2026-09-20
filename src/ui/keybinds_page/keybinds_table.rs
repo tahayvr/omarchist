@@ -79,7 +79,7 @@ impl KeybindsTableDelegate {
                 Column::new("keys", "Keystrokes").width(px(230.)),
                 Column::new("command", "Command").width(px(360.)),
                 Column::new("source", "Source")
-                    .width(px(150.))
+                    .width(px(230.))
                     .resizable(false),
             ],
             rows: Vec::new(),
@@ -194,15 +194,15 @@ impl KeybindsTableDelegate {
             Origin::User => Tag::info(),
             Origin::Omarchist => Tag::primary(),
         }
-        .rounded_full()
+        .rounded(px(0.))
         .child(row.bind.origin.label());
 
         let status_tag = match &row.kind {
             RowKind::Plain => None,
-            RowKind::Modified { .. } => Some(Tag::success().rounded_full().child("Modified")),
-            RowKind::Custom => Some(Tag::success().rounded_full().child("Custom")),
-            RowKind::Disabled => Some(Tag::danger().rounded_full().child("Disabled")),
-            RowKind::UnboundByUser => Some(Tag::warning().rounded_full().child("Unbound")),
+            RowKind::Modified { .. } => Some(Tag::success().rounded(px(0.)).child("Modified")),
+            RowKind::Custom => Some(Tag::success().rounded(px(0.)).child("Custom")),
+            RowKind::Disabled => Some(Tag::danger().rounded(px(0.)).child("Disabled")),
+            RowKind::UnboundByUser => Some(Tag::warning().rounded(px(0.)).child("Unbound")),
         };
 
         let note = match &row.kind {
