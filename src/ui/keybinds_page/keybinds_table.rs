@@ -113,8 +113,10 @@ impl KeybindsTableDelegate {
     fn render_edit_cell(&self, row: &KeybindRow, row_ix: usize, cx: &App) -> AnyElement {
         let theme = cx.theme();
         if !row.bind.is_rebindable() && row.kind != RowKind::UnboundByUser {
-            return div()
+            return h_flex()
                 .id(("kb-fn", row_ix))
+                .h_full()
+                .items_center()
                 .text_color(theme.muted_foreground)
                 .child(Icon::new(Icon::empty()).path("icons/ban.svg").size_4())
                 .tooltip(|window, cx| {
@@ -126,11 +128,20 @@ impl KeybindsTableDelegate {
         if row.kind == RowKind::UnboundByUser {
             return div().into_any_element();
         }
-        div()
+        h_flex()
+            .id(("kb-edit", row_ix))
+            .h_full()
+            .items_center()
             .opacity(0.)
             .group_hover(row_group(row_ix), |style| style.opacity(1.))
             .text_color(theme.muted_foreground)
+            .hover(|style| style.text_color(theme.foreground))
+            .cursor_pointer()
             .child(Icon::new(Icon::empty()).path("icons/pencil.svg").size_4())
+            .tooltip(|window, cx| Tooltip::new("Edit").build(window, cx))
+            .on_click(move |_, window, cx| {
+                window.dispatch_action(Box::new(EditRow(row_ix)), cx);
+            })
             .into_any_element()
     }
 
