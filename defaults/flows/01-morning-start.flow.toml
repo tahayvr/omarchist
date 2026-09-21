@@ -1,7 +1,11 @@
+format = 1
 name = "Morning start"
 description = "Opens your browser, a terminal, and music, then says hello."
 icon = "coffee"
 on_error = "continue"
+
+[meta]
+author = "Omarchist"
 
 [triggers]
 startup = true

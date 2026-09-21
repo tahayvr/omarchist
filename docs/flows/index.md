@@ -66,6 +66,7 @@ The **Run it from** section wires that command up for you:
 Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine, shared, or edited by hand (comments welcome):
 
 ```toml
+format = 1
 id = "focus-mode"
 name = "Focus mode"
 description = "Moves to workspace 2 and opens your editor."
@@ -90,3 +91,20 @@ body = "Everything else can wait"
 ```
 
 Step types are `exec` (with an optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.
+
+A file you copy in only needs the right name: when `id` is missing, the file name (without `.toml`) becomes the id. The name must be lowercase letters, digits, and hyphens.
+
+`format` is the version of the file layout, `1` today. Omarchist refuses a file written for a newer format and tells you to update; a file without the line is read as format 1.
+
+An optional `[meta]` table describes the flow rather than what it does. All of it is optional, and the editor never needs it:
+
+```toml
+[meta]
+author = "Taha"
+version = "1.0"
+homepage = "https://example.com/flows"
+tags = ["morning", "work"]
+requires = ["spotify"]
+```
+
+`requires` lists programs the flow expects to find on the machine. The built-in templates are flow files in this format, shipped inside Omarchist.

@@ -3,7 +3,7 @@
 //! commands every Omarchy install has.
 use crate::assets::DefaultAssets;
 
-use super::Flow;
+use super::{Flow, parse_flow};
 
 const BUILT_IN_DIR: &str = "flows/";
 const SUFFIX: &str = ".flow.toml";
@@ -48,8 +48,7 @@ pub fn template(key: &str) -> Option<Template> {
 
 fn built_in(path: &str) -> crate::error::Result<Template> {
     let content = crate::assets::read_default_str(path)?;
-    let flow: Flow = toml::from_str(&content)
-        .map_err(|e| crate::error::Error::Invalid(format!("Failed to parse template: {e}")))?;
+    let flow = parse_flow(&content)?;
     Ok(Template {
         key: key_of(path),
         flow,
