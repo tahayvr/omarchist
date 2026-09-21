@@ -1,3 +1,4 @@
+use crate::system::flows::share::Imported;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
@@ -43,6 +44,8 @@ pub enum ActivePage {
     FlowEdit(String),
     /// The editor for a new flow, optionally started from a template id.
     FlowNew(Option<String>),
+    /// The editor reviewing a flow read from a file or URL, not yet saved.
+    FlowImport(Box<Imported>),
     Settings,
     About,
     Omarchy,
@@ -151,7 +154,10 @@ impl MainWindowView {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(0),
             ActivePage::Configuration => Some(1),
             ActivePage::Keybinds => Some(2),
-            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => Some(3),
+            ActivePage::Flows
+            | ActivePage::FlowEdit(_)
+            | ActivePage::FlowNew(_)
+            | ActivePage::FlowImport(_) => Some(3),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -211,10 +217,11 @@ impl MainWindowView {
                 }
             }
             // Always rebuilt from disk, so discarded edits never resurface.
-            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_) => {
                 let source = match page {
                     ActivePage::FlowEdit(id) => FlowEditSource::Existing(id.clone()),
                     ActivePage::FlowNew(template) => FlowEditSource::New(template.clone()),
+                    ActivePage::FlowImport(imported) => FlowEditSource::Imported(imported.clone()),
                     _ => unreachable!(),
                 };
                 let view = cx.new(|cx| FlowEditPage::new(source, window, cx));
@@ -345,7 +352,7 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
-            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_) => {
                 if let Some(view) = &self.flow_edit_view {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
@@ -375,7 +382,10 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
-            ActivePage::Flows | ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => {
+            ActivePage::Flows
+            | ActivePage::FlowEdit(_)
+            | ActivePage::FlowNew(_)
+            | ActivePage::FlowImport(_) => {
                 if let Some(view) = &self.flows_view {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
@@ -440,7 +450,7 @@ impl MainWindowView {
                 .flows_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) => self
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_) => self
                 .flow_edit_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
@@ -467,7 +477,10 @@ impl MainWindowView {
             (ActivePage::Configuration, ActivePage::Configuration) => true,
             (ActivePage::Keybinds, ActivePage::Keybinds) => true,
             (ActivePage::Flows, ActivePage::Flows) => true,
-            (ActivePage::FlowEdit(_) | ActivePage::FlowNew(_), ActivePage::Flows) => true,
+            (
+                ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_),
+                ActivePage::Flows,
+            ) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,

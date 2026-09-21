@@ -1,6 +1,7 @@
 // The Flows page: every flow as a card, with search, run, and the way into
 // the editor. Cards form one tab stop with a roving index.
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -15,6 +16,7 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::Runner;
+use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::system::flows::store::{delete_flow, existing_ids, load_flows, save_flow};
 use crate::system::flows::templates::templates;
 use crate::system::flows::{Flow, run_command_id, unique_id};
@@ -42,6 +44,7 @@ pub mod flows_nav {
             ClearSearch,
             FocusGrid,
             NewFlow,
+            ImportFlow,
             RunSelected,
             EditSelected,
             DeleteSelected,
@@ -72,6 +75,10 @@ pub struct DuplicateFlow(pub usize);
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = flows, no_json)]
 pub struct DeleteFlow(pub usize);
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct ExportFlow(pub usize);
 
 /// The chord of every bind that runs a flow, keyed by flow id.
 fn flow_chords(
@@ -245,6 +252,77 @@ impl FlowsView {
         emit(cx, AppEvent::Navigate(ActivePage::FlowNew(None)));
     }
 
+    // MARK: Sharing
+
+    fn import_from_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let receiver = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Import".into()),
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(paths))) = receiver.await
+                && let Some(path) = paths.into_iter().next()
+            {
+                this.update_in(cx, |this, window, cx| this.import_path(path, window, cx))
+                    .ok();
+            }
+        })
+        .detach();
+    }
+
+    /// Reads the file off the UI thread and opens it in the editor for
+    /// review; nothing is saved until the user does.
+    fn import_path(&self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_spawn(async move { read_import(&ImportSource::File(path)) })
+                .await;
+            this.update_in(cx, |_, window, cx| match result {
+                Ok(imported) => emit(
+                    cx,
+                    AppEvent::Navigate(ActivePage::FlowImport(Box::new(imported))),
+                ),
+                Err(e) => window.push_notification(format!("Could not import the flow: {e}"), cx),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn export(&self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(flow) = self.flow_at(filtered_ix).cloned() else {
+            return;
+        };
+        let text = match export_toml(&flow) {
+            Ok(text) => text,
+            Err(e) => {
+                window.push_notification(format!("Could not export the flow: {e}"), cx);
+                return;
+            }
+        };
+        let dir = dirs::download_dir()
+            .or_else(dirs::home_dir)
+            .unwrap_or_default();
+        let receiver = cx.prompt_for_new_path(&dir, Some(&export_file_name(&flow)));
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(path))) = receiver.await {
+                let written = std::fs::write(&path, text);
+                this.update_in(cx, |_, window, cx| match written {
+                    Ok(()) => {
+                        window.push_notification(format!("Exported to {}", path.display()), cx)
+                    }
+                    Err(e) => {
+                        window.push_notification(format!("Could not write the file: {e}"), cx)
+                    }
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
     fn edit(&self, filtered_ix: usize, cx: &mut Context<Self>) {
         if let Some(flow) = self.flow_at(filtered_ix) {
             emit(
@@ -349,7 +427,7 @@ impl FlowsView {
 
     // MARK: Render
 
-    fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_toolbar(&self) -> impl IntoElement {
         // With no flows yet, the empty state offers the templates and a
         // create button, so the header does not repeat it.
         let show_new = !(self.loaded && self.flows.is_empty());
@@ -377,9 +455,12 @@ impl FlowsView {
                         .small()
                         .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
                         .label("New flow")
-                        .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
                         .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                        .dropdown_menu(|menu, _, _| {
+                            menu.menu("Blank flow", Box::new(NewFlow))
+                                .separator()
+                                .menu("Import a file…", Box::new(ImportFlow))
+                        }),
                 )
             })
     }
@@ -495,6 +576,7 @@ impl FlowsView {
                                     .cursor_pointer()
                                     .dropdown_menu(move |menu, _, _| {
                                         menu.menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
+                                            .menu("Export…", Box::new(ExportFlow(filtered_ix)))
                                             .separator()
                                             .menu("Delete", Box::new(DeleteFlow(filtered_ix)))
                                     }),
@@ -698,6 +780,17 @@ impl Render for FlowsView {
                 this.focus_grid(window, cx);
             }))
             .on_action(cx.listener(|this, _: &NewFlow, _, cx| this.new_flow(cx)))
+            .on_action(cx.listener(|this, _: &ImportFlow, window, cx| {
+                this.import_from_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
+                this.export(action.0, window, cx);
+            }))
+            .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+                if let Some(path) = paths.paths().first() {
+                    this.import_path(path.clone(), window, cx);
+                }
+            }))
             .on_action(cx.listener(|this, _: &RunSelected, window, cx| {
                 if let Some(ix) = this.focused {
                     this.run(ix, window, cx);
@@ -734,7 +827,7 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &GridDown, _, cx| this.move_row(true, cx)))
             .on_action(cx.listener(|this, _: &GridFirst, _, cx| this.set_focused(0, cx)))
             .on_action(cx.listener(|this, _: &GridLast, _, cx| this.set_focused(usize::MAX, cx)))
-            .child(self.render_toolbar(cx))
+            .child(self.render_toolbar())
             .map(|this| {
                 let scroll = div()
                     .id("flows-grid")

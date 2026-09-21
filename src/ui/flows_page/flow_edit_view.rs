@@ -5,7 +5,7 @@ use std::rc::Rc;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Icon, Sizable, WindowExt,
+    ActiveTheme, Disableable, Icon, IconName, Sizable, WindowExt,
     button::{Button, ButtonVariants},
     clipboard::Clipboard,
     h_flex,
@@ -17,6 +17,7 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
+use crate::system::flows::share::Imported;
 use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
 use crate::system::flows::templates::template;
 use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
@@ -72,6 +73,8 @@ use flow_edit_nav::*;
 pub enum FlowEditSource {
     Existing(String),
     New(Option<String>),
+    /// A flow from a file or URL, shown for review before its first save.
+    Imported(Box<Imported>),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -108,6 +111,8 @@ pub struct FlowEditPage {
     step_dialog: Option<(Entity<StepDialog>, Subscription)>,
     keybind_dialog: Option<(Entity<KeybindDialog>, Subscription)>,
     scroll: ScrollHandle,
+    /// Where an imported flow came from, shown until it is saved.
+    import_origin: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -131,6 +136,11 @@ impl FlowEditPage {
                     .unwrap_or_else(|| Flow::new(String::new(), String::new()));
                 (flow, None)
             }
+            FlowEditSource::Imported(imported) => (imported.flow.clone(), None),
+        };
+        let import_origin = match &source {
+            FlowEditSource::Imported(imported) => Some(imported.origin.clone()),
+            _ => None,
         };
 
         let name = cx.new(|cx| {
@@ -174,6 +184,7 @@ impl FlowEditPage {
             step_dialog: None,
             keybind_dialog: None,
             scroll: ScrollHandle::new(),
+            import_origin,
             _subscriptions: subscriptions,
         };
         page.load_context(cx);
@@ -550,6 +561,31 @@ impl FlowEditPage {
             .rounded(theme.radius)
             .border_1()
             .border_color(theme.border)
+    }
+
+    fn render_import_banner(&self, cx: &App) -> Option<impl IntoElement> {
+        let origin = self.import_origin.clone()?;
+        let theme = cx.theme();
+        Some(
+            h_flex()
+                .gap_2()
+                .items_center()
+                .px_3()
+                .py_2()
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(theme.warning.opacity(0.5))
+                .bg(theme.warning.opacity(0.08))
+                .text_sm()
+                .child(
+                    Icon::new(IconName::TriangleAlert)
+                        .size_4()
+                        .text_color(theme.warning),
+                )
+                .child(format!(
+                    "Imported from {origin}. Check every step before you save."
+                )),
+        )
     }
 
     fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1151,6 +1187,7 @@ impl Render for FlowEditPage {
                 }
             }))
             .child(self.render_header(cx))
+            .children(self.render_import_banner(cx))
             .child(
                 div()
                     .id("flow-edit-content")

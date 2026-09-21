@@ -13,6 +13,7 @@ use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod launcher;
 pub mod runner;
+pub mod share;
 pub mod store;
 pub mod templates;
 

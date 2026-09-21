@@ -61,6 +61,15 @@ The **Run it from** section wires that command up for you:
 - **App launcher** adds the flow to your app menu with its own icon, by writing a `.desktop` entry to `~/.local/share/applications/`.
 - **At startup** runs the flow after every login, through Omarchy's `post-boot` hook (`~/.config/omarchy/hooks/post-boot.d/`).
 
+## Sharing flows
+
+A flow is one file, so sharing it is moving that file.
+
+- **Export**: open the menu on a flow's card and choose **Export…**, or run `omarchist flow export <name>`. The file is written as `<id>.flow.toml` without the parts that belong to your machine (the id and the triggers), so the other side gets a clean copy.
+- **Import**: choose **Import a file…** under **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
+
+An imported flow gets a new id from its name, and a flow imported from a URL remembers that URL in its `[meta]` table.
+
 ## Where flows live
 
 Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine, shared, or edited by hand (comments welcome):
