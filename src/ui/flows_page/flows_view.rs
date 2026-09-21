@@ -574,12 +574,21 @@ impl FlowsView {
                     .child(
                         div()
                             .text_sm()
-                            .text_center()
+                            .text_left()
                             .text_color(theme.muted_foreground)
                             .child(
                                 "A flow strings actions together: open apps, switch workspaces, \
-                                 send a notification, wait a moment. Run it from a keybind, the \
-                                 app launcher, at startup, or with one command.",
+                                 send a notification, wait a moment.",
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_left()
+                            .text_color(theme.muted_foreground)
+                            .child(
+                                "Run it from a keybind, the app launcher, at startup, or with \
+                                 one command.",
                             ),
                     ),
             )
