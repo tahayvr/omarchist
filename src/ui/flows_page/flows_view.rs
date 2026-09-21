@@ -508,8 +508,6 @@ impl FlowsView {
             } else {
                 theme.background
             })
-            .hover(|s| s.bg(theme.secondary))
-            .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 this.focused = Some(on_click_ix);
                 this.grid_focus.focus(window, cx);
