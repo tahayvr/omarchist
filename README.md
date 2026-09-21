@@ -67,7 +67,9 @@ Every page, dialog, and control works without a mouse. `Ctrl+/` lists every shor
 
 ## Acknowledgements
 
-- Thanks [@dhh](https://github.com/dhh) for Omarchy.
+- Thanks [@dhh](https://github.com/dhh) for Omarchy
+- Thanks [@zed-industries](https://github.com/zed-industries/zed) for gpui
+- Thanks [@Huacnlee](https://github.com/huacnlee) for gpui-kit
 
 ## License
 
