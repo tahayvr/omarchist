@@ -478,7 +478,11 @@ impl KeybindsView {
         let row_ix = self.table.read(cx).selected_row();
         let row = row_ix.and_then(|ix| self.row(ix, cx));
         match event {
-            KeybindDialogEvent::Cancel => self.close_dialog(window, cx),
+            // The dialog closes itself on Cancel, whether through its button,
+            // its close button, or Escape.
+            KeybindDialogEvent::Cancel => {
+                self.dialog = None;
+            }
             KeybindDialogEvent::Save(override_) => {
                 let reselect = override_.bind().map(|spec| spec.identity());
                 let replace_ix = row
