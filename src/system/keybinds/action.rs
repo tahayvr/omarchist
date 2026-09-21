@@ -756,7 +756,7 @@ impl ActionKind {
             ActionKind::App => "icons/app-window.svg",
             ActionKind::WebApp => "icons/globe.svg",
             ActionKind::Terminal => "icons/square-terminal.svg",
-            ActionKind::Omarchy => "icons/sparkles.svg",
+            ActionKind::Omarchy => "logo/omarchy-icon.svg",
             ActionKind::Window => "icons/layout-grid.svg",
             ActionKind::Flow => "icons/workflow.svg",
             ActionKind::Command => "icons/terminal.svg",

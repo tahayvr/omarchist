@@ -213,7 +213,7 @@ mod tests {
             wait: false,
         });
         assert_eq!(omarchy.title, "Browser");
-        assert_eq!(omarchy.icon, StepIcon::Path("icons/sparkles.svg"));
+        assert_eq!(omarchy.icon, StepIcon::Path("logo/omarchy-icon.svg"));
 
         let lua = ctx.summarize(&StepKind::Lua {
             expr: "hl.dsp.focus({ workspace = \"2\" })".into(),

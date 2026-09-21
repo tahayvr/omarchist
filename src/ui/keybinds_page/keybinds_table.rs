@@ -79,7 +79,7 @@ impl KeybindsTableDelegate {
                 Column::new("keys", "Keystrokes").width(px(230.)),
                 Column::new("command", "Command").width(px(360.)),
                 Column::new("source", "Source")
-                    .width(px(150.))
+                    .width(px(230.))
                     .resizable(false),
             ],
             rows: Vec::new(),
@@ -113,8 +113,10 @@ impl KeybindsTableDelegate {
     fn render_edit_cell(&self, row: &KeybindRow, row_ix: usize, cx: &App) -> AnyElement {
         let theme = cx.theme();
         if !row.bind.is_rebindable() && row.kind != RowKind::UnboundByUser {
-            return div()
+            return h_flex()
                 .id(("kb-fn", row_ix))
+                .h_full()
+                .items_center()
                 .text_color(theme.muted_foreground)
                 .child(Icon::new(Icon::empty()).path("icons/ban.svg").size_4())
                 .tooltip(|window, cx| {
@@ -126,11 +128,20 @@ impl KeybindsTableDelegate {
         if row.kind == RowKind::UnboundByUser {
             return div().into_any_element();
         }
-        div()
+        h_flex()
+            .id(("kb-edit", row_ix))
+            .h_full()
+            .items_center()
             .opacity(0.)
             .group_hover(row_group(row_ix), |style| style.opacity(1.))
             .text_color(theme.muted_foreground)
+            .hover(|style| style.text_color(theme.foreground))
+            .cursor_pointer()
             .child(Icon::new(Icon::empty()).path("icons/pencil.svg").size_4())
+            .tooltip(|window, cx| Tooltip::new("Edit").build(window, cx))
+            .on_click(move |_, window, cx| {
+                window.dispatch_action(Box::new(EditRow(row_ix)), cx);
+            })
             .into_any_element()
     }
 
@@ -194,15 +205,15 @@ impl KeybindsTableDelegate {
             Origin::User => Tag::info(),
             Origin::Omarchist => Tag::primary(),
         }
-        .rounded_full()
+        .rounded(px(0.))
         .child(row.bind.origin.label());
 
         let status_tag = match &row.kind {
             RowKind::Plain => None,
-            RowKind::Modified { .. } => Some(Tag::success().rounded_full().child("Modified")),
-            RowKind::Custom => Some(Tag::success().rounded_full().child("Custom")),
-            RowKind::Disabled => Some(Tag::danger().rounded_full().child("Disabled")),
-            RowKind::UnboundByUser => Some(Tag::warning().rounded_full().child("Unbound")),
+            RowKind::Modified { .. } => Some(Tag::success().rounded(px(0.)).child("Modified")),
+            RowKind::Custom => Some(Tag::success().rounded(px(0.)).child("Custom")),
+            RowKind::Disabled => Some(Tag::danger().rounded(px(0.)).child("Disabled")),
+            RowKind::UnboundByUser => Some(Tag::warning().rounded(px(0.)).child("Unbound")),
         };
 
         let note = match &row.kind {

@@ -1,5 +1,3 @@
-use crate::system::omarchy::omarchy_version::{check_omarchy_update, get_local_omarchy_version};
-use crate::system::omarchy::startup::PERIODIC_CHECK_INTERVAL_SECS;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
@@ -244,13 +242,10 @@ impl MainWindowView {
                 }
             }
             ActivePage::Omarchy => {
+                let updates = self.title_bar.read(cx).updates().clone();
+                updates.update(cx, |updates, cx| updates.refresh_if_stale(cx));
                 if self.omarchy_root.is_none() {
-                    // Read local version once when the page is first opened.
-                    let local_version = get_local_omarchy_version()
-                        .ok()
-                        .filter(|v| v != "unknown" && !v.is_empty());
-                    let omarchy_view =
-                        cx.new(|cx| OmarchyView::new(local_version, self.title_bar.clone(), cx));
+                    let omarchy_view = cx.new(|cx| OmarchyView::new(updates, cx));
                     self.omarchy_root = Some(
                         cx.new(|cx| Root::new(omarchy_view.clone(), window, cx))
                             .into(),
@@ -261,32 +256,6 @@ impl MainWindowView {
             // Themes is always present.
             ActivePage::Themes => {}
         }
-    }
-
-    /// Checks for Omarchy updates at startup and every
-    /// `PERIODIC_CHECK_INTERVAL_SECS`, keeping the title-bar badge current
-    /// without the Omarchy page being opened. Started from `main.rs` so the
-    /// window itself owns no network task.
-    pub fn spawn_omarchy_update_watcher(title_bar: Entity<MainTitleBar>, cx: &mut App) {
-        cx.spawn(async move |cx| {
-            let mut first = true;
-            loop {
-                if !first {
-                    smol::Timer::after(std::time::Duration::from_secs(
-                        PERIODIC_CHECK_INTERVAL_SECS,
-                    ))
-                    .await;
-                }
-                first = false;
-                let version = get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
-                if let Ok(update_available) = check_omarchy_update(&version).await {
-                    title_bar.update(cx, |tb, _| {
-                        tb.set_omarchy_update_available(update_available);
-                    });
-                }
-            }
-        })
-        .detach();
     }
 
     /// The page currently shown.
@@ -444,11 +413,6 @@ impl MainWindowView {
                     themes_page.set_sidebar_collapsed(collapsed, cx);
                 });
                 cx.notify();
-            }
-            AppEvent::OmarchyUpdateStatus(available) => {
-                self.title_bar.update(cx, |title_bar, _cx| {
-                    title_bar.set_omarchy_update_available(available);
-                });
             }
             AppEvent::ReloadUiTheme => {
                 ui_theme_watcher::load_and_apply_omarchy_theme(cx);

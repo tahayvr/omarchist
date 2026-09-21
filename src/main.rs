@@ -8,7 +8,7 @@ use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::keybinds_page::keystroke_input;
 use omarchist::ui::menu::app_menu;
-use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
+use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
 use std::rc::Rc;
 
@@ -199,8 +199,8 @@ fn main() -> ExitCode {
                 ..Default::default()
             };
             let window_handle = cx.open_window(window_options, |window, cx| {
-                let title_bar = cx.new(|_| MainTitleBar::new());
-                MainWindowView::spawn_omarchy_update_watcher(title_bar.clone(), cx);
+                let title_bar = cx.new(MainTitleBar::new);
+                OmarchyUpdates::start_periodic(title_bar.read(cx).updates().clone(), cx);
                 let main_view =
                     cx.new(|cx| MainWindowView::new(title_bar, initial_page.clone(), window, cx));
                 cx.new(|cx| Root::new(main_view, window, cx))

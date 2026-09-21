@@ -10,26 +10,28 @@ use gpui_component::{
 };
 
 use crate::ui::menu::app_menu::SelectFont;
+use crate::ui::omarchy_page::updates::OmarchyUpdates;
 
 pub struct MainTitleBar {
-    omarchy_update_available: Option<bool>,
-}
-
-impl Default for MainTitleBar {
-    fn default() -> Self {
-        Self::new()
-    }
+    updates: Entity<OmarchyUpdates>,
+    _updates_observer: Subscription,
 }
 
 impl MainTitleBar {
-    pub fn new() -> Self {
+    /// Owns the Omarchy update state so the badge and the Omarchy page read
+    /// the same result. Nothing is checked until `OmarchyUpdates::start_periodic`
+    /// runs, which `main.rs` does once the window exists.
+    pub fn new(cx: &mut Context<Self>) -> Self {
+        let updates = cx.new(|_| OmarchyUpdates::new());
+        let observer = cx.observe(&updates, |_, _, cx| cx.notify());
         Self {
-            omarchy_update_available: None,
+            updates,
+            _updates_observer: observer,
         }
     }
 
-    pub fn set_omarchy_update_available(&mut self, available: bool) {
-        self.omarchy_update_available = Some(available);
+    pub fn updates(&self) -> &Entity<OmarchyUpdates> {
+        &self.updates
     }
 }
 
@@ -108,7 +110,7 @@ impl Render for MainTitleBar {
                                         emit(cx, AppEvent::Navigate(ActivePage::Omarchy));
                                     }),
                             )
-                            .when(self.omarchy_update_available == Some(true), |this| {
+                            .when(self.updates.read(cx).available(), |this| {
                                 this.child(
                                     div()
                                         .absolute()

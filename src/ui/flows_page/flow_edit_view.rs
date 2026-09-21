@@ -7,6 +7,7 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Disableable, Icon, Sizable, WindowExt,
     button::{Button, ButtonVariants},
+    clipboard::Clipboard,
     h_flex,
     input::{Input, InputEvent, InputState},
     spinner::Spinner,
@@ -338,11 +339,6 @@ impl FlowEditPage {
             window,
             cx,
         );
-    }
-
-    fn copy_command(&self, window: &mut Window, cx: &mut Context<Self>) {
-        cx.write_to_clipboard(ClipboardItem::new_string(self.flow.command()));
-        window.push_notification("Command copied", cx);
     }
 
     // MARK: Steps
@@ -819,15 +815,12 @@ impl FlowEditPage {
                             )
                             .when(!is_new, |this| {
                                 this.child(
-                                    Button::new("flow-copy-command")
-                                        .ghost()
-                                        .xsmall()
-                                        .icon(Icon::new(Icon::empty()).path("icons/copy.svg"))
+                                    Clipboard::new("flow-copy-command")
+                                        .value(self.flow.command())
                                         .tooltip("Copy the command")
-                                        .cursor_pointer()
-                                        .on_click(cx.listener(|this, _, window, cx| {
-                                            this.copy_command(window, cx)
-                                        })),
+                                        .on_copied(|_, window, cx| {
+                                            window.push_notification("Command copied", cx)
+                                        }),
                                 )
                             }),
                     )

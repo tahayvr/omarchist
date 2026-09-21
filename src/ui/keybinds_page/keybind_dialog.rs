@@ -489,8 +489,9 @@ impl KeybindDialog {
                             .small()
                             .label("Cancel")
                             .cursor_pointer()
-                            .on_click(cx.listener(|_, _, _, cx| {
+                            .on_click(cx.listener(|_, _, window, cx| {
                                 cx.emit(KeybindDialogEvent::Cancel);
+                                window.close_dialog(cx);
                             })),
                     )
                     .child(

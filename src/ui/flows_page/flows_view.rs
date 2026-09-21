@@ -350,6 +350,9 @@ impl FlowsView {
     // MARK: Render
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        // With no flows yet, the empty state offers the templates and a
+        // create button, so the header does not repeat it.
+        let show_new = !(self.loaded && self.flows.is_empty());
         h_flex()
             .gap_3()
             .items_center()
@@ -367,16 +370,18 @@ impl FlowsView {
                     ),
             )
             .child(div().flex_1())
-            .child(
-                Button::new("new-flow")
-                    .primary()
-                    .small()
-                    .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                    .label("New flow")
-                    .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
-            )
+            .when(show_new, |this| {
+                this.child(
+                    Button::new("new-flow")
+                        .primary()
+                        .small()
+                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                        .label("New flow")
+                        .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                )
+            })
     }
 
     fn render_card(
@@ -569,17 +574,26 @@ impl FlowsView {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child("Automate your desk with flows"),
+                            .child("Automate Omarchy with flows"),
                     )
                     .child(
                         div()
                             .text_sm()
-                            .text_center()
+                            .text_left()
                             .text_color(theme.muted_foreground)
                             .child(
                                 "A flow strings actions together: open apps, switch workspaces, \
-                                 send a notification, wait a moment. Run it from a keybind, the \
-                                 app launcher, at startup, or with one command.",
+                                 send a notification, wait a moment.",
+                            ),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_left()
+                            .text_color(theme.muted_foreground)
+                            .child(
+                                "Run it from a keybind, the app launcher, at startup, or with \
+                                 one command.",
                             ),
                     ),
             )
