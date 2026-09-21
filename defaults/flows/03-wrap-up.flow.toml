@@ -1,0 +1,24 @@
+format = 1
+name = "Wrap up"
+description = "Gives you five seconds, then locks the screen."
+icon = "moon"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "notify"
+title = "Wrapping up"
+body = "Locking in five seconds"
+
+[[step]]
+type = "wait"
+ms = 5000
+
+[[step]]
+type = "exec"
+command = "omarchy-system-lock"
+
+
+

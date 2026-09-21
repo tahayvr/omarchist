@@ -12,18 +12,28 @@ use crate::system::keybinds::overrides::is_dsp_call;
 use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod launcher;
+pub mod requirements;
 pub mod runner;
+pub mod share;
 pub mod store;
 pub mod templates;
 
 pub const DEFAULT_ICON: &str = "workflow";
+/// The flow file format this build reads and writes. A file declaring a
+/// higher one is refused; a lower one goes through [`migrate`] on read.
+pub const FORMAT: u32 = 1;
 /// Nesting deeper than this is treated as a mistake rather than run.
 pub const MAX_DEPTH: usize = 8;
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Flow {
+    /// Declared first so it is the first line of the file.
+    #[serde(default = "default_format")]
+    pub format: u32,
     /// Stable slug that keybinds, desktop entries, and the CLI refer to.
+    /// Absent in templates and shared files, which get one when saved.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
     pub name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -33,6 +43,9 @@ pub struct Flow {
     pub icon: String,
     #[serde(default)]
     pub on_error: OnError,
+    /// Who made the flow and what it needs; what a shared file carries.
+    #[serde(default, skip_serializing_if = "Meta::is_empty")]
+    pub meta: Meta,
     /// Declared before `steps` so the TOML file lists it before the
     /// `[[step]]` tables rather than after them.
     #[serde(default, skip_serializing_if = "Triggers::is_empty")]
@@ -44,6 +57,67 @@ pub struct Flow {
 
 fn default_icon() -> String {
     DEFAULT_ICON.to_string()
+}
+
+fn default_format() -> u32 {
+    FORMAT
+}
+
+/// Metadata about a flow rather than what it does. Every field is optional;
+/// a flow written in the editor has none of them.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Meta {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub author: String,
+    /// The author's version of the flow, compared as a plain string.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub version: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub homepage: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<String>,
+    /// Programs the flow expects to find on the machine.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
+    /// The URL the flow was imported from, when it came from one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source: String,
+}
+
+impl Meta {
+    pub fn is_empty(&self) -> bool {
+        *self == Meta::default()
+    }
+}
+
+/// Parses a flow file, refusing a newer format and migrating an older one.
+pub fn parse_flow(content: &str) -> Result<Flow> {
+    #[derive(Deserialize)]
+    struct Header {
+        #[serde(default = "default_format")]
+        format: u32,
+    }
+    // Read the format alone first: a newer file may use keys this build does
+    // not know, and the strict parse below would report those instead.
+    let header: Header = toml::from_str(content)
+        .map_err(|e| Error::Invalid(format!("Failed to parse flow: {e}")))?;
+    if header.format > FORMAT {
+        return Err(Error::Invalid(format!(
+            "This flow uses format {} and needs a newer Omarchist (this one reads up to {FORMAT})",
+            header.format
+        )));
+    }
+    let flow: Flow = toml::from_str(content)
+        .map_err(|e| Error::Invalid(format!("Failed to parse flow: {e}")))?;
+    Ok(migrate(flow))
+}
+
+/// Brings a flow read from an older format up to [`FORMAT`]. Nothing has
+/// changed shape yet, so this only stamps the current format.
+fn migrate(mut flow: Flow) -> Flow {
+    flow.format = FORMAT;
+    flow
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,14 +251,22 @@ impl StepKind {
 impl Flow {
     pub fn new(id: String, name: String) -> Self {
         Self {
+            format: FORMAT,
             id,
             name,
             description: String::new(),
             icon: DEFAULT_ICON.to_string(),
-            steps: Vec::new(),
             on_error: OnError::Stop,
+            meta: Meta::default(),
             triggers: Triggers::default(),
+            steps: Vec::new(),
         }
+    }
+
+    /// The flow as a file, in the layout the store and exports use.
+    pub fn to_toml(&self) -> Result<String> {
+        toml::to_string_pretty(self)
+            .map_err(|e| Error::Invalid(format!("Failed to serialize flow: {e}")))
     }
 
     /// The command that runs this flow from anywhere.
@@ -203,6 +285,12 @@ impl Flow {
         if !is_slug(&self.id) {
             return Err(Error::Invalid(format!("Invalid flow id '{}'", self.id)));
         }
+        self.validate_content()
+    }
+
+    /// [`validate`](Self::validate) without the id check, for templates and
+    /// shared files, which have no id yet.
+    pub fn validate_content(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             return Err(Error::Invalid("A flow needs a name".to_string()));
         }
@@ -221,6 +309,9 @@ impl Flow {
                 }
                 StepKind::Notify { title, .. } if title.trim().is_empty() => {
                     return Err(Error::Invalid("A notification needs a title".to_string()));
+                }
+                StepKind::Flow { id } if id.is_empty() => {
+                    return Err(Error::Invalid("A flow step needs a flow".to_string()));
                 }
                 StepKind::Flow { id } if id == &self.id => {
                     return Err(Error::Invalid("A flow cannot run itself".to_string()));
@@ -531,5 +622,51 @@ mod tests {
         assert!(bad_id.validate().is_err());
         let no_name = Flow::new("ok".into(), " ".into());
         assert!(no_name.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod file_tests {
+    use super::{FORMAT, Flow, Meta, StepKind, parse_flow};
+
+    #[test]
+    fn a_file_without_a_format_is_the_current_format() {
+        let flow = parse_flow("name = \"Old\"\n").unwrap();
+        assert_eq!(flow.format, FORMAT);
+        assert!(flow.id.is_empty());
+    }
+
+    #[test]
+    fn a_newer_format_is_refused_before_its_keys_are_checked() {
+        let error = parse_flow("format = 99\nname = \"Future\"\nnovelty = true\n")
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("newer Omarchist"), "{error}");
+    }
+
+    #[test]
+    fn an_unknown_key_at_the_current_format_is_an_error() {
+        assert!(parse_flow("format = 1\nname = \"X\"\nnovelty = true\n").is_err());
+    }
+
+    #[test]
+    fn metadata_round_trips_and_is_omitted_when_empty() {
+        let mut flow = Flow::new("demo".into(), "Demo".into());
+        let plain = flow.to_toml().unwrap();
+        assert!(plain.starts_with("format = 1\n"), "{plain}");
+        assert!(!plain.contains("[meta]"));
+
+        flow.meta = Meta {
+            author: "Taha".into(),
+            version: "1.2".into(),
+            tags: vec!["morning".into()],
+            requires: vec!["spotify".into()],
+            ..Meta::default()
+        };
+        flow.steps.push(super::Step::new(StepKind::Wait { ms: 10 }));
+        let text = flow.to_toml().unwrap();
+        assert!(text.contains("[meta]"), "{text}");
+        assert!(text.find("[meta]").unwrap() < text.find("[[step]]").unwrap());
+        assert_eq!(parse_flow(&text).unwrap(), flow);
     }
 }

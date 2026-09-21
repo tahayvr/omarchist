@@ -10,7 +10,13 @@ A **flow** strings actions together and runs them in order, the way Shortcuts do
 
 Every flow is a card with its icon, description, the shape of its steps, and how it can be started. **Run** starts it right away, **Edit** opens the editor, and the menu on the right duplicates or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>).
+An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). **New flow** starts a blank flow; the arrow next to it offers **From scratch**, **From template**, and **Import flow**, and **From template** opens the Templates page.
+
+## Templates
+
+The Templates page lists the built-in templates and your own; pick one to open it in the editor as a new, unsaved flow, so you can change it before saving. <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back to Flows.
+
+A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: export a flow and copy the file in.
 
 The cards are one keyboard stop: <kbd>↓</kbd> from the search box reaches them, arrows move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
 
@@ -61,11 +67,23 @@ The **Run it from** section wires that command up for you:
 - **App launcher** adds the flow to your app menu with its own icon, by writing a `.desktop` entry to `~/.local/share/applications/`.
 - **At startup** runs the flow after every login, through Omarchy's `post-boot` hook (`~/.config/omarchy/hooks/post-boot.d/`).
 
+## Sharing flows
+
+A flow is one file, so sharing it is moving that file.
+
+- **Export**: open the menu on a flow's card and choose **Export…**, or run `omarchist flow export <name>`. The file is written as `<id>.flow.toml` without the parts that belong to your machine (the id and the triggers), so the other side gets a clean copy.
+- **Import**: choose **Import flow** from the arrow next to **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
+
+An imported flow gets a new id from its name, and a flow imported from a URL remembers that URL in its `[meta]` table.
+
+The editor checks what a flow needs. A command step whose program is not installed shows **is not installed** under the command, and anything listed in the file's `requires` that is missing is called out above the steps. Neither stops you from saving; they tell you what to install first.
+
 ## Where flows live
 
 Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine, shared, or edited by hand (comments welcome):
 
 ```toml
+format = 1
 id = "focus-mode"
 name = "Focus mode"
 description = "Moves to workspace 2 and opens your editor."
@@ -90,3 +108,20 @@ body = "Everything else can wait"
 ```
 
 Step types are `exec` (with an optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.
+
+A file you copy in only needs the right name: when `id` is missing, the file name (without `.toml`) becomes the id. The name must be lowercase letters, digits, and hyphens.
+
+`format` is the version of the file layout, `1` today. Omarchist refuses a file written for a newer format and tells you to update; a file without the line is read as format 1.
+
+An optional `[meta]` table describes the flow rather than what it does. All of it is optional, and the editor never needs it:
+
+```toml
+[meta]
+author = "Taha"
+version = "1.0"
+homepage = "https://example.com/flows"
+tags = ["morning", "work"]
+requires = ["spotify"]
+```
+
+`requires` lists programs the flow expects to find on the machine. The built-in templates are flow files in this format, shipped inside Omarchist.

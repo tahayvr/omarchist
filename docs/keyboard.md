@@ -86,7 +86,7 @@ In the table: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd>,
 
 Among the cards: arrows, <kbd>Home</kbd> / <kbd>End</kbd> move, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
 
-In the flow editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back. In the step list: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd> select, <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns the step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, and <kbd>Delete</kbd> removes it. The icon picker and the step kind strip cycle with <kbd>←</kbd> / <kbd>→</kbd>.
+In the flow editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back, as they do on the Templates page. In the step list: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd> select, <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns the step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, and <kbd>Delete</kbd> removes it. The icon picker and the step kind strip cycle with <kbd>←</kbd> / <kbd>→</kbd>.
 
 ## Dialogs
 

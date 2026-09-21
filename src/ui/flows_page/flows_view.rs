@@ -1,12 +1,13 @@
 // The Flows page: every flow as a card, with search, run, and the way into
 // the editor. Cards form one tab stop with a roving index.
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable, WindowExt,
-    button::{Button, ButtonVariants},
+    button::{Button, ButtonVariants, DropdownButton},
     h_flex,
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
@@ -15,8 +16,9 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::Runner;
+use crate::system::flows::share::{ImportSource, read_import};
 use crate::system::flows::store::{delete_flow, existing_ids, load_flows, save_flow};
-use crate::system::flows::templates::templates;
+use crate::system::flows::templates::{Template, templates};
 use crate::system::flows::{Flow, run_command_id, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -24,7 +26,10 @@ use crate::system::keybinds::{BindStatus, Dispatcher};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
-use crate::ui::flows_page::flow_card::{icon_tile, step_count_label, step_strip, trigger_chips};
+use crate::ui::flows_page::flow_card::{
+    icon_tile, step_count_label, step_strip, template_card, trigger_chips,
+};
+use crate::ui::flows_page::share_ui::export_flow;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 
@@ -42,6 +47,8 @@ pub mod flows_nav {
             ClearSearch,
             FocusGrid,
             NewFlow,
+            BrowseTemplates,
+            ImportFlow,
             RunSelected,
             EditSelected,
             DeleteSelected,
@@ -73,6 +80,10 @@ pub struct DuplicateFlow(pub usize);
 #[action(namespace = flows, no_json)]
 pub struct DeleteFlow(pub usize);
 
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct ExportFlow(pub usize);
+
 /// The chord of every bind that runs a flow, keyed by flow id.
 fn flow_chords(
     scan: crate::error::Result<crate::system::keybinds::replay::ScanResult>,
@@ -99,6 +110,8 @@ pub struct FlowsView {
     filtered: Vec<usize>,
     chords: HashMap<String, Chord>,
     apps: Vec<DesktopApp>,
+    /// For the empty state's cards; reloaded with the flows.
+    templates: Vec<Template>,
     loaded: bool,
     /// The cards are one tab stop; `focused` is the card with the keyboard.
     grid_focus: FocusHandle,
@@ -129,6 +142,7 @@ impl FlowsView {
             filtered: Vec::new(),
             chords: HashMap::new(),
             apps: Vec::new(),
+            templates: Vec::new(),
             loaded: false,
             grid_focus: focus::tab_stop(cx),
             focused: None,
@@ -150,10 +164,13 @@ impl FlowsView {
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let loaded = cx
-                .background_spawn(async { (load_flows(), scan_keybinds(), installed_apps()) })
+                .background_spawn(async {
+                    (load_flows(), scan_keybinds(), installed_apps(), templates())
+                })
                 .await;
             this.update(cx, |this, cx| {
-                let (flows, scan, apps) = loaded;
+                let (flows, scan, apps, templates) = loaded;
+                this.templates = templates;
                 match flows {
                     Ok(flows) => this.flows = flows,
                     Err(e) => eprintln!("Failed to load flows: {e}"),
@@ -243,6 +260,51 @@ impl FlowsView {
 
     fn new_flow(&self, cx: &mut Context<Self>) {
         emit(cx, AppEvent::Navigate(ActivePage::FlowNew(None)));
+    }
+
+    // MARK: Sharing
+
+    fn import_from_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let receiver = cx.prompt_for_paths(PathPromptOptions {
+            files: true,
+            directories: false,
+            multiple: false,
+            prompt: Some("Import".into()),
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(paths))) = receiver.await
+                && let Some(path) = paths.into_iter().next()
+            {
+                this.update_in(cx, |this, window, cx| this.import_path(path, window, cx))
+                    .ok();
+            }
+        })
+        .detach();
+    }
+
+    /// Reads the file off the UI thread and opens it in the editor for
+    /// review; nothing is saved until the user does.
+    fn import_path(&self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_spawn(async move { read_import(&ImportSource::File(path)) })
+                .await;
+            this.update_in(cx, |_, window, cx| match result {
+                Ok(imported) => emit(
+                    cx,
+                    AppEvent::Navigate(ActivePage::FlowImport(Box::new(imported))),
+                ),
+                Err(e) => window.push_notification(format!("Could not import the flow: {e}"), cx),
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn export(&self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(flow) = self.flow_at(filtered_ix).cloned() {
+            export_flow(&flow, window, cx);
+        }
     }
 
     fn edit(&self, filtered_ix: usize, cx: &mut Context<Self>) {
@@ -371,15 +433,25 @@ impl FlowsView {
             )
             .child(div().flex_1())
             .when(show_new, |this| {
+                // A split button: the main half starts a blank flow, the
+                // arrow offers the other ways in.
                 this.child(
-                    Button::new("new-flow")
+                    DropdownButton::new("new-flow")
                         .primary()
                         .small()
-                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                        .label("New flow")
-                        .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                        .button(
+                            Button::new("new-flow-main")
+                                .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                                .label("New flow")
+                                .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                        )
+                        .dropdown_menu(|menu, _, _| {
+                            menu.menu("From scratch", Box::new(NewFlow))
+                                .menu("From template", Box::new(BrowseTemplates))
+                                .menu("Import flow", Box::new(ImportFlow))
+                        }),
                 )
             })
     }
@@ -417,8 +489,6 @@ impl FlowsView {
             } else {
                 theme.background
             })
-            .hover(|s| s.bg(theme.secondary))
-            .cursor_pointer()
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 this.focused = Some(on_click_ix);
                 this.grid_focus.focus(window, cx);
@@ -495,6 +565,7 @@ impl FlowsView {
                                     .cursor_pointer()
                                     .dropdown_menu(move |menu, _, _| {
                                         menu.menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
+                                            .menu("Export…", Box::new(ExportFlow(filtered_ix)))
                                             .separator()
                                             .menu("Delete", Box::new(DeleteFlow(filtered_ix)))
                                     }),
@@ -555,7 +626,7 @@ impl FlowsView {
             return div().into_any_element();
         }
 
-        let templates = templates();
+        let templates = &self.templates;
         let summaries = SummaryContext {
             apps: &self.apps,
             flows: &self.flows,
@@ -619,44 +690,10 @@ impl FlowsView {
                     )
                     .child(h_flex().gap_4().flex_wrap().items_stretch().children(
                         templates.iter().enumerate().map(|(ix, template)| {
-                            let id = template.id.clone();
-                            Button::new(("template", ix))
-                                .outline()
-                                .flex_1()
-                                .min_w(px(240.))
-                                .h_auto()
-                                .p_4()
-                                .cursor_pointer()
-                                .child(
-                                    v_flex()
-                                        .gap_2()
-                                        .items_start()
-                                        .text_left()
-                                        .w_full()
-                                        .child(
-                                            h_flex()
-                                                .gap_3()
-                                                .items_center()
-                                                .child(icon_tile(&template.icon, px(32.), cx))
-                                                .child(
-                                                    div()
-                                                        .font_weight(FontWeight::SEMIBOLD)
-                                                        .child(template.name.clone()),
-                                                ),
-                                        )
-                                        .child(
-                                            div()
-                                                .w_full()
-                                                .whitespace_normal()
-                                                .text_sm()
-                                                .font_weight(FontWeight::NORMAL)
-                                                .text_color(theme.muted_foreground)
-                                                .child(template.description.clone()),
-                                        )
-                                        .child(step_strip(template, &summaries, cx)),
-                                )
+                            let key = template.key.clone();
+                            template_card(("template", ix), &template.flow, &summaries, cx)
                                 .on_click(
-                                    cx.listener(move |this, _, _, cx| this.use_template(&id, cx)),
+                                    cx.listener(move |this, _, _, cx| this.use_template(&key, cx)),
                                 )
                         }),
                     )),
@@ -697,6 +734,20 @@ impl Render for FlowsView {
                 this.focus_grid(window, cx);
             }))
             .on_action(cx.listener(|this, _: &NewFlow, _, cx| this.new_flow(cx)))
+            .on_action(cx.listener(|this, _: &ImportFlow, window, cx| {
+                this.import_from_dialog(window, cx);
+            }))
+            .on_action(cx.listener(|_, _: &BrowseTemplates, _, cx| {
+                emit(cx, AppEvent::Navigate(ActivePage::FlowTemplates));
+            }))
+            .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
+                this.export(action.0, window, cx);
+            }))
+            .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+                if let Some(path) = paths.paths().first() {
+                    this.import_path(path.clone(), window, cx);
+                }
+            }))
             .on_action(cx.listener(|this, _: &RunSelected, window, cx| {
                 if let Some(ix) = this.focused {
                     this.run(ix, window, cx);

@@ -1,7 +1,7 @@
 //! Pieces shared by the flow cards and the editor: the icon tile, the
 //! trigger chips, and the strip of step icons.
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, Sizable, h_flex, tag::Tag};
+use gpui_component::{ActiveTheme, Icon, Sizable, button::Button, h_flex, tag::Tag, v_flex};
 
 use crate::system::flows::{Flow, icon_path};
 use crate::system::keybinds::chord::Chord;
@@ -108,4 +108,49 @@ pub fn step_count_label(flow: &Flow) -> String {
         label.push_str(&format!(", {} off", n - enabled));
     }
     label
+}
+
+/// A template as a card that opens it. The caller attaches `on_click`.
+pub fn template_card(
+    id: impl Into<ElementId>,
+    flow: &Flow,
+    summaries: &SummaryContext,
+    cx: &App,
+) -> Button {
+    let theme = cx.theme();
+    Button::new(id)
+        .outline()
+        .flex_1()
+        .min_w(px(240.))
+        .h_auto()
+        .p_4()
+        .cursor_pointer()
+        .child(
+            v_flex()
+                .gap_2()
+                .items_start()
+                .text_left()
+                .w_full()
+                .child(
+                    h_flex()
+                        .gap_3()
+                        .items_center()
+                        .child(icon_tile(&flow.icon, px(32.), cx))
+                        .child(
+                            div()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(flow.name.clone()),
+                        ),
+                )
+                .child(
+                    div()
+                        .w_full()
+                        .whitespace_normal()
+                        .text_sm()
+                        .font_weight(FontWeight::NORMAL)
+                        .text_color(theme.muted_foreground)
+                        .child(flow.description.clone()),
+                )
+                .child(step_strip(flow, summaries, cx)),
+        )
 }
