@@ -41,29 +41,13 @@ jobs:
         working-directory: docs
         run: bun run docs:build
 
-      # The site is configured with base "/docs/", so it is published under
-      # that path with a redirect at the root.
-      - name: Assemble Pages tree
-        run: |
-          mkdir -p site/docs
-          cp -r docs/.vitepress/dist/. site/docs/
-          cat > site/index.html <<'EOF'
-          <!doctype html>
-          <meta charset="utf-8">
-          <meta http-equiv="refresh" content="0; url=/docs/">
-          <link rel="canonical" href="/docs/">
-          <title>Omarchist Docs</title>
-          <a href="/docs/">Omarchist Docs</a>
-          EOF
-          touch site/.nojekyll
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: docs/.vitepress/dist
 
   deploy:
     name: Deploy
