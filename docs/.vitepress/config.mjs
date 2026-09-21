@@ -83,6 +83,7 @@ export default defineConfig({
         items: [
           { text: "Introduction", link: "/" },
           { text: "Installation", link: "/#installation" },
+          { text: "Settings", link: "/#settings" },
           { text: "CLI", link: "/cli" },
           { text: "Keyboard Navigation", link: "/keyboard" },
         ],
@@ -100,11 +101,16 @@ export default defineConfig({
         items: [
           { text: "Hyprland", link: "/configuring/" },
           { text: "Keybinds", link: "/configuring/keybinds" },
+          { text: "Omarchy", link: "/configuring/omarchy" },
         ],
       },
       {
         text: "FLOWS",
-        items: [{ text: "Flows", link: "/flows/" }],
+        items: [
+          { text: "Flows", link: "/flows/" },
+          { text: "Templates", link: "/flows/#templates" },
+          { text: "Sharing Flows", link: "/flows/#sharing-flows" },
+        ],
       },
     ],
 

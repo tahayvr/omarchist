@@ -4,63 +4,44 @@ outline: deep
 
 # Keyboard Navigation
 
-Everything in Omarchist can be reached from the keyboard. Press <kbd>Ctrl</kbd> + <kbd>/</kbd> at any time (or <kbd>?</kbd> while a list, grid, or table has focus) to open the same shortcut list inside the app, or <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> to open the command palette and run any app-wide command by name.
+Everything in Omarchist works from the keyboard. <kbd>Ctrl</kbd> + <kbd>/</kbd> opens this list inside the app; <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> opens the command palette.
 
-## The basics
-
-- <kbd>Tab</kbd> and <kbd>Shift</kbd> + <kbd>Tab</kbd> move between controls: the sidebar, the page's controls, then the title-bar menus, and around again.
-- Lists, grids, and tab strips are a single Tab stop. Once one has focus, the arrow keys move inside it and <kbd>Home</kbd> / <kbd>End</kbd> jump to its ends.
-- <kbd>Enter</kbd> or <kbd>Space</kbd> activates the focused control.
-- <kbd>Escape</kbd> steps outward: out of a grid or table to the controls above it, out of a page to the sidebar, and back again from the sidebar to the page.
-- The control with focus always shows a ring in the theme's accent color.
+- <kbd>Tab</kbd> and <kbd>Shift</kbd> + <kbd>Tab</kbd> move between controls: the sidebar, the page, then the title-bar menus.
+- Lists, grids, and tab strips are one Tab stop; arrows move inside them, <kbd>Home</kbd> / <kbd>End</kbd> jump to the ends.
+- <kbd>Enter</kbd> or <kbd>Space</kbd> activates the focused control. <kbd>Escape</kbd> steps outward, to the sidebar and back.
 
 ## Global
 
 | Keys | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd> / <kbd>2</kbd> / <kbd>3</kbd> / <kbd>4</kbd> | Themes, Configuration, Keybinds, Flows |
+| <kbd>Ctrl</kbd> + <kbd>1</kbd> … <kbd>4</kbd> | Themes, Configuration, Keybinds, Flows |
 | <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd> + <kbd>N</kbd> | Create a new theme |
-| <kbd>Ctrl</kbd> + <kbd>R</kbd> | Reload the current page (rescan keybinds, reload themes or the saved configuration) |
+| <kbd>Ctrl</kbd> + <kbd>R</kbd> | Reload the current page |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>R</kbd> | Re-apply the current Omarchy theme |
 | <kbd>Ctrl</kbd> + <kbd>B</kbd> | Show or hide the sidebar |
 | <kbd>Ctrl</kbd> + <kbd>/</kbd> | Keyboard shortcuts |
-| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> (or <kbd>Ctrl</kbd> + <kbd>P</kbd>) | Command palette: type to filter, <kbd>Enter</kbd> runs the command |
-| <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd> | Light or dark appearance |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> | Command palette |
+| <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd> | Light or dark look |
 | <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit |
-
-## Sidebar
-
-<kbd>↑</kbd> / <kbd>↓</kbd> move between pages, <kbd>Enter</kbd> or <kbd>→</kbd> opens the page and puts focus on its first control.
 
 ## Themes
 
-The filter tabs (All / Omarchist) are a strip: <kbd>←</kbd> / <kbd>→</kbd> switch, <kbd>Enter</kbd> or <kbd>↓</kbd> goes to the grid.
-
-In the grid:
+The filter tabs switch with <kbd>←</kbd> / <kbd>→</kbd>; <kbd>Enter</kbd> or <kbd>↓</kbd> goes to the grid.
 
 | Keys | Action |
 | --- | --- |
-| Arrows, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, <kbd>PgDn</kbd> | Move between cards (the grid scrolls with you) |
+| Arrows, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, <kbd>PgDn</kbd> | Move between cards |
 | <kbd>Enter</kbd> | Apply the theme |
-| <kbd>E</kbd> | Edit the theme in the Theme Designer |
+| <kbd>E</kbd> | Edit the theme |
 | <kbd>O</kbd> | Open the theme folder |
-| <kbd>Delete</kbd> | Delete the theme, after a confirmation |
-| <kbd>Escape</kbd> | Back to the filter tabs |
+| <kbd>Delete</kbd> | Delete the theme |
 
-## Theme Designer
-
-| Keys | Action |
-| --- | --- |
-| <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> | Back to Themes |
-| <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd>, <kbd>Ctrl</kbd> + <kbd>Tab</kbd> / <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Tab</kbd> | Previous or next tab |
-| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Apply the theme |
-
-<kbd>Tab</kbd> walks Back, Apply Theme, the tab strip (<kbd>←</kbd> / <kbd>→</kbd> switch tabs, <kbd>Enter</kbd> jumps into the tab), then every field on the tab. Color pickers open with <kbd>Enter</kbd>, switches toggle with <kbd>Space</kbd>, and the page scrolls to keep the focused section visible.
+In the Theme Designer, <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd> switch tabs, <kbd>Ctrl</kbd> + <kbd>S</kbd> applies the theme, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back. Color pickers open with <kbd>Enter</kbd>; switches toggle with <kbd>Space</kbd>.
 
 ## Configuration
 
-The section list on the left is a strip: <kbd>↑</kbd> / <kbd>↓</kbd> choose a section, <kbd>Enter</kbd> or <kbd>→</kbd> moves into its settings. Inside, <kbd>Tab</kbd> walks the fields, number fields step with <kbd>↑</kbd> / <kbd>↓</kbd>, switches toggle with <kbd>Space</kbd>, and <kbd>Escape</kbd> returns to the section list. The search box above filters every section at once.
+<kbd>↑</kbd> / <kbd>↓</kbd> choose a section, <kbd>Enter</kbd> or <kbd>→</kbd> moves into its settings, and <kbd>Escape</kbd> returns to the list. Number fields step with <kbd>↑</kbd> / <kbd>↓</kbd>.
 
 ## Keybinds
 
@@ -70,10 +51,9 @@ The section list on the left is a strip: <kbd>↑</kbd> / <kbd>↓</kbd> choose 
 | <kbd>Ctrl</kbd> + <kbd>K</kbd> | Search by pressing keys |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> | Add a keybind |
 | <kbd>Alt</kbd> + <kbd>1</kbd> … <kbd>5</kbd> | All, Modified, Conflicts, Omarchy, Mine |
-| <kbd>↓</kbd> in the search box | Go to the table |
-| <kbd>Escape</kbd> in the search box | Clear the search, then go to the table |
+| <kbd>↓</kbd> from the search box | Go to the table |
 
-In the table: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd>, <kbd>PgUp</kbd> / <kbd>PgDn</kbd> move, <kbd>Enter</kbd> edits, <kbd>Delete</kbd> disables, <kbd>Ctrl</kbd> + <kbd>C</kbd> copies the command, and <kbd>Escape</kbd> returns to the search box. The filter strip cycles with <kbd>←</kbd> / <kbd>→</kbd>.
+In the table: <kbd>Enter</kbd> edits, <kbd>Delete</kbd> disables, <kbd>Ctrl</kbd> + <kbd>C</kbd> copies the command, <kbd>Escape</kbd> returns to the search box.
 
 ## Flows
 
@@ -81,13 +61,12 @@ In the table: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd>,
 | --- | --- |
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> | New flow |
-| <kbd>↓</kbd> in the search box | Go to the cards |
-| <kbd>Escape</kbd> in the search box | Clear the search |
+| <kbd>↓</kbd> from the search box | Go to the cards |
 
-Among the cards: arrows, <kbd>Home</kbd> / <kbd>End</kbd> move, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
+Among the cards: <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, <kbd>Delete</kbd> deletes.
 
-In the flow editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back, as they do on the Templates page. In the step list: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd> / <kbd>End</kbd> select, <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns the step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, and <kbd>Delete</kbd> removes it. The icon picker and the step kind strip cycle with <kbd>←</kbd> / <kbd>→</kbd>.
+In the editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back (also on the Templates page). In the step list: <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns a step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> moves it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, <kbd>Delete</kbd> removes it.
 
 ## Dialogs
 
-Dialogs open with their first control focused and keep <kbd>Tab</kbd> inside. <kbd>Escape</kbd> cancels; <kbd>Ctrl</kbd> + <kbd>Enter</kbd> confirms, even from a text field. In the keybind editor, <kbd>Enter</kbd> on the recorder starts recording and <kbd>Backspace</kbd> clears it.
+Dialogs open on their first control and keep <kbd>Tab</kbd> inside. <kbd>Escape</kbd> cancels; <kbd>Ctrl</kbd> + <kbd>Enter</kbd> confirms, even from a text field. In the keybind editor, <kbd>Enter</kbd> on the recorder starts recording and <kbd>Backspace</kbd> clears it.

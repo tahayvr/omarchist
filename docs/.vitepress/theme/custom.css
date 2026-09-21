@@ -630,3 +630,13 @@ h6 {
 .dark .dark-only {
   display: block;
 }
+
+/**
+ * Screenshots
+ * -------------------------------------------------------------------------- */
+
+.vp-doc img.screenshot {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  margin: 16px 0;
+}

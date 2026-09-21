@@ -2,60 +2,20 @@
 outline: deep
 ---
 
-# Configuring
+# Hyprland
 
-Omarchist provides a **Configuration** page for Hyprland, the window manager for Omarchy Linux, and a [**Keybinds**](/configuring/keybinds) page for its keyboard shortcuts. Both are in the left sidebar.
+The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) sets Hyprland options without touching `hyprland.lua`. Changes apply immediately, and the search box filters every section at once.
 
-## Hyprland
+<img src="/images/config-light.webp" alt="Configuration page" class="screenshot light-only">
+<img src="/images/config-dark.webp" alt="Configuration page" class="screenshot dark-only">
 
-The Hyprland configuration page contains settings for your window manager. Changes apply immediately.
+| Section | Settings |
+| --- | --- |
+| **General** | Border size, resize on border, gaps in, gaps out, gaps between workspaces, and the layout (Dwindle or Master). |
+| **Appearance** | Corner rounding, active and inactive window opacity, and blur with its size and passes. |
+| **Input** | Keyboard layout, repeat rate and delay. Mouse sensitivity, natural scroll, left handed. Touchpad disable while typing, tap to click, natural scroll. |
+| **Miscellaneous** | Variable refresh rate. |
 
-### General
+## How it works
 
-Configure window borders, gaps, and layout.
-
-- **Border Size**: Thickness of window borders in pixels.
-- **Resize on Border**: Enable resizing windows by dragging on borders.
-- **Gaps In**: Space between windows.
-- **Gaps Out**: Space between windows and screen edges.
-- **Gaps Workspaces**: Gaps between workspaces. Stacks with gaps out.
-- **Layout**: Choose between **Dwindle** or **Master** window layouts.
-
-### Appearance
-
-Configure visual effects and transparency.
-
-- **Rounding**: Corner radius for windows in pixels.
-- **Active/Inactive Opacity**: Window transparency (0.0 to 1.0).
-- **Enable Blur**: Toggle blur effects for transparent windows.
-- **Blur Size**: Distance of the blur effect.
-- **Blur Passes**: Number of blur iterations.
-
-### Input
-
-Configure keyboard, mouse, and touchpad settings.
-
-**Keyboard:**
-- **Keyboard Layout**: Layout code (e.g., `us`, `de`, `fr`).
-- **Repeat Rate**: How fast keys repeat when held (repeats per second).
-- **Repeat Delay**: Milliseconds before key repeat starts.
-
-**Mouse:**
-- **Sensitivity**: Mouse speed from -1.0 to 1.0.
-- **Natural Scroll**: Invert scrolling direction.
-- **Left Handed**: Swap left and right mouse buttons.
-
-**Touchpad:**
-- **Disable While Typing**: Disable touchpad when typing.
-- **Tap to Click**: Tap on touchpad to click.
-- **Natural Scroll**: Invert touchpad scrolling.
-
-### Miscellaneous
-
-Additional settings.
-
-- **VFR**: Variable refresh rate to save battery.
-
-## Auto-Save
-
-All changes save automatically. You do not need to click a Save button.
+Omarchist keeps your values in `~/.config/omarchist/hyprland/state.json` and writes them as `hl.config` calls into `~/.config/hypr/omarchist.lua`, which your `hyprland.lua` loads after Omarchy's defaults. Only values that differ from Hyprland's defaults are written, and your own config files are never edited.

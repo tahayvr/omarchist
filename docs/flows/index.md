@@ -4,52 +4,37 @@ outline: deep
 
 # Flows
 
-A **flow** strings actions together and runs them in order, the way Shortcuts does on a Mac or iPhone: open your browser, a terminal, and your music, then say good morning. Build it once on the **Flows** page (<kbd>Ctrl</kbd> + <kbd>4</kbd>), then start it from a keybind, the app launcher, at startup, or from any script with one command.
+A **flow** strings actions together and runs them in order, like Shortcuts on a Mac: open your browser, a terminal, and your music, then say good morning. Build it once on the **Flows** page (<kbd>Ctrl</kbd> + <kbd>4</kbd>) and start it from a keybind, the app launcher, at startup, or from any script.
 
-## The Flows page
+<img src="/images/flows-light.webp" alt="Flows page" class="screenshot light-only">
+<img src="/images/flows-dark.webp" alt="Flows page" class="screenshot dark-only">
 
-Every flow is a card with its icon, description, the shape of its steps, and how it can be started. **Run** starts it right away, **Edit** opens the editor, and the menu on the right duplicates or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
+Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu duplicates, exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). **New flow** starts a blank flow; the arrow next to it offers **From scratch**, **From template**, and **Import flow**, and **From template** opens the Templates page.
-
-## Templates
-
-The Templates page lists the built-in templates and your own; pick one to open it in the editor as a new, unsaved flow, so you can change it before saving. <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back to Flows.
-
-A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: export a flow and copy the file in.
-
-The cards are one keyboard stop: <kbd>↓</kbd> from the search box reaches them, arrows move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
+**New flow** starts a blank flow. Its arrow offers **From scratch**, **From template**, and **Import flow**.
 
 ## Building a flow
 
-The editor has the flow's details and triggers on the left and its steps on the right.
+<img src="/images/flow-editor-light.webp" alt="Flow editor" class="screenshot light-only">
+<img src="/images/flow-editor-dark.webp" alt="Flow editor" class="screenshot dark-only">
 
-Give it a name, a description, and an icon. The icon shows on the card and in the app launcher. **Keep going when a step fails** lets the rest of the flow run when one step reports an error; otherwise the flow stops there.
+Give the flow a name, a description, and an icon, then press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) for each step.
 
-### Steps
+| Step | Does |
+| --- | --- |
+| **App**, **Web app**, **Terminal** | Opens something, or focuses it if it is already open. |
+| **Omarchy** | One of Omarchy's own commands, such as taking a screenshot or locking the screen. |
+| **Window** | A Hyprland action, such as switching to a workspace. |
+| **Flow** | Another flow, run to completion first. A flow cannot run itself. |
+| **Command** | Any shell command. |
+| **Wait** | Pauses for a number of milliseconds, for example to let a window appear. |
+| **Notify** | Shows a desktop notification. |
 
-Press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) and choose what the step does. The first seven kinds are the same ones a keybind can run, described under [Choosing an action](/configuring/keybinds#choosing-an-action):
+A command step starts its program and moves on, which is what opening an app needs. Turn on **Wait until it finishes** when the next step depends on it having completed. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
 
-- **App**, **Web app**, **Terminal**: open something, or focus it if it is already open.
-- **Omarchy**: one of Omarchy's own commands, such as toggling night light, taking a screenshot, or locking the screen.
-- **Window**: a Hyprland action such as switching to a workspace or moving the focused window.
-- **Flow**: another flow, run to completion before the next step. A flow cannot run itself, and a loop between flows is refused at run time.
-- **Command**: any shell command.
+A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install.
 
-A step that runs a command starts it and moves straight on, which is what opening an app needs. Turn on **Wait until it finishes** when the next step depends on the command having completed (a theme switch, a file copy): the flow then waits for it to exit and counts a non-zero status as a failure.
-
-Two kinds exist only in flows:
-
-- **Wait** pauses for a number of milliseconds, for example to give a window time to appear before the next step moves it.
-- **Notify** shows a desktop notification, handy as the last step so you know the flow ran.
-
-Each step card shows what it does and, underneath, the exact command or dispatcher. The switch on the right turns a step off without removing it. The arrows reorder steps, and the pencil edits one.
-
-The step list is one keyboard stop: <kbd>↑</kbd> / <kbd>↓</kbd> select, <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns the step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> move it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, and <kbd>Delete</kbd> removes it.
-
-### Running it
-
-**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, saved or not. Each step shows a spinner while it runs and a check or a cross when it is done, and a notification reports the outcome. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes the flow; leaving with unsaved changes asks first.
+**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first.
 
 ## Triggers
 
@@ -59,28 +44,29 @@ Every saved flow has a command that works from anywhere:
 omarchist flow run 'morning-start'
 ```
 
-The id in quotes comes from the flow's name and never changes, so renaming a flow does not break anything that runs it. The name works too: `omarchist flow run "Morning start"`. `omarchist flow list` prints every flow with its id. A flow that fails from the command line also raises a desktop notification, so a keybind never fails silently.
+The id in quotes comes from the flow's name and never changes, so renaming a flow breaks nothing. The **Run it from** section wires that command up:
 
-The **Run it from** section wires that command up for you:
+- **Keybind** opens the keybind editor with the flow chosen as the action. The same bind appears on the [Keybinds](/configuring/keybinds) page.
+- **App launcher** adds the flow to your app menu with its own icon.
+- **At startup** runs it after every login through Omarchy's `post-boot` hook.
 
-- **Keybind** opens the keybind editor with the flow already chosen as the action; record the keys and save. The chord then shows on the flow's card. The same bind appears on the [Keybinds](/configuring/keybinds) page, where **Flow** is one of the action kinds, so any keybind can run a flow.
-- **App launcher** adds the flow to your app menu with its own icon, by writing a `.desktop` entry to `~/.local/share/applications/`.
-- **At startup** runs the flow after every login, through Omarchy's `post-boot` hook (`~/.config/omarchy/hooks/post-boot.d/`).
+## Templates
+
+A template is a flow file without an id. The three built-in ones ship with Omarchist; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+
+<img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
+<img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
 
 ## Sharing flows
 
-A flow is one file, so sharing it is moving that file.
+- **Export** from a card's menu, the editor's menu, or `omarchist flow export`. The file leaves out the id and triggers, which belong to your machine.
+- **Import** with **Import flow**, by dropping a `.flow.toml` file onto the Flows page, or with `omarchist flow import <file or https URL>`.
 
-- **Export**: open the menu on a flow's card and choose **Export…**, or run `omarchist flow export <name>`. The file is written as `<id>.flow.toml` without the parts that belong to your machine (the id and the triggers), so the other side gets a clean copy.
-- **Import**: choose **Import flow** from the arrow next to **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
+An imported flow opens in the editor with a note showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and it runs them as you. The command line prints the steps and asks before saving.
 
-An imported flow gets a new id from its name, and a flow imported from a URL remembers that URL in its `[meta]` table.
+## Flow files
 
-The editor checks what a flow needs. A command step whose program is not installed shows **is not installed** under the command, and anything listed in the file's `requires` that is missing is called out above the steps. Neither stops you from saving; they tell you what to install first.
-
-## Where flows live
-
-Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so a flow can be copied to another machine, shared, or edited by hand (comments welcome):
+Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so it can be copied, shared, or edited by hand. Omarchist reloads the folder whenever the Flows page opens or you press <kbd>Ctrl</kbd> + <kbd>R</kbd>.
 
 ```toml
 format = 1
@@ -89,6 +75,10 @@ name = "Focus mode"
 description = "Moves to workspace 2 and opens your editor."
 icon = "target"
 on_error = "stop"
+
+[meta]
+author = "Taha"
+requires = ["spotify"]
 
 [triggers]
 launcher = true
@@ -100,6 +90,7 @@ expr = 'hl.dsp.focus({ workspace = "2" })'
 [[step]]
 type = "exec"
 command = "omarchy-launch-editor"
+wait = true
 
 [[step]]
 type = "notify"
@@ -107,21 +98,7 @@ title = "Focus mode"
 body = "Everything else can wait"
 ```
 
-Step types are `exec` (with an optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls are accepted), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). A step with `enabled = false` is skipped. Omarchist reloads the directory whenever the Flows page opens or <kbd>Ctrl</kbd> + <kbd>R</kbd> is pressed.
-
-A file you copy in only needs the right name: when `id` is missing, the file name (without `.toml`) becomes the id. The name must be lowercase letters, digits, and hyphens.
-
-`format` is the version of the file layout, `1` today. Omarchist refuses a file written for a newer format and tells you to update; a file without the line is read as format 1.
-
-An optional `[meta]` table describes the flow rather than what it does. All of it is optional, and the editor never needs it:
-
-```toml
-[meta]
-author = "Taha"
-version = "1.0"
-homepage = "https://example.com/flows"
-tags = ["morning", "work"]
-requires = ["spotify"]
-```
-
-`requires` lists programs the flow expects to find on the machine. The built-in templates are flow files in this format, shipped inside Omarchist.
+- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). `enabled = false` skips a step.
+- `format` is the file layout version. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
+- `[meta]` is optional: `author`, `version`, `homepage`, `tags`, `requires` (programs the flow expects), and `source` (the URL it was imported from).
+- A file without an `id` takes its file name as the id, so `night-shift.toml` or `night-shift.flow.toml` copied in just works.
