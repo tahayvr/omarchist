@@ -10,7 +10,11 @@ A **flow** strings actions together and runs them in order, the way Shortcuts do
 
 Every flow is a card with its icon, description, the shape of its steps, and how it can be started. **Run** starts it right away, **Edit** opens the editor, and the menu on the right duplicates or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>).
+An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). Once you have flows, the **New flow** menu still lists every template.
+
+## Templates
+
+A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: choose **Save as template** from the editor's menu to add the flow you are editing, or copy a file in. A template opens in the editor as a new, unsaved flow, so you can change it before saving.
 
 The cards are one keyboard stop: <kbd>↓</kbd> from the search box reaches them, arrows move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
 
@@ -69,6 +73,8 @@ A flow is one file, so sharing it is moving that file.
 - **Import**: choose **Import a file…** under **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
 
 An imported flow gets a new id from its name, and a flow imported from a URL remembers that URL in its `[meta]` table.
+
+The editor checks what a flow needs. A command step whose program is not installed shows **is not installed** under the command, and anything listed in the file's `requires` that is missing is called out above the steps. Neither stops you from saving; they tell you what to install first.
 
 ## Where flows live
 

@@ -12,6 +12,7 @@ use crate::system::keybinds::overrides::is_dsp_call;
 use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod launcher;
+pub mod requirements;
 pub mod runner;
 pub mod share;
 pub mod store;

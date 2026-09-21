@@ -80,6 +80,10 @@ pub struct DeleteFlow(pub usize);
 #[action(namespace = flows, no_json)]
 pub struct ExportFlow(pub usize);
 
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct UseTemplate(pub String);
+
 /// The chord of every bind that runs a flow, keyed by flow id.
 fn flow_chords(
     scan: crate::error::Result<crate::system::keybinds::replay::ScanResult>,
@@ -457,8 +461,18 @@ impl FlowsView {
                         .label("New flow")
                         .cursor_pointer()
                         .dropdown_menu(|menu, _, _| {
-                            menu.menu("Blank flow", Box::new(NewFlow))
-                                .separator()
+                            let templates = templates();
+                            let mut menu = menu.menu("Blank flow", Box::new(NewFlow));
+                            if !templates.is_empty() {
+                                menu = menu.separator().label("From a template");
+                                for template in templates {
+                                    menu = menu.menu(
+                                        template.flow.name.clone(),
+                                        Box::new(UseTemplate(template.key)),
+                                    );
+                                }
+                            }
+                            menu.separator()
                                 .menu("Import a file…", Box::new(ImportFlow))
                         }),
                 )
@@ -785,6 +799,9 @@ impl Render for FlowsView {
             }))
             .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
                 this.export(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &UseTemplate, _, cx| {
+                this.use_template(&action.0, cx);
             }))
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 if let Some(path) = paths.paths().first() {

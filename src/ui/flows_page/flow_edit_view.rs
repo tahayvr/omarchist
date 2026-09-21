@@ -10,16 +10,18 @@ use gpui_component::{
     clipboard::Clipboard,
     h_flex,
     input::{Input, InputEvent, InputState},
+    menu::DropdownMenu,
     spinner::Spinner,
     switch::Switch,
     v_flex,
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::flows::requirements::{missing_programs, program_of};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
-use crate::system::flows::share::Imported;
+use crate::system::flows::share::{Imported, export_file_name, export_toml};
 use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
-use crate::system::flows::templates::template;
+use crate::system::flows::templates::{save_user_template, template};
 use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
@@ -63,6 +65,8 @@ pub mod flow_edit_nav {
             MoveStepDown,
             ToggleStep,
             DuplicateStep,
+            Export,
+            SaveAsTemplate,
         ]
     );
 }
@@ -113,6 +117,8 @@ pub struct FlowEditPage {
     scroll: ScrollHandle,
     /// Where an imported flow came from, shown until it is saved.
     import_origin: Option<String>,
+    /// Programs the flow needs that are not on this machine.
+    missing: Vec<String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -185,8 +191,10 @@ impl FlowEditPage {
             keybind_dialog: None,
             scroll: ScrollHandle::new(),
             import_origin,
+            missing: Vec::new(),
             _subscriptions: subscriptions,
         };
+        page.missing = missing_programs(&page.flow);
         page.load_context(cx);
         page
     }
@@ -352,9 +360,69 @@ impl FlowEditPage {
         );
     }
 
+    // MARK: Sharing
+
+    fn export(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let mut flow = self.current(cx);
+        if flow.name.is_empty() {
+            window.push_notification("Give the flow a name first", cx);
+            return;
+        }
+        if flow.id.is_empty() {
+            flow.id = unique_id(&flow.name, &[]);
+        }
+        let text = match export_toml(&flow) {
+            Ok(text) => text,
+            Err(e) => {
+                window.push_notification(format!("Could not export the flow: {e}"), cx);
+                return;
+            }
+        };
+        let dir = dirs::download_dir()
+            .or_else(dirs::home_dir)
+            .unwrap_or_default();
+        let receiver = cx.prompt_for_new_path(&dir, Some(&export_file_name(&flow)));
+        cx.spawn_in(window, async move |this, cx| {
+            if let Ok(Ok(Some(path))) = receiver.await {
+                let written = std::fs::write(&path, text);
+                this.update_in(cx, |_, window, cx| match written {
+                    Ok(()) => {
+                        window.push_notification(format!("Exported to {}", path.display()), cx)
+                    }
+                    Err(e) => {
+                        window.push_notification(format!("Could not write the file: {e}"), cx)
+                    }
+                })
+                .ok();
+            }
+        })
+        .detach();
+    }
+
+    fn save_as_template(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let flow = self.current(cx);
+        if flow.name.is_empty() {
+            window.push_notification("Give the flow a name first", cx);
+            return;
+        }
+        match save_user_template(&flow) {
+            Ok(path) => window.push_notification(
+                format!(
+                    "Saved as a template: {}",
+                    path.file_name()
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default()
+                ),
+                cx,
+            ),
+            Err(e) => window.push_notification(format!("Could not save the template: {e}"), cx),
+        }
+    }
+
     // MARK: Steps
 
     fn touch_steps(&mut self, cx: &mut Context<Self>) {
+        self.missing = missing_programs(&self.flow);
         self.step_states = vec![StepState::Idle; self.flow.steps.len()];
         self.selected_step = match self.selected_step {
             Some(ix) if ix < self.flow.steps.len() => Some(ix),
@@ -588,6 +656,48 @@ impl FlowEditPage {
         )
     }
 
+    /// Programs from `meta.requires` that are missing; command steps show
+    /// their own warning on the card.
+    fn render_requirements_banner(&self, cx: &App) -> Option<impl IntoElement> {
+        let missing: Vec<&String> = self
+            .flow
+            .meta
+            .requires
+            .iter()
+            .filter(|r| self.missing.contains(r))
+            .collect();
+        if missing.is_empty() {
+            return None;
+        }
+        let theme = cx.theme();
+        let list = missing
+            .iter()
+            .map(|s| s.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        Some(
+            h_flex()
+                .gap_2()
+                .items_center()
+                .px_3()
+                .py_2()
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(theme.warning.opacity(0.5))
+                .bg(theme.warning.opacity(0.08))
+                .text_sm()
+                .child(
+                    Icon::new(IconName::TriangleAlert)
+                        .size_4()
+                        .text_color(theme.warning),
+                )
+                .child(format!(
+                    "This flow needs {list}, which {} not installed.",
+                    if missing.len() == 1 { "is" } else { "are" }
+                )),
+        )
+    }
+
     fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let name = self.name.read(cx).value().trim().to_string();
@@ -649,6 +759,18 @@ impl FlowEditPage {
                     .tooltip_with_action("Save the flow", &Save, Some(KEY_CONTEXT))
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, window, cx| this.save(window, cx))),
+            )
+            .child(
+                Button::new("flow-more")
+                    .ghost()
+                    .compact()
+                    .icon(Icon::new(Icon::empty()).path("icons/ellipsis-vertical.svg"))
+                    .tooltip("More")
+                    .cursor_pointer()
+                    .dropdown_menu(|menu, _, _| {
+                        menu.menu("Export…", Box::new(Export))
+                            .menu("Save as template", Box::new(SaveAsTemplate))
+                    }),
             )
     }
 
@@ -879,6 +1001,7 @@ impl FlowEditPage {
     ) -> impl IntoElement {
         let theme = cx.theme();
         let summary = summaries.summarize(&step.kind);
+        let missing_program = program_of(&step.kind).filter(|p| self.missing.contains(p));
         let selected = list_focused && self.selected_step == Some(ix);
         let state = self.step_states.get(ix).copied().unwrap_or(StepState::Idle);
         let count = self.flow.steps.len();
@@ -969,7 +1092,18 @@ impl FlowEditPage {
                             .text_color(theme.muted_foreground)
                             .truncate()
                             .child(summary.detail),
-                    ),
+                    )
+                    .when_some(missing_program, |this, program| {
+                        this.child(
+                            h_flex()
+                                .gap_1()
+                                .items_center()
+                                .text_xs()
+                                .text_color(theme.warning)
+                                .child(Icon::new(IconName::TriangleAlert).size_3())
+                                .child(format!("{program} is not installed")),
+                        )
+                    }),
             )
             .children(state_icon)
             .child(
@@ -1142,6 +1276,12 @@ impl Render for FlowEditPage {
                 this.navigate_back(window, cx);
             }))
             .on_action(cx.listener(|this, _: &Save, window, cx| this.save(window, cx)))
+            .on_action(cx.listener(|this, _: &Export, window, cx| this.export(window, cx)))
+            .on_action(
+                cx.listener(|this, _: &SaveAsTemplate, window, cx| {
+                    this.save_as_template(window, cx)
+                }),
+            )
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| {
                 this.open_step_dialog(StepDialogMode::Add, window, cx);
@@ -1188,6 +1328,7 @@ impl Render for FlowEditPage {
             }))
             .child(self.render_header(cx))
             .children(self.render_import_banner(cx))
+            .children(self.render_requirements_banner(cx))
             .child(
                 div()
                     .id("flow-edit-content")
