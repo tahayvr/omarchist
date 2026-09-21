@@ -119,8 +119,7 @@ impl Render for TemplatesView {
                 .text_sm()
                 .text_color(muted)
                 .child(format!(
-                    "No templates of your own yet. Choose \"Save as template\" from a flow's menu in \
-                     the editor, or put a .flow.toml file in {user_dir}."
+                    "No templates of your own yet. Put a .flow.toml file in {user_dir} to add one."
                 ))
                 .into_any_element()
         } else {

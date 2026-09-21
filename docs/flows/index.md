@@ -16,7 +16,7 @@ An empty page offers three starter flows: **Morning start**, **Focus mode**, and
 
 The Templates page lists the built-in templates and your own; pick one to open it in the editor as a new, unsaved flow, so you can change it before saving. <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back to Flows.
 
-A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: choose **Save as template** from the editor's menu to add the flow you are editing, or copy a file in.
+A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: export a flow and copy the file in.
 
 The cards are one keyboard stop: <kbd>↓</kbd> from the search box reaches them, arrows move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
 

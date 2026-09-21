@@ -21,7 +21,7 @@ use crate::system::flows::requirements::{missing_programs, program_of};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
 use crate::system::flows::share::{Imported, export_file_name, export_toml};
 use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
-use crate::system::flows::templates::{save_user_template, template};
+use crate::system::flows::templates::template;
 use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
@@ -66,7 +66,6 @@ pub mod flow_edit_nav {
             ToggleStep,
             DuplicateStep,
             Export,
-            SaveAsTemplate,
         ]
     );
 }
@@ -397,26 +396,6 @@ impl FlowEditPage {
             }
         })
         .detach();
-    }
-
-    fn save_as_template(&self, window: &mut Window, cx: &mut Context<Self>) {
-        let flow = self.current(cx);
-        if flow.name.is_empty() {
-            window.push_notification("Give the flow a name first", cx);
-            return;
-        }
-        match save_user_template(&flow) {
-            Ok(path) => window.push_notification(
-                format!(
-                    "Saved as a template: {}",
-                    path.file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default()
-                ),
-                cx,
-            ),
-            Err(e) => window.push_notification(format!("Could not save the template: {e}"), cx),
-        }
     }
 
     // MARK: Steps
@@ -767,10 +746,7 @@ impl FlowEditPage {
                     .icon(Icon::new(Icon::empty()).path("icons/ellipsis-vertical.svg"))
                     .tooltip("More")
                     .cursor_pointer()
-                    .dropdown_menu(|menu, _, _| {
-                        menu.menu("Export…", Box::new(Export))
-                            .menu("Save as template", Box::new(SaveAsTemplate))
-                    }),
+                    .dropdown_menu(|menu, _, _| menu.menu("Export…", Box::new(Export))),
             )
     }
 
@@ -1277,11 +1253,6 @@ impl Render for FlowEditPage {
             }))
             .on_action(cx.listener(|this, _: &Save, window, cx| this.save(window, cx)))
             .on_action(cx.listener(|this, _: &Export, window, cx| this.export(window, cx)))
-            .on_action(
-                cx.listener(|this, _: &SaveAsTemplate, window, cx| {
-                    this.save_as_template(window, cx)
-                }),
-            )
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| {
                 this.open_step_dialog(StepDialogMode::Add, window, cx);
