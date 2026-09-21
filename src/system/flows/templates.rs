@@ -2,7 +2,7 @@
 //! every Omarchy install has.
 use crate::system::keybinds::action::{WindowAction, WindowActionKind, WorkspaceTarget};
 
-use super::{Flow, OnError, Step, StepKind};
+use super::{Flow, OnError, Step, StepKind, Triggers};
 
 fn exec(command: &str) -> Step {
     Step::new(StepKind::Exec {
@@ -37,6 +37,10 @@ pub fn templates() -> Vec<Flow> {
                 notify("Good morning", "Your desk is ready"),
             ],
             on_error: OnError::Continue,
+            triggers: Triggers {
+                startup: true,
+                ..Triggers::default()
+            },
             ..Flow::new("morning-start".into(), "Morning start".into())
         },
         Flow {
