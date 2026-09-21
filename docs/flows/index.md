@@ -10,7 +10,7 @@ A **flow** strings actions together and runs them in order, the way Shortcuts do
 
 Every flow is a card with its icon, description, the shape of its steps, and how it can be started. **Run** starts it right away, **Edit** opens the editor, and the menu on the right duplicates or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). The **New flow** menu offers **From scratch**, **From template**, and **Import flow**; **From template** opens the Templates page.
+An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). **New flow** starts a blank flow; the arrow next to it offers **From scratch**, **From template**, and **Import flow**, and **From template** opens the Templates page.
 
 ## Templates
 

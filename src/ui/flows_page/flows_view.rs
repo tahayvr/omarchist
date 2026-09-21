@@ -7,7 +7,7 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable, WindowExt,
-    button::{Button, ButtonVariants},
+    button::{Button, ButtonVariants, DropdownButton},
     h_flex,
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
@@ -430,7 +430,7 @@ impl FlowsView {
 
     // MARK: Render
 
-    fn render_toolbar(&self) -> impl IntoElement {
+    fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
         // With no flows yet, the empty state offers the templates and a
         // create button, so the header does not repeat it.
         let show_new = !(self.loaded && self.flows.is_empty());
@@ -452,13 +452,20 @@ impl FlowsView {
             )
             .child(div().flex_1())
             .when(show_new, |this| {
+                // A split button: the main half starts a blank flow, the
+                // arrow offers the other ways in.
                 this.child(
-                    Button::new("new-flow")
+                    DropdownButton::new("new-flow")
                         .primary()
                         .small()
-                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                        .label("New flow")
-                        .cursor_pointer()
+                        .button(
+                            Button::new("new-flow-main")
+                                .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                                .label("New flow")
+                                .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                        )
                         .dropdown_menu(|menu, _, _| {
                             menu.menu("From scratch", Box::new(NewFlow))
                                 .menu("From template", Box::new(BrowseTemplates))
@@ -798,7 +805,7 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &GridDown, _, cx| this.move_row(true, cx)))
             .on_action(cx.listener(|this, _: &GridFirst, _, cx| this.set_focused(0, cx)))
             .on_action(cx.listener(|this, _: &GridLast, _, cx| this.set_focused(usize::MAX, cx)))
-            .child(self.render_toolbar())
+            .child(self.render_toolbar(cx))
             .map(|this| {
                 let scroll = div()
                     .id("flows-grid")
