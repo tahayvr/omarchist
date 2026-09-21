@@ -813,6 +813,20 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Back to Flows"
     ),
     shortcut!(
+        "escape",
+        app_menu::NavigateBack,
+        Some("FlowTemplatesPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "alt-left",
+        app_menu::NavigateBack,
+        Some("FlowTemplatesPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
         "ctrl-s",
         flow_edit_nav::Save,
         Some("FlowEditPage"),

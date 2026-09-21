@@ -2,7 +2,7 @@ use crate::system::flows::share::Imported;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
-use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView};
+use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
@@ -46,6 +46,8 @@ pub enum ActivePage {
     FlowNew(Option<String>),
     /// The editor reviewing a flow read from a file or URL, not yet saved.
     FlowImport(Box<Imported>),
+    /// The templates to start a new flow from.
+    FlowTemplates,
     Settings,
     About,
     Omarchy,
@@ -71,6 +73,8 @@ pub struct MainWindowView {
     // The flow editor is rebuilt every time it is opened.
     flow_edit_root: Option<AnyView>,
     flow_edit_view: Option<Entity<FlowEditPage>>,
+    flow_templates_root: Option<AnyView>,
+    flow_templates_view: Option<Entity<TemplatesView>>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -117,6 +121,8 @@ impl MainWindowView {
             flows_view: None,
             flow_edit_root: None,
             flow_edit_view: None,
+            flow_templates_root: None,
+            flow_templates_view: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -157,7 +163,8 @@ impl MainWindowView {
             ActivePage::Flows
             | ActivePage::FlowEdit(_)
             | ActivePage::FlowNew(_)
-            | ActivePage::FlowImport(_) => Some(3),
+            | ActivePage::FlowImport(_)
+            | ActivePage::FlowTemplates => Some(3),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -203,6 +210,17 @@ impl MainWindowView {
                     self.keybinds_view = Some(keybinds_view);
                 }
             }
+            ActivePage::FlowTemplates => match &self.flow_templates_view {
+                // Templates can change while the app runs (a save from the
+                // editor, a file copied in), so the page reloads on every visit.
+                Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
+                None => {
+                    let view = cx.new(TemplatesView::new);
+                    self.flow_templates_root =
+                        Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                    self.flow_templates_view = Some(view);
+                }
+            },
             ActivePage::Flows => {
                 if self.flows_root.is_none() {
                     let flows_view = cx.new(|cx| FlowsView::new(window, cx));
@@ -352,6 +370,11 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
+            ActivePage::FlowTemplates => {
+                if let Some(view) = &self.flow_templates_view {
+                    view.update(cx, |v, cx| v.focus_entry(window, cx));
+                }
+            }
             ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_) => {
                 if let Some(view) = &self.flow_edit_view {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
@@ -379,6 +402,11 @@ impl MainWindowView {
             }
             ActivePage::Keybinds => {
                 if let Some(view) = &self.keybinds_view {
+                    view.update(cx, |view, cx| view.refresh(cx));
+                }
+            }
+            ActivePage::FlowTemplates => {
+                if let Some(view) = &self.flow_templates_view {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
@@ -454,6 +482,10 @@ impl MainWindowView {
                 .flow_edit_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
+            ActivePage::FlowTemplates => self
+                .flow_templates_root
+                .clone()
+                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Settings => self
                 .settings_root
                 .clone()
@@ -481,6 +513,7 @@ impl MainWindowView {
                 ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_),
                 ActivePage::Flows,
             ) => true,
+            (ActivePage::FlowTemplates, ActivePage::Flows) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,

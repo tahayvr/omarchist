@@ -10,11 +10,13 @@ A **flow** strings actions together and runs them in order, the way Shortcuts do
 
 Every flow is a card with its icon, description, the shape of its steps, and how it can be started. **Run** starts it right away, **Edit** opens the editor, and the menu on the right duplicates or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). Once you have flows, the **New flow** menu still lists every template.
+An empty page offers three starter flows: **Morning start**, **Focus mode**, and **Wrap up**. Pick one to open it in the editor, or start from scratch with **New flow** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>). The **New flow** menu offers **From scratch**, **From template**, and **Import flow**; **From template** opens the Templates page.
 
 ## Templates
 
-A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: choose **Save as template** from the editor's menu to add the flow you are editing, or copy a file in. A template opens in the editor as a new, unsaved flow, so you can change it before saving.
+The Templates page lists the built-in templates and your own; pick one to open it in the editor as a new, unsaved flow, so you can change it before saving. <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back to Flows.
+
+A template is a flow file without an id. The three built-in ones ship inside Omarchist. Your own live in `~/.config/omarchist/templates/` as `<name>.flow.toml` files: choose **Save as template** from the editor's menu to add the flow you are editing, or copy a file in.
 
 The cards are one keyboard stop: <kbd>↓</kbd> from the search box reaches them, arrows move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, and <kbd>Delete</kbd> deletes.
 

@@ -232,7 +232,9 @@ pub enum ActivePage {
     Keybinds,
     Flows,
     FlowEdit(String),      // the editor for an existing flow, by id
-    FlowNew(Option<String>), // the editor for a new flow, optionally from a template
+    FlowNew(Option<String>), // the editor for a new flow, optionally from a template key
+    FlowImport(Box<Imported>), // the editor reviewing an imported flow before its first save
+    FlowTemplates,         // the Templates page
     Settings,
     About,
     Omarchy,

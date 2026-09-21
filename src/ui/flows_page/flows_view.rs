@@ -26,7 +26,9 @@ use crate::system::keybinds::{BindStatus, Dispatcher};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
-use crate::ui::flows_page::flow_card::{icon_tile, step_count_label, step_strip, trigger_chips};
+use crate::ui::flows_page::flow_card::{
+    icon_tile, step_count_label, step_strip, template_card, trigger_chips,
+};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 
@@ -44,6 +46,7 @@ pub mod flows_nav {
             ClearSearch,
             FocusGrid,
             NewFlow,
+            BrowseTemplates,
             ImportFlow,
             RunSelected,
             EditSelected,
@@ -79,10 +82,6 @@ pub struct DeleteFlow(pub usize);
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = flows, no_json)]
 pub struct ExportFlow(pub usize);
-
-#[derive(Action, Clone, PartialEq, Eq, Debug)]
-#[action(namespace = flows, no_json)]
-pub struct UseTemplate(pub String);
 
 /// The chord of every bind that runs a flow, keyed by flow id.
 fn flow_chords(
@@ -461,19 +460,9 @@ impl FlowsView {
                         .label("New flow")
                         .cursor_pointer()
                         .dropdown_menu(|menu, _, _| {
-                            let templates = templates();
-                            let mut menu = menu.menu("Blank flow", Box::new(NewFlow));
-                            if !templates.is_empty() {
-                                menu = menu.separator().label("From a template");
-                                for template in templates {
-                                    menu = menu.menu(
-                                        template.flow.name.clone(),
-                                        Box::new(UseTemplate(template.key)),
-                                    );
-                                }
-                            }
-                            menu.separator()
-                                .menu("Import a file…", Box::new(ImportFlow))
+                            menu.menu("From scratch", Box::new(NewFlow))
+                                .menu("From template", Box::new(BrowseTemplates))
+                                .menu("Import flow", Box::new(ImportFlow))
                         }),
                 )
             })
@@ -716,42 +705,7 @@ impl FlowsView {
                     .child(h_flex().gap_4().flex_wrap().items_stretch().children(
                         templates.iter().enumerate().map(|(ix, template)| {
                             let key = template.key.clone();
-                            let template = &template.flow;
-                            Button::new(("template", ix))
-                                .outline()
-                                .flex_1()
-                                .min_w(px(240.))
-                                .h_auto()
-                                .p_4()
-                                .cursor_pointer()
-                                .child(
-                                    v_flex()
-                                        .gap_2()
-                                        .items_start()
-                                        .text_left()
-                                        .w_full()
-                                        .child(
-                                            h_flex()
-                                                .gap_3()
-                                                .items_center()
-                                                .child(icon_tile(&template.icon, px(32.), cx))
-                                                .child(
-                                                    div()
-                                                        .font_weight(FontWeight::SEMIBOLD)
-                                                        .child(template.name.clone()),
-                                                ),
-                                        )
-                                        .child(
-                                            div()
-                                                .w_full()
-                                                .whitespace_normal()
-                                                .text_sm()
-                                                .font_weight(FontWeight::NORMAL)
-                                                .text_color(theme.muted_foreground)
-                                                .child(template.description.clone()),
-                                        )
-                                        .child(step_strip(template, &summaries, cx)),
-                                )
+                            template_card(("template", ix), &template.flow, &summaries, cx)
                                 .on_click(
                                     cx.listener(move |this, _, _, cx| this.use_template(&key, cx)),
                                 )
@@ -797,11 +751,11 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &ImportFlow, window, cx| {
                 this.import_from_dialog(window, cx);
             }))
+            .on_action(cx.listener(|_, _: &BrowseTemplates, _, cx| {
+                emit(cx, AppEvent::Navigate(ActivePage::FlowTemplates));
+            }))
             .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
                 this.export(action.0, window, cx);
-            }))
-            .on_action(cx.listener(|this, action: &UseTemplate, _, cx| {
-                this.use_template(&action.0, cx);
             }))
             .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
                 if let Some(path) = paths.paths().first() {
