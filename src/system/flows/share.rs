@@ -7,7 +7,7 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use isahc::{RequestExt, config::Configurable};
+use isahc::{RequestExt, ResponseExt, config::Configurable, config::RedirectPolicy};
 
 use crate::error::{Error, Result};
 
@@ -82,7 +82,9 @@ pub fn read_import(source: &ImportSource) -> Result<Imported> {
         ImportSource::Url(url) => fetch(url)?,
     };
     let mut flow = parse_flow(&content)?;
+    // The id and the triggers belong to the machine that saves the flow.
     flow.id.clear();
+    flow.triggers = Triggers::default();
     if let ImportSource::Url(url) = source {
         flow.meta.source = url.clone();
     }
@@ -109,6 +111,7 @@ fn read_file(path: &Path) -> Result<String> {
 fn fetch(url: &str) -> Result<String> {
     let mut response = isahc::Request::get(url)
         .timeout(FETCH_TIMEOUT)
+        .redirect_policy(RedirectPolicy::Limit(5))
         .header("User-Agent", "omarchist")
         .body(())
         .map_err(|e| Error::Network(format!("Invalid URL: {e}")))?
@@ -119,6 +122,11 @@ fn fetch(url: &str) -> Result<String> {
             "{url} answered with status {}",
             response.status()
         )));
+    }
+    // A redirect must not drop to plain http, which would let anyone on the
+    // path rewrite the commands.
+    if response.effective_uri().map(|u| u.scheme_str()) != Some(Some("https")) {
+        return Err(Error::Network(format!("{url} redirected away from https")));
     }
     let mut content = String::new();
     response
@@ -178,10 +186,11 @@ mod tests {
         let dir = std::env::temp_dir().join(format!("omarchist-share-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("demo.flow.toml");
-        fs::write(&path, export_toml(&flow()).unwrap()).unwrap();
+        fs::write(&path, flow().to_toml().unwrap()).unwrap();
 
         let imported = read_import(&ImportSource::File(path)).unwrap();
         assert!(imported.flow.id.is_empty());
+        assert!(imported.flow.triggers.is_empty());
         assert_eq!(imported.flow.name, "Demo");
         assert_eq!(imported.flow.meta.author, "Taha");
         assert!(imported.flow.meta.source.is_empty());

@@ -16,9 +16,9 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::Runner;
-use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
+use crate::system::flows::share::{ImportSource, read_import};
 use crate::system::flows::store::{delete_flow, existing_ids, load_flows, save_flow};
-use crate::system::flows::templates::templates;
+use crate::system::flows::templates::{Template, templates};
 use crate::system::flows::{Flow, run_command_id, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -29,6 +29,7 @@ use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
     icon_tile, step_count_label, step_strip, template_card, trigger_chips,
 };
+use crate::ui::flows_page::share_ui::export_flow;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 
@@ -109,6 +110,8 @@ pub struct FlowsView {
     filtered: Vec<usize>,
     chords: HashMap<String, Chord>,
     apps: Vec<DesktopApp>,
+    /// For the empty state's cards; reloaded with the flows.
+    templates: Vec<Template>,
     loaded: bool,
     /// The cards are one tab stop; `focused` is the card with the keyboard.
     grid_focus: FocusHandle,
@@ -139,6 +142,7 @@ impl FlowsView {
             filtered: Vec::new(),
             chords: HashMap::new(),
             apps: Vec::new(),
+            templates: Vec::new(),
             loaded: false,
             grid_focus: focus::tab_stop(cx),
             focused: None,
@@ -160,10 +164,13 @@ impl FlowsView {
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             let loaded = cx
-                .background_spawn(async { (load_flows(), scan_keybinds(), installed_apps()) })
+                .background_spawn(async {
+                    (load_flows(), scan_keybinds(), installed_apps(), templates())
+                })
                 .await;
             this.update(cx, |this, cx| {
-                let (flows, scan, apps) = loaded;
+                let (flows, scan, apps, templates) = loaded;
+                this.templates = templates;
                 match flows {
                     Ok(flows) => this.flows = flows,
                     Err(e) => eprintln!("Failed to load flows: {e}"),
@@ -295,35 +302,9 @@ impl FlowsView {
     }
 
     fn export(&self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(flow) = self.flow_at(filtered_ix).cloned() else {
-            return;
-        };
-        let text = match export_toml(&flow) {
-            Ok(text) => text,
-            Err(e) => {
-                window.push_notification(format!("Could not export the flow: {e}"), cx);
-                return;
-            }
-        };
-        let dir = dirs::download_dir()
-            .or_else(dirs::home_dir)
-            .unwrap_or_default();
-        let receiver = cx.prompt_for_new_path(&dir, Some(&export_file_name(&flow)));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(path))) = receiver.await {
-                let written = std::fs::write(&path, text);
-                this.update_in(cx, |_, window, cx| match written {
-                    Ok(()) => {
-                        window.push_notification(format!("Exported to {}", path.display()), cx)
-                    }
-                    Err(e) => {
-                        window.push_notification(format!("Could not write the file: {e}"), cx)
-                    }
-                })
-                .ok();
-            }
-        })
-        .detach();
+        if let Some(flow) = self.flow_at(filtered_ix).cloned() {
+            export_flow(&flow, window, cx);
+        }
     }
 
     fn edit(&self, filtered_ix: usize, cx: &mut Context<Self>) {
@@ -645,7 +626,7 @@ impl FlowsView {
             return div().into_any_element();
         }
 
-        let templates = templates();
+        let templates = &self.templates;
         let summaries = SummaryContext {
             apps: &self.apps,
             flows: &self.flows,

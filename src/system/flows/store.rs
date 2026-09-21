@@ -1,13 +1,14 @@
 //! Reads and writes flows under `~/.config/omarchist/flows/`, one TOML file
 //! per flow named after its id, and keeps the trigger files in step.
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
 
 use super::launcher;
+use super::share::SHARED_SUFFIX;
 use super::{Flow, is_slug, parse_flow, run_command_id};
 
 /// `~/.config/omarchist/flows`
@@ -48,16 +49,25 @@ pub fn load_flows() -> Result<Vec<Flow>> {
     Ok(flows)
 }
 
-/// A file in the flows directory is `<id>.toml`. A file without an id
-/// takes its stem, so a shared file copied in only needs the right name.
+/// The id a file name stands for: `<id>.toml`, or `<id>.flow.toml` for a
+/// shared file copied in as is.
+fn id_of_file(path: &Path) -> &str {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+    name.strip_suffix(SHARED_SUFFIX)
+        .or_else(|| name.strip_suffix(".toml"))
+        .unwrap_or(name)
+}
+
+/// A file without an id takes the id its name stands for, so a shared file
+/// copied in only needs the right name.
 fn read_flow(path: &PathBuf) -> Result<Flow> {
     let content = fs::read_to_string(path).map_err(|e| Error::io("Failed to read flow", e))?;
     let mut flow =
         parse_flow(&content).map_err(|e| Error::Invalid(format!("{e} (in {})", path.display())))?;
-    let stem = path
-        .file_stem()
-        .and_then(|s| s.to_str())
-        .unwrap_or_default();
+    let stem = id_of_file(path);
     if flow.id.is_empty() {
         if !is_slug(stem) {
             return Err(Error::Invalid(format!(
@@ -120,14 +130,21 @@ pub fn save_flow(flow: &Flow) -> Result<()> {
         fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create flows directory", e))?;
     }
     fs::write(&path, flow.to_toml()?).map_err(|e| Error::io("Failed to write flow", e))?;
+    // A shared file copied in as `<id>.flow.toml` is superseded by this save.
+    let _ = fs::remove_file(shared_path(&flow.id)?);
     launcher::sync_triggers(flow)
+}
+
+fn shared_path(id: &str) -> Result<PathBuf> {
+    Ok(flows_dir()?.join(format!("{id}{SHARED_SUFFIX}")))
 }
 
 /// Removes the flow, its trigger files, and any keybind override that ran it.
 pub fn delete_flow(id: &str) -> Result<()> {
-    let path = flow_path(id)?;
-    if path.exists() {
-        fs::remove_file(&path).map_err(|e| Error::io("Failed to delete flow", e))?;
+    for path in [flow_path(id)?, shared_path(id)?] {
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| Error::io("Failed to delete flow", e))?;
+        }
     }
     launcher::remove_triggers(id)?;
     remove_keybinds_running(id)
@@ -163,6 +180,14 @@ mod tests {
         let flow = read_flow(&path).unwrap();
         assert_eq!(flow.id, "night-shift");
         assert_eq!(flow.format, super::super::FORMAT);
+    }
+
+    #[test]
+    fn a_shared_file_name_stands_for_its_id() {
+        let path = temp_file("night-shift.flow.toml", "name = \"Night shift\"\n");
+        assert_eq!(read_flow(&path).unwrap().id, "night-shift");
+        let path = temp_file("night-shift.toml", "id = \"night-shift\"\nname = \"N\"\n");
+        assert_eq!(read_flow(&path).unwrap().id, "night-shift");
     }
 
     #[test]

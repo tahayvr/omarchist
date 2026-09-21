@@ -211,8 +211,8 @@ impl MainWindowView {
                 }
             }
             ActivePage::FlowTemplates => match &self.flow_templates_view {
-                // Templates can change while the app runs (a save from the
-                // editor, a file copied in), so the page reloads on every visit.
+                // A template file can be copied in while the app runs, so
+                // the page reloads on every visit.
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
                     let view = cx.new(TemplatesView::new);

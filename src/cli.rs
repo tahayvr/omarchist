@@ -216,16 +216,6 @@ fn import(source: &str, yes: bool) -> ExitCode {
         let off = if step.enabled { "" } else { "  (off)" };
         println!("  {}. {}{off}", ix + 1, step.kind.text());
     }
-    let mut triggers = Vec::new();
-    if flow.triggers.startup {
-        triggers.push("at startup");
-    }
-    if flow.triggers.launcher {
-        triggers.push("the app launcher");
-    }
-    if !triggers.is_empty() {
-        println!("Would also run from: {}", triggers.join(", "));
-    }
     if !flow.meta.requires.is_empty() {
         println!("Needs: {}", flow.meta.requires.join(", "));
     }

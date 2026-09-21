@@ -4,21 +4,36 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-use crate::system::keybinds::action::program_name;
-
 use super::{Flow, StepKind};
 
+/// Words the shell handles itself; a step starting with one is not a
+/// program to look for.
+const BUILTINS: &[&str] = &[
+    ".", "[", "alias", "builtin", "case", "cd", "command", "eval", "exec", "exit", "export", "for",
+    "function", "if", "local", "read", "return", "set", "shift", "source", "test", "then", "trap",
+    "type", "unset", "until", "wait", "while",
+];
+
 /// The program a command step starts, when the command is a plain program
-/// invocation rather than shell syntax (`FOO=1 cmd`, `$EDITOR`, `{ ...; }`).
+/// invocation rather than shell syntax (`FOO=1 cmd`, `$EDITOR`, `{ ...; }`)
+/// or a builtin. A path is kept as a path, with `~` expanded, so it is
+/// checked where it says rather than on `PATH`.
 pub fn program_of(kind: &StepKind) -> Option<String> {
     let StepKind::Exec { command, .. } = kind else {
         return None;
     };
-    let program = program_name(command.trim());
-    let plain = !program.is_empty()
-        && !program.contains('=')
-        && !program.starts_with(['$', '(', '{', '|', '&', ';', '!', '"', '\'']);
-    plain.then(|| program.to_string())
+    let word = command.split_whitespace().next()?;
+    let plain = !word.contains('=')
+        && !word.starts_with(['$', '(', '{', '|', '&', ';', '!', '"', '\''])
+        && !BUILTINS.contains(&word);
+    if !plain {
+        return None;
+    }
+    let expanded = match word.strip_prefix("~/") {
+        Some(rest) => dirs::home_dir()?.join(rest).display().to_string(),
+        None => word.to_string(),
+    };
+    Some(expanded)
 }
 
 /// Programs from the enabled command steps and `meta.requires` that are not
@@ -73,11 +88,18 @@ mod tests {
         assert_eq!(program_of(&exec("sh -c 'x'").kind).as_deref(), Some("sh"));
         assert_eq!(
             program_of(&exec("/usr/bin/env python").kind).as_deref(),
-            Some("env")
+            Some("/usr/bin/env")
         );
         assert_eq!(program_of(&exec("FOO=1 cmd").kind), None);
         assert_eq!(program_of(&exec("$EDITOR file").kind), None);
+        assert_eq!(program_of(&exec("cd ~/proj && code .").kind), None);
+        assert_eq!(program_of(&exec("exec omarchy-launch-terminal").kind), None);
         assert_eq!(program_of(&StepKind::Wait { ms: 1 }), None);
+        let home = dirs::home_dir().unwrap();
+        assert_eq!(
+            program_of(&exec("~/scripts/deploy.sh now").kind),
+            Some(home.join("scripts/deploy.sh").display().to_string())
+        );
     }
 
     #[test]

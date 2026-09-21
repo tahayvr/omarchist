@@ -72,7 +72,7 @@ The **Run it from** section wires that command up for you:
 A flow is one file, so sharing it is moving that file.
 
 - **Export**: open the menu on a flow's card and choose **Export…**, or run `omarchist flow export <name>`. The file is written as `<id>.flow.toml` without the parts that belong to your machine (the id and the triggers), so the other side gets a clean copy.
-- **Import**: choose **Import a file…** under **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
+- **Import**: choose **Import flow** from the arrow next to **New flow**, drop a `.flow.toml` file onto the Flows page, or run `omarchist flow import <file or https:// URL>`. The flow opens in the editor with a notice showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and an imported one runs them as you. The command line prints the steps and asks before saving; pass `--yes` to skip the question in a script.
 
 An imported flow gets a new id from its name, and a flow imported from a URL remembers that URL in its `[meta]` table.
 

@@ -19,7 +19,7 @@ use gpui_component::{
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::requirements::{missing_programs, program_of};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
-use crate::system::flows::share::{Imported, export_file_name, export_toml};
+use crate::system::flows::share::Imported;
 use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
 use crate::system::flows::templates::template;
 use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
@@ -32,6 +32,7 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::icon_tile;
+use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
 };
@@ -370,32 +371,7 @@ impl FlowEditPage {
         if flow.id.is_empty() {
             flow.id = unique_id(&flow.name, &[]);
         }
-        let text = match export_toml(&flow) {
-            Ok(text) => text,
-            Err(e) => {
-                window.push_notification(format!("Could not export the flow: {e}"), cx);
-                return;
-            }
-        };
-        let dir = dirs::download_dir()
-            .or_else(dirs::home_dir)
-            .unwrap_or_default();
-        let receiver = cx.prompt_for_new_path(&dir, Some(&export_file_name(&flow)));
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(path))) = receiver.await {
-                let written = std::fs::write(&path, text);
-                this.update_in(cx, |_, window, cx| match written {
-                    Ok(()) => {
-                        window.push_notification(format!("Exported to {}", path.display()), cx)
-                    }
-                    Err(e) => {
-                        window.push_notification(format!("Could not write the file: {e}"), cx)
-                    }
-                })
-                .ok();
-            }
-        })
-        .detach();
+        export_flow(&flow, window, cx);
     }
 
     // MARK: Steps
@@ -611,70 +587,35 @@ impl FlowEditPage {
     }
 
     fn render_import_banner(&self, cx: &App) -> Option<impl IntoElement> {
-        let origin = self.import_origin.clone()?;
-        let theme = cx.theme();
-        Some(
-            h_flex()
-                .gap_2()
-                .items_center()
-                .px_3()
-                .py_2()
-                .rounded(theme.radius)
-                .border_1()
-                .border_color(theme.warning.opacity(0.5))
-                .bg(theme.warning.opacity(0.08))
-                .text_sm()
-                .child(
-                    Icon::new(IconName::TriangleAlert)
-                        .size_4()
-                        .text_color(theme.warning),
-                )
-                .child(format!(
-                    "Imported from {origin}. Check every step before you save."
-                )),
-        )
+        let origin = self.import_origin.as_ref()?;
+        Some(warning_banner(
+            format!("Imported from {origin}. Check every step before you save."),
+            cx,
+        ))
     }
 
     /// Programs from `meta.requires` that are missing; command steps show
     /// their own warning on the card.
     fn render_requirements_banner(&self, cx: &App) -> Option<impl IntoElement> {
-        let missing: Vec<&String> = self
+        let missing: Vec<&str> = self
             .flow
             .meta
             .requires
             .iter()
             .filter(|r| self.missing.contains(r))
+            .map(String::as_str)
             .collect();
         if missing.is_empty() {
             return None;
         }
-        let theme = cx.theme();
-        let list = missing
-            .iter()
-            .map(|s| s.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        Some(
-            h_flex()
-                .gap_2()
-                .items_center()
-                .px_3()
-                .py_2()
-                .rounded(theme.radius)
-                .border_1()
-                .border_color(theme.warning.opacity(0.5))
-                .bg(theme.warning.opacity(0.08))
-                .text_sm()
-                .child(
-                    Icon::new(IconName::TriangleAlert)
-                        .size_4()
-                        .text_color(theme.warning),
-                )
-                .child(format!(
-                    "This flow needs {list}, which {} not installed.",
-                    if missing.len() == 1 { "is" } else { "are" }
-                )),
-        )
+        let verb = if missing.len() == 1 { "is" } else { "are" };
+        Some(warning_banner(
+            format!(
+                "This flow needs {}, which {verb} not installed.",
+                missing.join(", ")
+            ),
+            cx,
+        ))
     }
 
     fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {

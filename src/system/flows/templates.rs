@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use crate::assets::DefaultAssets;
 use crate::error::{Error, Result};
 
-use super::share::{SHARED_SUFFIX, export_toml};
-use super::{Flow, is_slug, parse_flow, unique_id};
+use super::share::SHARED_SUFFIX;
+use super::{Flow, is_slug, parse_flow};
 
 const BUILT_IN_DIR: &str = "flows/";
 /// Keys of user templates start with this, so they never collide with a
@@ -21,7 +21,7 @@ pub enum TemplateSource {
     /// Shipped inside the binary.
     BuiltIn,
     /// A file in the user's templates directory.
-    User(PathBuf),
+    User,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,27 +55,18 @@ pub fn templates() -> Vec<Template> {
     templates
 }
 
+/// The template with this key, reading only what the key names: the
+/// embedded files for a built-in, one file for a user template.
 pub fn template(key: &str) -> Option<Template> {
-    templates().into_iter().find(|t| t.key == key)
-}
-
-/// Writes the flow as `<slug>.flow.toml` in the user's templates directory,
-/// without its id and triggers, and returns the path. An existing template
-/// with the same name is kept; the new one gets a numbered name.
-pub fn save_user_template(flow: &Flow) -> Result<PathBuf> {
-    if flow.name.trim().is_empty() {
-        return Err(Error::Invalid("A template needs a name".to_string()));
+    match key.strip_prefix(USER_KEY_PREFIX) {
+        Some(stem) => {
+            let path = user_templates_dir()
+                .ok()?
+                .join(format!("{stem}{SHARED_SUFFIX}"));
+            user_template(&path).ok()
+        }
+        None => built_in_templates().into_iter().find(|t| t.key == key),
     }
-    let dir = user_templates_dir()?;
-    fs::create_dir_all(&dir).map_err(|e| Error::io("Failed to create templates directory", e))?;
-    let taken: Vec<String> = user_templates()
-        .into_iter()
-        .map(|t| t.key.trim_start_matches(USER_KEY_PREFIX).to_string())
-        .collect();
-    let stem = unique_id(&flow.name, &taken);
-    let path = dir.join(format!("{stem}{SHARED_SUFFIX}"));
-    fs::write(&path, export_toml(flow)?).map_err(|e| Error::io("Failed to write template", e))?;
-    Ok(path)
 }
 
 fn built_in_templates() -> Vec<Template> {
@@ -161,7 +152,7 @@ fn user_template(path: &PathBuf) -> Result<Template> {
     Ok(Template {
         key: format!("{USER_KEY_PREFIX}{stem}"),
         flow,
-        source: TemplateSource::User(path.clone()),
+        source: TemplateSource::User,
     })
 }
 
