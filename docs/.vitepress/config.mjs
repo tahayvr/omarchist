@@ -127,7 +127,7 @@ export default defineConfig({
       provider: "local",
     },
     footer: {
-      message: "Omarchist is released under the MIT License.",
+      message: "Omarchist is released under the Apache-2.0 License.",
       copyright: 'Copyright © 2026 <a href="https://taha.gg">Taha Nejad</a>',
     },
   },
