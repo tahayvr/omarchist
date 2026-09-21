@@ -75,7 +75,7 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     logo: "/images/icon.png",
     siteTitle: "OMARCHIST",
-    // nav: [{ text: "Themes", link: "https://omarchist.com/themes" }],
+    nav: [{ text: "Support", link: "https://github.com/sponsors/tahayvr" }],
 
     sidebar: [
       {
