@@ -23,7 +23,7 @@ fn open(cx: &mut TestAppContext, page: ActivePage) -> (WindowHandle<Root>, Entit
     });
     let mut main_view = None;
     let handle = cx.open_window(size(px(1280.), px(800.)), |window, cx| {
-        let title_bar = cx.new(|_| MainTitleBar::new());
+        let title_bar = cx.new(MainTitleBar::new);
         let view = cx.new(|cx| MainWindowView::new(title_bar, page, window, cx));
         main_view = Some(view.clone());
         Root::new(view, window, cx)

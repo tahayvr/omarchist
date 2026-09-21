@@ -16,7 +16,6 @@ pub enum AppEvent {
     Navigate(ActivePage),
     RefreshThemes,
     ToggleSidebar,
-    OmarchyUpdateStatus(bool),
     ReloadUiTheme,
 }
 

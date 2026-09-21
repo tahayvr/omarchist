@@ -343,6 +343,7 @@ A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reus
 - **Theme Management:** `src/system/themes/theme_management.rs`
 - **Type Definitions:** `src/types/themes.rs`
 - **Omarchy Paths:** `src/system/omarchy_paths.rs`
+- **Omarchy version and updates:** `src/system/omarchy/updates.rs` shells out to `omarchy-version` and `omarchy-update-available` (never the stale `$OMARCHY_PATH/version` file or GitHub tags, which do not reflect the user's package channel); `src/ui/omarchy_page/updates.rs` is the one `OmarchyUpdates` model, owned by `MainTitleBar`, that the badge and the Omarchy page both observe. GitHub is used only for release notes.
 - **Hyprland Config:** `src/system/hyprland_config/` (`manager.rs`, `lua_writer.rs`, `hyprctl_reader.rs`)
 - **Keybinds:** `src/system/keybinds/` (`scan.lua`, `scanner.rs`, `replay.rs`, `overrides.rs`, `store.rs`, `submap.rs`) and `src/ui/keybinds_page/` (`keybinds_view.rs`, `keybinds_table.rs`, `keystroke_input.rs`, `keybind_dialog.rs`)
 - **Flows:** `src/system/flows/` (`store.rs`, `runner.rs`, `launcher.rs`, `templates.rs`) and `src/ui/flows_page/` (`flows_view.rs`, `flow_edit_view.rs`, `step_dialog.rs`, `step_builder.rs`, `step_summary.rs`)

@@ -1,8 +1,17 @@
-use super::omarchy_version::GitHubRelease;
 use crate::error::{Error, Result};
 use isahc::AsyncReadResponseExt;
 use isahc::config::{Configurable, RedirectPolicy};
+use serde::Deserialize;
 
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    body: Option<String>,
+}
+
+/// The tag and body of the newest stable release on GitHub. This is only
+/// used for the release notes; whether an update is installable is decided
+/// by `updates::check_for_updates` against the package repository.
 pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
     let request = isahc::Request::builder()
         .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
@@ -26,11 +35,6 @@ pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
         .json::<GitHubRelease>()
         .await
         .map_err(|e| Error::Network(format!("Failed to parse release data: {e}")))?;
-
-    // Skip prereleases
-    if release.prerelease {
-        return Err(Error::Invalid("Latest release is a prerelease".into()));
-    }
 
     let tag = release.tag_name;
     let notes = release

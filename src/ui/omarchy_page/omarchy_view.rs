@@ -1,13 +1,11 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, button::Button, h_flex, text::TextView, text::TextViewStyle, v_flex,
+    ActiveTheme, Sizable, button::Button, button::ButtonVariants, h_flex, text::TextView,
+    text::TextViewStyle, v_flex,
 };
 
-use crate::system::omarchy::{
-    omarchy_version::{check_omarchy_update, get_local_omarchy_version},
-    release_notes::fetch_latest_release_notes,
-};
-use crate::ui::menu::title_bar::MainTitleBar;
+use crate::system::omarchy::release_notes::fetch_latest_release_notes;
+use crate::ui::omarchy_page::updates::{OmarchyUpdates, UpdateState};
 
 const KEY_CONTEXT: &str = "OmarchyView";
 const RELEASE_NOTES_CONTEXT: &str = "ReleaseNotes";
@@ -18,28 +16,20 @@ actions!(
     [ScrollUp, ScrollDown, PageUp, PageDown, Top, Bottom]
 );
 
-const POST_UPDATE_RECHECK_SECS: u64 = 60;
-
 pub struct OmarchyView {
-    local_version: String,
-    update_available: Option<bool>,
+    updates: Entity<OmarchyUpdates>,
     latest_tag: Option<String>,
     release_notes: Option<String>,
     release_notes_error: Option<String>,
     pub focus_handle: FocusHandle,
     notes_focus: FocusHandle,
     notes_scroll: ScrollHandle,
+    _updates_observer: Subscription,
 }
 
 impl OmarchyView {
-    pub fn new(
-        version: Option<String>,
-        title_bar: Entity<MainTitleBar>,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let local_version = version.unwrap_or_else(|| "unknown".to_string());
-
-        Self::spawn_version_check(local_version.clone(), title_bar.clone(), cx);
+    pub fn new(updates: Entity<OmarchyUpdates>, cx: &mut Context<Self>) -> Self {
+        let observer = cx.observe(&updates, |_, _, cx| cx.notify());
 
         cx.spawn(
             async move |this, cx| match fetch_latest_release_notes().await {
@@ -61,18 +51,15 @@ impl OmarchyView {
         )
         .detach();
 
-        // The periodic check that keeps the title-bar badge fresh is started
-        // from main.rs.
-
         Self {
-            local_version,
-            update_available: None,
+            updates,
             latest_tag: None,
             release_notes: None,
             release_notes_error: None,
             focus_handle: cx.focus_handle(),
             notes_focus: crate::ui::focus::tab_stop(cx),
             notes_scroll: ScrollHandle::new(),
+            _updates_observer: observer,
         }
     }
 
@@ -100,152 +87,129 @@ impl OmarchyView {
         cx.notify();
     }
 
-    fn spawn_version_check(
-        version: String,
-        title_bar: Entity<MainTitleBar>,
-        cx: &mut Context<Self>,
-    ) {
-        cx.spawn(
-            async move |this, cx| match check_omarchy_update(&version).await {
-                Ok(update_available) => {
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(update_available);
-                    })
-                    .ok();
-                    title_bar.update(cx, |tb, _| {
-                        tb.set_omarchy_update_available(update_available);
-                    });
-                }
-                Err(e) => {
-                    eprintln!("Failed to check for omarchy updates: {e}");
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(false);
-                    })
-                    .ok();
-                }
-            },
-        )
-        .detach();
+    fn run_update(&mut self, cx: &mut Context<Self>) {
+        match crate::shell::omarchy_sh_commands::launch_omarchy_update() {
+            Ok(()) => self
+                .updates
+                .update(cx, |updates, cx| updates.watch_running_update(cx)),
+            Err(e) => eprintln!("{e}"),
+        }
     }
 
-    fn spawn_delayed_recheck(cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            smol::Timer::after(std::time::Duration::from_secs(POST_UPDATE_RECHECK_SECS)).await;
+    fn check_again(&mut self, cx: &mut Context<Self>) {
+        self.updates.update(cx, |updates, cx| updates.refresh(cx));
+    }
 
-            // Re-read local version (the update script will have changed git tags)
-            let current_version =
-                get_local_omarchy_version().unwrap_or_else(|_| "unknown".to_string());
+    /// The version line and, under it, what the update check found.
+    fn render_status(&self, cx: &mut Context<Self>) -> AnyElement {
+        let theme = cx.theme();
+        let updates = self.updates.read(cx);
+        let version = updates
+            .version()
+            .map(|v| format!("Version {v}"))
+            .unwrap_or_else(|| "Version unknown".to_string());
+        let muted = |text: String| {
+            div()
+                .text_xs()
+                .text_color(theme.muted_foreground)
+                .child(text)
+        };
 
-            this.update(cx, |this, _cx| {
-                this.local_version = current_version.clone();
-                this.update_available = None;
-            })
-            .ok();
-
-            match check_omarchy_update(&current_version).await {
-                Ok(update_available) => {
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(update_available);
-                    })
-                    .ok();
-                    crate::ui::app_events::emit_async(
-                        cx,
-                        crate::ui::app_events::AppEvent::OmarchyUpdateStatus(update_available),
-                    );
-                }
-                Err(e) => {
-                    eprintln!("Post-update omarchy version check failed: {e}");
-                    this.update(cx, |this, _cx| {
-                        this.update_available = Some(false);
-                    })
-                    .ok();
-                }
+        let detail: AnyElement = match updates.state() {
+            UpdateState::Checking => muted("Checking for updates…".into()).into_any_element(),
+            UpdateState::Updating => {
+                muted("Updating… the status refreshes when omarchy-update finishes".into())
+                    .into_any_element()
             }
-        })
-        .detach();
+            UpdateState::UpToDate => h_flex()
+                .gap_3()
+                .items_center()
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.green)
+                        .font_weight(FontWeight::BOLD)
+                        .child("Up to date"),
+                )
+                .child(
+                    Button::new("check-updates")
+                        .ghost()
+                        .xsmall()
+                        .label("Check again")
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, _, cx| this.check_again(cx))),
+                )
+                .into_any_element(),
+            UpdateState::Available(pending) => v_flex()
+                .gap_2()
+                .items_center()
+                .child(
+                    h_flex()
+                        .gap_4()
+                        .items_center()
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.red)
+                                .child("Update available"),
+                        )
+                        .child(
+                            Button::new("update-omarchy")
+                                .label("Update Omarchy")
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.run_update(cx))),
+                        ),
+                )
+                .children(pending.iter().map(|line| {
+                    div()
+                        .font_family("monospace")
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .child(line.clone())
+                }))
+                .into_any_element(),
+            UpdateState::Failed(error) => v_flex()
+                .gap_1()
+                .items_center()
+                .child(
+                    h_flex()
+                        .gap_3()
+                        .items_center()
+                        .child(muted("Couldn't check for updates".into()))
+                        .child(
+                            Button::new("check-updates")
+                                .ghost()
+                                .xsmall()
+                                .label("Try again")
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.check_again(cx))),
+                        ),
+                )
+                .child(muted(error.clone()))
+                .into_any_element(),
+        };
+
+        v_flex()
+            .gap_1()
+            .items_center()
+            .child(
+                div()
+                    .text_sm()
+                    .text_color(theme.muted_foreground)
+                    .child(version),
+            )
+            .child(detail)
+            .into_any_element()
     }
 }
 
 impl Render for OmarchyView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let version_status = self.render_status(cx);
         let theme = cx.theme();
         let notes_focused = self.notes_focus.is_focused(window);
         let notes_border = crate::ui::focus::focus_border(notes_focused, theme.border, cx);
         let page_height = self.notes_scroll.bounds().size.height;
-
-        let version_status = match self.update_available {
-            None => v_flex()
-                .gap_1()
-                .items_center()
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("Version {}", self.local_version)),
-                )
-                .child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.muted_foreground)
-                        .child("Checking for updates..."),
-                ),
-            Some(true) => {
-                v_flex()
-                    .gap_1()
-                    .items_center()
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(theme.muted_foreground)
-                            .child(format!("Version {}", self.local_version)),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_4()
-                            .items_center()
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.red)
-                                    .child("Update available"),
-                            )
-                            .child(
-                                Button::new("update-omarchy")
-                                    .label("Update Omarchy")
-                                    .on_click(cx.listener(|this, _, _, cx| {
-                                    if let Err(e) =
-                                        crate::shell::omarchy_sh_commands::launch_omarchy_update()
-                                    {
-                                        eprintln!("{e}");
-                                    } else {
-                                        this.update_available = None;
-                                        cx.notify();
-                                        // Schedule a re-check after the update has had time to complete
-                                        Self::spawn_delayed_recheck(cx);
-                                    }
-                                })),
-                            ),
-                    )
-            }
-            Some(false) => v_flex()
-                .gap_1()
-                .items_center()
-                .child(
-                    div()
-                        .text_sm()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("Version {}", self.local_version)),
-                )
-                .child(
-                    h_flex().gap_4().items_center().child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.green)
-                            .font_weight(FontWeight::BOLD)
-                            .child("Up to date"),
-                    ),
-                ),
-        };
 
         let release_notes_section = if let Some(notes) = &self.release_notes {
             let tag = self
@@ -299,7 +263,7 @@ impl Render for OmarchyView {
                                 .text_sm()
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(cx.theme().foreground)
-                                .child(format!("Release Notes  ·  {}", tag)),
+                                .child(format!("Latest release notes  ·  {tag}")),
                         ),
                 )
                 .child(
