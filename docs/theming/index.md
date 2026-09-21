@@ -2,134 +2,60 @@
 outline: deep
 ---
 
-# Theming with Omarchist
+# Themes
 
-Omarchist gives you a Theme Designer to create and customize themes for your desktop environment.
+The **Themes** page (<kbd>Ctrl</kbd> + <kbd>1</kbd>) shows every theme on your system. **All Themes** lists Omarchy's and yours; **Omarchist Themes** lists only the ones made here. **Apply** switches your desktop to the theme. The <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu edits it, opens its folder, or deletes it.
 
-You find your themes in the **Custom Themes** tab on the Themes page. System themes and other non-omarchist themes appear in the **System Themes** tab.
+<img src="/images/themes-light.webp" alt="Themes page" class="screenshot light-only">
+<img src="/images/themes-dark.webp" alt="Themes page" class="screenshot dark-only">
 
-## Create a Theme
+## Create a theme
 
-Click the **Create New Theme** button on the Themes page. Enter a name for your theme and click **Create**. The Theme Designer opens automatically.
+Choose **Create New Theme** from the **Theme** menu in the title bar, or press <kbd>Ctrl</kbd> + <kbd>N</kbd>.
 
-You can also create a theme from an image. Omarchist extracts a color palette from the picture, builds the theme from it, and copies the image into the theme's backgrounds folder.
+<img src="/images/create-theme-light.webp" alt="Create New Theme dialog" class="screenshot light-only">
+<img src="/images/create-theme-dark.webp" alt="Create New Theme dialog" class="screenshot dark-only">
 
-## How Omarchy Uses Your Theme
+- **Select Image** builds a palette from a picture and copies the picture in as the wallpaper.
+- **Create Manually** starts from a default palette.
 
-Omarchy Quattro builds most app configs from a single `colors.toml` file. When you apply a theme, Omarchy generates the terminal configs, window border colors, the bar, notifications, the launcher, a Neovim colorscheme, and a VS Code theme from that palette.
-
-Omarchist writes `colors.toml` for you. It only adds extra files for the few apps that accept a per-theme override, such as btop, Chromium, and the lock screen.
+Either way the Theme Designer opens. Changes save as you make them; there is no Save button.
 
 ## Theme Designer
 
-The Theme Designer lets you customize every part of your desktop. It contains tabs for different components.
+Omarchy Quattro builds your terminals, window borders, the bar, notifications, the launcher, and editor themes from one `colors.toml` file. The designer edits that file, plus the few per-app overrides Omarchy accepts.
+
+<img src="/images/designer-colors-light.webp" alt="Theme Designer, Colors tab" class="screenshot light-only">
+<img src="/images/designer-colors-dark.webp" alt="Theme Designer, Colors tab" class="screenshot dark-only">
+
+| Tab | What it sets |
+| --- | --- |
+| **General** | The name (with **Rename**), the author, and **Light Theme**, saved as `mode` in `colors.toml`. |
+| **Colors** | Accent, background, foreground, selection, and the 16 ANSI colors. Everything else is generated from these. |
+| **File Manager** | The Yaru icon color for Nautilus. |
+| **Editor** | Optional `neovim.lua` and `vscode.json` overrides. Empty means Omarchy generates them from the palette. |
+| **Overrides** | Window borders (any Hyprland color, gradients included), the Chromium color, the lock screen, and btop. Off means Omarchy generates them. |
+| **Backgrounds** | Wallpapers, copied into the theme folder. |
+
+The copy icon <span class="icon-inline icon-inline-copy" aria-hidden="true"></span> next to a color copies its value so you can paste it into another field. **Apply Theme** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) switches your desktop to the theme you are editing.
 
 ::: warning
-You cannot edit system themes.
+Themes that ship with Omarchy cannot be edited. Create your own instead.
 :::
 
-### General
-
-Set basic information about your theme.
-
-- **Theme Name**: The name appears in your theme list.
-- **Author**: Enter your name or handle.
-- **Light Mode**: Toggle this if you create a light theme. Omarchist writes it as the `mode` key in `colors.toml`.
-
-### Colors
-
-Set the full palette in `colors.toml`. Omarchy generates configurations for **Alacritty**, **Ghostty**, **Kitty**, and **Foot** from these values.
-
-- **Primary Colors**: Accent, background, and foreground colors. Omarchy uses the accent for window borders, the bar, and other highlights.
-- **Selection Colors**: Selection foreground and background.
-- **Normal/Bright Colors**: The 8 standard ANSI colors for both normal and bright variants.
-
-### File Manager
-
-Select the icon theme for **Nautilus**.
-
-- **Yaru Colors**: Choose from Red, Blue, Olive, Yellow, Purple, Magenta, or Sage variants.
-
-### Editor
-
-Optionally override the editor themes Omarchy generates.
-
-- **Neovim**: Edit the `neovim.lua` file directly. Leave it empty to use the colorscheme Omarchy generates from your palette.
-- **VS Code**: Edit the `vscode.json` file directly. Leave it empty to use the VS Code theme Omarchy generates from your palette.
-
-Clearing a field removes the override file.
-
-### Overrides
-
-Omarchy generates these configs from your palette every time you apply the theme. Fill in an override only when something needs colors that differ from the generated ones. Clearing a field or turning an override off returns it to the palette.
-
-Each app override starts from the same colors Omarchy would generate, so you only change what you need.
-
-- **Window Borders**: Hyprland border colors. Omarchy uses the accent color for the active border and a neutral grey for inactive ones. Any Hyprland color works, including gradients such as `rgba(26a269ee) rgba(2ec27eee) 45deg`. Leave a field blank for the default.
-- **Browser**: The Chromium theme color. Omarchy uses the theme background by default.
-- **Lock Screen**: Text, placeholder, error, and border colors for the lock screen input.
-- **Btop**: Main, selection, status, box outline, and gradient colors for the btop system monitor.
-
-### Backgrounds
-
-Set wallpapers for your desktop.
-
-- **Select Image**: Choose from your local files. Omarchist copies the image to your theme directory.
-
-## Tips
-
-### Copy Colors
-
-Reuse the same color across different components.
-
-Click the **Copy** icon <span class="icon-inline icon-inline-copy" aria-hidden="true"></span> next to any color field to copy its value. Paste it into another field for consistency.
-
-### Auto-Save
-
-Omarchist saves your theme automatically when you make changes. You do not need to click a Save button.
-
-### View Themes
-
-After saving, your theme appears in the **Custom Themes** tab on the Themes page. Click the theme card to apply it to your desktop.
-
-## Theme Manifest
-
-Every theme created with Omarchist contains an `omarchist.json` file. This file serves as a manifest and identifies the theme as an Omarchist-created theme.
-
-### What the Manifest Contains
-
-The manifest stores:
-
-- **Version**: The manifest format version
-- **Name**: Theme name
-- **Created At**: Creation timestamp
-- **Modified At**: Last modification timestamp
-- **Author**: Theme creator name
-- **Colors**: Color palette definitions
-- **App Configurations**: Settings for individual applications
-
-Themes with an `omarchist.json` file are considered Omarchist-managed.
-
-::: warning Do Not Edit Manually
-Never edit the `omarchist.json` file directly. Use the Theme Designer to make changes. Manual edits may corrupt the theme.
-:::
-
-### Theme Structure
-
-A theme folder contains:
+## Theme folder
 
 ```
 ~/.config/omarchy/themes/my-theme/
-├── omarchist.json          # Theme manifest (do not edit)
-├── colors.toml             # Color palette — Omarchy generates the rest from this
-├── btop.theme              # Btop system monitor (optional override)
-├── chromium.theme          # Chromium theme color (optional override)
-├── shell.lock.toml         # Lock screen colors (optional override)
-├── icons.theme             # Icon theme reference
-├── neovim.lua              # Neovim configuration (optional override)
-├── vscode.json             # VS Code theme reference (optional override)
-└── backgrounds/            # Wallpaper images
-    └── *.png
+├── omarchist.json      # marks the theme as made by Omarchist; do not edit
+├── colors.toml         # the palette Omarchy generates everything from
+├── icons.theme         # icon theme
+├── backgrounds/        # wallpapers
+├── btop.theme          # optional override
+├── chromium.theme      # optional override
+├── shell.lock.toml     # optional override
+├── neovim.lua          # optional override
+└── vscode.json         # optional override
 ```
 
-Omarchy generates terminal configs, window border colors, and the rest of the desktop from `colors.toml` when you apply the theme, so those files never appear in the theme folder.
+Terminal configs, border colors, and the rest never appear here; Omarchy generates them when the theme is applied.
