@@ -569,7 +569,7 @@ impl FlowsView {
                         div()
                             .text_lg()
                             .font_weight(FontWeight::SEMIBOLD)
-                            .child("Automate your desk with flows"),
+                            .child("Automate Omarchy with flows"),
                     )
                     .child(
                         div()
