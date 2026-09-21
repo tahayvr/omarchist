@@ -619,7 +619,8 @@ impl FlowsView {
                     )
                     .child(h_flex().gap_4().flex_wrap().items_stretch().children(
                         templates.iter().enumerate().map(|(ix, template)| {
-                            let id = template.id.clone();
+                            let key = template.key.clone();
+                            let template = &template.flow;
                             Button::new(("template", ix))
                                 .outline()
                                 .flex_1()
@@ -656,7 +657,7 @@ impl FlowsView {
                                         .child(step_strip(template, &summaries, cx)),
                                 )
                                 .on_click(
-                                    cx.listener(move |this, _, _, cx| this.use_template(&id, cx)),
+                                    cx.listener(move |this, _, _, cx| this.use_template(&key, cx)),
                                 )
                         }),
                     )),

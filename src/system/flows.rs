@@ -24,6 +24,8 @@ pub const MAX_DEPTH: usize = 8;
 #[serde(deny_unknown_fields)]
 pub struct Flow {
     /// Stable slug that keybinds, desktop entries, and the CLI refer to.
+    /// Absent in templates and shared files, which get one when saved.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub id: String,
     pub name: String,
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -203,6 +205,12 @@ impl Flow {
         if !is_slug(&self.id) {
             return Err(Error::Invalid(format!("Invalid flow id '{}'", self.id)));
         }
+        self.validate_content()
+    }
+
+    /// [`validate`](Self::validate) without the id check, for templates and
+    /// shared files, which have no id yet.
+    pub fn validate_content(&self) -> Result<()> {
         if self.name.trim().is_empty() {
             return Err(Error::Invalid("A flow needs a name".to_string()));
         }
@@ -221,6 +229,9 @@ impl Flow {
                 }
                 StepKind::Notify { title, .. } if title.trim().is_empty() => {
                     return Err(Error::Invalid("A notification needs a title".to_string()));
+                }
+                StepKind::Flow { id } if id.is_empty() => {
+                    return Err(Error::Invalid("A flow step needs a flow".to_string()));
                 }
                 StepKind::Flow { id } if id == &self.id => {
                     return Err(Error::Invalid("A flow cannot run itself".to_string()));

@@ -123,12 +123,12 @@ impl FlowEditPage {
                     (Flow::new(String::new(), id.clone()), None)
                 }
             },
-            FlowEditSource::New(template_id) => {
-                let mut flow = template_id
+            FlowEditSource::New(template_key) => {
+                let flow = template_key
                     .as_deref()
                     .and_then(template)
+                    .map(|t| t.flow)
                     .unwrap_or_else(|| Flow::new(String::new(), String::new()));
-                flow.id = String::new();
                 (flow, None)
             }
         };

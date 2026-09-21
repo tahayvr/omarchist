@@ -1,0 +1,18 @@
+name = "Focus mode"
+description = "Moves to workspace 2 and opens your editor."
+icon = "target"
+on_error = "stop"
+
+[[step]]
+type = "lua"
+expr = 'hl.dsp.focus({ workspace = "2" })'
+
+[[step]]
+type = "exec"
+command = "omarchy-launch-editor"
+
+[[step]]
+type = "notify"
+title = "Focus mode"
+body = "Everything else can wait"
+

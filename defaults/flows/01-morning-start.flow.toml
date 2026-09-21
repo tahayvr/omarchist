@@ -1,0 +1,25 @@
+name = "Morning start"
+description = "Opens your browser, a terminal, and music, then says hello."
+icon = "coffee"
+on_error = "continue"
+
+[triggers]
+startup = true
+
+[[step]]
+type = "exec"
+command = "omarchy-launch-browser"
+
+[[step]]
+type = "exec"
+command = "omarchy-launch-terminal"
+
+[[step]]
+type = "exec"
+command = "omarchy-launch-spotify"
+
+[[step]]
+type = "notify"
+title = "Good morning"
+body = "Your desk is ready"
+
