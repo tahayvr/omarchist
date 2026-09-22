@@ -718,14 +718,6 @@ impl Render for MainWindowView {
                     }
                 },
             ))
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::SearchKeybindsByKeys, window, cx| {
-                    this.navigate_to(ActivePage::Keybinds, window, cx);
-                    if let Some(view) = &this.keybinds_view {
-                        view.update(cx, |view, cx| view.start_chord_search(window, cx));
-                    }
-                },
-            ))
             .on_action(
                 cx.listener(|this, _: &crate::ui::menu::app_menu::NewFlow, window, cx| {
                     this.navigate_to(ActivePage::FlowNew(None), window, cx);

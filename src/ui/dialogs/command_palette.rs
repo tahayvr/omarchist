@@ -82,18 +82,11 @@ fn groups() -> Vec<Group> {
         },
         Group {
             title: "Keybinds",
-            entries: vec![
-                entry(
-                    "Add a keybind",
-                    &["new", "bind", "shortcut"],
-                    app_menu::NewKeybind,
-                ),
-                entry(
-                    "Search keybinds by pressing keys",
-                    &["find", "chord", "record"],
-                    app_menu::SearchKeybindsByKeys,
-                ),
-            ],
+            entries: vec![entry(
+                "Add a keybind",
+                &["new", "bind", "shortcut"],
+                app_menu::NewKeybind,
+            )],
         },
         Group {
             title: "Flows",

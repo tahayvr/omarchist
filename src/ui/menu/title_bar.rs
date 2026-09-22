@@ -99,7 +99,6 @@ impl Render for MainTitleBar {
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _, _| {
                                 menu.menu("Add Keybind...", Box::new(app_menu::NewKeybind))
-                                    .menu("Search by Keys", Box::new(app_menu::SearchKeybindsByKeys))
                             }),
                     )
                     .child(

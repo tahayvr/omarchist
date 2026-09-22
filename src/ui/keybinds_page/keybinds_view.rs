@@ -318,13 +318,6 @@ impl KeybindsView {
         }
     }
 
-    /// Switches the search box to key presses, unless it already is.
-    pub fn start_chord_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.chord_search_on {
-            self.toggle_chord_search(window, cx);
-        }
-    }
-
     fn toggle_chord_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.chord_search_on = !self.chord_search_on;
         if self.chord_search_on {

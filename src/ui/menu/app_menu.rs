@@ -21,7 +21,6 @@ actions!(
         NavigateToFlows,
         // Title-bar menus and the command palette
         NewKeybind,
-        SearchKeybindsByKeys,
         NewFlow,
         NewFlowFromTemplate,
         ImportFlow,
