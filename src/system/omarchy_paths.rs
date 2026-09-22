@@ -26,6 +26,18 @@ pub fn omarchy_version_file() -> PathBuf {
     omarchy_install_dir().join("version")
 }
 
+// `$OMARCHY_PATH/default/themed` — the `*.tpl` files `omarchy-theme-set-templates`
+// renders into a theme that does not ship the file itself.
+pub fn themed_templates_dir() -> PathBuf {
+    omarchy_install_dir().join("default").join("themed")
+}
+
+// `~/.config/omarchy/themed` — the user's own templates, which win over the
+// built-in ones of the same name.
+pub fn user_themed_templates_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themed"))
+}
+
 // `~/.config/omarchy/themes` — user-installed and Omarchist-created themes.
 pub fn user_themes_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))

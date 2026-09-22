@@ -1,5 +1,6 @@
 use crate::error::{Error, Result};
 use smol::unblock;
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 pub async fn apply_theme(dir: String) -> Result<()> {
@@ -23,6 +24,26 @@ async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<()> {
         Ok(())
     })
     .await
+}
+
+/// Resolves a `colors.toml` into Omarchy's full palette (`key<TAB>value`
+/// lines), aliases and derived shades included.
+pub fn theme_color_all(colors_file: &Path) -> Result<String> {
+    let output = Command::new("omarchy-theme-color")
+        .arg("--file")
+        .arg(colors_file)
+        .arg("--all")
+        .output()
+        .map_err(|e| Error::io("Failed to execute omarchy-theme-color", e))?;
+
+    if !output.status.success() {
+        return Err(Error::Invalid(format!(
+            "omarchy-theme-color failed: {}",
+            String::from_utf8_lossy(&output.stderr).trim()
+        )));
+    }
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
 // Refresh apps to apply theme changes
