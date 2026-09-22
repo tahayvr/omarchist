@@ -16,7 +16,7 @@ Choose **Create New Theme** from the **Themes** menu in the title bar, or press 
 <img src="/images/create-theme-light.webp" alt="Create New Theme dialog" class="screenshot light-only">
 <img src="/images/create-theme-dark.webp" alt="Create New Theme dialog" class="screenshot dark-only">
 
-- **Select Image** builds a palette from a picture and copies the picture in as the wallpaper.
+- **Select Image** builds a palette from a picture and copies the picture in as the wallpaper. The same thing from a terminal: `omarchist theme from-image <picture>`.
 - **Create Manually** starts from a default palette.
 
 Either way the Theme Designer opens. Changes save as you make them; there is no Save button.
