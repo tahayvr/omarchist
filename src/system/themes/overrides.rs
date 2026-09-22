@@ -6,8 +6,11 @@
 //! `shell.<section>.toml` it finds. Every file here is therefore optional: when
 //! it is absent Omarchy generates it from `colors.toml`.
 
+pub mod btop;
+pub mod chromium;
 pub mod files;
 pub mod registry;
+pub mod shell_section;
 pub mod template;
 pub mod validate;
 

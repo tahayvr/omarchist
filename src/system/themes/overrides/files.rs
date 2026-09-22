@@ -8,6 +8,7 @@ use crate::system::omarchy_paths::{
 };
 
 use super::registry::{OverrideSpec, Seed};
+use super::shell_section;
 use super::template::{Palette, render};
 use super::validate::validate;
 
@@ -84,7 +85,7 @@ pub fn generated(theme: &str, spec: &OverrideSpec) -> Result<String> {
         Seed::Template(template) => Ok(render(&read_template(template)?, &palette(theme)?)),
         Seed::ShellSection(section) => {
             let shell = render(&read_template("shell.toml.tpl")?, &palette(theme)?);
-            shell_section(&shell, section)
+            shell_section::cut(&shell, section)
                 .ok_or_else(|| Error::Invalid(format!("shell.toml.tpl has no [{section}] section")))
         }
     }
@@ -99,70 +100,13 @@ fn read_template(name: &str) -> Result<String> {
     fs::read_to_string(&path).map_err(|e| Error::io(format!("Failed to read template {name}"), e))
 }
 
-// The section name of a `[section]` header line, matching the header pattern
-// `omarchy-theme-set-templates` uses (a trailing comment is allowed).
-fn header_name(line: &str) -> Option<&str> {
-    let rest = line.trim_start().strip_prefix('[')?;
-    let (name, after) = rest.split_once(']')?;
-    let after = after.trim_start();
-    (!name.is_empty() && (after.is_empty() || after.starts_with('#'))).then_some(name)
-}
-
-/// Cuts one section, header included, out of a rendered `shell.toml`.
-pub fn shell_section(shell: &str, section: &str) -> Option<String> {
-    let mut lines = shell
-        .lines()
-        .skip_while(|line| header_name(line) != Some(section));
-    let header = lines.next()?;
-    let mut body: Vec<&str> = lines
-        .take_while(|line| header_name(line).is_none())
-        .collect();
-    while body.last().is_some_and(|line| line.trim().is_empty()) {
-        body.pop();
-    }
-    let mut out = format!("{}\n", header.trim());
-    for line in body {
-        out.push_str(line);
-        out.push('\n');
-    }
-    Some(out)
-}
-
-/// Every `[section]` of a `shell.toml`, in order.
-pub fn shell_sections(shell: &str) -> Vec<&str> {
-    shell.lines().filter_map(header_name).collect()
-}
-
 #[cfg(test)]
 mod tests {
     use std::fs;
 
-    use super::{header_name, shell_section, shell_sections};
     use crate::system::omarchy_paths::themed_templates_dir;
     use crate::system::themes::overrides::registry::OVERRIDES;
-
-    const SHELL: &str = "# comment\n\n[bar]\n# help\nbackground = \"#000000\"\n\n[lock] # trailing\ntext = \"#ffffff\"\n\n\n";
-
-    #[test]
-    fn headers() {
-        assert_eq!(header_name("[bar]"), Some("bar"));
-        assert_eq!(header_name("  [image-picker]  # c"), Some("image-picker"));
-        assert_eq!(header_name("colors = [1, 2]"), None);
-        assert_eq!(header_name("[bar] x"), None);
-    }
-
-    #[test]
-    fn cuts_a_section_with_its_header_and_without_trailing_blanks() {
-        assert_eq!(
-            shell_section(SHELL, "bar").unwrap(),
-            "[bar]\n# help\nbackground = \"#000000\"\n"
-        );
-        assert_eq!(
-            shell_section(SHELL, "lock").unwrap(),
-            "[lock] # trailing\ntext = \"#ffffff\"\n"
-        );
-        assert!(shell_section(SHELL, "menu").is_none());
-    }
+    use crate::system::themes::overrides::shell_section;
 
     // Compares the renderer with what Omarchy staged for the active theme, when
     // that theme is one of the user's. Run with `cargo test -- --ignored`.
@@ -183,7 +127,7 @@ mod tests {
                 Seed::Template(_) => fs::read_to_string(current.join(spec.file)).ok(),
                 Seed::ShellSection(section) => fs::read_to_string(current.join("shell.toml"))
                     .ok()
-                    .and_then(|shell| shell_section(&shell, section)),
+                    .and_then(|shell| shell_section::cut(&shell, section)),
                 Seed::Fixed(_) => None,
             };
             let Some(staged) = staged else {
@@ -203,7 +147,7 @@ mod tests {
         let Ok(shell) = fs::read_to_string(themed_templates_dir().join("shell.toml.tpl")) else {
             return;
         };
-        for section in shell_sections(&shell) {
+        for section in shell_section::sections(&shell) {
             assert!(
                 OVERRIDES
                     .iter()

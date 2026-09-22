@@ -1,7 +1,8 @@
 use crate::shell::theme_sh_commands::execute_bash_command;
-use crate::system::themes::theme_management::update_theme;
-use crate::types::themes::EditingTheme;
-use crate::ui::theme_edit_page::shared::{focus_section, form_section, help_text, tab_container};
+use crate::system::themes::overrides::{self, OverrideSpec};
+use crate::ui::theme_edit_page::shared::{
+    error_message, focus_section, form_section, help_text, tab_container,
+};
 use gpui::*;
 use gpui_component::{ActiveTheme, button::Button, h_flex, radio::Radio, v_flex};
 
@@ -51,9 +52,7 @@ const YARU_COLORS: &[YaruColor] = &[
 
 pub struct FileManagerTab {
     theme_name: String,
-    theme_data: EditingTheme,
     selected_color: String,
-    is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
 }
@@ -61,71 +60,33 @@ pub struct FileManagerTab {
 impl FileManagerTab {
     pub fn new(
         theme_name: String,
-        theme_data: EditingTheme,
         scroll: &ScrollHandle,
         _window: &mut Window,
         _cx: &mut Context<Self>,
     ) -> Self {
-        let selected_color = Self::get_current_icon_theme(&theme_data);
+        let selected_color = Self::icons_spec()
+            .and_then(|spec| overrides::read(&theme_name, spec).ok().flatten())
+            .map(|content| content.trim().to_string())
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| "Yaru-blue".to_string());
 
         Self {
             theme_name,
-            theme_data,
             selected_color,
-            is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
         }
     }
 
-    fn get_current_icon_theme(theme_data: &EditingTheme) -> String {
-        theme_data
-            .apps
-            .icons
-            .as_ref()
-            .and_then(|icons| icons.get("theme_name"))
-            .and_then(|name| name.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| "Yaru-red".to_string())
+    fn icons_spec() -> Option<&'static OverrideSpec> {
+        overrides::find("icons.theme")
     }
 
-    fn update_icon_theme(&mut self, color: String) {
-        self.selected_color = color.clone();
-
-        let icons_config = serde_json::json!({
-            "theme_name": color
-        });
-
-        self.theme_data.apps.icons = Some(icons_config);
-    }
-
-    fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        if self.theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-        cx.notify();
-
-        // save_theme_data writes icons.theme from apps.icons.
-        let icons = self.theme_data.apps.icons.clone();
-        match update_theme(&self.theme_name, |theme| theme.apps.icons = icons) {
-            Ok(()) => {
-                self.is_saving = false;
-            }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(e.to_string());
-            }
-        }
-
+    fn set_icon_theme(&mut self, name: &str, cx: &mut Context<Self>) {
+        self.selected_color = name.to_string();
+        self.error_message = Self::icons_spec()
+            .and_then(|spec| overrides::write(&self.theme_name, spec, &format!("{name}\n")).err())
+            .map(|e| e.to_string());
         cx.notify();
     }
 
@@ -152,9 +113,8 @@ impl FileManagerTab {
                 Radio::new(color_value)
                     .label(yaru_color.label)
                     .checked(is_selected)
-                    .on_click(cx.listener(move |this, _checked: &bool, window, cx| {
-                        this.update_icon_theme(yaru_color.value.to_string());
-                        this.save(window, cx);
+                    .on_click(cx.listener(move |this, _checked: &bool, _window, cx| {
+                        this.set_icon_theme(yaru_color.value, cx);
                     })),
             )
             .child(div().size_6().bg(gpui::rgb(color_hex)).border_1())
@@ -170,6 +130,11 @@ impl Render for FileManagerTab {
         }
 
         tab_container()
+            .children(
+                self.error_message
+                    .as_ref()
+                    .map(|msg| error_message(msg.clone(), cx)),
+            )
             .child(focus_section(
                 "file-manager-header",
                 &self.scroll,

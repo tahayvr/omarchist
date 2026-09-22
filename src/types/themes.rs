@@ -78,7 +78,6 @@ pub struct EditingTheme {
     pub created_at: String,
     pub modified_at: String,
     pub author: Option<String>,
-    pub apps: AppConfigs,
     #[serde(default)]
     pub colors: ColorsConfig,
     #[serde(skip)] // Runtime-only, not serialized to JSON
@@ -93,7 +92,6 @@ impl Default for EditingTheme {
             created_at: String::new(),
             modified_at: String::new(),
             author: None,
-            apps: AppConfigs::default(),
             colors: ColorsConfig::default(),
             is_light_theme: false,
         }
@@ -177,44 +175,6 @@ impl Default for ColorsConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BrowserConfig {
-    pub theme_color: String,
-}
-
-impl Default for BrowserConfig {
-    fn default() -> Self {
-        Self {
-            theme_color: "#0F0F19".to_string(),
-        }
-    }
-}
-
-// Lock screen colors — Quattro's `shell.lock.toml`, confirmed keys and format
-// against the real omacom/omarchy@quattro source (e.g. themes/tokyo-night/shell.lock.toml).
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LockScreenConfig {
-    pub text: String,
-    pub placeholder: String,
-    pub text_error: String,
-    pub border: String,
-    pub border_active: String,
-    pub border_error: String,
-}
-
-impl Default for LockScreenConfig {
-    fn default() -> Self {
-        Self {
-            text: "#EDEDFE".to_string(),
-            placeholder: "#EDEDFE".to_string(),
-            text_error: "#FF3366".to_string(),
-            border: "#33A1FF".to_string(),
-            border_active: "#33A1FF".to_string(),
-            border_error: "#FF3366".to_string(),
-        }
-    }
-}
-
 // A generic 8-slot ANSI color palette, used as an intermediate value type by
 // the image-based color extractor (`color_extractor.rs`) — independent of
 // any specific app's config file format.
@@ -243,106 +203,4 @@ impl Default for TerminalPalette {
             white: "#EDEDFE".to_string(),
         }
     }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct BtopConfig {
-    pub main_bg: String,
-    pub main_fg: String,
-    pub title: String,
-    pub hi_fg: String,
-    pub selected_bg: String,
-    pub selected_fg: String,
-    pub inactive_fg: String,
-    pub proc_misc: String,
-    pub cpu_box: String,
-    pub mem_box: String,
-    pub net_box: String,
-    pub proc_box: String,
-    pub div_line: String,
-    pub temp_start: String,
-    pub temp_mid: String,
-    pub temp_end: String,
-    pub cpu_start: String,
-    pub cpu_mid: String,
-    pub cpu_end: String,
-    pub free_start: String,
-    pub free_mid: String,
-    pub free_end: String,
-    pub cached_start: String,
-    pub cached_mid: String,
-    pub cached_end: String,
-    pub available_start: String,
-    pub available_mid: String,
-    pub available_end: String,
-    pub used_start: String,
-    pub used_mid: String,
-    pub used_end: String,
-    pub download_start: String,
-    pub download_mid: String,
-    pub download_end: String,
-    pub upload_start: String,
-    pub upload_mid: String,
-    pub upload_end: String,
-}
-
-impl Default for BtopConfig {
-    fn default() -> Self {
-        Self {
-            main_bg: "#0F0F19".to_string(),
-            main_fg: "#EDEDFE".to_string(),
-            title: "#6e6e92".to_string(),
-            hi_fg: "#33A1FF".to_string(),
-            selected_bg: "#f59e0b".to_string(),
-            selected_fg: "#EDEDFE".to_string(),
-            inactive_fg: "#333333".to_string(),
-            proc_misc: "#8a8a8d".to_string(),
-            cpu_box: "#6e6e92".to_string(),
-            mem_box: "#6e6e92".to_string(),
-            net_box: "#6e6e92".to_string(),
-            proc_box: "#6e6e92".to_string(),
-            div_line: "#6e6e92".to_string(),
-            temp_start: "#00F59B".to_string(),
-            temp_mid: "#FF66F6".to_string(),
-            temp_end: "#FF3366".to_string(),
-            cpu_start: "#00F59B".to_string(),
-            cpu_mid: "#FF66F6".to_string(),
-            cpu_end: "#FF3366".to_string(),
-            free_start: "#00F59B".to_string(),
-            free_mid: "#FF66F6".to_string(),
-            free_end: "#FF3366".to_string(),
-            cached_start: "#00F59B".to_string(),
-            cached_mid: "#FF66F6".to_string(),
-            cached_end: "#FF3366".to_string(),
-            available_start: "#00F59B".to_string(),
-            available_mid: "#FF66F6".to_string(),
-            available_end: "#FF3366".to_string(),
-            used_start: "#00F59B".to_string(),
-            used_mid: "#FF66F6".to_string(),
-            used_end: "#FF3366".to_string(),
-            download_start: "#00F59B".to_string(),
-            download_mid: "#FF66F6".to_string(),
-            download_end: "#FF3366".to_string(),
-            upload_start: "#00F59B".to_string(),
-            upload_mid: "#FF66F6".to_string(),
-            upload_end: "#FF3366".to_string(),
-        }
-    }
-}
-
-// A theme folder's contents beyond `colors.toml`. Everything here is an
-// *optional override*: Quattro's `omarchy-theme-set-templates` generates
-// btop.theme, chromium.theme, the shell's `[lock]` section, neovim.lua and a
-// VS Code theme from `colors.toml` whenever the theme folder doesn't ship
-// its own copy. `None` therefore means "no file on disk, let Omarchy generate
-// it" — and `save_theme_data` deletes the file when a value goes back to
-// `None`, so a stale override never drifts away from the palette.
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-pub struct AppConfigs {
-    pub btop: Option<BtopConfig>,
-    pub chromium: Option<BrowserConfig>,
-    pub lock: Option<LockScreenConfig>,
-    pub neovim: Option<serde_json::Value>,
-    pub vscode: Option<serde_json::Value>,
-    pub icons: Option<serde_json::Value>,
 }

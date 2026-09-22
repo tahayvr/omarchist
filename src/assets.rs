@@ -182,17 +182,6 @@ mod tests {
         let theme: EditingTheme =
             serde_json::from_str(&substituted).expect("default manifest should parse");
         assert_eq!(theme.name, "test-theme");
-        assert!(
-            theme.apps.neovim.is_none(),
-            "new themes ship no neovim override"
-        );
-        assert!(
-            theme.apps.vscode.is_none(),
-            "new themes ship no vscode override"
-        );
-        assert!(theme.apps.btop.is_none(), "btop override is opt-in");
-        assert!(theme.apps.chromium.is_none(), "chromium override is opt-in");
-        assert!(theme.apps.lock.is_none(), "lock override is opt-in");
         assert_eq!(theme.colors.mode, "dark");
     }
 }

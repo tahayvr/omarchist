@@ -5,6 +5,7 @@ use crate::system::themes::color_extractor::{
     ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
 use crate::system::themes::color_utils::{adjust_brightness, hex_to_rgb};
+use crate::system::themes::overrides;
 use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
 use crate::types::themes::{ColorsConfig, EditingTheme};
 
@@ -52,9 +53,13 @@ pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<St
 
     create_theme_from_defaults(theme_name)?;
 
-    // save_theme_data writes colors.toml and icons.theme from the manifest.
     let editing_theme = build_theme_from_palette(&palette, theme_name);
     save_theme_data(theme_name, &editing_theme)?;
+
+    if let Some(icons) = overrides::find("icons.theme") {
+        let icon_theme = select_icon_theme(&palette.accent);
+        overrides::write(theme_name, icons, &format!("{icon_theme}\n"))?;
+    }
 
     copy_image_to_backgrounds(image_path, theme_name)?;
 
@@ -66,11 +71,6 @@ fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> Editing
     use chrono::Utc;
 
     let now = Utc::now().to_rfc3339();
-
-    let icon_theme_name = select_icon_theme(&palette.accent);
-    let icons_config = serde_json::json!({
-        "theme_name": icon_theme_name
-    });
 
     // colors.toml is the sole source of truth for the theme's palette — every
     // other app (terminal, bar, notifications, window borders) is
@@ -116,16 +116,6 @@ fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> Editing
         created_at: now.clone(),
         modified_at: now,
         author: None,
-        // No overrides: Omarchy generates btop, Chromium, lock screen and
-        // editor themes from colors.toml, so they track the palette.
-        apps: crate::types::themes::AppConfigs {
-            btop: None,
-            chromium: None,
-            lock: None,
-            neovim: None,
-            vscode: None,
-            icons: Some(icons_config),
-        },
         colors: colors_config,
         is_light_theme: palette.is_light_theme,
     }

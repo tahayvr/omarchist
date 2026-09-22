@@ -1,9 +1,6 @@
-use crate::system::themes::theme_management::{
-    default_browser_config, default_btop_config, default_lock_config, update_theme,
-};
-use crate::types::themes::{
-    BrowserConfig, BtopConfig, ColorsConfig, EditingTheme, LockScreenConfig,
-};
+use crate::system::themes::overrides::{self, OverrideSpec, btop, chromium, shell_section};
+use crate::system::themes::theme_management::update_theme;
+use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
@@ -22,10 +19,9 @@ use gpui_component::{
 };
 
 // Per-app overrides for files Omarchy would otherwise generate from
-// colors.toml (`btop.theme`, `chromium.theme`, `shell.lock.toml`). Each
-// section has a switch: off means no file on disk and Omarchy's template
-// tracks the palette; on writes a file seeded from the current palette that
-// the user can then edit field by field.
+// colors.toml. Each section has a switch: off means no file on disk and
+// Omarchy's template tracks the palette; on writes the file Omarchy would
+// have generated, which the user then edits field by field.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Override {
     Browser,
@@ -33,169 +29,197 @@ enum Override {
     Btop,
 }
 
-// One color field of an override config: how to read it, how to write it,
-// and where it sits in the form.
-struct Field<C: 'static> {
+impl Override {
+    const ALL: [Override; 3] = [Override::Browser, Override::Lock, Override::Btop];
+
+    fn index(self) -> usize {
+        self as usize
+    }
+
+    fn spec(self) -> Option<&'static OverrideSpec> {
+        overrides::find(match self {
+            Override::Browser => "chromium.theme",
+            Override::Lock => "shell.lock.toml",
+            Override::Btop => "btop.theme",
+        })
+    }
+
+    fn fields(self) -> &'static [Field] {
+        match self {
+            Override::Browser => BROWSER_FIELDS,
+            Override::Lock => LOCK_FIELDS,
+            Override::Btop => BTOP_FIELDS,
+        }
+    }
+
+    fn get(self, content: &str, key: &str) -> Option<String> {
+        match self {
+            Override::Browser => chromium::to_hex(content),
+            Override::Lock => shell_section::get(content, "lock", key),
+            Override::Btop => btop::get(content, key),
+        }
+    }
+
+    fn set(self, content: &str, key: &str, hex: &str) -> Option<String> {
+        match self {
+            Override::Browser => chromium::from_hex(hex),
+            Override::Lock => Some(shell_section::set(content, "lock", key, hex)),
+            Override::Btop => Some(btop::set(content, key, hex)),
+        }
+    }
+}
+
+// One color field of an override file: the key it edits and where it sits in
+// the form.
+struct Field {
     id: &'static str,
     label: &'static str,
     group: &'static str,
-    get: fn(&C) -> String,
-    set: fn(&mut C, String),
+    key: &'static str,
 }
 
-const BROWSER_FIELDS: &[Field<BrowserConfig>] = &[Field {
-    id: "browser-theme",
-    label: "Theme Color",
-    group: "Chromium",
-    get: |c| c.theme_color.clone(),
-    set: |c, v| c.theme_color = v,
-}];
+const fn field(
+    id: &'static str,
+    label: &'static str,
+    group: &'static str,
+    key: &'static str,
+) -> Field {
+    Field {
+        id,
+        label,
+        group,
+        key,
+    }
+}
 
-const LOCK_FIELDS: &[Field<LockScreenConfig>] = &[
-    Field {
-        id: "lock-text",
-        label: "Text",
-        group: "Text",
-        get: |c| c.text.clone(),
-        set: |c, v| c.text = v,
-    },
-    Field {
-        id: "lock-placeholder",
-        label: "Placeholder",
-        group: "Text",
-        get: |c| c.placeholder.clone(),
-        set: |c, v| c.placeholder = v,
-    },
-    Field {
-        id: "lock-text-error",
-        label: "Text Error",
-        group: "Text",
-        get: |c| c.text_error.clone(),
-        set: |c, v| c.text_error = v,
-    },
-    Field {
-        id: "lock-border",
-        label: "Border",
-        group: "Border",
-        get: |c| c.border.clone(),
-        set: |c, v| c.border = v,
-    },
-    Field {
-        id: "lock-border-active",
-        label: "Border Active",
-        group: "Border",
-        get: |c| c.border_active.clone(),
-        set: |c, v| c.border_active = v,
-    },
-    Field {
-        id: "lock-border-error",
-        label: "Border Error",
-        group: "Border",
-        get: |c| c.border_error.clone(),
-        set: |c, v| c.border_error = v,
-    },
+const BROWSER_FIELDS: &[Field] = &[field("browser-theme", "Theme Color", "Chromium", "")];
+
+const LOCK_FIELDS: &[Field] = &[
+    field("lock-text", "Text", "Text", "text"),
+    field("lock-placeholder", "Placeholder", "Text", "placeholder"),
+    field("lock-text-error", "Text Error", "Text", "text-error"),
+    field("lock-border", "Border", "Border", "border"),
+    field(
+        "lock-border-active",
+        "Border Active",
+        "Border",
+        "border-active",
+    ),
+    field(
+        "lock-border-error",
+        "Border Error",
+        "Border",
+        "border-error",
+    ),
 ];
 
-macro_rules! btop_field {
-    ($id:literal, $label:literal, $group:literal, $field:ident) => {
-        Field {
-            id: $id,
-            label: $label,
-            group: $group,
-            get: |c| c.$field.clone(),
-            set: |c, v| c.$field = v,
-        }
-    };
-}
-
-const BTOP_FIELDS: &[Field<BtopConfig>] = &[
-    btop_field!("btop-main-bg", "Background", "Main Colors", main_bg),
-    btop_field!("btop-main-fg", "Foreground", "Main Colors", main_fg),
-    btop_field!("btop-title", "Title", "Main Colors", title),
-    btop_field!("btop-hi-fg", "Highlight", "Main Colors", hi_fg),
-    btop_field!(
+const BTOP_FIELDS: &[Field] = &[
+    field("btop-main-bg", "Background", "Main Colors", "main_bg"),
+    field("btop-main-fg", "Foreground", "Main Colors", "main_fg"),
+    field("btop-title", "Title", "Main Colors", "title"),
+    field("btop-hi-fg", "Highlight", "Main Colors", "hi_fg"),
+    field(
         "btop-selected-bg",
         "Selected Background",
         "Selection Colors",
-        selected_bg
+        "selected_bg",
     ),
-    btop_field!(
+    field(
         "btop-selected-fg",
         "Selected Foreground",
         "Selection Colors",
-        selected_fg
+        "selected_fg",
     ),
-    btop_field!("btop-inactive-fg", "Inactive", "Status Colors", inactive_fg),
-    btop_field!("btop-proc-misc", "Proc Misc", "Status Colors", proc_misc),
-    btop_field!("btop-cpu-box", "CPU Box", "Box Outline Colors", cpu_box),
-    btop_field!("btop-mem-box", "Memory Box", "Box Outline Colors", mem_box),
-    btop_field!("btop-net-box", "Net Box", "Box Outline Colors", net_box),
-    btop_field!("btop-proc-box", "Proc Box", "Box Outline Colors", proc_box),
-    btop_field!(
+    field(
+        "btop-inactive-fg",
+        "Inactive",
+        "Status Colors",
+        "inactive_fg",
+    ),
+    field("btop-proc-misc", "Proc Misc", "Status Colors", "proc_misc"),
+    field("btop-cpu-box", "CPU Box", "Box Outline Colors", "cpu_box"),
+    field(
+        "btop-mem-box",
+        "Memory Box",
+        "Box Outline Colors",
+        "mem_box",
+    ),
+    field("btop-net-box", "Net Box", "Box Outline Colors", "net_box"),
+    field(
+        "btop-proc-box",
+        "Proc Box",
+        "Box Outline Colors",
+        "proc_box",
+    ),
+    field(
         "btop-div-line",
         "Divider Line",
         "Box Outline Colors",
-        div_line
+        "div_line",
     ),
-    btop_field!("btop-temp-start", "Start", "Temperature Graph", temp_start),
-    btop_field!("btop-temp-mid", "Mid", "Temperature Graph", temp_mid),
-    btop_field!("btop-temp-end", "End", "Temperature Graph", temp_end),
-    btop_field!("btop-cpu-start", "Start", "CPU Graph", cpu_start),
-    btop_field!("btop-cpu-mid", "Mid", "CPU Graph", cpu_mid),
-    btop_field!("btop-cpu-end", "End", "CPU Graph", cpu_end),
-    btop_field!("btop-free-start", "Start", "Free Meter", free_start),
-    btop_field!("btop-free-mid", "Mid", "Free Meter", free_mid),
-    btop_field!("btop-free-end", "End", "Free Meter", free_end),
-    btop_field!("btop-cached-start", "Start", "Cached Meter", cached_start),
-    btop_field!("btop-cached-mid", "Mid", "Cached Meter", cached_mid),
-    btop_field!("btop-cached-end", "End", "Cached Meter", cached_end),
-    btop_field!(
+    field(
+        "btop-temp-start",
+        "Start",
+        "Temperature Graph",
+        "temp_start",
+    ),
+    field("btop-temp-mid", "Mid", "Temperature Graph", "temp_mid"),
+    field("btop-temp-end", "End", "Temperature Graph", "temp_end"),
+    field("btop-cpu-start", "Start", "CPU Graph", "cpu_start"),
+    field("btop-cpu-mid", "Mid", "CPU Graph", "cpu_mid"),
+    field("btop-cpu-end", "End", "CPU Graph", "cpu_end"),
+    field("btop-free-start", "Start", "Free Meter", "free_start"),
+    field("btop-free-mid", "Mid", "Free Meter", "free_mid"),
+    field("btop-free-end", "End", "Free Meter", "free_end"),
+    field("btop-cached-start", "Start", "Cached Meter", "cached_start"),
+    field("btop-cached-mid", "Mid", "Cached Meter", "cached_mid"),
+    field("btop-cached-end", "End", "Cached Meter", "cached_end"),
+    field(
         "btop-available-start",
         "Start",
         "Available Meter",
-        available_start
+        "available_start",
     ),
-    btop_field!(
+    field(
         "btop-available-mid",
         "Mid",
         "Available Meter",
-        available_mid
+        "available_mid",
     ),
-    btop_field!(
+    field(
         "btop-available-end",
         "End",
         "Available Meter",
-        available_end
+        "available_end",
     ),
-    btop_field!("btop-used-start", "Start", "Used Meter", used_start),
-    btop_field!("btop-used-mid", "Mid", "Used Meter", used_mid),
-    btop_field!("btop-used-end", "End", "Used Meter", used_end),
-    btop_field!(
+    field("btop-used-start", "Start", "Used Meter", "used_start"),
+    field("btop-used-mid", "Mid", "Used Meter", "used_mid"),
+    field("btop-used-end", "End", "Used Meter", "used_end"),
+    field(
         "btop-download-start",
         "Start",
         "Download Graph",
-        download_start
+        "download_start",
     ),
-    btop_field!("btop-download-mid", "Mid", "Download Graph", download_mid),
-    btop_field!("btop-download-end", "End", "Download Graph", download_end),
-    btop_field!("btop-upload-start", "Start", "Upload Graph", upload_start),
-    btop_field!("btop-upload-mid", "Mid", "Upload Graph", upload_mid),
-    btop_field!("btop-upload-end", "End", "Upload Graph", upload_end),
+    field("btop-download-mid", "Mid", "Download Graph", "download_mid"),
+    field("btop-download-end", "End", "Download Graph", "download_end"),
+    field("btop-upload-start", "Start", "Upload Graph", "upload_start"),
+    field("btop-upload-mid", "Mid", "Upload Graph", "upload_mid"),
+    field("btop-upload-end", "End", "Upload Graph", "upload_end"),
 ];
 
 pub struct OverridesTab {
     theme_name: String,
     theme_data: EditingTheme,
-    // Pickers are parallel to the field tables above; empty when the
-    // override is off.
-    browser_pickers: Vec<Entity<ColorPickerState>>,
-    lock_pickers: Vec<Entity<ColorPickerState>>,
-    btop_pickers: Vec<Entity<ColorPickerState>>,
+    // The theme's own file per override, by `Override::index`; `None` when
+    // Omarchy generates it.
+    contents: [Option<String>; 3],
+    // Pickers parallel to each override's field table; empty when it is off.
+    pickers: [Vec<Entity<ColorPickerState>>; 3],
     // Free-text because Hyprland border specs can be gradients
     // ("rgba(..ee) rgba(..ee) 45deg"), which a color picker cannot express.
     active_border_input: Entity<InputState>,
     inactive_border_input: Entity<InputState>,
-    is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
 }
@@ -222,27 +246,25 @@ impl OverridesTab {
             "Default: rgba(595959aa)",
             |c, v| c.hyprland_inactive_border = v,
         );
+        let contents = Override::ALL.map(|kind| {
+            kind.spec()
+                .and_then(|spec| overrides::read(&theme_name, spec).ok().flatten())
+        });
 
         let mut tab = Self {
             theme_name,
             theme_data,
-            browser_pickers: Vec::new(),
-            lock_pickers: Vec::new(),
-            btop_pickers: Vec::new(),
+            contents,
+            pickers: Default::default(),
             active_border_input,
             inactive_border_input,
-            is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
         };
-        tab.rebuild_pickers(Override::Browser, window, cx);
-        tab.rebuild_pickers(Override::Lock, window, cx);
-        tab.rebuild_pickers(Override::Btop, window, cx);
+        for kind in Override::ALL {
+            tab.rebuild_pickers(kind, window, cx);
+        }
         tab
-    }
-
-    pub fn theme_data(&self) -> &EditingTheme {
-        &self.theme_data
     }
 
     fn border_input(
@@ -267,7 +289,7 @@ impl OverridesTab {
                     let trimmed = raw.trim();
                     let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
                     setter(&mut this.theme_data.colors, value);
-                    this.save(cx);
+                    this.save_borders(cx);
                 }
             },
         )
@@ -277,40 +299,23 @@ impl OverridesTab {
     }
 
     fn is_enabled(&self, kind: Override) -> bool {
-        match kind {
-            Override::Browser => self.theme_data.apps.chromium.is_some(),
-            Override::Lock => self.theme_data.apps.lock.is_some(),
-            Override::Btop => self.theme_data.apps.btop.is_some(),
-        }
-    }
-
-    // Current hex values in field-table order, or empty when the override is off.
-    fn current_values(&self, kind: Override) -> Vec<String> {
-        fn values<C>(fields: &[Field<C>], config: Option<&C>) -> Vec<String> {
-            config
-                .map(|c| fields.iter().map(|f| (f.get)(c)).collect())
-                .unwrap_or_default()
-        }
-        match kind {
-            Override::Browser => values(BROWSER_FIELDS, self.theme_data.apps.chromium.as_ref()),
-            Override::Lock => values(LOCK_FIELDS, self.theme_data.apps.lock.as_ref()),
-            Override::Btop => values(BTOP_FIELDS, self.theme_data.apps.btop.as_ref()),
-        }
+        self.contents[kind.index()].is_some()
     }
 
     fn rebuild_pickers(&mut self, kind: Override, window: &mut Window, cx: &mut Context<Self>) {
-        let pickers: Vec<Entity<ColorPickerState>> = self
-            .current_values(kind)
-            .into_iter()
-            .enumerate()
-            .map(|(index, hex)| Self::picker(kind, index, &hex, window, cx))
-            .collect();
-
-        match kind {
-            Override::Browser => self.browser_pickers = pickers,
-            Override::Lock => self.lock_pickers = pickers,
-            Override::Btop => self.btop_pickers = pickers,
-        }
+        let pickers = match &self.contents[kind.index()] {
+            Some(content) => kind
+                .fields()
+                .iter()
+                .enumerate()
+                .map(|(index, field)| {
+                    let hex = kind.get(content, field.key).unwrap_or_default();
+                    Self::picker(kind, index, &hex, window, cx)
+                })
+                .collect(),
+            None => Vec::new(),
+        };
+        self.pickers[kind.index()] = pickers;
     }
 
     fn picker(
@@ -328,8 +333,7 @@ impl OverridesTab {
             window,
             move |this, _picker, event: &ColorPickerEvent, _window, cx| {
                 if let ColorPickerEvent::Change(Some(color)) = event {
-                    this.set_field(kind, index, color.to_hex());
-                    this.save(cx);
+                    this.set_field(kind, index, &color.to_hex(), cx);
                 }
             },
         )
@@ -338,29 +342,25 @@ impl OverridesTab {
         picker
     }
 
-    fn set_field(&mut self, kind: Override, index: usize, hex: String) {
-        match kind {
-            Override::Browser => {
-                if let Some(c) = self.theme_data.apps.chromium.as_mut() {
-                    (BROWSER_FIELDS[index].set)(c, hex);
-                }
+    fn set_field(&mut self, kind: Override, index: usize, hex: &str, cx: &mut Context<Self>) {
+        let (Some(spec), Some(content)) = (kind.spec(), &self.contents[kind.index()]) else {
+            return;
+        };
+        let Some(updated) = kind.set(content, kind.fields()[index].key, hex) else {
+            return;
+        };
+        match overrides::write(&self.theme_name, spec, &updated) {
+            Ok(()) => {
+                self.contents[kind.index()] = Some(updated);
+                self.error_message = None;
             }
-            Override::Lock => {
-                if let Some(c) = self.theme_data.apps.lock.as_mut() {
-                    (LOCK_FIELDS[index].set)(c, hex);
-                }
-            }
-            Override::Btop => {
-                if let Some(c) = self.theme_data.apps.btop.as_mut() {
-                    (BTOP_FIELDS[index].set)(c, hex);
-                }
-            }
+            Err(e) => self.error_message = Some(e.to_string()),
         }
+        cx.notify();
     }
 
-    // Turning an override on seeds it from the palette exactly as Omarchy's
-    // template would; turning it off drops the config so the file is removed
-    // on save.
+    // Turning an override on writes exactly what Omarchy would generate from
+    // the current palette; turning it off deletes the file.
     fn set_enabled(
         &mut self,
         kind: Override,
@@ -368,71 +368,51 @@ impl OverridesTab {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let colors = &self.theme_data.colors;
-        match kind {
-            Override::Browser => {
-                self.theme_data.apps.chromium = enabled.then(|| default_browser_config(colors));
+        let Some(spec) = kind.spec() else {
+            return;
+        };
+        let theme = &self.theme_name;
+        let result = if enabled {
+            overrides::generated(theme, spec)
+                .and_then(|content| overrides::write(theme, spec, &content).map(|()| content))
+                .map(Some)
+        } else {
+            overrides::remove(theme, spec).map(|()| None)
+        };
+        match result {
+            Ok(content) => {
+                self.contents[kind.index()] = content;
+                self.error_message = None;
             }
-            Override::Lock => {
-                self.theme_data.apps.lock = enabled.then(|| default_lock_config(colors));
-            }
-            Override::Btop => {
-                self.theme_data.apps.btop = enabled.then(|| default_btop_config(colors));
-            }
+            Err(e) => self.error_message = Some(e.to_string()),
         }
         self.rebuild_pickers(kind, window, cx);
-        self.save(cx);
+        cx.notify();
     }
 
-    fn save(&mut self, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        if self.theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-
-        let (chromium, lock, btop) = (
-            self.theme_data.apps.chromium.clone(),
-            self.theme_data.apps.lock.clone(),
-            self.theme_data.apps.btop.clone(),
-        );
+    fn save_borders(&mut self, cx: &mut Context<Self>) {
         let (active_border, inactive_border) = (
             self.theme_data.colors.hyprland_active_border.clone(),
             self.theme_data.colors.hyprland_inactive_border.clone(),
         );
         let result = update_theme(&self.theme_name, |theme| {
-            theme.apps.chromium = chromium;
-            theme.apps.lock = lock;
-            theme.apps.btop = btop;
             theme.colors.hyprland_active_border = active_border;
             theme.colors.hyprland_inactive_border = inactive_border;
         });
-
-        if let Err(e) = result {
-            self.error_message = Some(e.to_string());
-        }
-
-        self.is_saving = false;
+        self.error_message = result.err().map(|e| e.to_string());
         cx.notify();
     }
 
-    fn render_section<C: 'static>(
+    fn render_section(
         &self,
         kind: Override,
         title: &'static str,
         description: &'static str,
-        fields: &'static [Field<C>],
-        pickers: &[Entity<ColorPickerState>],
         cx: &mut Context<Self>,
     ) -> Div {
         let enabled = self.is_enabled(kind);
+        let fields = kind.fields();
+        let pickers = &self.pickers[kind.index()];
         let switch_id: SharedString = format!("override-{}", title.to_lowercase()).into();
 
         let header = h_flex()
@@ -536,8 +516,6 @@ impl Render for OverridesTab {
             Override::Browser,
             "Browser",
             "Chromium's theme color. Omarchy uses the theme background unless you override it.",
-            BROWSER_FIELDS,
-            &self.browser_pickers,
             cx,
         );
         let lock = self.render_section(
@@ -545,8 +523,6 @@ impl Render for OverridesTab {
             "Lock Screen",
             "Colors for the lock screen input. Omarchy derives them from the palette and \
              accent unless you override them.",
-            LOCK_FIELDS,
-            &self.lock_pickers,
             cx,
         );
         let btop = self.render_section(
@@ -554,8 +530,6 @@ impl Render for OverridesTab {
             "Btop",
             "Colors for the btop system monitor. Omarchy maps the palette onto btop's \
              graphs and boxes unless you override it.",
-            BTOP_FIELDS,
-            &self.btop_pickers,
             cx,
         );
 

@@ -4,16 +4,6 @@
 	"created_at": "{{CREATED_AT}}",
 	"modified_at": "{{MODIFIED_AT}}",
 	"author": "{{AUTHOR}}",
-	"apps": {
-		"btop": null,
-		"chromium": null,
-		"lock": null,
-		"icons": {
-			"theme_name": "Yaru-magenta"
-		},
-		"neovim": null,
-		"vscode": null
-	},
 	"colors": {
 		"mode": "dark",
 		"accent": "#33A1FF",

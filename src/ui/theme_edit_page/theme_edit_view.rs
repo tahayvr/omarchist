@@ -107,11 +107,9 @@ impl ThemeEditPage {
         .detach();
         let colors_tab = cx
             .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
-        let file_manager_tab = cx.new(|cx| {
-            FileManagerTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx)
-        });
-        let editor_tab = cx
-            .new(|cx| EditorTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
+        let file_manager_tab =
+            cx.new(|cx| FileManagerTab::new(theme_name.clone(), &scroll, window, cx));
+        let editor_tab = cx.new(|cx| EditorTab::new(theme_name.clone(), &scroll, window, cx));
         // btop / Chromium / lock screen
         let overrides_tab = cx.new(|cx| {
             OverridesTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx)
