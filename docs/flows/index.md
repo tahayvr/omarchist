@@ -41,10 +41,10 @@ A step whose program is not installed says so under the command. Nothing stops y
 Every saved flow has a command that works from anywhere:
 
 ```bash
-omarchist flow run 'morning-start'
+omarchist flow run morning-start
 ```
 
-The id in quotes comes from the flow's name and never changes, so renaming a flow breaks nothing. The **Run it from** section wires that command up:
+The id comes from the flow's name and never changes, so renaming a flow breaks nothing. The **Run it from** section wires that command up:
 
 - **Keybind** opens the keybind editor with the flow chosen as the action. The same bind appears on the [Keybinds](/configuring/keybinds) page.
 - **App launcher** adds the flow to your app menu with its own icon.
