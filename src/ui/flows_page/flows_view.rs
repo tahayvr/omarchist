@@ -1,7 +1,6 @@
 // The Flows page: every flow as a card, with search, run, and the way into
 // the editor. Cards form one tab stop with a roving index.
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -16,7 +15,6 @@ use gpui_component::{
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::runner::Runner;
-use crate::system::flows::share::{ImportSource, read_import};
 use crate::system::flows::store::{delete_flow, existing_ids, load_flows, save_flow};
 use crate::system::flows::templates::{Template, templates};
 use crate::system::flows::{Flow, run_command_id, unique_id};
@@ -29,7 +27,7 @@ use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
     icon_tile, step_count_label, step_strip, template_card, trigger_chips,
 };
-use crate::ui::flows_page::share_ui::export_flow;
+use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, import_flow_path};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 
@@ -263,43 +261,6 @@ impl FlowsView {
     }
 
     // MARK: Sharing
-
-    fn import_from_dialog(&self, window: &mut Window, cx: &mut Context<Self>) {
-        let receiver = cx.prompt_for_paths(PathPromptOptions {
-            files: true,
-            directories: false,
-            multiple: false,
-            prompt: Some("Import".into()),
-        });
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = receiver.await
-                && let Some(path) = paths.into_iter().next()
-            {
-                this.update_in(cx, |this, window, cx| this.import_path(path, window, cx))
-                    .ok();
-            }
-        })
-        .detach();
-    }
-
-    /// Reads the file off the UI thread and opens it in the editor for
-    /// review; nothing is saved until the user does.
-    fn import_path(&self, path: PathBuf, window: &mut Window, cx: &mut Context<Self>) {
-        cx.spawn_in(window, async move |this, cx| {
-            let result = cx
-                .background_spawn(async move { read_import(&ImportSource::File(path)) })
-                .await;
-            this.update_in(cx, |_, window, cx| match result {
-                Ok(imported) => emit(
-                    cx,
-                    AppEvent::Navigate(ActivePage::FlowImport(Box::new(imported))),
-                ),
-                Err(e) => window.push_notification(format!("Could not import the flow: {e}"), cx),
-            })
-            .ok();
-        })
-        .detach();
-    }
 
     fn export(&self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(flow) = self.flow_at(filtered_ix).cloned() {
@@ -734,8 +695,8 @@ impl Render for FlowsView {
                 this.focus_grid(window, cx);
             }))
             .on_action(cx.listener(|this, _: &NewFlow, _, cx| this.new_flow(cx)))
-            .on_action(cx.listener(|this, _: &ImportFlow, window, cx| {
-                this.import_from_dialog(window, cx);
+            .on_action(cx.listener(|_, _: &ImportFlow, window, cx| {
+                import_flow_from_dialog(window, cx);
             }))
             .on_action(cx.listener(|_, _: &BrowseTemplates, _, cx| {
                 emit(cx, AppEvent::Navigate(ActivePage::FlowTemplates));
@@ -743,9 +704,9 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
                 this.export(action.0, window, cx);
             }))
-            .on_drop(cx.listener(|this, paths: &ExternalPaths, window, cx| {
+            .on_drop(cx.listener(|_, paths: &ExternalPaths, window, cx| {
                 if let Some(path) = paths.paths().first() {
-                    this.import_path(path.clone(), window, cx);
+                    import_flow_path(path.clone(), window, cx);
                 }
             }))
             .on_action(cx.listener(|this, _: &RunSelected, window, cx| {

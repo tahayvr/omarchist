@@ -1,7 +1,10 @@
+use crate::system::flows::runner::Runner;
 use crate::system::flows::share::Imported;
+use crate::system::flows::store::load_flow;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::flows_page::share_ui::import_flow_from_dialog;
 use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
@@ -13,7 +16,7 @@ use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 use crate::ui::themes_page::themes_view::ThemesPage;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Collapsible, Icon, IconName, Root, Side, h_flex,
+    ActiveTheme, Collapsible, Icon, IconName, Root, Side, WindowExt, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarItem, SidebarMenu, SidebarMenuItem},
 };
@@ -402,7 +405,7 @@ impl MainWindowView {
             }
             ActivePage::Keybinds => {
                 if let Some(view) = &self.keybinds_view {
-                    view.update(cx, |view, cx| view.refresh(cx));
+                    view.update(cx, |view, cx| view.refresh(window, cx));
                 }
             }
             ActivePage::FlowTemplates => {
@@ -425,6 +428,26 @@ impl MainWindowView {
             }
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => {}
         }
+    }
+
+    /// Runs a saved flow in the background and reports the outcome in a
+    /// notification, the same way the Flows page does.
+    fn run_flow(&self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            let result = cx
+                .background_spawn(async move {
+                    let flow = load_flow(&id)?;
+                    let outcome = Runner::new(true).run(&flow, &mut |_| {});
+                    Ok::<_, crate::error::Error>((flow, outcome))
+                })
+                .await;
+            this.update_in(cx, |_, window, cx| match result {
+                Ok((flow, outcome)) => window.push_notification(outcome.summary(&flow), cx),
+                Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn navigate_to_theme_edit(
@@ -684,6 +707,35 @@ impl Render for MainWindowView {
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToFlows, window, cx| {
                     this.navigate_to(ActivePage::Flows, window, cx);
+                },
+            ))
+            // Title-bar menus and palette commands that act on a page
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NewKeybind, window, cx| {
+                    this.navigate_to(ActivePage::Keybinds, window, cx);
+                    if let Some(view) = &this.keybinds_view {
+                        view.update(cx, |view, cx| view.open_add(window, cx));
+                    }
+                },
+            ))
+            .on_action(
+                cx.listener(|this, _: &crate::ui::menu::app_menu::NewFlow, window, cx| {
+                    this.navigate_to(ActivePage::FlowNew(None), window, cx);
+                }),
+            )
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NewFlowFromTemplate, window, cx| {
+                    this.navigate_to(ActivePage::FlowTemplates, window, cx);
+                },
+            ))
+            .on_action(
+                cx.listener(|_, _: &crate::ui::menu::app_menu::ImportFlow, window, cx| {
+                    import_flow_from_dialog(window, cx);
+                }),
+            )
+            .on_action(cx.listener(
+                |this, action: &crate::ui::menu::app_menu::RunFlow, window, cx| {
+                    this.run_flow(action.0.clone(), window, cx);
                 },
             ))
             // Focus traversal (native GPUI tab stops)

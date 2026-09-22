@@ -81,6 +81,30 @@ fn groups() -> Vec<Group> {
             ],
         },
         Group {
+            title: "Keybinds",
+            entries: vec![entry(
+                "Add a keybind",
+                &["new", "bind", "shortcut"],
+                app_menu::NewKeybind,
+            )],
+        },
+        Group {
+            title: "Flows",
+            entries: vec![
+                entry("New flow", &["create", "add"], app_menu::NewFlow),
+                entry(
+                    "New flow from a template",
+                    &["create", "templates"],
+                    app_menu::NewFlowFromTemplate,
+                ),
+                entry(
+                    "Import a flow",
+                    &["open", "file", "share"],
+                    app_menu::ImportFlow,
+                ),
+            ],
+        },
+        Group {
             title: "View",
             entries: vec![
                 entry("Reload the current page", &["refresh"], focus::ReloadPage),

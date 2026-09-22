@@ -159,6 +159,8 @@ pub struct KeybindsView {
     dialog: Option<(Entity<KeybindDialog>, Subscription)>,
     /// Row to select once the rescan after a save completes.
     pending_reselect: Option<BindIdentity>,
+    /// An add request that arrived during a scan.
+    add_when_loaded: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -236,9 +238,10 @@ impl KeybindsView {
             counts: Counts::default(),
             dialog: None,
             pending_reselect: None,
+            add_when_loaded: false,
             _subscriptions: subscriptions,
         };
-        view.refresh(cx);
+        view.refresh(window, cx);
         view
     }
 
@@ -248,7 +251,7 @@ impl KeybindsView {
     }
 
     /// Rescans the Hyprland config and reloads the overrides file.
-    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+    pub fn refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.loading {
             return;
         }
@@ -259,12 +262,12 @@ impl KeybindsView {
         });
         cx.notify();
 
-        cx.spawn(async move |this, cx| {
+        cx.spawn_in(window, async move |this, cx| {
             let scanned = cx
                 .background_executor()
                 .spawn(async { (scan_keybinds(), load_overrides()) })
                 .await;
-            this.update(cx, |this, cx| this.apply_scan(scanned, cx))
+            this.update_in(cx, |this, window, cx| this.apply_scan(scanned, window, cx))
                 .ok();
         })
         .detach();
@@ -276,6 +279,7 @@ impl KeybindsView {
             crate::error::Result<ScanResult>,
             crate::error::Result<KeybindOverrides>,
         ),
+        window: &mut Window,
         cx: &mut Context<Self>,
     ) {
         self.loading = false;
@@ -302,6 +306,9 @@ impl KeybindsView {
             cx.notify();
         });
         self.rebuild_rows(cx);
+        if std::mem::take(&mut self.add_when_loaded) {
+            self.open_add(window, cx);
+        }
     }
 
     fn set_filter(&mut self, filter: KeybindFilter, cx: &mut Context<Self>) {
@@ -459,7 +466,16 @@ impl KeybindsView {
         );
     }
 
-    fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Opens the add dialog. While a scan is still running the dialog waits
+    /// for it, so conflict checks see the current binds.
+    pub fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.dialog.is_some() {
+            return;
+        }
+        if self.loading {
+            self.add_when_loaded = true;
+            return;
+        }
         self.open_dialog(DialogMode::Add, window, cx);
     }
 
@@ -588,7 +604,7 @@ impl KeybindsView {
                 self.close_dialog(window, cx);
                 window.push_notification(success, cx);
                 self.pending_reselect = reselect;
-                self.refresh(cx);
+                self.refresh(window, cx);
             }
             Err(e) => {
                 window.push_notification(format!("Could not save keybind: {e}"), cx);
@@ -871,9 +887,7 @@ impl Render for KeybindsView {
                 this.toggle_chord_search(window, cx);
             }))
             .on_action(cx.listener(|this, _: &AddKeybind, window, cx| {
-                if this.dialog.is_none() {
-                    this.open_add(window, cx);
-                }
+                this.open_add(window, cx);
             }))
             .on_action(cx.listener(|this, action: &SetFilter, _, cx| {
                 if let Some(filter) = KeybindFilter::ALL.get(action.0).copied() {
@@ -997,7 +1011,7 @@ impl Render for KeybindsView {
                             )
                             .cursor_pointer()
                             .loading(self.loading)
-                            .on_click(cx.listener(|this, _, _window, cx| this.refresh(cx))),
+                            .on_click(cx.listener(|this, _, window, cx| this.refresh(window, cx))),
                     ),
             )
             .children(self.render_notice(cx))
