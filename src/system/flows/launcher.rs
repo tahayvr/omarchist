@@ -151,13 +151,13 @@ mod tests {
         let entry = desktop_entry(&flow, "/tmp/morning.svg");
         assert!(entry.contains("Name=Morning 100%\n"));
         assert!(entry.contains("Comment=Opens everything\n"));
-        assert!(entry.contains("Exec=omarchist flow run 'morning'\n"));
+        assert!(entry.contains("Exec=omarchist flow run morning\n"));
         assert!(entry.contains("Icon=/tmp/morning.svg\n"));
         assert!(entry.contains("X-Omarchist-Flow=morning\n"));
 
         let hook = startup_hook(&flow);
         assert!(hook.starts_with("#!/bin/bash\n"));
-        assert!(hook.ends_with("setsid -f omarchist flow run 'morning' >/dev/null 2>&1\n"));
+        assert!(hook.ends_with("setsid -f omarchist flow run morning >/dev/null 2>&1\n"));
         assert!(
             !hook.contains("Morning 100%"),
             "the hook names the id, never the free-text name"

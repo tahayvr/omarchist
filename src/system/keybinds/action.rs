@@ -968,7 +968,7 @@ mod tests {
         let dispatcher = action.dispatcher();
         assert_eq!(
             dispatcher,
-            Dispatcher::Exec("omarchist flow run 'morning-start'".into())
+            Dispatcher::Exec("omarchist flow run morning-start".into())
         );
         assert_eq!(Action::from_dispatcher(&dispatcher), Some(action.clone()));
         assert_eq!(action.kind(), ActionKind::Flow);

@@ -323,12 +323,11 @@ impl Flow {
     }
 }
 
-/// `omarchist flow run '<id>'`, quoted the way keybinds quote arguments.
+/// `omarchist flow run <id>`. Ids are slugs, so the command needs no
+/// quoting and works as a desktop entry's `Exec` line, which only defines
+/// double quotes, as well as in a shell.
 pub fn run_command(id: &str) -> String {
-    format!(
-        "omarchist flow run {}",
-        crate::system::keybinds::action::shell_quote(id)
-    )
+    format!("omarchist flow run {id}")
 }
 
 /// The flow id a command line runs, if it is a `run_command`.
@@ -472,7 +471,7 @@ mod tests {
         assert_eq!(StepKind::Wait { ms: 2000 }.text(), "wait 2 s");
         assert_eq!(
             StepKind::Flow { id: "x".into() }.text(),
-            "omarchist flow run 'x'"
+            "omarchist flow run x"
         );
     }
 
@@ -483,7 +482,7 @@ mod tests {
         assert_eq!(step, Some(StepKind::Flow { id: "other".into() }));
         assert_eq!(
             StepKind::Flow { id: "other".into() }.dispatcher(),
-            Some(Dispatcher::Exec("omarchist flow run 'other'".into()))
+            Some(Dispatcher::Exec("omarchist flow run other".into()))
         );
         assert_eq!(
             StepKind::from_dispatcher(Dispatcher::Exec("ls".into()), true),
@@ -496,7 +495,7 @@ mod tests {
 
     #[test]
     fn run_command_round_trips() {
-        assert_eq!(run_command("morning"), "omarchist flow run 'morning'");
+        assert_eq!(run_command("morning"), "omarchist flow run morning");
         assert_eq!(
             run_command_id("omarchist flow run 'morning'").as_deref(),
             Some("morning")

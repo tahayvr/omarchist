@@ -203,7 +203,7 @@ mod tests {
 
         let flow = ctx.summarize(&StepKind::Flow { id: "focus".into() });
         assert_eq!(flow.title, "Run flow Focus mode");
-        assert_eq!(flow.detail, "omarchist flow run 'focus'");
+        assert_eq!(flow.detail, "omarchist flow run focus");
 
         let wait = ctx.summarize(&StepKind::Wait { ms: 1500 });
         assert_eq!(wait.title, "Wait 1.5 s");
