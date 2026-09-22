@@ -72,7 +72,7 @@ impl Render for MainTitleBar {
                     )
                     .child(
                         Button::new("themes-menu")
-                            .label("Theme")
+                            .label("Themes")
                             .small()
                             .compact()
                             .ghost()
