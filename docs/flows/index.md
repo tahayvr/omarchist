@@ -11,7 +11,7 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 
 Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu duplicates, exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-**New flow** starts a blank flow. Its arrow offers **From scratch**, **From template**, and **Import flow**.
+**New flow** starts a blank flow. Its arrow offers **From scratch**, **From template**, and **Import flow**. The **Flows** menu in the title bar has the same three from any page, plus **Run** for every saved flow.
 
 ## Building a flow
 

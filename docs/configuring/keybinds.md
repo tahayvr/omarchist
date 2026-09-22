@@ -33,7 +33,7 @@ SUPER + code:10
 
 If the keys are already in use, the dialog lists the other binds; press **Save** again to keep both. Binds that run a Lua function inside Omarchy's config cannot be re-bound, only disabled.
 
-**Add keybind** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) makes a new bind the same way. The description fills itself in from the action until you type your own.
+**Add keybind** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>), or **Add Keybind…** in the title bar's **Keybinds** menu from any page, makes a new bind the same way. The description fills itself in from the action until you type your own.
 
 ## Actions
 

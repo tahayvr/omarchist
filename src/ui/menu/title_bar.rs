@@ -9,7 +9,9 @@ use gpui_component::{
     menu::{DropdownMenu, PopupMenu, PopupMenuItem},
 };
 
-use crate::ui::menu::app_menu::SelectFont;
+use crate::system::flows::icon_path;
+use crate::system::flows::store::load_flows;
+use crate::ui::menu::app_menu::{self, SelectFont};
 use crate::ui::omarchy_page::updates::OmarchyUpdates;
 
 pub struct MainTitleBar {
@@ -86,6 +88,46 @@ impl Render for MainTitleBar {
                                 .separator()
                                 .item(PopupMenuItem::new("Import Theme...").disabled(true))
                                 .item(PopupMenuItem::new("Export Theme...").disabled(true))
+                            }),
+                    )
+                    .child(
+                        Button::new("keybinds-menu")
+                            .label("Keybinds")
+                            .small()
+                            .compact()
+                            .ghost()
+                            .cursor_pointer()
+                            .dropdown_menu(|menu: PopupMenu, _, _| {
+                                menu.menu("Add Keybind...", Box::new(app_menu::NewKeybind))
+                                    .menu("Search by Keys", Box::new(app_menu::SearchKeybindsByKeys))
+                            }),
+                    )
+                    .child(
+                        Button::new("flows-menu")
+                            .label("Flows")
+                            .small()
+                            .compact()
+                            .ghost()
+                            .cursor_pointer()
+                            .dropdown_menu(|menu: PopupMenu, window, cx| {
+                                // Read on every open so the list matches the flows folder.
+                                let flows = load_flows().unwrap_or_default();
+                                menu.menu("New Flow", Box::new(app_menu::NewFlow))
+                                    .menu("New from Template", Box::new(app_menu::NewFlowFromTemplate))
+                                    .menu("Import Flow...", Box::new(app_menu::ImportFlow))
+                                    .separator()
+                                    .submenu("Run", window, cx, move |menu, _, _| {
+                                        if flows.is_empty() {
+                                            return menu.item(PopupMenuItem::new("No flows yet").disabled(true));
+                                        }
+                                        flows.iter().fold(menu, |menu, flow| {
+                                            menu.menu_with_icon(
+                                                flow.name.clone(),
+                                                Icon::empty().path(icon_path(&flow.icon)),
+                                                Box::new(app_menu::RunFlow(flow.id.clone())),
+                                            )
+                                        })
+                                    })
                             }),
                     ),
             )
