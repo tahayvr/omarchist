@@ -1,13 +1,20 @@
 use std::io::{IsTerminal, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand, ValueEnum};
 
+use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::flows::runner::{RunEvent, Runner};
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_flow};
 use crate::system::flows::unique_id;
+use crate::system::omarchy_paths::user_themes_dir;
+use crate::system::themes::theme_file_ops::is_system_theme;
+use crate::system::themes::theme_generator::create_theme_from_image;
+use crate::system::themes::theme_management::{
+    generate_unique_theme_name, slugify_theme_name, unique_theme_name,
+};
 
 #[derive(Parser, Debug, Clone)]
 #[command(name = "omarchist")]
@@ -43,6 +50,26 @@ pub enum Command {
     Flow {
         #[command(subcommand)]
         action: FlowCommand,
+    },
+    /// Make themes without opening the window
+    Theme {
+        #[command(subcommand)]
+        action: ThemeCommand,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
+pub enum ThemeCommand {
+    /// Build a theme from an image's colours, with the image as its wallpaper
+    FromImage {
+        /// A picture file
+        image: PathBuf,
+        /// The theme's name (defaults to the image's file name)
+        #[arg(short, long)]
+        name: Option<String>,
+        /// Switch to the new theme once it is written
+        #[arg(short, long)]
+        apply: bool,
     },
 }
 
@@ -109,6 +136,9 @@ pub fn run_command(command: &Command) -> ExitCode {
                 ExitCode::FAILURE
             }
         },
+        Command::Theme {
+            action: ThemeCommand::FromImage { image, name, apply },
+        } => theme_from_image(image, name.as_deref(), *apply),
         Command::Flow {
             action: FlowCommand::Export { name, output },
         } => export(name, output.as_ref()),
@@ -243,6 +273,54 @@ fn import(source: &str, yes: bool) -> ExitCode {
     }
 }
 
+/// The same steps as the Create New Theme dialog: a folder named after the
+/// image (or `--name`), a palette extracted from it, and the image copied
+/// in as the wallpaper.
+fn theme_from_image(image: &Path, name: Option<&str>, apply: bool) -> ExitCode {
+    if !image.is_file() {
+        eprintln!("No such image: {}", image.display());
+        return ExitCode::FAILURE;
+    }
+    let theme_name = match name {
+        Some(name) => {
+            let slug = slugify_theme_name(name);
+            if is_system_theme(&slug) {
+                eprintln!("'{slug}' is one of Omarchy's own themes; choose another name");
+                return ExitCode::FAILURE;
+            }
+            slug
+        }
+        None => image
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(slugify_theme_name)
+            .map(|base| unique_theme_name(&base))
+            .unwrap_or_else(generate_unique_theme_name),
+    };
+    if let Err(e) = create_theme_from_image(image, &theme_name) {
+        eprintln!("Could not create the theme: {e}");
+        return ExitCode::FAILURE;
+    }
+    match user_themes_dir() {
+        Some(dir) => println!(
+            "Created '{theme_name}' in {}",
+            dir.join(&theme_name).display()
+        ),
+        None => println!("Created '{theme_name}'"),
+    }
+    if apply {
+        if let Err(e) = smol::block_on(apply_theme(theme_name.clone())) {
+            eprintln!("Could not apply the theme: {e}");
+            return ExitCode::FAILURE;
+        }
+        println!("Applied.");
+    } else {
+        println!("Apply it with: omarchy-theme-set {theme_name}");
+    }
+    println!("Edit it with: omarchist --view themes --theme {theme_name}");
+    ExitCode::SUCCESS
+}
+
 fn confirm(question: &str) -> bool {
     print!("{question} [y/N] ");
     std::io::stdout().flush().ok();
@@ -316,6 +394,42 @@ mod tests {
                 },
             })
         );
+    }
+
+    #[test]
+    fn test_parse_theme_from_image() {
+        let args = CliArgs::parse_from(["omarchist", "theme", "from-image", "pic.png"]);
+        assert_eq!(
+            args.command,
+            Some(Command::Theme {
+                action: ThemeCommand::FromImage {
+                    image: PathBuf::from("pic.png"),
+                    name: None,
+                    apply: false,
+                },
+            })
+        );
+        let args = CliArgs::parse_from([
+            "omarchist",
+            "theme",
+            "from-image",
+            "pic.png",
+            "--name",
+            "Sunset",
+            "--apply",
+        ]);
+        assert_eq!(
+            args.command,
+            Some(Command::Theme {
+                action: ThemeCommand::FromImage {
+                    image: PathBuf::from("pic.png"),
+                    name: Some("Sunset".into()),
+                    apply: true,
+                },
+            })
+        );
+        assert!(CliArgs::try_parse_from(["omarchist", "theme", "from-image"]).is_err());
+        assert!(CliArgs::try_parse_from(["omarchist", "theme"]).is_err());
     }
 
     #[test]

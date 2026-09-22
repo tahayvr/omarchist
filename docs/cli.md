@@ -6,6 +6,7 @@ outline: deep
 
 ```bash
 omarchist [--view <page>] [--theme <name>]
+omarchist theme from-image <image> [--name <name>] [--apply]
 omarchist flow <run | list | export | import> ...
 ```
 
@@ -16,6 +17,19 @@ omarchist flow <run | list | export | import> ...
 ```bash
 omarchist --view keybinds
 omarchist --view themes --theme my-theme
+```
+
+## Themes
+
+Runs without opening the window.
+
+| Command | What it does |
+| --- | --- |
+| `theme from-image <image> [--name <name>] [--apply]` | Makes a theme from a picture, the same way **Select Image** does: extracts the palette and copies the picture in as the wallpaper. The name defaults to the file name. `--apply` switches to it right away. |
+
+```bash
+omarchist theme from-image ~/Pictures/dunes.jpg
+omarchist theme from-image ~/Pictures/dunes.jpg --name "Sahara" --apply
 ```
 
 ## Flows
