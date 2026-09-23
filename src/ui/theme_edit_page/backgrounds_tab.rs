@@ -222,10 +222,19 @@ impl BackgroundsTab {
                 .w(px(240.))
                 .h(px(120.))
                 .p_2()
+                .overflow_hidden()
                 .border_1()
                 .border_color(theme.border)
                 .bg(theme.muted)
-                .child(img(path.clone()).size_full().object_fit(ObjectFit::Contain))
+                .child(
+                    // `img` otherwise takes the picture's own aspect ratio,
+                    // which outweighs the height and overflows the frame.
+                    img(path.clone())
+                        .w(px(222.))
+                        .h(px(102.))
+                        .aspect_ratio(222. / 102.)
+                        .object_fit(ObjectFit::Contain),
+                )
                 .into_any_element(),
             None => Label::new("No boot logo. Omarchy's own logo is used.")
                 .text_sm()

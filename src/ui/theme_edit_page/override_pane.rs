@@ -12,6 +12,7 @@ use gpui_component::{
 use gpui_kit::TestSupportExt;
 
 use crate::system::themes::overrides::{self, OverrideSpec};
+use crate::system::themes::theme_file_ops::get_theme_path;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor, preview_editor};
@@ -27,6 +28,8 @@ pub struct OverridePane {
     theme_name: String,
     spec: &'static OverrideSpec,
     installed: bool,
+    /// The theme was installed with `omarchy theme install`, a git clone.
+    cloned: bool,
     /// `Some` while the theme ships its own file.
     editor: Option<OverrideEditor>,
     view: EditorView,
@@ -55,6 +58,7 @@ impl OverridePane {
             theme_name,
             spec,
             installed,
+            cloned: false,
             editor: None,
             view: EditorView::for_spec(spec)[0],
             latest: String::new(),
@@ -64,6 +68,8 @@ impl OverridePane {
             error: None,
             _editor_subscription: None,
         };
+        pane.cloned = get_theme_path(&pane.theme_name, false)
+            .is_some_and(|dir| dir.join(".git").is_dir() && !dir.is_symlink());
         match overrides::read(&pane.theme_name, spec) {
             Ok(Some(content)) => pane.show_editor(&content, window, cx),
             Ok(None) => {}
@@ -342,11 +348,20 @@ impl Render for OverridePane {
             .min_w_0()
             .child(self.render_header(cx))
             .when(self.spec.git_restricted(), |pane| {
-                pane.child(help_text(
-                    "Ignored when this theme is installed from a git repository: Omarchy does \
-                     not load Lua, terminal configs, or vscode.json from a theme it cloned.",
-                    warning,
-                ))
+                pane.child(if self.cloned {
+                    help_text(
+                        "Omarchy ignores this file: the theme was installed from a git \
+                         repository, and Omarchy does not load Lua, terminal configs, or \
+                         vscode.json from a theme it cloned.",
+                        warning,
+                    )
+                } else {
+                    help_text(
+                        "If you share this theme as a git repository, Omarchy will not load \
+                         this file for the people who install it.",
+                        muted,
+                    )
+                })
             })
             .children(self.error.clone().map(|error| error_message(error, cx)));
 

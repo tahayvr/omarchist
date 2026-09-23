@@ -135,26 +135,46 @@ impl ColorMapForm {
     }
 
     fn render_by_key(&self) -> Vec<AnyElement> {
-        let mut groups: Vec<(String, Vec<AnyElement>)> = Vec::new();
-        for (index, (entry, picker)) in self.entries.iter().zip(&self.pickers).enumerate() {
-            let id = format!("color-map-{}-{index}", self.file);
-            let element = color_picker_with_clipboard(id, entry.label(), picker).into_any_element();
-            let group = if entry.group.is_empty() {
-                "General".to_string()
-            } else {
-                entry.group.clone()
-            };
-            match groups.iter_mut().find(|(name, _)| *name == group) {
-                Some((_, items)) => items.push(element),
-                None => groups.push((group, vec![element])),
+        let mut groups: Vec<(&str, Vec<usize>)> = Vec::new();
+        for (index, entry) in self.entries.iter().enumerate() {
+            match groups.iter_mut().find(|(name, _)| *name == entry.group) {
+                Some((_, items)) => items.push(index),
+                None => groups.push((&entry.group, vec![index])),
             }
         }
+
         groups
             .into_iter()
-            .map(|(name, items)| {
+            .map(|(group, indices)| {
+                // A name every entry shares, like a Neovim plugin's, belongs
+                // in the heading rather than on each label.
+                let first = &self.entries[indices[0]].name;
+                let shared =
+                    first.is_some() && indices.iter().all(|&i| &self.entries[i].name == first);
+                let heading = match (shared.then_some(first.as_deref()).flatten(), group) {
+                    (Some(name), "") => name.to_string(),
+                    (Some(name), group) => format!("{name} › {group}"),
+                    (None, "") => "General".to_string(),
+                    (None, group) => group.to_string(),
+                };
+                let items = indices.into_iter().filter_map(|index| {
+                    let entry = &self.entries[index];
+                    let picker = self.pickers.get(index)?;
+                    let label = if shared && !entry.key.is_empty() {
+                        entry.key.clone()
+                    } else {
+                        entry.label()
+                    };
+                    let id = format!("color-map-{}-{index}", self.file);
+                    Some(color_picker_with_clipboard(id, label, picker).into_any_element())
+                });
                 v_flex()
                     .gap_3()
-                    .child(Label::new(name).text_sm().font_weight(FontWeight::MEDIUM))
+                    .child(
+                        Label::new(heading)
+                            .text_sm()
+                            .font_weight(FontWeight::MEDIUM),
+                    )
                     .child(h_flex().gap_x_10().gap_y_4().flex_wrap().children(items))
                     .into_any_element()
             })

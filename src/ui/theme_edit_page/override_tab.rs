@@ -123,11 +123,22 @@ impl OverrideTab {
                 .border_1()
                 .border_color(focus::focus_border(focused, transparent, cx))
                 .when(active, |row| {
-                    row.bg(theme.accent).text_color(theme.accent_foreground)
+                    row.bg(theme.sidebar_accent)
+                        .text_color(theme.sidebar_accent_foreground)
+                        .font_weight(FontWeight::SEMIBOLD)
                 })
+                .when(!active, |row| row.hover(|row| row.bg(theme.list_hover)))
                 .when(!active && !self.installed[ix], |row| {
                     row.text_color(theme.muted_foreground)
                 })
+                .child(
+                    div()
+                        .w(px(3.))
+                        .h_4()
+                        .flex_none()
+                        .rounded_full()
+                        .bg(if active { theme.primary } else { transparent }),
+                )
                 .child(
                     div()
                         .size_2()

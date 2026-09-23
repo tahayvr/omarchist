@@ -191,11 +191,13 @@ pub fn scan(content: &str) -> Vec<ColorEntry> {
     entries
 }
 
-/// The distinct colors of `entries`, case-insensitively, in order of first use.
+/// The distinct colors of `entries` by their `#rrggbb`, case-insensitively,
+/// in order of first use. Alpha variants of a color count as that color;
+/// `replace` keeps each entry's own alpha.
 pub fn uses(entries: &[ColorEntry]) -> Vec<ColorUse> {
     let mut uses: Vec<ColorUse> = Vec::new();
     for (index, entry) in entries.iter().enumerate() {
-        let value = entry.value.to_ascii_lowercase();
+        let value = entry.value[..7].to_ascii_lowercase();
         match uses.iter_mut().find(|u| u.value == value) {
             Some(existing) => existing.entries.push(index),
             None => uses.push(ColorUse {
@@ -312,7 +314,8 @@ mod tests {
         let json = "{\"a\": \"#AABBCC\", \"b\": \"#aabbcc80\", \"c\": \"#aabbcc\"}";
         let entries = scan(json);
         let all = uses(&entries);
-        assert_eq!(all.len(), 2);
+        assert_eq!(all.len(), 1);
+        assert_eq!(all[0].entries, [0, 1, 2]);
         let ranges: Vec<_> = all[0]
             .entries
             .iter()
@@ -320,7 +323,7 @@ mod tests {
             .collect();
         assert_eq!(
             replace(json, &ranges, "#112233"),
-            "{\"a\": \"#112233\", \"b\": \"#aabbcc80\", \"c\": \"#112233\"}"
+            "{\"a\": \"#112233\", \"b\": \"#11223380\", \"c\": \"#112233\"}"
         );
         let alpha = [entries[1].range.clone()];
         assert_eq!(
