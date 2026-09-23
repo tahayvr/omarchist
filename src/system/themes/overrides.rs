@@ -9,7 +9,9 @@
 pub mod btop;
 pub mod chromium;
 pub mod color_map;
+pub mod entries;
 pub mod files;
+pub mod palette;
 pub mod registry;
 pub mod shell_section;
 pub mod template;

@@ -84,7 +84,7 @@ pub fn generated(theme: &str, spec: &OverrideSpec) -> Result<String> {
 }
 
 /// The user's template of this name if there is one, else Omarchy's.
-fn read_template(name: &str) -> Result<String> {
+pub(super) fn read_template(name: &str) -> Result<String> {
     let path = user_themed_templates_dir()
         .map(|dir| dir.join(name))
         .filter(|path| path.is_file())

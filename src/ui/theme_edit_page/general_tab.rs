@@ -1,5 +1,6 @@
-use crate::system::themes::overrides::{self, Category, OverrideSpec, OverrideStatus};
-use crate::system::themes::theme_management::{rename_theme, update_theme};
+use crate::system::themes::overrides::Category;
+use crate::system::themes::overrides::entries::{self, Entry};
+use crate::system::themes::theme_management::{load_theme_for_editing, rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
@@ -18,7 +19,7 @@ pub enum GeneralTabEvent {
     /// The theme folder was renamed; every view holding the old name is stale.
     Renamed(String),
     /// Show this override's pane.
-    OpenOverride(&'static OverrideSpec),
+    OpenOverride(Entry),
 }
 
 impl EventEmitter<GeneralTabEvent> for GeneralTab {}
@@ -181,10 +182,13 @@ impl GeneralTab {
     fn render_customized(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         let theme = &self.original_theme_name;
-        let customized: Vec<&'static OverrideSpec> = Category::all()
+        let palettes = load_theme_for_editing(theme)
+            .map(|data| data.palettes)
+            .unwrap_or_default();
+        let customized: Vec<Entry> = Category::all()
             .into_iter()
-            .flat_map(overrides::in_category)
-            .filter(|spec| overrides::status(theme, spec) == OverrideStatus::Custom)
+            .flat_map(entries::in_category)
+            .filter(|entry| entry.is_custom(theme, &palettes))
             .collect();
 
         let body = if customized.is_empty() {
@@ -198,14 +202,14 @@ impl GeneralTab {
             h_flex()
                 .gap_2()
                 .flex_wrap()
-                .children(customized.into_iter().map(|spec| {
-                    Button::new(SharedString::from(format!("customized-{}", spec.file)))
-                        .label(format!("{} · {}", spec.category.label(), spec.app))
+                .children(customized.into_iter().map(|entry| {
+                    Button::new(SharedString::from(format!("customized-{}", entry.id())))
+                        .label(format!("{} · {}", entry.category().label(), entry.app()))
                         .small()
                         .outline()
                         .cursor_pointer()
                         .on_click(cx.listener(move |_, _, _, cx| {
-                            cx.emit(GeneralTabEvent::OpenOverride(spec));
+                            cx.emit(GeneralTabEvent::OpenOverride(entry));
                         }))
                 }))
                 .into_any_element()

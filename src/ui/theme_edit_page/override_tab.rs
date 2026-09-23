@@ -4,10 +4,13 @@ use gpui_component::{ActiveTheme, h_flex, v_flex};
 use gpui_kit::TestSupportExt;
 
 use crate::system::flows::requirements::is_installed;
-use crate::system::themes::overrides::{self, Category, OverrideSpec, OverrideStatus};
+use crate::system::themes::overrides::Category;
+use crate::system::themes::overrides::entries::{self, Entry};
 use crate::system::themes::theme_file_ops::get_theme_path;
+use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::ui::focus;
 use crate::ui::theme_edit_page::override_pane::{OverridePane, StatusChanged};
+use crate::ui::theme_edit_page::palette_pane::PalettePane;
 use crate::ui::theme_edit_page::shared::{help_text, tab_container};
 
 pub mod override_nav {
@@ -16,16 +19,31 @@ pub mod override_nav {
 
 pub const NAV_CONTEXT: &str = "OverrideNav";
 
+#[derive(Clone)]
+enum Pane {
+    File(Entity<OverridePane>),
+    Bundle(Entity<PalettePane>),
+}
+
+impl Pane {
+    fn element(&self) -> AnyElement {
+        match self {
+            Pane::File(pane) => pane.clone().into_any_element(),
+            Pane::Bundle(pane) => pane.clone().into_any_element(),
+        }
+    }
+}
+
 /// One optional tab of the Theme Designer: the apps of a category on the
 /// left, the selected app's pane on the right.
 pub struct OverrideTab {
     theme_name: String,
     category: Category,
-    specs: Vec<&'static OverrideSpec>,
+    entries: Vec<Entry>,
     installed: Vec<bool>,
     custom: Vec<bool>,
     /// Built when an app is first selected.
-    panes: Vec<Option<Entity<OverridePane>>>,
+    panes: Vec<Option<Pane>>,
     active: usize,
     /// The app list is one tab stop; up/down move between apps.
     nav_focus: FocusHandle,
@@ -41,46 +59,83 @@ impl OverrideTab {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let specs: Vec<_> = overrides::in_category(category).collect();
-        let installed = specs
+        let entries = entries::in_category(category);
+        let installed = entries
             .iter()
-            .map(|spec| spec.binaries.is_empty() || spec.binaries.iter().any(|b| is_installed(b)))
-            .collect();
-        let custom = specs
-            .iter()
-            .map(|spec| overrides::status(&theme_name, spec) == OverrideStatus::Custom)
+            .map(|entry| {
+                entry.binaries().is_empty() || entry.binaries().iter().any(|b| is_installed(b))
+            })
             .collect();
         let mut tab = Self {
             theme_name,
             category,
-            panes: vec![None; specs.len()],
-            specs,
+            panes: vec![None; entries.len()],
+            custom: vec![false; entries.len()],
+            entries,
             installed,
-            custom,
             active: 0,
             nav_focus: focus::tab_stop(cx),
             content_focus: cx.focus_handle(),
             _subscriptions: Vec::new(),
         };
+        tab.refresh_status();
         tab.ensure_pane(0, window, cx);
         tab
+    }
+
+    fn refresh_status(&mut self) {
+        let palettes = load_theme_for_editing(&self.theme_name)
+            .map(|theme| theme.palettes)
+            .unwrap_or_default();
+        self.custom = self
+            .entries
+            .iter()
+            .map(|entry| entry.is_custom(&self.theme_name, &palettes))
+            .collect();
+    }
+
+    /// Re-reads the theme, so palette bundles show the palette's current
+    /// colors after the Colors tab changed them.
+    pub fn refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.refresh_status();
+        for pane in self.panes.iter().flatten() {
+            if let Pane::Bundle(pane) = pane {
+                pane.update(cx, |pane, cx| pane.reload(window, cx));
+            }
+        }
+        cx.notify();
     }
 
     fn ensure_pane(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         if self.panes.get(index).is_none_or(Option::is_some) {
             return;
         }
-        let spec = self.specs[index];
         let installed = self.installed[index];
         let theme_name = self.theme_name.clone();
-        let pane = cx.new(|cx| OverridePane::new(theme_name, spec, installed, window, cx));
-        self._subscriptions.push(cx.subscribe(
-            &pane,
-            move |this: &mut Self, pane, _: &StatusChanged, cx| {
-                this.custom[index] = pane.read(cx).is_custom();
-                cx.notify();
-            },
-        ));
+        let pane = match self.entries[index] {
+            Entry::File(spec) => {
+                let pane = cx.new(|cx| OverridePane::new(theme_name, spec, installed, window, cx));
+                self._subscriptions.push(cx.subscribe(
+                    &pane,
+                    move |this: &mut Self, pane, _: &StatusChanged, cx| {
+                        this.custom[index] = pane.read(cx).is_custom();
+                        cx.notify();
+                    },
+                ));
+                Pane::File(pane)
+            }
+            Entry::Bundle(bundle) => {
+                let pane = cx.new(|cx| PalettePane::new(theme_name, bundle, installed, window, cx));
+                self._subscriptions.push(cx.subscribe(
+                    &pane,
+                    move |this: &mut Self, pane, _: &StatusChanged, cx| {
+                        this.custom[index] = pane.read(cx).is_custom();
+                        cx.notify();
+                    },
+                ));
+                Pane::Bundle(pane)
+            }
+        };
         self.panes[index] = Some(pane);
     }
 
@@ -89,15 +144,15 @@ impl OverrideTab {
         self.nav_focus.focus(window, cx);
     }
 
-    /// Selects an app by its file.
-    pub fn select(&mut self, file: &str, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(index) = self.specs.iter().position(|spec| spec.file == file) {
+    /// Selects an app by its entry id (a file name or a bundle id).
+    pub fn select(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(index) = self.entries.iter().position(|entry| entry.id() == id) {
             self.set_active(index, window, cx);
         }
     }
 
     fn set_active(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let index = index.min(self.specs.len().saturating_sub(1));
+        let index = index.min(self.entries.len().saturating_sub(1));
         if self.active != index {
             self.active = index;
             self.ensure_pane(index, window, cx);
@@ -115,12 +170,12 @@ impl OverrideTab {
         let theme = cx.theme();
         let (radius, transparent) = (theme.radius, theme.transparent);
 
-        let items = self.specs.iter().enumerate().map(|(ix, spec)| {
+        let items = self.entries.iter().enumerate().map(|(ix, entry)| {
             let active = self.active == ix;
             let focused = nav_focused && active;
             let theme = cx.theme();
             h_flex()
-                .id(SharedString::from(format!("override-nav-{}", spec.file)))
+                .id(SharedString::from(format!("override-nav-{}", entry.id())))
                 .gap_2()
                 .px_2()
                 .py_1p5()
@@ -155,7 +210,7 @@ impl OverrideTab {
                             theme.border
                         }),
                 )
-                .child(div().text_sm().child(spec.app))
+                .child(div().text_sm().child(entry.app()))
                 .on_click(cx.listener(move |this, _, window, cx| {
                     this.nav_focus.focus(window, cx);
                     this.set_active(ix, window, cx);
@@ -203,7 +258,7 @@ impl Render for OverrideTab {
             .track_focus(&self.content_focus)
             .flex_1()
             .min_w_0()
-            .children(pane);
+            .children(pane.map(|pane| pane.element()));
         let nav = self.render_nav(wide, window, cx);
 
         let layout = if wide {

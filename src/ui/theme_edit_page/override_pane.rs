@@ -5,9 +5,7 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Sizable,
     button::{Button, ButtonVariants},
-    h_flex,
-    input::{Editor, EditorState},
-    v_flex,
+    h_flex, v_flex,
 };
 use gpui_kit::TestSupportExt;
 
@@ -15,7 +13,7 @@ use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::system::themes::theme_file_ops::get_theme_path;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
-use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor, preview_editor};
+use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor};
 use crate::ui::theme_edit_page::shared::{error_message, help_text};
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
@@ -36,7 +34,6 @@ pub struct OverridePane {
     /// The file as the editor last left it, saved or not; a view switch
     /// starts from it.
     latest: String,
-    preview: Option<Entity<EditorState>>,
     busy: bool,
     /// Bumped on every edit so only the last one in a burst is written.
     edit_generation: u64,
@@ -62,7 +59,6 @@ impl OverridePane {
             editor: None,
             view: EditorView::for_spec(spec)[0],
             latest: String::new(),
-            preview: None,
             busy: false,
             edit_generation: 0,
             error: None,
@@ -91,7 +87,6 @@ impl OverridePane {
             this.schedule_save(event.0.clone(), cx);
         }));
         self.editor = Some(editor);
-        self.preview = None;
     }
 
     fn set_view(&mut self, view: EditorView, window: &mut Window, cx: &mut Context<Self>) {
@@ -241,29 +236,6 @@ impl OverridePane {
         );
     }
 
-    fn toggle_preview(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.preview.take().is_some() {
-            cx.notify();
-            return;
-        }
-        let theme = self.theme_name.clone();
-        let spec = self.spec;
-        cx.spawn_in(window, async move |this, cx| {
-            let result = cx
-                .background_spawn(async move { overrides::generated(&theme, spec) })
-                .await;
-            this.update_in(cx, |this, window, cx| {
-                match result {
-                    Ok(content) => this.preview = Some(preview_editor(spec, &content, window, cx)),
-                    Err(e) => this.error = Some(e.to_string()),
-                }
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
-    }
-
     fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let custom = self.is_custom();
@@ -381,44 +353,11 @@ impl Render for OverridePane {
                             ),
                     ),
                 ),
-            None => pane
-                .child(help_text(
-                    "Omarchy generates this from your palette. Nothing to do here unless you \
-                     want it to look different.",
-                    muted,
-                ))
-                .when(
-                    !matches!(self.spec.seed, overrides::Seed::Fixed(_)),
-                    |pane| {
-                        pane.child(
-                            h_flex().child(
-                                Button::new(SharedString::from(format!("preview-{file}")))
-                                    .label(if self.preview.is_some() {
-                                        "Hide Generated File"
-                                    } else {
-                                        "Show Generated File"
-                                    })
-                                    .small()
-                                    .ghost()
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.toggle_preview(window, cx)
-                                    })),
-                            ),
-                        )
-                    },
-                )
-                .children(self.preview.as_ref().map(|preview| {
-                    div().h(px(360.)).child(
-                        Editor::new(preview)
-                            .readonly(true)
-                            .bg(cx.theme().background)
-                            .border_1()
-                            .border_color(cx.theme().border)
-                            .h_full()
-                            .appearance(false),
-                    )
-                })),
+            None => pane.child(help_text(
+                "Omarchy generates this from your palette. Turn on Customize to pick \
+                 different colors for it.",
+                muted,
+            )),
         };
 
         pane

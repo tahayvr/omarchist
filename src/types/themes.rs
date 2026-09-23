@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 // Where a theme comes from determines what actions are available on it.
@@ -80,6 +82,10 @@ pub struct EditingTheme {
     pub author: Option<String>,
     #[serde(default)]
     pub colors: ColorsConfig,
+    /// Palette bundles that are on, by `PaletteBundle::id`, with the colors
+    /// changed for them (`colors.toml` keys to `#rrggbb`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub palettes: BTreeMap<String, BTreeMap<String, String>>,
     #[serde(skip)] // Runtime-only, not serialized to JSON
     pub is_light_theme: bool,
 }
@@ -93,6 +99,7 @@ impl Default for EditingTheme {
             modified_at: String::new(),
             author: None,
             colors: ColorsConfig::default(),
+            palettes: BTreeMap::new(),
             is_light_theme: false,
         }
     }

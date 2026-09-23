@@ -6,7 +6,7 @@ use gpui_component::{
     ActiveTheme, Colorize, Sizable,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
     label::Label,
     radio::Radio,
     v_flex,
@@ -37,7 +37,32 @@ enum Field {
         picker: Entity<ColorPickerState>,
     },
     Input(Entity<InputState>),
+    Number(Entity<InputState>),
     Bool(bool),
+}
+
+/// The +/- step and the allowed range of a number key.
+fn number_range(kind: KeyKind) -> (f64, f64, f64) {
+    match kind {
+        KeyKind::Alpha => (0.05, 0.0, 1.0),
+        KeyKind::Float => (0.1, 0.0, 100.0),
+        _ => (1.0, 0.0, 999.0),
+    }
+}
+
+fn format_number(kind: KeyKind, value: f64) -> String {
+    match kind {
+        KeyKind::Integer => format!("{}", value.round() as i64),
+        _ => {
+            let text = format!("{value:.2}");
+            let text = text.trim_end_matches('0');
+            if text.ends_with('.') {
+                format!("{text}0")
+            } else {
+                text.to_string()
+            }
+        }
+    }
 }
 
 /// A form for one `shell.<section>.toml`, with a field for every key of the
@@ -168,7 +193,37 @@ impl ShellSectionForm {
                         }
                     },
                 ));
-                Field::Input(input)
+                if kind == KeyKind::Text {
+                    return Field::Input(input);
+                }
+                let name = key.key.clone();
+                let fallback = match &key.default {
+                    toml::Value::Integer(n) => *n as f64,
+                    toml::Value::Float(n) => *n,
+                    _ => 0.0,
+                };
+                self._subscriptions.push(cx.subscribe_in(
+                    &input,
+                    window,
+                    move |this: &mut Self, input, event: &NumberInputEvent, window, cx| {
+                        let NumberInputEvent::Step(action) = event;
+                        let (step, min, max) = number_range(kind);
+                        let current = input
+                            .read(cx)
+                            .value()
+                            .trim()
+                            .parse::<f64>()
+                            .unwrap_or(fallback);
+                        let next = match action {
+                            StepAction::Increment => current + step,
+                            StepAction::Decrement => current - step,
+                        };
+                        let text = format_number(kind, next.clamp(min, max));
+                        input.update(cx, |input, cx| input.set_value(text.clone(), window, cx));
+                        this.set_text(&name, kind, optional, &text, cx);
+                    },
+                ));
+                Field::Number(input)
             }
         }
     }
@@ -308,6 +363,11 @@ impl ShellSectionForm {
                 .w(px(180.))
                 .child(Label::new(label).text_sm())
                 .child(Input::new(input).small())
+                .into_any_element(),
+            Field::Number(input) => v_flex()
+                .gap_2()
+                .child(Label::new(label).text_sm())
+                .child(NumberInput::new(input).small().w(px(140.)))
                 .into_any_element(),
             Field::Bool(checked) => {
                 let name = key.key.clone();

@@ -117,6 +117,7 @@ fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> Editing
         modified_at: now,
         author: None,
         colors: colors_config,
+        palettes: Default::default(),
         is_light_theme: palette.is_light_theme,
     }
 }

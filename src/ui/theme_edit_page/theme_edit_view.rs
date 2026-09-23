@@ -1,5 +1,6 @@
 use crate::shell::theme_sh_commands::apply_theme;
-use crate::system::themes::overrides::{Category, OverrideSpec};
+use crate::system::themes::overrides::Category;
+use crate::system::themes::overrides::entries::Entry;
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
@@ -104,7 +105,7 @@ impl ThemeEditPage {
                 GeneralTabEvent::Renamed(name) => {
                     emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
                 }
-                GeneralTabEvent::OpenOverride(spec) => this.open_override(spec, window, cx),
+                GeneralTabEvent::OpenOverride(entry) => this.open_override(*entry, window, cx),
             },
         )
         .detach();
@@ -157,11 +158,16 @@ impl ThemeEditPage {
         .detach();
     }
 
-    fn set_tab(&mut self, index: usize, cx: &mut Context<Self>) {
+    fn set_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
         let index = index.min(self.tab_count.saturating_sub(1));
         if self.active_tab != index {
             self.active_tab = index;
             self.scroll.set_offset(Point::default());
+            if let Some(ThemeEditTab::Optional(category)) = ThemeEditTab::all().get(index).copied()
+                && let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == category)
+            {
+                tab.update(cx, |tab, cx| tab.refresh(window, cx));
+            }
             cx.notify();
         }
     }
@@ -177,30 +183,29 @@ impl ThemeEditPage {
     }
 
     /// Shows an override's pane on its category's tab.
-    fn open_override(
-        &mut self,
-        spec: &'static OverrideSpec,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
+    fn open_override(&mut self, entry: Entry, window: &mut Window, cx: &mut Context<Self>) {
         let Some(index) = ThemeEditTab::all()
             .iter()
-            .position(|tab| *tab == ThemeEditTab::Optional(spec.category))
+            .position(|tab| *tab == ThemeEditTab::Optional(entry.category()))
         else {
             return;
         };
-        if let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == spec.category) {
-            tab.update(cx, |tab, cx| tab.select(spec.file, window, cx));
+        if let Some((_, tab)) = self
+            .override_tabs
+            .iter()
+            .find(|(c, _)| *c == entry.category())
+        {
+            tab.update(cx, |tab, cx| tab.select(entry.id(), window, cx));
         }
-        self.set_tab(index, cx);
+        self.set_tab(index, window, cx);
     }
 
-    fn next_tab(&mut self, cx: &mut Context<Self>) {
-        self.set_tab(self.active_tab + 1, cx);
+    fn next_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_tab(self.active_tab + 1, window, cx);
     }
 
-    fn prev_tab(&mut self, cx: &mut Context<Self>) {
-        self.set_tab(self.active_tab.saturating_sub(1), cx);
+    fn prev_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_tab(self.active_tab.saturating_sub(1), window, cx);
     }
 
     fn render_tab_content(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
@@ -239,13 +244,13 @@ impl Render for ThemeEditPage {
             .gap_4()
             .overflow_x_hidden()
             .on_action(
-                cx.listener(|this, _: &app_menu::ThemeEditNextTab, _window, cx| {
-                    this.next_tab(cx);
+                cx.listener(|this, _: &app_menu::ThemeEditNextTab, window, cx| {
+                    this.next_tab(window, cx);
                 }),
             )
             .on_action(
-                cx.listener(|this, _: &app_menu::ThemeEditPrevTab, _window, cx| {
-                    this.prev_tab(cx);
+                cx.listener(|this, _: &app_menu::ThemeEditPrevTab, window, cx| {
+                    this.prev_tab(window, cx);
                 }),
             )
             .on_action(cx.listener(|this, _: &app_menu::NavigateBack, window, cx| {
@@ -289,18 +294,26 @@ impl Render for ThemeEditPage {
                         tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)
                             .flex_1()
                             .min_w_0()
-                            .on_action(cx.listener(|this, _: &focus::tab_strip::Prev, _, cx| {
-                                this.prev_tab(cx);
-                            }))
-                            .on_action(cx.listener(|this, _: &focus::tab_strip::Next, _, cx| {
-                                this.next_tab(cx);
-                            }))
-                            .on_action(cx.listener(|this, _: &focus::tab_strip::First, _, cx| {
-                                this.set_tab(0, cx);
-                            }))
-                            .on_action(cx.listener(|this, _: &focus::tab_strip::Last, _, cx| {
-                                this.set_tab(usize::MAX, cx);
-                            }))
+                            .on_action(cx.listener(
+                                |this, _: &focus::tab_strip::Prev, window, cx| {
+                                    this.prev_tab(window, cx);
+                                },
+                            ))
+                            .on_action(cx.listener(
+                                |this, _: &focus::tab_strip::Next, window, cx| {
+                                    this.next_tab(window, cx);
+                                },
+                            ))
+                            .on_action(cx.listener(
+                                |this, _: &focus::tab_strip::First, window, cx| {
+                                    this.set_tab(0, window, cx);
+                                },
+                            ))
+                            .on_action(cx.listener(
+                                |this, _: &focus::tab_strip::Last, window, cx| {
+                                    this.set_tab(usize::MAX, window, cx);
+                                },
+                            ))
                             .on_action(cx.listener(
                                 |this, _: &focus::tab_strip::Activate, window, cx| {
                                     focus::focus_first_in(&this.content_focus, window, cx);
@@ -315,8 +328,8 @@ impl Render for ThemeEditPage {
                                         TabBar::new("theme-edit-tabs")
                                             .cursor_pointer()
                                             .selected_index(self.active_tab)
-                                            .on_click(cx.listener(|view, index, _, cx| {
-                                                view.set_tab(*index, cx);
+                                            .on_click(cx.listener(|view, index, window, cx| {
+                                                view.set_tab(*index, window, cx);
                                             }))
                                             .children(
                                                 core.iter()
@@ -342,8 +355,12 @@ impl Render for ThemeEditPage {
                                                 self.active_tab
                                                     .wrapping_sub(ThemeEditTab::CORE_COUNT),
                                             )
-                                            .on_click(cx.listener(|view, index, _, cx| {
-                                                view.set_tab(ThemeEditTab::CORE_COUNT + *index, cx);
+                                            .on_click(cx.listener(|view, index, window, cx| {
+                                                view.set_tab(
+                                                    ThemeEditTab::CORE_COUNT + *index,
+                                                    window,
+                                                    cx,
+                                                );
                                             }))
                                             .children(
                                                 optional

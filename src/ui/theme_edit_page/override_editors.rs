@@ -6,7 +6,7 @@ use gpui_component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
-    input::{Editor, EditorState, Input, InputEvent, InputState},
+    input::{Input, InputEvent, InputState},
     label::Label,
     radio::Radio,
     v_flex,
@@ -23,7 +23,6 @@ pub struct ContentChanged(pub String);
 
 /// The editor an override pane shows while the override is on.
 pub enum OverrideEditor {
-    Source(Entity<SourceEditor>),
     Colors(Entity<ColorFieldsForm>),
     Icons(Entity<IconsForm>),
     Vscode(Entity<VscodeForm>),
@@ -39,7 +38,6 @@ pub enum EditorView {
     Form,
     Colors,
     Plugin,
-    Source,
 }
 
 impl EditorView {
@@ -48,7 +46,6 @@ impl EditorView {
             EditorView::Form => "Form",
             EditorView::Colors => "Colors",
             EditorView::Plugin => "Plugin",
-            EditorView::Source => "Source",
         }
     }
 
@@ -56,11 +53,9 @@ impl EditorView {
     pub fn for_spec(spec: &OverrideSpec) -> &'static [EditorView] {
         use EditorView::*;
         match (spec.editor, spec.file) {
-            (_, "neovim.lua") => &[Colors, Plugin, Source],
-            (EditorKind::ShellSection, _) | (_, "btop.theme") => &[Form, Source],
-            (EditorKind::ColorMap, _) => &[Colors, Source],
-            (EditorKind::Form, _) => &[Form],
-            (EditorKind::Source, _) => &[Source],
+            (_, "neovim.lua") => &[Colors, Plugin],
+            (EditorKind::ColorMap, _) => &[Colors],
+            _ => &[Form],
         }
     }
 }
@@ -75,9 +70,6 @@ impl OverrideEditor {
         cx: &mut App,
     ) -> Self {
         match view {
-            EditorView::Source => {
-                return Self::Source(cx.new(|cx| SourceEditor::new(spec, content, window, cx)));
-            }
             EditorView::Colors => {
                 return Self::ColorMap(cx.new(|cx| ColorMapForm::new(spec, content, window, cx)));
             }
@@ -104,7 +96,7 @@ impl OverrideEditor {
             })),
             "icons.theme" => Self::Icons(cx.new(|_| IconsForm::new(content))),
             "vscode.json" => Self::Vscode(cx.new(|cx| VscodeForm::new(content, window, cx))),
-            _ => Self::Source(cx.new(|cx| SourceEditor::new(spec, content, window, cx))),
+            _ => Self::ColorMap(cx.new(|cx| ColorMapForm::new(spec, content, window, cx))),
         }
     }
 
@@ -124,7 +116,6 @@ impl OverrideEditor {
             }};
         }
         match self {
-            Self::Source(editor) => forward!(editor),
             Self::Colors(editor) => forward!(editor),
             Self::Icons(editor) => forward!(editor),
             Self::Vscode(editor) => forward!(editor),
@@ -136,7 +127,6 @@ impl OverrideEditor {
 
     pub fn element(&self) -> AnyElement {
         match self {
-            Self::Source(editor) => editor.clone().into_any_element(),
             Self::Colors(editor) => editor.clone().into_any_element(),
             Self::Icons(editor) => editor.clone().into_any_element(),
             Self::Vscode(editor) => editor.clone().into_any_element(),
@@ -145,73 +135,6 @@ impl OverrideEditor {
             Self::Plugin(editor) => editor.clone().into_any_element(),
         }
     }
-}
-
-// MARK: Source
-
-/// The file as text, highlighted when the highlighter knows its language.
-pub struct SourceEditor {
-    input: Entity<EditorState>,
-    _subscription: Subscription,
-}
-
-impl EventEmitter<ContentChanged> for SourceEditor {}
-
-impl SourceEditor {
-    fn new(
-        spec: &'static OverrideSpec,
-        content: &str,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) -> Self {
-        let input = cx.new(|cx| {
-            let state = EditorState::new(window, cx).line_number(true);
-            match spec.format.language() {
-                Some(language) => state.language(language),
-                None => state,
-            }
-            .default_value(content.to_string())
-        });
-        let subscription = cx.subscribe(&input, |_, input, event: &InputEvent, cx| {
-            if let InputEvent::Change = event {
-                cx.emit(ContentChanged(input.read(cx).value().to_string()));
-            }
-        });
-        Self {
-            input,
-            _subscription: subscription,
-        }
-    }
-}
-
-impl Render for SourceEditor {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        div().h(px(420.)).child(
-            Editor::new(&self.input)
-                .bg(cx.theme().background)
-                .border_1()
-                .border_color(cx.theme().border)
-                .h_full()
-                .appearance(false),
-        )
-    }
-}
-
-/// A read-only view of what Omarchy generates.
-pub fn preview_editor(
-    spec: &'static OverrideSpec,
-    content: &str,
-    window: &mut Window,
-    cx: &mut App,
-) -> Entity<EditorState> {
-    cx.new(|cx| {
-        let state = EditorState::new(window, cx).line_number(true);
-        match spec.format.language() {
-            Some(language) => state.language(language),
-            None => state,
-        }
-        .default_value(content.to_string())
-    })
 }
 
 // MARK: Color fields

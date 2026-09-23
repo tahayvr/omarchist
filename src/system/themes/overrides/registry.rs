@@ -42,20 +42,6 @@ pub enum Format {
     Plain,
 }
 
-impl Format {
-    /// The gpui-component highlighter language, if it has one.
-    pub fn language(&self) -> Option<&'static str> {
-        match self {
-            Format::Toml => Some("toml"),
-            Format::Json => Some("json"),
-            Format::Yaml => Some("yaml"),
-            Format::Lua => Some("lua"),
-            Format::Css => Some("css"),
-            Format::Ini | Format::Plain => None,
-        }
-    }
-}
-
 /// How the Theme Designer edits the file.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EditorKind {
@@ -63,10 +49,13 @@ pub enum EditorKind {
     Form,
     /// Fields built from the section's keys in `shell.toml.tpl`.
     ShellSection,
-    /// A picker for every hex color in the file, with a source view.
+    /// A picker for every hex color in the file.
     ColorMap,
-    /// The file as text.
-    Source,
+    /// Generated with its `palette::PaletteBundle` from palette colors.
+    Palette,
+    /// Not offered: set elsewhere in the Theme Designer, or only editable as
+    /// code.
+    Hidden,
 }
 
 /// Where the starting content of a new override comes from.
@@ -205,12 +194,17 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         "Controls",
         "Buttons, dropdowns, and tab strips in shell panels."
     ),
-    shell_section!(
-        "shell.hyprland.toml",
-        "hyprland",
-        "Shell Borders",
-        "The border colors other shell surfaces refer to."
-    ),
+    // Follows the window border colors on the Colors tab.
+    OverrideSpec {
+        file: "shell.hyprland.toml",
+        app: "Shell Borders",
+        description: "The border colors other shell surfaces refer to.",
+        category: Category::Desktop,
+        format: Format::Toml,
+        editor: EditorKind::Hidden,
+        seed: Seed::ShellSection("hyprland"),
+        binaries: &[],
+    },
     shell_section!(
         "shell.spacing.toml",
         "spacing",
@@ -229,7 +223,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Window border colors, plus any extra Hyprland settings for this theme.",
         category: Category::Desktop,
         format: Format::Lua,
-        editor: EditorKind::Source,
+        editor: EditorKind::Hidden,
         seed: Seed::Template("hyprland.lua.tpl"),
         binaries: &[],
     },
@@ -239,7 +233,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Colors of Omarchy's terminal menus and prompts (gum).",
         category: Category::Desktop,
         format: Format::Lua,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("gum_env.lua.tpl"),
         binaries: &[],
     },
@@ -249,7 +243,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "The window and screen picker shown when an app starts sharing.",
         category: Category::Desktop,
         format: Format::Css,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("hyprland-preview-share-picker.css.tpl"),
         binaries: &["hyprland-preview-share-picker"],
     },
@@ -279,7 +273,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Alacritty's colors.",
         category: Category::Terminals,
         format: Format::Toml,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("alacritty.toml.tpl"),
         binaries: &["alacritty"],
     },
@@ -289,7 +283,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Kitty's colors.",
         category: Category::Terminals,
         format: Format::Ini,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("kitty.conf.tpl"),
         binaries: &["kitty"],
     },
@@ -299,7 +293,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Ghostty's colors.",
         category: Category::Terminals,
         format: Format::Ini,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("ghostty.conf.tpl"),
         binaries: &["ghostty"],
     },
@@ -309,7 +303,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "Foot's colors.",
         category: Category::Terminals,
         format: Format::Ini,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("foot.ini.tpl"),
         binaries: &["foot"],
     },
@@ -359,7 +353,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "The Omarchy theme copied into every Obsidian vault.",
         category: Category::Editors,
         format: Format::Css,
-        editor: EditorKind::Source,
+        editor: EditorKind::Palette,
         seed: Seed::Template("obsidian.css.tpl"),
         binaries: &["obsidian"],
     },

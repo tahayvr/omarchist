@@ -9,6 +9,7 @@ use crate::types::themes::EditingTheme;
 use super::colors::update_colors_toml;
 use super::paths::get_custom_themes_dir;
 use crate::assets::extract_default_dir;
+use crate::system::themes::overrides::palette;
 use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
 pub fn generate_unique_theme_name() -> String {
@@ -166,6 +167,13 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     // Per-app files are written by their own editors through
     // `themes::overrides`; everything else Omarchy generates from colors.toml.
     update_colors_toml(theme_name, &updated_theme.colors)?;
+
+    // Palette bundles follow the palette in every color they do not change.
+    for (id, overrides) in &updated_theme.palettes {
+        if let Some(bundle) = palette::find_bundle(id) {
+            palette::generate(theme_name, bundle, &updated_theme.colors, overrides)?;
+        }
+    }
 
     Ok(())
 }
