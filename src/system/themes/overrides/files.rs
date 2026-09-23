@@ -3,9 +3,8 @@ use std::path::PathBuf;
 
 use crate::error::{Error, Result};
 use crate::shell::theme_sh_commands::theme_color_all;
-use crate::system::omarchy_paths::{
-    themed_templates_dir, user_themed_templates_dir, user_themes_dir,
-};
+use crate::system::omarchy_paths::{themed_templates_dir, user_themed_templates_dir};
+use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
 use super::registry::{OverrideSpec, Seed};
 use super::shell_section;
@@ -21,14 +20,7 @@ pub enum OverrideStatus {
 }
 
 fn theme_dir(theme: &str) -> Result<PathBuf> {
-    let dir = user_themes_dir()
-        .ok_or(Error::UnknownDirectory("custom themes"))?
-        .join(theme);
-    if dir.is_dir() {
-        Ok(dir)
-    } else {
-        Err(Error::ThemeNotFound(theme.to_string()))
-    }
+    omarchist_theme_dir(theme)
 }
 
 pub fn status(theme: &str, spec: &OverrideSpec) -> OverrideStatus {

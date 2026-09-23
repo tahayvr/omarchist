@@ -108,6 +108,7 @@ pub fn add_background_image(
     is_system: bool,
     source_path: &std::path::Path,
 ) -> Result<PathBuf> {
+    omarchist_theme_dir(theme_name)?;
     // Ensure backgrounds directory exists
     let backgrounds_dir = ensure_backgrounds_dir(theme_name, is_system)?;
 
@@ -126,6 +127,7 @@ pub fn add_background_image(
 }
 
 pub fn remove_background_image(theme_name: &str, is_system: bool, filename: &str) -> Result<()> {
+    omarchist_theme_dir(theme_name)?;
     let backgrounds_dir =
         get_backgrounds_dir(theme_name, is_system).ok_or(Error::UnknownDirectory("backgrounds"))?;
 
@@ -181,6 +183,27 @@ pub fn is_system_theme(theme_name: &str) -> bool {
     }
 }
 
+/// Whether Omarchist created the theme: a folder under
+/// `~/.config/omarchy/themes` with an `omarchist.json`. Only these are edited.
+pub fn is_omarchist_theme(theme_name: &str) -> bool {
+    !theme_name.is_empty()
+        && !theme_name.contains('/')
+        && !theme_name.starts_with('.')
+        && get_custom_theme_path(theme_name).is_some_and(|dir| dir.join("omarchist.json").is_file())
+}
+
+/// The folder of an Omarchist theme, or the reason it may not be written to.
+pub fn omarchist_theme_dir(theme_name: &str) -> Result<PathBuf> {
+    let dir = get_custom_theme_path(theme_name).ok_or(Error::UnknownDirectory("custom themes"))?;
+    if !dir.is_dir() {
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
+    }
+    if !is_omarchist_theme(theme_name) {
+        return Err(Error::NotOmarchistTheme(theme_name.to_string()));
+    }
+    Ok(dir)
+}
+
 pub fn is_custom_theme(theme_name: &str) -> bool {
     if let Some(path) = get_custom_theme_path(theme_name) {
         path.exists()
@@ -208,9 +231,7 @@ pub fn boot_logo(theme_name: &str, is_system: bool) -> Option<PathBuf> {
 
 /// Copies a PNG in as the theme's boot logo; Plymouth only loads PNG.
 pub fn set_boot_logo(theme_name: &str, source_path: &std::path::Path) -> Result<PathBuf> {
-    let dir = get_custom_theme_path(theme_name)
-        .filter(|dir| dir.is_dir())
-        .ok_or_else(|| Error::ThemeNotFound(theme_name.to_string()))?;
+    let dir = omarchist_theme_dir(theme_name)?;
     let bytes = fs::read(source_path).map_err(|e| Error::io("Failed to read the image", e))?;
     if !bytes.starts_with(PNG_SIGNATURE) {
         return Err(Error::Invalid(
@@ -225,9 +246,7 @@ pub fn set_boot_logo(theme_name: &str, source_path: &std::path::Path) -> Result<
 /// Renders `preview-unlock.png` from the logo and the theme's background and
 /// foreground, so the boot screen switcher lists the theme.
 pub fn render_boot_preview(theme_name: &str) -> Result<()> {
-    let dir = get_custom_theme_path(theme_name)
-        .filter(|dir| dir.is_dir())
-        .ok_or_else(|| Error::ThemeNotFound(theme_name.to_string()))?;
+    let dir = omarchist_theme_dir(theme_name)?;
     let palette = crate::system::themes::overrides::palette(theme_name)?;
     let color = |key: &str| {
         palette
@@ -245,9 +264,7 @@ pub fn render_boot_preview(theme_name: &str) -> Result<()> {
 
 /// Removes the logo and its preview, so the switcher no longer lists the theme.
 pub fn remove_boot_logo(theme_name: &str) -> Result<()> {
-    let Some(dir) = get_custom_theme_path(theme_name) else {
-        return Ok(());
-    };
+    let dir = omarchist_theme_dir(theme_name)?;
     for file in [BOOT_LOGO_FILE, BOOT_PREVIEW_FILE] {
         let path = dir.join(file);
         if path.exists() {

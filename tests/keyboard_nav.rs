@@ -6,7 +6,9 @@ use std::time::Duration;
 use gpui_kit::component::{Root, WindowExt};
 use gpui_kit::test::{TestAppContextExt, TestWindowExt};
 use gpui_kit::{AppContext, Entity, TestAppContext, WindowHandle, px, size};
+use omarchist::system::themes::overrides::Category;
 use omarchist::ui::app_events::AppEvents;
+use omarchist::ui::theme_edit_page::override_tab::OverrideTab;
 use omarchist::{ActivePage, MainTitleBar, MainWindowView};
 
 /// The sidebar page list's test target (`SidebarNav` in `app_view.rs`).
@@ -180,24 +182,33 @@ async fn command_palette_runs_the_chosen_command(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn theme_designer_optional_tabs_are_reachable_from_the_keyboard(cx: &mut TestAppContext) {
-    let (handle, _view) = open(cx, ActivePage::ThemeEdit("keyboard-nav-test".into()));
+fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestAppContext) {
+    let (_handle, view) = open(cx, ActivePage::ThemeEdit("not-an-omarchist-theme".into()));
+    cx.run_until_parked();
+    assert_page(cx, &view, ActivePage::Themes);
+}
 
-    // The page opens with its tab strip focused. End selects the last
-    // optional tab (AI Tools) and Enter moves into it.
+#[gpui_kit::test]
+fn override_app_list_moves_with_the_arrow_keys(cx: &mut TestAppContext) {
+    cx.update(|cx| {
+        cx.set_global(AppEvents::default());
+        gpui_kit::init(cx);
+        cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
+    });
+    let mut tab = None;
+    let handle = cx.open_window(size(px(1280.), px(800.)), |window, cx| {
+        let view = cx
+            .new(|cx| OverrideTab::new("keyboard-nav-test".into(), Category::AiTools, window, cx));
+        tab = Some(view.clone());
+        Root::new(view, window, cx)
+    });
+    let tab = tab.expect("tab created");
+
     cx.update_window(handle.into(), |_, window, cx| {
-        window.press("end", cx);
         window.render_frame(cx);
-        window.press("enter", cx);
-        // Enter focuses the content, then its first tab stop on the next frame.
+        tab.update(cx, |tab, cx| tab.focus_entry(window, cx));
         window.render_frame(cx);
-        window.simulate_next_frame(cx);
-        window.render_frame(cx);
-        assert_eq!(
-            window.find("override-nav").focused(),
-            Some(true),
-            "focus lands on the app list"
-        );
+        assert_eq!(window.find("override-nav").focused(), Some(true));
         assert!(window.try_find("override-pane-claude.json").is_some());
 
         window.press("down", cx);

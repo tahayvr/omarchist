@@ -3,7 +3,7 @@ use std::fs;
 
 use crate::types::themes::ColorsConfig;
 
-use super::paths::get_custom_themes_dir;
+use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
 // Serializes the palette in the exact shape Quattro's `omarchy-theme-color`
 // parses: one `key = "value"` per line, no TOML tables.
@@ -75,13 +75,7 @@ color15 = "{}"
 }
 
 pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<()> {
-    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
-
-    let theme_dir = themes_dir.join(theme_name);
-
-    if !theme_dir.exists() {
-        return Err(Error::ThemeNotFound(theme_name.to_string()));
-    }
+    let theme_dir = omarchist_theme_dir(theme_name)?;
 
     let toml_path = theme_dir.join("colors.toml");
     fs::write(&toml_path, render_colors_toml(colors))

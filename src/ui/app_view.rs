@@ -1,6 +1,7 @@
 use crate::system::flows::runner::Runner;
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::load_flow;
+use crate::system::themes::theme_file_ops::is_omarchist_theme;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents};
 use crate::ui::config_page::config_view::ConfigView;
@@ -297,6 +298,16 @@ impl MainWindowView {
     }
 
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {
+        let page = match page {
+            ActivePage::ThemeEdit(name) if !is_omarchist_theme(&name) => {
+                // Deferred: at startup this runs before the window's `Root`
+                // exists, and notifications live on the `Root`.
+                let message = crate::error::Error::NotOmarchistTheme(name).to_string();
+                window.defer(cx, move |window, cx| window.push_notification(message, cx));
+                ActivePage::Themes
+            }
+            page => page,
+        };
         if self.active_page == page {
             return;
         }

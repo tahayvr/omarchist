@@ -33,6 +33,11 @@ pub enum Error {
     #[error("Theme '{0}' already exists")]
     ThemeExists(String),
 
+    /// The theme has no `omarchist.json`: Omarchy's own themes, themes
+    /// installed from elsewhere, and hand-made folders are never edited.
+    #[error("'{0}' was not created with Omarchist, so Omarchist does not edit it")]
+    NotOmarchistTheme(String),
+
     /// A well-known directory (home, themes, backgrounds) could not be
     /// resolved from the environment.
     #[error("Could not determine {0} directory")]

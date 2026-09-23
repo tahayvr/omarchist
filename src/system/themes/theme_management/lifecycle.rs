@@ -9,6 +9,7 @@ use crate::types::themes::EditingTheme;
 use super::colors::update_colors_toml;
 use super::paths::get_custom_themes_dir;
 use crate::assets::extract_default_dir;
+use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
 pub fn generate_unique_theme_name() -> String {
     let themes_dir = match get_custom_themes_dir() {
@@ -124,14 +125,13 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme> {
     }
 
     let json_path = theme_dir.join("omarchist.json");
-    let mut editing_theme: EditingTheme = if json_path.exists() {
-        let content = fs::read_to_string(&json_path)
-            .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| Error::json("Failed to parse omarchist.json", e))?
-    } else {
-        EditingTheme::default()
-    };
+    if !json_path.is_file() {
+        return Err(Error::NotOmarchistTheme(theme_name.to_string()));
+    }
+    let content = fs::read_to_string(&json_path)
+        .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
+    let mut editing_theme: EditingTheme = serde_json::from_str(&content)
+        .map_err(|e| Error::json("Failed to parse omarchist.json", e))?;
 
     // `mode` in colors.toml is authoritative; the `light.mode` marker file is
     // only honored for themes written by pre-Quattro versions of Omarchist.
@@ -142,13 +142,7 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme> {
 }
 
 pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()> {
-    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
-
-    let theme_dir = themes_dir.join(theme_name);
-
-    if !theme_dir.exists() {
-        return Err(Error::ThemeNotFound(theme_name.to_string()));
-    }
+    let theme_dir = omarchist_theme_dir(theme_name)?;
 
     let mut updated_theme = theme_data.clone();
     updated_theme.modified_at = Utc::now().to_rfc3339();
@@ -192,12 +186,8 @@ where
 pub fn rename_theme(old_name: &str, new_name: &str) -> Result<()> {
     let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
-    let old_path = themes_dir.join(old_name);
+    let old_path = omarchist_theme_dir(old_name)?;
     let new_path = themes_dir.join(new_name);
-
-    if !old_path.exists() {
-        return Err(Error::ThemeNotFound(old_name.to_string()));
-    }
 
     if new_path.exists() {
         return Err(Error::ThemeExists(new_name.to_string()));

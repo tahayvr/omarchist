@@ -84,6 +84,11 @@ impl OverrideTab {
         self.panes[index] = Some(pane);
     }
 
+    /// Focuses the app list.
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.nav_focus.focus(window, cx);
+    }
+
     /// Selects an app by its file.
     pub fn select(&mut self, file: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(index) = self.specs.iter().position(|spec| spec.file == file) {

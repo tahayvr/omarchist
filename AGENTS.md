@@ -113,7 +113,7 @@ impl Default for CustomTheme {
 
 ### Error Handling
 
-Fallible code in `system/` and `shell/` returns `crate::error::Result<T>`, whose error is the `thiserror` enum in `src/error.rs` (`Io`, `Json`, `ThemeNotFound`, `ThemeExists`, `UnknownDirectory`, `Network`, `Invalid`). Never return `Result<T, String>`.
+Fallible code in `system/` and `shell/` returns `crate::error::Result<T>`, whose error is the `thiserror` enum in `src/error.rs` (`Io`, `Json`, `ThemeNotFound`, `ThemeExists`, `NotOmarchistTheme`, `UnknownDirectory`, `Network`, `Invalid`). Never return `Result<T, String>`.
 
 ```rust
 use crate::error::{Error, Result};
@@ -309,6 +309,8 @@ Omarchist targets Omarchy Quattro (v4) only — see `tahayvr/omarchist#39`. Quat
 - **Boot logo**: `unlock.png` is the Plymouth/SDDM logo, applied only through `omarchy-plymouth-switcher` (sudo), never by `omarchy-theme-set`. The switcher lists a theme only if it has `preview-unlock.png`, so the Backgrounds tab renders that with `omarchy-plymouth-preview` whenever a logo is set (`theme_file_ops::render_boot_preview`).
 - **`light.mode` is legacy.** Omarchy's `omarchy-theme-color` only consults it as a fallback behind the `mode` key in `colors.toml`. Omarchist always writes `mode`, never writes `light.mode`, and deletes a stale one on save; it is still honored on load for themes written by Omarchist 1.x.
 - **The Status Bar / Waybar feature was removed entirely** (not ported) — Quattro's own `omarchy bar` tooling and shell now own bar editing natively, so Omarchist no longer needs to.
+
+- **Omarchist edits only its own themes**: a folder under `~/.config/omarchy/themes` with an `omarchist.json`. `theme_file_ops::omarchist_theme_dir` is the gate every theme write goes through (`save_theme_data`, `update_colors_toml`, `rename_theme`, override writes, backgrounds, the boot logo) and returns `Error::NotOmarchistTheme` for anything else; `load_theme_for_editing` never falls back to a default manifest. `MainWindowView::navigate_to` turns a `ThemeEdit` of such a theme into the Themes page with a notification.
 
 ### Hyprland Config — Lua Ownership
 
