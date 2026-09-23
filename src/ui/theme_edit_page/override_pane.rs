@@ -14,7 +14,7 @@ use gpui_kit::TestSupportExt;
 use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
-use crate::ui::theme_edit_page::override_editors::{OverrideEditor, preview_editor};
+use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor, preview_editor};
 use crate::ui::theme_edit_page::shared::{error_message, help_text};
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
@@ -29,6 +29,10 @@ pub struct OverridePane {
     installed: bool,
     /// `Some` while the theme ships its own file.
     editor: Option<OverrideEditor>,
+    view: EditorView,
+    /// The file as the editor last left it, saved or not; a view switch
+    /// starts from it.
+    latest: String,
     preview: Option<Entity<EditorState>>,
     busy: bool,
     /// Bumped on every edit so only the last one in a burst is written.
@@ -52,6 +56,8 @@ impl OverridePane {
             spec,
             installed,
             editor: None,
+            view: EditorView::for_spec(spec)[0],
+            latest: String::new(),
             preview: None,
             busy: false,
             edit_generation: 0,
@@ -71,12 +77,49 @@ impl OverridePane {
     }
 
     fn show_editor(&mut self, content: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let editor = OverrideEditor::new(&self.theme_name, self.spec, content, window, cx);
+        let editor =
+            OverrideEditor::new(&self.theme_name, self.spec, self.view, content, window, cx);
+        self.latest = content.to_string();
         self._editor_subscription = Some(editor.subscribe(cx, |this, event, cx| {
+            this.latest = event.0.clone();
             this.schedule_save(event.0.clone(), cx);
         }));
         self.editor = Some(editor);
         self.preview = None;
+    }
+
+    fn set_view(&mut self, view: EditorView, window: &mut Window, cx: &mut Context<Self>) {
+        if self.view == view || self.editor.is_none() {
+            return;
+        }
+        self.view = view;
+        let content = self.latest.clone();
+        self.show_editor(&content, window, cx);
+        cx.notify();
+    }
+
+    fn render_views(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let views = EditorView::for_spec(self.spec);
+        (views.len() > 1 && self.editor.is_some()).then(|| {
+            h_flex().gap_1().children(views.iter().map(|&view| {
+                Button::new(SharedString::from(format!(
+                    "view-{}-{}",
+                    self.spec.file,
+                    view.label()
+                )))
+                .label(view.label())
+                .small()
+                .map(|b| {
+                    if self.view == view {
+                        b.primary()
+                    } else {
+                        b.ghost()
+                    }
+                })
+                .cursor_pointer()
+                .on_click(cx.listener(move |this, _, window, cx| this.set_view(view, window, cx)))
+            }))
+        })
     }
 
     fn schedule_save(&mut self, content: String, cx: &mut Context<Self>) {
@@ -308,18 +351,21 @@ impl Render for OverridePane {
             .children(self.error.clone().map(|error| error_message(error, cx)));
 
         pane = match &self.editor {
-            Some(editor) => pane.child(editor.element()).child(
-                h_flex().child(
-                    Button::new(SharedString::from(format!("reset-{file}")))
-                        .label("Reset to Generated")
-                        .small()
-                        .outline()
-                        .cursor_pointer()
-                        .on_click(
-                            cx.listener(|this, _, window, cx| this.confirm_reset(window, cx)),
-                        ),
+            Some(editor) => pane
+                .children(self.render_views(cx))
+                .child(editor.element())
+                .child(
+                    h_flex().child(
+                        Button::new(SharedString::from(format!("reset-{file}")))
+                            .label("Reset to Generated")
+                            .small()
+                            .outline()
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.confirm_reset(window, cx)),
+                            ),
+                    ),
                 ),
-            ),
             None => pane
                 .child(help_text(
                     "Omarchy generates this from your palette. Nothing to do here unless you \

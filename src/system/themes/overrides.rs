@@ -8,6 +8,7 @@
 
 pub mod btop;
 pub mod chromium;
+pub mod color_map;
 pub mod files;
 pub mod registry;
 pub mod shell_section;

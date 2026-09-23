@@ -12,8 +12,9 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::system::themes::overrides::{OverrideSpec, btop, chromium};
+use crate::system::themes::overrides::{EditorKind, OverrideSpec, btop, chromium};
 use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::theme_edit_page::color_map_form::{ColorMapForm, NeovimPluginForm};
 use crate::ui::theme_edit_page::shared::color_picker_with_clipboard;
 use crate::ui::theme_edit_page::shell_section_form::ShellSectionForm;
 
@@ -27,16 +28,64 @@ pub enum OverrideEditor {
     Icons(Entity<IconsForm>),
     Vscode(Entity<VscodeForm>),
     Shell(Entity<ShellSectionForm>),
+    ColorMap(Entity<ColorMapForm>),
+    Plugin(Entity<NeovimPluginForm>),
+}
+
+/// A way of editing an override file; a pane switches between the views its
+/// file offers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EditorView {
+    Form,
+    Colors,
+    Plugin,
+    Source,
+}
+
+impl EditorView {
+    pub fn label(self) -> &'static str {
+        match self {
+            EditorView::Form => "Form",
+            EditorView::Colors => "Colors",
+            EditorView::Plugin => "Plugin",
+            EditorView::Source => "Source",
+        }
+    }
+
+    /// The views a file offers; the first is the default.
+    pub fn for_spec(spec: &OverrideSpec) -> &'static [EditorView] {
+        use EditorView::*;
+        match (spec.editor, spec.file) {
+            (_, "neovim.lua") => &[Colors, Plugin, Source],
+            (EditorKind::ShellSection, _) | (_, "btop.theme") => &[Form, Source],
+            (EditorKind::ColorMap, _) => &[Colors, Source],
+            (EditorKind::Form, _) => &[Form],
+            (EditorKind::Source, _) => &[Source],
+        }
+    }
 }
 
 impl OverrideEditor {
     pub fn new(
         theme_name: &str,
         spec: &'static OverrideSpec,
+        view: EditorView,
         content: &str,
         window: &mut Window,
         cx: &mut App,
     ) -> Self {
+        match view {
+            EditorView::Source => {
+                return Self::Source(cx.new(|cx| SourceEditor::new(spec, content, window, cx)));
+            }
+            EditorView::Colors => {
+                return Self::ColorMap(cx.new(|cx| ColorMapForm::new(spec, content, window, cx)));
+            }
+            EditorView::Plugin => {
+                return Self::Plugin(cx.new(|cx| NeovimPluginForm::new(content, window, cx)));
+            }
+            EditorView::Form => {}
+        }
         if spec.shell_section().is_some() {
             let theme_name = theme_name.to_string();
             return Self::Shell(
@@ -80,6 +129,8 @@ impl OverrideEditor {
             Self::Icons(editor) => forward!(editor),
             Self::Vscode(editor) => forward!(editor),
             Self::Shell(editor) => forward!(editor),
+            Self::ColorMap(editor) => forward!(editor),
+            Self::Plugin(editor) => forward!(editor),
         }
     }
 
@@ -90,6 +141,8 @@ impl OverrideEditor {
             Self::Icons(editor) => editor.clone().into_any_element(),
             Self::Vscode(editor) => editor.clone().into_any_element(),
             Self::Shell(editor) => editor.clone().into_any_element(),
+            Self::ColorMap(editor) => editor.clone().into_any_element(),
+            Self::Plugin(editor) => editor.clone().into_any_element(),
         }
     }
 }

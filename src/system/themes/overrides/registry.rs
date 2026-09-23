@@ -319,7 +319,7 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         description: "The colorscheme LazyVim loads, or a plugin that provides one.",
         category: Category::Editors,
         format: Format::Lua,
-        editor: EditorKind::Source,
+        editor: EditorKind::ColorMap,
         seed: Seed::Template("neovim.lua.tpl"),
         binaries: &["nvim"],
     },

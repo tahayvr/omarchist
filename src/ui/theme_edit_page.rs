@@ -1,4 +1,5 @@
 pub mod backgrounds_tab;
+pub mod color_map_form;
 pub mod colors_tab;
 pub mod general_tab;
 pub mod override_editors;

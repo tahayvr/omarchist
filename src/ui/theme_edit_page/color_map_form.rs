@@ -1,0 +1,434 @@
+use gpui::prelude::FluentBuilder;
+use gpui::*;
+use gpui_component::{
+    ActiveTheme, Colorize, Disableable, Sizable,
+    button::{Button, ButtonVariants},
+    color_picker::{ColorPickerEvent, ColorPickerState},
+    h_flex,
+    input::{Input, InputEvent, InputState},
+    label::Label,
+    v_flex,
+};
+
+use crate::system::themes::overrides::OverrideSpec;
+use crate::system::themes::overrides::color_map::{self, ColorEntry, ColorUse};
+use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::theme_edit_page::override_editors::ContentChanged;
+use crate::ui::theme_edit_page::shared::{color_picker_with_clipboard, help_text};
+
+/// Above this many entries a picker per entry is too many to use, and only
+/// the by-color view is offered.
+const MAX_KEYED_ENTRIES: usize = 150;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    ByKey,
+    ByColor,
+}
+
+/// A picker for every hex color in the file, either one per entry or one per
+/// distinct color (changing it recolors every entry that uses it).
+pub struct ColorMapForm {
+    file: &'static str,
+    content: String,
+    entries: Vec<ColorEntry>,
+    /// Fixed while the by-color view is shown, so pickers keep their meaning
+    /// when two colors become equal.
+    uses: Vec<ColorUse>,
+    mode: Mode,
+    pickers: Vec<Entity<ColorPickerState>>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl EventEmitter<ContentChanged> for ColorMapForm {}
+
+impl ColorMapForm {
+    pub fn new(
+        spec: &'static OverrideSpec,
+        content: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
+        let entries = color_map::scan(content);
+        let mode = if entries.len() <= MAX_KEYED_ENTRIES {
+            Mode::ByKey
+        } else {
+            Mode::ByColor
+        };
+        let mut form = Self {
+            file: spec.file,
+            content: content.to_string(),
+            uses: color_map::uses(&entries),
+            entries,
+            mode,
+            pickers: Vec::new(),
+            _subscriptions: Vec::new(),
+        };
+        form.build_pickers(window, cx);
+        form
+    }
+
+    fn build_pickers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self._subscriptions.clear();
+        let values: Vec<String> = match self.mode {
+            Mode::ByKey => self.entries.iter().map(|e| e.value.clone()).collect(),
+            Mode::ByColor => self.uses.iter().map(|u| u.value.clone()).collect(),
+        };
+        self.pickers = values
+            .iter()
+            .enumerate()
+            .map(|(index, value)| {
+                let picker = cx.new(|cx| {
+                    let picker = ColorPickerState::new(window, cx);
+                    match hex_to_hsla(&value[..7]) {
+                        Some(color) => picker.default_value(color),
+                        None => picker,
+                    }
+                });
+                self._subscriptions.push(cx.subscribe(
+                    &picker,
+                    move |this: &mut Self, _, event: &ColorPickerEvent, cx| {
+                        if let ColorPickerEvent::Change(Some(color)) = event {
+                            this.set(index, &color.to_hex(), cx);
+                        }
+                    },
+                ));
+                picker
+            })
+            .collect();
+    }
+
+    fn set_mode(&mut self, mode: Mode, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode == mode {
+            return;
+        }
+        self.mode = mode;
+        self.uses = color_map::uses(&self.entries);
+        self.build_pickers(window, cx);
+        cx.notify();
+    }
+
+    fn set(&mut self, index: usize, hex: &str, cx: &mut Context<Self>) {
+        let ranges: Vec<_> = match self.mode {
+            Mode::ByKey => self.entries.get(index).map(|e| vec![e.range.clone()]),
+            Mode::ByColor => self.uses.get(index).map(|u| {
+                u.entries
+                    .iter()
+                    .map(|&i| self.entries[i].range.clone())
+                    .collect()
+            }),
+        }
+        .unwrap_or_default();
+        if ranges.is_empty() {
+            return;
+        }
+        self.content = color_map::replace(&self.content, &ranges, hex);
+        self.entries = color_map::scan(&self.content);
+        if let Some(color_use) = self
+            .uses
+            .get_mut(index)
+            .filter(|_| self.mode == Mode::ByColor)
+        {
+            color_use.value = hex[..hex.len().min(7)].to_ascii_lowercase();
+        }
+        cx.emit(ContentChanged(self.content.clone()));
+    }
+
+    fn render_by_key(&self) -> Vec<AnyElement> {
+        let mut groups: Vec<(String, Vec<AnyElement>)> = Vec::new();
+        for (index, (entry, picker)) in self.entries.iter().zip(&self.pickers).enumerate() {
+            let id = format!("color-map-{}-{index}", self.file);
+            let element = color_picker_with_clipboard(id, entry.label(), picker).into_any_element();
+            let group = if entry.group.is_empty() {
+                "General".to_string()
+            } else {
+                entry.group.clone()
+            };
+            match groups.iter_mut().find(|(name, _)| *name == group) {
+                Some((_, items)) => items.push(element),
+                None => groups.push((group, vec![element])),
+            }
+        }
+        groups
+            .into_iter()
+            .map(|(name, items)| {
+                v_flex()
+                    .gap_3()
+                    .child(Label::new(name).text_sm().font_weight(FontWeight::MEDIUM))
+                    .child(h_flex().gap_x_10().gap_y_4().flex_wrap().children(items))
+                    .into_any_element()
+            })
+            .collect()
+    }
+
+    fn render_by_color(&self) -> Vec<AnyElement> {
+        let items =
+            self.uses
+                .iter()
+                .zip(&self.pickers)
+                .enumerate()
+                .map(|(index, (color_use, picker))| {
+                    let count = color_use.entries.len();
+                    let label = format!(
+                        "{} · {count} {}",
+                        color_use.value,
+                        if count == 1 { "use" } else { "uses" }
+                    );
+                    color_picker_with_clipboard(
+                        format!("color-use-{}-{index}", self.file),
+                        label,
+                        picker,
+                    )
+                    .into_any_element()
+                });
+        vec![
+            h_flex()
+                .gap_x_10()
+                .gap_y_4()
+                .flex_wrap()
+                .children(items)
+                .into_any_element(),
+        ]
+    }
+}
+
+impl Render for ColorMapForm {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let muted = cx.theme().muted_foreground;
+        if self.entries.is_empty() {
+            return v_flex().child(help_text(
+                "This file has no hex colors to pick. Edit it in Source.",
+                muted,
+            ));
+        }
+
+        let keyed_allowed = self.entries.len() <= MAX_KEYED_ENTRIES;
+        let mode_button = |id: &'static str, label: &'static str, mode: Mode, this: &Self| {
+            Button::new(id)
+                .label(label)
+                .small()
+                .map(|b| {
+                    if this.mode == mode {
+                        b.primary()
+                    } else {
+                        b.ghost()
+                    }
+                })
+                .cursor_pointer()
+        };
+        let help = match self.mode {
+            Mode::ByKey => "One picker per entry, grouped where the file groups them.",
+            Mode::ByColor => {
+                "One picker per distinct color. Changing one recolors every entry that uses it."
+            }
+        };
+
+        v_flex()
+            .gap_6()
+            .child(
+                v_flex()
+                    .gap_2()
+                    .child(
+                        h_flex()
+                            .gap_1()
+                            .child(
+                                mode_button("color-map-by-key", "By Key", Mode::ByKey, self)
+                                    .disabled(!keyed_allowed)
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.set_mode(Mode::ByKey, window, cx)
+                                    })),
+                            )
+                            .child(
+                                mode_button("color-map-by-color", "By Color", Mode::ByColor, self)
+                                    .on_click(cx.listener(|this, _, window, cx| {
+                                        this.set_mode(Mode::ByColor, window, cx)
+                                    })),
+                            ),
+                    )
+                    .child(help_text(
+                        if keyed_allowed {
+                            help.to_string()
+                        } else {
+                            format!(
+                                "{help} This file has {} entries, too many for a picker each; \
+                                 edit single entries in Source.",
+                                self.entries.len()
+                            )
+                        },
+                        muted,
+                    )),
+            )
+            .children(match self.mode {
+                Mode::ByKey => self.render_by_key(),
+                Mode::ByColor => self.render_by_color(),
+            })
+    }
+}
+
+// MARK: Neovim plugin
+
+/// `neovim.lua` as a colorscheme plugin for LazyVim: the plugin's repository
+/// and the colorscheme name it provides.
+pub struct NeovimPluginForm {
+    repo: Entity<InputState>,
+    colorscheme: Entity<InputState>,
+    _subscriptions: Vec<Subscription>,
+}
+
+impl EventEmitter<ContentChanged> for NeovimPluginForm {}
+
+impl NeovimPluginForm {
+    pub fn new(content: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let (repo, colorscheme) = parse_plugin(content);
+        let repo = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("folke/tokyonight.nvim")
+                .default_value(repo)
+        });
+        let colorscheme = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("tokyonight")
+                .default_value(colorscheme)
+        });
+        let on_change = |this: &mut Self, _, event: &InputEvent, cx: &mut Context<Self>| {
+            if let InputEvent::Change = event {
+                let repo = this.repo.read(cx).value().trim().to_string();
+                let colorscheme = this.colorscheme.read(cx).value().trim().to_string();
+                if let Some(content) = plugin_lua(&repo, &colorscheme) {
+                    cx.emit(ContentChanged(content));
+                }
+            }
+        };
+        let subscriptions = vec![
+            cx.subscribe(&repo, on_change),
+            cx.subscribe(&colorscheme, on_change),
+        ];
+        Self {
+            repo,
+            colorscheme,
+            _subscriptions: subscriptions,
+        }
+    }
+}
+
+fn is_plugin_repo(repo: &str) -> bool {
+    let allowed = |part: &str| {
+        !part.is_empty()
+            && part
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+    };
+    repo.split_once('/')
+        .is_some_and(|(owner, name)| allowed(owner) && allowed(name))
+}
+
+fn is_colorscheme_name(name: &str) -> bool {
+    !name.is_empty()
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.'))
+}
+
+/// The plugin and colorscheme of a LazyVim plugin spec, as Omarchy's own
+/// themes write it.
+pub fn parse_plugin(content: &str) -> (String, String) {
+    let quoted = |text: &str| -> Vec<String> {
+        text.split('"')
+            .skip(1)
+            .step_by(2)
+            .map(str::to_string)
+            .collect()
+    };
+    let repo = quoted(content)
+        .into_iter()
+        .find(|s| is_plugin_repo(s) && s != "LazyVim/LazyVim")
+        .unwrap_or_default();
+    let colorscheme = content
+        .lines()
+        .find(|line| line.trim_start().starts_with("colorscheme"))
+        .and_then(|line| quoted(line).into_iter().next())
+        .unwrap_or_default();
+    (repo, colorscheme)
+}
+
+/// The `neovim.lua` for a plugin and colorscheme, or `None` while either is
+/// not a plain name that is safe to write into Lua.
+pub fn plugin_lua(repo: &str, colorscheme: &str) -> Option<String> {
+    (is_plugin_repo(repo) && is_colorscheme_name(colorscheme)).then(|| {
+        format!(
+            "return {{\n  {{\n    \"{repo}\",\n    priority = 1000,\n  }},\n  {{\n    \
+             \"LazyVim/LazyVim\",\n    opts = {{\n      colorscheme = \"{colorscheme}\",\n    \
+             }},\n  }},\n}}\n"
+        )
+    })
+}
+
+impl Render for NeovimPluginForm {
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let muted = cx.theme().muted_foreground;
+        let input = |label: &'static str, help: &'static str, state: &Entity<InputState>| {
+            v_flex()
+                .gap_2()
+                .flex_1()
+                .min_w(px(220.))
+                .child(Label::new(label).text_sm())
+                .child(Input::new(state))
+                .child(div().text_xs().text_color(muted).child(help))
+        };
+        v_flex()
+            .gap_4()
+            .child(help_text(
+                "Use a colorscheme plugin instead of the palette colors. Typing here replaces \
+                 neovim.lua with a LazyVim spec for the plugin.",
+                muted,
+            ))
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .items_start()
+                    .child(input(
+                        "Plugin",
+                        "The plugin's GitHub repository, as owner/name.",
+                        &self.repo,
+                    ))
+                    .child(input(
+                        "Colorscheme",
+                        "The name you would pass to :colorscheme.",
+                        &self.colorscheme,
+                    )),
+            )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_plugin, plugin_lua};
+
+    #[test]
+    fn plugin_round_trip() {
+        let lua = plugin_lua("folke/tokyonight.nvim", "tokyonight-night").unwrap();
+        assert_eq!(
+            parse_plugin(&lua),
+            (
+                "folke/tokyonight.nvim".to_string(),
+                "tokyonight-night".to_string()
+            )
+        );
+        let shipped = "return {\n\t{ \"ellisonleao/gruvbox.nvim\" },\n\t{\n\t\t\"LazyVim/LazyVim\",\n\t\topts = {\n\t\t\tcolorscheme = \"gruvbox\",\n\t\t},\n\t},\n}\n";
+        assert_eq!(
+            parse_plugin(shipped),
+            (
+                "ellisonleao/gruvbox.nvim".to_string(),
+                "gruvbox".to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn rejects_names_that_would_break_the_lua() {
+        assert!(plugin_lua("a/b\", evil()", "x").is_none());
+        assert!(plugin_lua("a/b", "x\"").is_none());
+        assert!(plugin_lua("nobody", "x").is_none());
+    }
+}
