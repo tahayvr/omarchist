@@ -1,5 +1,5 @@
 use crate::shell::theme_sh_commands::apply_theme;
-use crate::system::themes::overrides::Category;
+use crate::system::themes::overrides::{Category, OverrideSpec};
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
@@ -97,10 +97,16 @@ impl ThemeEditPage {
         let general_tab = cx
             .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         // Reopening the page under the new name rebuilds every tab from disk.
-        cx.subscribe(&general_tab, |_, _, event: &GeneralTabEvent, cx| {
-            let GeneralTabEvent::Renamed(name) = event;
-            emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
-        })
+        cx.subscribe_in(
+            &general_tab,
+            window,
+            |this, _, event: &GeneralTabEvent, window, cx| match event {
+                GeneralTabEvent::Renamed(name) => {
+                    emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
+                }
+                GeneralTabEvent::OpenOverride(spec) => this.open_override(spec, window, cx),
+            },
+        )
         .detach();
         let colors_tab = cx
             .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
@@ -168,6 +174,25 @@ impl ThemeEditPage {
         // Refresh first so a newly created theme is in the grid on arrival.
         emit(cx, AppEvent::RefreshThemes);
         emit(cx, AppEvent::Navigate(ActivePage::Themes));
+    }
+
+    /// Shows an override's pane on its category's tab.
+    fn open_override(
+        &mut self,
+        spec: &'static OverrideSpec,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let Some(index) = ThemeEditTab::all()
+            .iter()
+            .position(|tab| *tab == ThemeEditTab::Optional(spec.category))
+        else {
+            return;
+        };
+        if let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == spec.category) {
+            tab.update(cx, |tab, cx| tab.select(spec.file, window, cx));
+        }
+        self.set_tab(index, cx);
     }
 
     fn next_tab(&mut self, cx: &mut Context<Self>) {

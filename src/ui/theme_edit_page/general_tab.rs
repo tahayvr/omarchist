@@ -1,3 +1,4 @@
+use crate::system::themes::overrides::{self, Category, OverrideSpec, OverrideStatus};
 use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::focus::FocusableSwitch;
@@ -16,6 +17,8 @@ use gpui_component::{
 pub enum GeneralTabEvent {
     /// The theme folder was renamed; every view holding the old name is stale.
     Renamed(String),
+    /// Show this override's pane.
+    OpenOverride(&'static OverrideSpec),
 }
 
 impl EventEmitter<GeneralTabEvent> for GeneralTab {}
@@ -174,6 +177,46 @@ impl GeneralTab {
     }
 }
 
+impl GeneralTab {
+    fn render_customized(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let muted = cx.theme().muted_foreground;
+        let theme = &self.original_theme_name;
+        let customized: Vec<&'static OverrideSpec> = Category::all()
+            .into_iter()
+            .flat_map(overrides::in_category)
+            .filter(|spec| overrides::status(theme, spec) == OverrideStatus::Custom)
+            .collect();
+
+        let body = if customized.is_empty() {
+            help_text(
+                "None. Omarchy themes every app from this theme's colors; the Optional tabs \
+                 let you customize one.",
+                muted,
+            )
+            .into_any_element()
+        } else {
+            h_flex()
+                .gap_2()
+                .flex_wrap()
+                .children(customized.into_iter().map(|spec| {
+                    Button::new(SharedString::from(format!("customized-{}", spec.file)))
+                        .label(format!("{} · {}", spec.category.label(), spec.app))
+                        .small()
+                        .outline()
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |_, _, _, cx| {
+                            cx.emit(GeneralTabEvent::OpenOverride(spec));
+                        }))
+                }))
+                .into_any_element()
+        };
+
+        form_section()
+            .child(Label::new("Customized Apps").text_sm().text_color(muted))
+            .child(body)
+    }
+}
+
 impl Render for GeneralTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_light = self.theme_data.is_light_theme;
@@ -241,6 +284,11 @@ impl Render for GeneralTab {
             .child(help_text(
                 "Themes are in dark mode by default.",
                 cx.theme().muted_foreground,
+            ))
+            .child(focus_section(
+                "general-customized",
+                &self.scroll,
+                self.render_customized(cx),
             ))
             .children(
                 self.error_message

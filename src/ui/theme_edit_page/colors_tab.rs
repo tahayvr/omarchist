@@ -1,3 +1,4 @@
+use crate::system::themes::overrides;
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::color_utils::hex_to_hsla;
@@ -451,6 +452,9 @@ impl Render for ColorsTab {
                 .child(Label::new(label).text_sm())
                 .child(Input::new(state).cleanable(true))
         };
+        let border_override = overrides::find("hyprland.lua").is_some_and(|spec| {
+            overrides::status(&self.theme_name, spec) == overrides::OverrideStatus::Custom
+        });
         let borders_section = form_section()
             .gap_4()
             .child(
@@ -465,6 +469,14 @@ impl Render for ColorsTab {
                  works, including gradients such as rgba(26a269ee) rgba(2ec27eee) 45deg.",
                 cx.theme().muted_foreground,
             ))
+            .children(border_override.then(|| {
+                help_text(
+                    "This theme ships its own hyprland.lua (Desktop tab, Hyprland), and Omarchy \
+                     does not read these two fields when it does. Set the border colors in that \
+                     file, or stop customizing it to use these.",
+                    cx.theme().warning,
+                )
+            }))
             .child(
                 h_flex()
                     .gap_6()

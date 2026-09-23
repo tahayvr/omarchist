@@ -5,6 +5,7 @@ use gpui_kit::TestSupportExt;
 
 use crate::system::flows::requirements::is_installed;
 use crate::system::themes::overrides::{self, Category, OverrideSpec, OverrideStatus};
+use crate::system::themes::theme_file_ops::get_theme_path;
 use crate::ui::focus;
 use crate::ui::theme_edit_page::override_pane::{OverridePane, StatusChanged};
 use crate::ui::theme_edit_page::shared::{help_text, tab_container};
@@ -19,6 +20,7 @@ pub const NAV_CONTEXT: &str = "OverrideNav";
 /// left, the selected app's pane on the right.
 pub struct OverrideTab {
     theme_name: String,
+    category: Category,
     specs: Vec<&'static OverrideSpec>,
     installed: Vec<bool>,
     custom: Vec<bool>,
@@ -50,6 +52,7 @@ impl OverrideTab {
             .collect();
         let mut tab = Self {
             theme_name,
+            category,
             panes: vec![None; specs.len()],
             specs,
             installed,
@@ -79,6 +82,13 @@ impl OverrideTab {
             },
         ));
         self.panes[index] = Some(pane);
+    }
+
+    /// Selects an app by its file.
+    pub fn select(&mut self, file: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(index) = self.specs.iter().position(|spec| spec.file == file) {
+            self.set_active(index, window, cx);
+        }
     }
 
     fn set_active(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -192,12 +202,26 @@ impl Render for OverrideTab {
             div().flex().flex_col().gap_4().child(nav).child(content)
         };
 
+        // A whole shell.toml stops Omarchy from generating one; section files
+        // are still applied on top of it.
+        let whole_shell = self.category == Category::Desktop
+            && get_theme_path(&self.theme_name, false)
+                .is_some_and(|dir| dir.join("shell.toml").is_file());
+
         tab_container()
             .child(help_text(
                 "Everything here is optional. Your palette already themes these apps; \
                  customize one only when you want it to look different.",
                 cx.theme().muted_foreground,
             ))
+            .when(whole_shell, |tab| {
+                tab.child(help_text(
+                    "This theme ships a complete shell.toml, which Omarchy uses instead of \
+                     generating one. The shell sections below still apply on top of it, but \
+                     their starting values come from Omarchy's template, not from that file.",
+                    cx.theme().warning,
+                ))
+            })
             .child(layout)
     }
 }
