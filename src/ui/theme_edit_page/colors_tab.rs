@@ -9,6 +9,8 @@ use gpui_component::{
     ActiveTheme, Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
+    input::{Input, InputEvent, InputState},
+    label::Label,
     separator::Separator,
     v_flex,
 };
@@ -37,6 +39,10 @@ pub struct ColorsTab {
     bright_magenta_picker: Entity<ColorPickerState>,
     bright_cyan_picker: Entity<ColorPickerState>,
     bright_white_picker: Entity<ColorPickerState>,
+    // Free text because Hyprland border specs can be gradients
+    // ("rgba(..ee) rgba(..ee) 45deg"), which a color picker cannot express.
+    active_border_input: Entity<InputState>,
+    inactive_border_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
     scroll: ScrollHandle,
@@ -126,6 +132,21 @@ impl ColorsTab {
         let bright_white_picker =
             Self::create_color_picker(window, cx, &colors.color15, |c, v| c.color15 = v);
 
+        let active_border_input = Self::border_input(
+            window,
+            cx,
+            colors.hyprland_active_border.as_deref(),
+            "Default: accent color",
+            |c, v| c.hyprland_active_border = v,
+        );
+        let inactive_border_input = Self::border_input(
+            window,
+            cx,
+            colors.hyprland_inactive_border.as_deref(),
+            "Default: rgba(595959aa)",
+            |c, v| c.hyprland_inactive_border = v,
+        );
+
         Self {
             theme_name,
             theme_data,
@@ -150,10 +171,54 @@ impl ColorsTab {
             bright_magenta_picker,
             bright_cyan_picker,
             bright_white_picker,
+            active_border_input,
+            inactive_border_input,
             is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
         }
+    }
+
+    fn border_input(
+        window: &mut Window,
+        cx: &mut Context<Self>,
+        value: Option<&str>,
+        placeholder: &str,
+        setter: fn(&mut ColorsConfig, Option<String>),
+    ) -> Entity<InputState> {
+        let input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder(placeholder.to_string())
+                .default_value(value.unwrap_or_default().to_string())
+        });
+
+        cx.subscribe_in(
+            &input,
+            window,
+            move |this, input, event: &InputEvent, _window, cx| {
+                if let InputEvent::Change = event {
+                    let raw = input.read(cx).value().to_string();
+                    let trimmed = raw.trim();
+                    let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
+                    setter(&mut this.theme_data.colors, value);
+                    this.save_borders(cx);
+                }
+            },
+        )
+        .detach();
+
+        input
+    }
+
+    fn save_borders(&mut self, cx: &mut Context<Self>) {
+        let active = self.theme_data.colors.hyprland_active_border.clone();
+        let inactive = self.theme_data.colors.hyprland_inactive_border.clone();
+        let result = update_theme(&self.theme_name, |theme| {
+            theme.colors.hyprland_active_border = active;
+            theme.colors.hyprland_inactive_border = inactive;
+        });
+        self.error_message = result.err().map(|e| e.to_string());
+        cx.notify();
     }
 
     fn update_colors<F>(&mut self, updater: F)
@@ -178,9 +243,8 @@ impl ColorsTab {
         self.error_message = None;
         cx.notify();
 
-        // Only this tab's slice of the theme is written; the mode and the
-        // Hyprland border overrides belong to other tabs and are preserved
-        // from disk.
+        // Only the palette is written here; the mode belongs to the General
+        // tab and the borders are saved on their own.
         let colors = self.theme_data.colors.clone();
         match update_theme(&self.theme_name, |theme| {
             let mode = theme.colors.mode.clone();
@@ -379,6 +443,36 @@ impl Render for ColorsTab {
                     )),
             );
 
+        let border_input = |label: &'static str, state: &Entity<InputState>| {
+            v_flex()
+                .gap_2()
+                .flex_1()
+                .min_w(px(220.))
+                .child(Label::new(label).text_sm())
+                .child(Input::new(state).cleanable(true))
+        };
+        let borders_section = form_section()
+            .gap_4()
+            .child(
+                div()
+                    .text_lg()
+                    .font_weight(FontWeight::SEMIBOLD)
+                    .child("Window Borders"),
+            )
+            .child(help_text(
+                "Hyprland border colors. Omarchy uses the accent color for the active border \
+                 and a neutral grey for inactive ones unless you set them. Any Hyprland color \
+                 works, including gradients such as rgba(26a269ee) rgba(2ec27eee) 45deg.",
+                cx.theme().muted_foreground,
+            ))
+            .child(
+                h_flex()
+                    .gap_6()
+                    .flex_wrap()
+                    .child(border_input("Active Border", &self.active_border_input))
+                    .child(border_input("Inactive Border", &self.inactive_border_input)),
+            );
+
         tab_container()
             .child(help_text(
                 "This is the theme's full palette (colors.toml) — Omarchy generates your terminal, window borders, and other app colors from these values.",
@@ -406,7 +500,9 @@ impl Render for ColorsTab {
                             .gap_6()
                             .child(focus_section("colors-normal", &self.scroll, normal_section))
                             .child(focus_section("colors-bright", &self.scroll, bright_section))
-                    }),
+                    })
+                    .child(Separator::horizontal())
+                    .child(focus_section("colors-borders", &self.scroll, borders_section)),
             )
             .children(
                 self.error_message

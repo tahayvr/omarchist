@@ -178,3 +178,36 @@ async fn command_palette_runs_the_chosen_command(cx: &mut TestAppContext) {
     cx.run_until_parked();
     assert_page(cx, &view, ActivePage::Keybinds);
 }
+
+#[gpui_kit::test]
+fn theme_designer_optional_tabs_are_reachable_from_the_keyboard(cx: &mut TestAppContext) {
+    let (handle, _view) = open(cx, ActivePage::ThemeEdit("keyboard-nav-test".into()));
+
+    // The page opens with its tab strip focused. End selects the last
+    // optional tab (AI Tools) and Enter moves into it.
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.press("end", cx);
+        window.render_frame(cx);
+        window.press("enter", cx);
+        // Enter focuses the content, then its first tab stop on the next frame.
+        window.render_frame(cx);
+        window.simulate_next_frame(cx);
+        window.render_frame(cx);
+        assert_eq!(
+            window.find("override-nav").focused(),
+            Some(true),
+            "focus lands on the app list"
+        );
+        assert!(window.try_find("override-pane-claude.json").is_some());
+
+        window.press("down", cx);
+        window.render_frame(cx);
+        assert!(window.try_find("override-pane-pi.json").is_some());
+        assert!(window.try_find("override-pane-claude.json").is_none());
+
+        window.press("end", cx);
+        window.render_frame(cx);
+        assert!(window.try_find("override-pane-t3code.json").is_some());
+    })
+    .unwrap();
+}

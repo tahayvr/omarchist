@@ -10,6 +10,7 @@ use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
+use crate::ui::theme_edit_page::override_tab::override_nav;
 use crate::ui::theme_edit_page::theme_edit_view as theme_edit;
 use crate::ui::themes_page::theme_grid;
 
@@ -471,6 +472,48 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("ThemeEditPage"),
         THEME_EDIT,
         "Apply the theme"
+    ),
+    shortcut!(
+        "up",
+        override_nav::Prev,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "Previous app"
+    ),
+    shortcut!(
+        "down",
+        override_nav::Next,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "Next app"
+    ),
+    shortcut!(
+        "home",
+        override_nav::First,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "First app"
+    ),
+    shortcut!(
+        "end",
+        override_nav::Last,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "Last app"
+    ),
+    shortcut!(
+        "enter",
+        override_nav::Activate,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "Go to the app's settings"
+    ),
+    shortcut!(
+        "right",
+        override_nav::Activate,
+        Some("OverrideNav"),
+        THEME_EDIT,
+        "Go to the app's settings"
     ),
     // Configuration
     shortcut!(

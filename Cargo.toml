@@ -27,7 +27,7 @@ include = [
 gpui = { package = "gpui-pre", version = "=0.3.4" }
 gpui_platform = { package = "gpui-pre-platform", version = "=0.3.4", features = ["wayland", "x11"] }
 gpui-base = "=0.6.1"
-gpui-component = { version = "=0.6.1", features = ["tree-sitter-lua"] }
+gpui-component = { version = "=0.6.1", features = ["tree-sitter-css", "tree-sitter-lua", "tree-sitter-toml", "tree-sitter-yaml"] }
 gpui-kit-assets = "=0.6.1"
 # gpui's macros resolve their paths through gpui_kit whenever it is in the
 # dependency graph, so it must be a normal dependency.
