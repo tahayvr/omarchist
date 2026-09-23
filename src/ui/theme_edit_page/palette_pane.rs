@@ -13,6 +13,7 @@ use gpui_component::{
 };
 use gpui_kit::TestSupportExt;
 
+use crate::system::themes::overrides;
 use crate::system::themes::overrides::palette::{self, BaseKey, PaletteBundle};
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::ColorsConfig;
@@ -20,7 +21,9 @@ use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_pane::StatusChanged;
-use crate::ui::theme_edit_page::shared::{color_picker_with_clipboard, error_message, help_text};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, error_message, git_sharing_note, help_text, theme_is_cloned,
+};
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 
@@ -30,6 +33,7 @@ pub struct PalettePane {
     theme_name: String,
     bundle: &'static PaletteBundle,
     installed: bool,
+    cloned: bool,
     colors: ColorsConfig,
     /// `Some` while the bundle is on: the colors changed for it.
     overrides: Option<BTreeMap<String, String>>,
@@ -58,6 +62,7 @@ impl PalettePane {
             theme_name,
             bundle,
             installed,
+            cloned: false,
             colors: ColorsConfig::default(),
             overrides: None,
             keys: None,
@@ -68,6 +73,7 @@ impl PalettePane {
             error: None,
             _subscriptions: Vec::new(),
         };
+        pane.cloned = theme_is_cloned(&pane.theme_name);
         pane.reload(window, cx);
         pane
     }
@@ -394,6 +400,12 @@ impl Render for PalettePane {
         let muted = cx.theme().muted_foreground;
         let warning = cx.theme().warning;
         let custom = self.is_custom();
+        let git_restricted = self
+            .bundle
+            .files
+            .iter()
+            .filter_map(|file| overrides::find(file))
+            .any(|spec| spec.git_restricted());
 
         v_flex()
             .id(SharedString::from(format!(
@@ -404,6 +416,9 @@ impl Render for PalettePane {
             .gap_4()
             .min_w_0()
             .child(self.render_header(cx))
+            .when(git_restricted, |pane| {
+                pane.child(git_sharing_note(self.cloned, cx))
+            })
             .children(self.error.clone().map(|error| error_message(error, cx)))
             .when(!custom && self.old_files.is_empty(), |pane| {
                 pane.child(help_text(

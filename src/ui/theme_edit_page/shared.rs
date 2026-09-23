@@ -181,3 +181,28 @@ pub fn color_picker_with_clipboard(
         )
         .child(ColorPicker::new(picker_state))
 }
+
+/// Whether the theme was installed with `omarchy theme install`, a git clone
+/// whose code-running files Omarchy does not load.
+pub fn theme_is_cloned(theme_name: &str) -> bool {
+    crate::system::themes::theme_file_ops::get_theme_path(theme_name, false)
+        .is_some_and(|dir| dir.join(".git").is_dir() && !dir.is_symlink())
+}
+
+/// The note on an override Omarchy skips in a theme installed from git: a
+/// warning when this theme is such a clone, otherwise a hint for sharing.
+pub fn git_sharing_note(cloned: bool, cx: &App) -> Div {
+    if cloned {
+        help_text(
+            "Omarchy ignores this: the theme was installed from a git repository, and Omarchy \
+             does not load Lua, terminal configs, or vscode.json from a theme it cloned.",
+            cx.theme().warning,
+        )
+    } else {
+        help_text(
+            "If you share this theme as a git repository, Omarchy will not load this for the \
+             people who install it.",
+            cx.theme().muted_foreground,
+        )
+    }
+}

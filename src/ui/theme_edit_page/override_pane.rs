@@ -10,11 +10,12 @@ use gpui_component::{
 use gpui_kit::TestSupportExt;
 
 use crate::system::themes::overrides::{self, OverrideSpec};
-use crate::system::themes::theme_file_ops::get_theme_path;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor};
-use crate::ui::theme_edit_page::shared::{error_message, help_text};
+use crate::ui::theme_edit_page::shared::{
+    error_message, git_sharing_note, help_text, theme_is_cloned,
+};
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 
@@ -64,8 +65,7 @@ impl OverridePane {
             error: None,
             _editor_subscription: None,
         };
-        pane.cloned = get_theme_path(&pane.theme_name, false)
-            .is_some_and(|dir| dir.join(".git").is_dir() && !dir.is_symlink());
+        pane.cloned = theme_is_cloned(&pane.theme_name);
         match overrides::read(&pane.theme_name, spec) {
             Ok(Some(content)) => pane.show_editor(&content, window, cx),
             Ok(None) => {}
@@ -310,7 +310,6 @@ impl Render for OverridePane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let muted = theme.muted_foreground;
-        let warning = theme.warning;
         let file = self.spec.file;
 
         let mut pane = v_flex()
@@ -320,20 +319,7 @@ impl Render for OverridePane {
             .min_w_0()
             .child(self.render_header(cx))
             .when(self.spec.git_restricted(), |pane| {
-                pane.child(if self.cloned {
-                    help_text(
-                        "Omarchy ignores this file: the theme was installed from a git \
-                         repository, and Omarchy does not load Lua, terminal configs, or \
-                         vscode.json from a theme it cloned.",
-                        warning,
-                    )
-                } else {
-                    help_text(
-                        "If you share this theme as a git repository, Omarchy will not load \
-                         this file for the people who install it.",
-                        muted,
-                    )
-                })
+                pane.child(git_sharing_note(self.cloned, cx))
             })
             .children(self.error.clone().map(|error| error_message(error, cx)));
 
