@@ -46,6 +46,27 @@ pub fn theme_color_all(colors_file: &Path) -> Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
+/// Renders the boot screen preview `omarchy-plymouth-switcher` shows for a
+/// theme, from its colors and logo.
+pub fn plymouth_preview(background: &str, text: &str, logo: &Path, output: &Path) -> Result<()> {
+    let result = Command::new("omarchy-plymouth-preview")
+        .arg(background)
+        .arg(text)
+        .arg(logo)
+        .arg(output)
+        .output()
+        .map_err(|e| Error::io("Failed to execute omarchy-plymouth-preview", e))?;
+
+    if !result.status.success() {
+        return Err(Error::Invalid(format!(
+            "omarchy-plymouth-preview failed: {}",
+            String::from_utf8_lossy(&result.stderr).trim()
+        )));
+    }
+
+    Ok(())
+}
+
 // Refresh apps to apply theme changes
 pub fn refresh_theme() -> Result<()> {
     spawn_fire_and_forget("omarchy-theme-refresh")

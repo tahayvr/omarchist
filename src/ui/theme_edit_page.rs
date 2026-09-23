@@ -5,4 +5,5 @@ pub mod override_editors;
 pub mod override_pane;
 pub mod override_tab;
 pub mod shared;
+pub mod shell_section_form;
 pub mod theme_edit_view;

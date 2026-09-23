@@ -1,14 +1,17 @@
 use crate::system::themes::theme_file_ops::{
-    add_background_image, list_background_images, remove_background_image,
+    add_background_image, boot_logo, list_background_images, remove_background_image,
+    remove_boot_logo, render_boot_preview, set_boot_logo,
 };
 use crate::ui::theme_edit_page::shared::{error_message, focus_section, help_text, tab_container};
 use anyhow;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable,
+    ActiveTheme, Disableable, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
+    separator::Separator,
     v_flex,
 };
 use smol;
@@ -26,6 +29,10 @@ pub struct BackgroundsTab {
     images: Vec<BackgroundImage>,
     error_message: Option<String>,
     is_loading: bool,
+    boot_logo: Option<PathBuf>,
+    /// Set while a logo is copied or its preview rendered.
+    boot_busy: bool,
+    boot_error: Option<String>,
     scroll: ScrollHandle,
 }
 
@@ -43,6 +50,9 @@ impl BackgroundsTab {
             images: Vec::new(),
             error_message: None,
             is_loading: true,
+            boot_logo: boot_logo(&theme_name, is_system_theme),
+            boot_busy: false,
+            boot_error: None,
             scroll: scroll.clone(),
         };
 
@@ -134,6 +144,155 @@ impl BackgroundsTab {
         }
 
         cx.notify();
+    }
+
+    /// Picks a PNG, copies it in as `unlock.png`, and renders the preview the
+    /// boot screen switcher needs to list the theme.
+    fn choose_boot_logo(&mut self, cx: &mut Context<Self>) {
+        let theme_name = self.theme_name.clone();
+        cx.spawn(async move |this, cx| {
+            let picked = smol::unblock(|| {
+                rfd::FileDialog::new()
+                    .add_filter("PNG image", &["png"])
+                    .set_title("Select a Boot Logo")
+                    .pick_file()
+            })
+            .await;
+            let Some(path) = picked else {
+                return;
+            };
+            this.update(cx, |this, cx| {
+                this.boot_busy = true;
+                cx.notify();
+            })
+            .ok();
+            let result = cx
+                .background_spawn(async move {
+                    let logo = set_boot_logo(&theme_name, &path)?;
+                    render_boot_preview(&theme_name).map(|()| logo)
+                })
+                .await;
+            this.update(cx, |this, cx| {
+                this.boot_busy = false;
+                this.boot_logo = boot_logo(&this.theme_name, this.is_system_theme);
+                this.boot_error = result.err().map(|e| e.to_string());
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn refresh_boot_preview(&mut self, cx: &mut Context<Self>) {
+        self.boot_busy = true;
+        let theme_name = self.theme_name.clone();
+        cx.spawn(async move |this, cx| {
+            let result = cx
+                .background_spawn(async move { render_boot_preview(&theme_name) })
+                .await;
+            this.update(cx, |this, cx| {
+                this.boot_busy = false;
+                this.boot_error = result.err().map(|e| e.to_string());
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn remove_boot_logo(&mut self, cx: &mut Context<Self>) {
+        match remove_boot_logo(&self.theme_name) {
+            Ok(()) => {
+                self.boot_logo = None;
+                self.boot_error = None;
+            }
+            Err(e) => self.boot_error = Some(e.to_string()),
+        }
+        cx.notify();
+    }
+
+    fn render_boot_logo(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        let muted = theme.muted_foreground;
+        let busy = self.boot_busy;
+        let editable = !self.is_system_theme;
+
+        let preview = match &self.boot_logo {
+            Some(path) => div()
+                .w(px(240.))
+                .h(px(120.))
+                .p_2()
+                .border_1()
+                .border_color(theme.border)
+                .bg(theme.muted)
+                .child(img(path.clone()).size_full().object_fit(ObjectFit::Contain))
+                .into_any_element(),
+            None => Label::new("No boot logo. Omarchy's own logo is used.")
+                .text_sm()
+                .text_color(muted)
+                .into_any_element(),
+        };
+
+        v_flex()
+            .gap_3()
+            .child(
+                Label::new("Boot Logo")
+                    .text_lg()
+                    .font_weight(FontWeight::MEDIUM),
+            )
+            .child(help_text(
+                "Optional. The logo on the disk-unlock and login screens (unlock.png). It is \
+                 not applied with the theme: pick this theme in Omarchy's boot screen switcher, \
+                 which asks for your password. Omarchist renders the switcher's preview from the \
+                 logo and the theme's background and foreground colors.",
+                muted,
+            ))
+            .child(preview)
+            .children(self.boot_error.clone().map(|e| error_message(e, cx)))
+            .when(editable, |section| {
+                section.child(
+                    h_flex()
+                        .gap_2()
+                        .flex_wrap()
+                        .child(
+                            Button::new("boot-logo-choose")
+                                .label(if self.boot_logo.is_some() {
+                                    "Replace Logo"
+                                } else {
+                                    "Choose Logo"
+                                })
+                                .small()
+                                .outline()
+                                .loading(busy)
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.choose_boot_logo(cx))),
+                        )
+                        .when(self.boot_logo.is_some(), |row| {
+                            row.child(
+                                Button::new("boot-logo-refresh")
+                                    .label("Refresh Preview")
+                                    .small()
+                                    .ghost()
+                                    .disabled(busy)
+                                    .cursor_pointer()
+                                    .on_click(
+                                        cx.listener(|this, _, _, cx| this.refresh_boot_preview(cx)),
+                                    ),
+                            )
+                            .child(
+                                Button::new("boot-logo-remove")
+                                    .label("Remove")
+                                    .small()
+                                    .ghost()
+                                    .disabled(busy)
+                                    .cursor_pointer()
+                                    .on_click(
+                                        cx.listener(|this, _, _, cx| this.remove_boot_logo(cx)),
+                                    ),
+                            )
+                        }),
+                )
+            })
     }
 
     fn images_per_row(&self, window: &mut Window) -> usize {
@@ -291,5 +450,11 @@ impl Render for BackgroundsTab {
                     .as_ref()
                     .map(|msg| error_message(msg.clone(), cx)),
             )
+            .child(Separator::horizontal())
+            .child(focus_section(
+                "backgrounds-boot-logo",
+                &self.scroll,
+                self.render_boot_logo(cx),
+            ))
     }
 }

@@ -71,7 +71,7 @@ impl OverridePane {
     }
 
     fn show_editor(&mut self, content: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let editor = OverrideEditor::new(self.spec, content, window, cx);
+        let editor = OverrideEditor::new(&self.theme_name, self.spec, content, window, cx);
         self._editor_subscription = Some(editor.subscribe(cx, |this, event, cx| {
             this.schedule_save(event.0.clone(), cx);
         }));

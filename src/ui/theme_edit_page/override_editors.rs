@@ -12,9 +12,10 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::system::themes::overrides::{OverrideSpec, btop, chromium, shell_section};
+use crate::system::themes::overrides::{OverrideSpec, btop, chromium};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::color_picker_with_clipboard;
+use crate::ui::theme_edit_page::shell_section_form::ShellSectionForm;
 
 /// Emitted with the file's full new content after every edit.
 pub struct ContentChanged(pub String);
@@ -25,15 +26,23 @@ pub enum OverrideEditor {
     Colors(Entity<ColorFieldsForm>),
     Icons(Entity<IconsForm>),
     Vscode(Entity<VscodeForm>),
+    Shell(Entity<ShellSectionForm>),
 }
 
 impl OverrideEditor {
     pub fn new(
+        theme_name: &str,
         spec: &'static OverrideSpec,
         content: &str,
         window: &mut Window,
         cx: &mut App,
     ) -> Self {
+        if spec.shell_section().is_some() {
+            let theme_name = theme_name.to_string();
+            return Self::Shell(
+                cx.new(|cx| ShellSectionForm::new(theme_name, spec, content, window, cx)),
+            );
+        }
         match spec.file {
             "btop.theme" => Self::Colors(
                 cx.new(|cx| ColorFieldsForm::new(Codec::Btop, BTOP_FIELDS, content, window, cx)),
@@ -70,6 +79,7 @@ impl OverrideEditor {
             Self::Colors(editor) => forward!(editor),
             Self::Icons(editor) => forward!(editor),
             Self::Vscode(editor) => forward!(editor),
+            Self::Shell(editor) => forward!(editor),
         }
     }
 
@@ -79,6 +89,7 @@ impl OverrideEditor {
             Self::Colors(editor) => editor.clone().into_any_element(),
             Self::Icons(editor) => editor.clone().into_any_element(),
             Self::Vscode(editor) => editor.clone().into_any_element(),
+            Self::Shell(editor) => editor.clone().into_any_element(),
         }
     }
 }
@@ -161,8 +172,6 @@ pub enum Codec {
     Chromium,
     /// A single `#rrggbb` value; the key is ignored.
     Plain,
-    /// `key = "value"` inside one `shell.toml` section.
-    ShellSection(&'static str),
 }
 
 impl Codec {
@@ -171,7 +180,6 @@ impl Codec {
             Codec::Btop => btop::get(content, key),
             Codec::Chromium => chromium::to_hex(content),
             Codec::Plain => Some(content.trim().to_string()),
-            Codec::ShellSection(section) => shell_section::get(content, section, key),
         }
     }
 
@@ -180,7 +188,6 @@ impl Codec {
             Codec::Btop => Some(btop::set(content, key, hex)),
             Codec::Chromium => chromium::from_hex(hex),
             Codec::Plain => Some(format!("{}\n", &hex[..hex.len().min(7)])),
-            Codec::ShellSection(section) => Some(shell_section::set(content, section, key, hex)),
         }
     }
 }

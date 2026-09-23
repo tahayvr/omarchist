@@ -188,3 +188,71 @@ pub fn is_custom_theme(theme_name: &str) -> bool {
         false
     }
 }
+
+/// `unlock.png`: the logo Omarchy's Plymouth boot screen and SDDM login show
+/// when this theme is picked with `omarchy-plymouth-switcher`.
+pub const BOOT_LOGO_FILE: &str = "unlock.png";
+
+/// `preview-unlock.png`: the switcher's thumbnail; a theme without one is not
+/// listed by `omarchy-plymouth-list`.
+pub const BOOT_PREVIEW_FILE: &str = "preview-unlock.png";
+
+const PNG_SIGNATURE: &[u8] = b"\x89PNG\r\n\x1a\n";
+
+/// The theme's boot logo, if it has one.
+pub fn boot_logo(theme_name: &str, is_system: bool) -> Option<PathBuf> {
+    get_theme_path(theme_name, is_system)
+        .map(|dir| dir.join(BOOT_LOGO_FILE))
+        .filter(|path| path.is_file())
+}
+
+/// Copies a PNG in as the theme's boot logo; Plymouth only loads PNG.
+pub fn set_boot_logo(theme_name: &str, source_path: &std::path::Path) -> Result<PathBuf> {
+    let dir = get_custom_theme_path(theme_name)
+        .filter(|dir| dir.is_dir())
+        .ok_or_else(|| Error::ThemeNotFound(theme_name.to_string()))?;
+    let bytes = fs::read(source_path).map_err(|e| Error::io("Failed to read the image", e))?;
+    if !bytes.starts_with(PNG_SIGNATURE) {
+        return Err(Error::Invalid(
+            "The boot logo must be a PNG image".to_string(),
+        ));
+    }
+    let dest = dir.join(BOOT_LOGO_FILE);
+    fs::write(&dest, bytes).map_err(|e| Error::io("Failed to write unlock.png", e))?;
+    Ok(dest)
+}
+
+/// Renders `preview-unlock.png` from the logo and the theme's background and
+/// foreground, so the boot screen switcher lists the theme.
+pub fn render_boot_preview(theme_name: &str) -> Result<()> {
+    let dir = get_custom_theme_path(theme_name)
+        .filter(|dir| dir.is_dir())
+        .ok_or_else(|| Error::ThemeNotFound(theme_name.to_string()))?;
+    let palette = crate::system::themes::overrides::palette(theme_name)?;
+    let color = |key: &str| {
+        palette
+            .get(key)
+            .map(str::to_string)
+            .ok_or_else(|| Error::Invalid(format!("The theme has no {key} color")))
+    };
+    crate::shell::theme_sh_commands::plymouth_preview(
+        &color("background")?,
+        &color("foreground")?,
+        &dir.join(BOOT_LOGO_FILE),
+        &dir.join(BOOT_PREVIEW_FILE),
+    )
+}
+
+/// Removes the logo and its preview, so the switcher no longer lists the theme.
+pub fn remove_boot_logo(theme_name: &str) -> Result<()> {
+    let Some(dir) = get_custom_theme_path(theme_name) else {
+        return Ok(());
+    };
+    for file in [BOOT_LOGO_FILE, BOOT_PREVIEW_FILE] {
+        let path = dir.join(file);
+        if path.exists() {
+            fs::remove_file(&path).map_err(|e| Error::io(format!("Failed to remove {file}"), e))?;
+        }
+    }
+    Ok(())
+}
