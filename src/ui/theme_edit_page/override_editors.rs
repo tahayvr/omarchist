@@ -126,6 +126,14 @@ impl OverrideEditor {
         }
     }
 
+    /// Content a form filled in on its own when it opened, if any.
+    pub fn seeded_content(&self, cx: &App) -> Option<String> {
+        match self {
+            Self::Plugin(editor) => editor.read(cx).seeded(),
+            _ => None,
+        }
+    }
+
     pub fn element(&self) -> AnyElement {
         match self {
             Self::Colors(editor) => editor.clone().into_any_element(),
@@ -492,12 +500,12 @@ impl VscodeForm {
         };
         let name = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("Tokyo Night")
+                .placeholder("Sunset Drive")
                 .default_value(field("name"))
         });
         let extension = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("enkia.tokyo-night")
+                .placeholder("TahaYVR.sunset-drive")
                 .default_value(field("extension"))
         });
         let on_change = |this: &mut Self, _, event: &InputEvent, cx: &mut Context<Self>| {

@@ -258,22 +258,37 @@ impl Render for ColorMapForm {
 pub struct NeovimPluginForm {
     repo: Entity<InputState>,
     colorscheme: Entity<InputState>,
+    /// The spec for the default plugin, when the file did not name one of
+    /// its own and the form filled the default in.
+    seeded: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
+
+/// The plugin the Plugin view starts on.
+const DEFAULT_PLUGIN: (&str, &str) = ("tahayvr/sunset-drive.nvim", "sunsetdrive");
+
+/// The colorscheme plugin of Omarchy's own generated `neovim.lua`.
+const OMARCHY_PLUGIN: &str = "bjarneo/aether.nvim";
 
 impl EventEmitter<ContentChanged> for NeovimPluginForm {}
 
 impl NeovimPluginForm {
     pub fn new(content: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (repo, colorscheme) = parse_plugin(content);
+        let (mut repo, mut colorscheme) = parse_plugin(content);
+        let mut seeded = None;
+        if repo.is_empty() || repo == OMARCHY_PLUGIN {
+            repo = DEFAULT_PLUGIN.0.to_string();
+            colorscheme = DEFAULT_PLUGIN.1.to_string();
+            seeded = plugin_lua(&repo, &colorscheme);
+        }
         let repo = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("folke/tokyonight.nvim")
+                .placeholder(DEFAULT_PLUGIN.0)
                 .default_value(repo)
         });
         let colorscheme = cx.new(|cx| {
             InputState::new(window, cx)
-                .placeholder("tokyonight")
+                .placeholder(DEFAULT_PLUGIN.1)
                 .default_value(colorscheme)
         });
         let on_change = |this: &mut Self, _, event: &InputEvent, cx: &mut Context<Self>| {
@@ -292,8 +307,14 @@ impl NeovimPluginForm {
         Self {
             repo,
             colorscheme,
+            seeded,
             _subscriptions: subscriptions,
         }
+    }
+
+    /// The content the form filled in on its own, to be saved like an edit.
+    pub fn seeded(&self) -> Option<String> {
+        self.seeded.clone()
     }
 }
 

@@ -60,8 +60,8 @@ The Omarchy shell draws the bar, notifications, launcher, menus, popups, tooltip
 
 | Entry | What it themes |
 | --- | --- |
-| **Neovim** | **Colors** changes the colors of Omarchy's own Neovim theme. **Plugin** uses a colorscheme plugin instead: enter its GitHub repository, such as `folke/tokyonight.nvim`, and the colorscheme name you would pass to `:colorscheme`. |
-| **VS Code Extension** | A theme from the VS Code Marketplace. Enter the extension id, such as `enkia.tokyo-night`, and the theme's name. VS Code, VSCodium, and Cursor install it when you apply the theme. |
+| **Neovim** | **Colors** changes the colors of Omarchy's own Neovim theme. **Plugin** uses a colorscheme plugin instead. It starts on [Sunset Drive](https://github.com/tahayvr/sunset-drive.nvim); enter another plugin's GitHub repository and the colorscheme name you would pass to `:colorscheme` to use a different one. |
+| **VS Code Extension** | A theme from the VS Code Marketplace. It starts on [Sunset Drive](https://marketplace.visualstudio.com/items?itemName=TahaYVR.sunset-drive); enter another extension id and its theme's name to use a different one. VS Code, VSCodium, and Cursor install it when you apply the theme. |
 | **VS Code Theme** | The colors of the theme Omarchy installs into VS Code, VSCodium, and Cursor. |
 | **Helix** | Helix's colors. |
 | **Obsidian** | The theme Omarchy copies into your Obsidian vaults. |

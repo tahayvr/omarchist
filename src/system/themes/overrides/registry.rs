@@ -324,7 +324,9 @@ pub const OVERRIDES: &[OverrideSpec] = &[
         category: Category::Editors,
         format: Format::Json,
         editor: EditorKind::Form,
-        seed: Seed::Fixed("{\n  \"name\": \"\",\n  \"extension\": \"\"\n}\n"),
+        seed: Seed::Fixed(
+            "{\n  \"name\": \"Sunset Drive\",\n  \"extension\": \"TahaYVR.sunset-drive\"\n}\n",
+        ),
         binaries: &["code", "code-insiders", "codium", "cursor"],
     },
     OverrideSpec {
