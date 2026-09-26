@@ -153,32 +153,105 @@ pub fn error_message(text: impl Into<SharedString>, cx: &App) -> Div {
         .child(div().text_sm().text_color(theme.danger).child(text.into()))
 }
 
+/// Lays `cells` out in rows of `columns` equal-width cells. The last row is
+/// padded with empty cells so every column keeps its width, which is what
+/// lines the fields of one row up with the fields of the next.
+pub fn field_grid(columns: usize, cells: Vec<AnyElement>) -> Div {
+    let columns = columns.max(1);
+    let mut cells = cells;
+    let remainder = cells.len() % columns;
+    if remainder != 0 {
+        for _ in remainder..columns {
+            cells.push(div().into_any_element());
+        }
+    }
+    let mut rows: Vec<Vec<AnyElement>> = Vec::new();
+    for cell in cells {
+        match rows.last_mut() {
+            Some(row) if row.len() < columns => row.push(cell),
+            _ => rows.push(vec![cell]),
+        }
+    }
+    v_flex().gap_4().children(rows.into_iter().map(|row| {
+        h_flex().gap_4().items_start().children(
+            row.into_iter()
+                .map(|cell| div().flex_1().min_w_0().child(cell)),
+        )
+    }))
+}
+
+/// Columns for a field grid across the whole tab.
+pub fn tab_grid_columns(window: &Window) -> usize {
+    grid_columns(content_width(window))
+}
+
+/// Columns for a field grid in a pane beside the app list of an optional tab.
+pub fn pane_grid_columns(window: &Window) -> usize {
+    let width = content_width(window);
+    let nav = if width >= 680. { 244. } else { 0. };
+    grid_columns(width - nav)
+}
+
+// The width left for a tab's content: the viewport minus the collapsed
+// sidebar and the page padding.
+fn content_width(window: &Window) -> f32 {
+    let width: f32 = window.viewport_size().width.into();
+    width - 88.
+}
+
+fn grid_columns(available: f32) -> usize {
+    ((available / 136.).floor() as usize).clamp(2, 8)
+}
+
+pub fn section_title(text: impl Into<SharedString>) -> Div {
+    div()
+        .text_base()
+        .font_weight(FontWeight::SEMIBOLD)
+        .child(text.into())
+}
+
+pub fn group_title(text: impl Into<SharedString>, cx: &App) -> Div {
+    div()
+        .text_sm()
+        .font_weight(FontWeight::MEDIUM)
+        .text_color(cx.theme().muted_foreground)
+        .child(text.into())
+}
+
+/// A field's label, two lines tall so the controls of a grid row line up
+/// whether or not a label wraps; the text sits at the bottom, by its control.
+pub fn field_label(text: impl Into<SharedString>, trailing: Option<AnyElement>) -> Div {
+    div()
+        .h(px(40.))
+        .w_full()
+        .flex()
+        .flex_row()
+        .items_end()
+        .gap_2()
+        .child(div().min_w_0().text_sm().line_clamp(2).child(text.into()))
+        .children(trailing.map(|element| div().flex_none().child(element)))
+}
+
 pub fn color_picker_with_clipboard(
     id: impl Into<SharedString>,
     label: impl Into<SharedString>,
     picker_state: &Entity<ColorPickerState>,
 ) -> impl IntoElement {
     let picker_state_clone = picker_state.clone();
-    let label_text: SharedString = label.into();
     let id: SharedString = id.into();
     let clipboard_id: SharedString = format!("{}-clipboard", id).into();
+    let clipboard = Clipboard::new(clipboard_id).value_fn(move |_, cx| {
+        picker_state_clone
+            .read(cx)
+            .value()
+            .map(|c| c.to_hex())
+            .unwrap_or_default()
+            .into()
+    });
 
     v_flex()
         .gap_2()
-        .child(
-            h_flex()
-                .gap_2()
-                .items_center()
-                .child(Label::new(label_text).text_sm())
-                .child(Clipboard::new(clipboard_id).value_fn(move |_, cx| {
-                    picker_state_clone
-                        .read(cx)
-                        .value()
-                        .map(|c| c.to_hex())
-                        .unwrap_or_default()
-                        .into()
-                })),
-        )
+        .child(field_label(label, Some(clipboard.into_any_element())))
         .child(ColorPicker::new(picker_state))
 }
 
@@ -189,20 +262,11 @@ pub fn theme_is_cloned(theme_name: &str) -> bool {
         .is_some_and(|dir| dir.join(".git").is_dir() && !dir.is_symlink())
 }
 
-/// The note on an override Omarchy skips in a theme installed from git: a
-/// warning when this theme is such a clone, otherwise a hint for sharing.
-pub fn git_sharing_note(cloned: bool, cx: &App) -> Div {
-    if cloned {
-        help_text(
-            "Omarchy ignores this: the theme was installed from a git repository, and Omarchy \
-             does not load Lua, terminal configs, or vscode.json from a theme it cloned.",
-            cx.theme().warning,
-        )
-    } else {
-        help_text(
-            "If you share this theme as a git repository, Omarchy will not load this for the \
-             people who install it.",
-            cx.theme().muted_foreground,
-        )
-    }
+/// The warning on an override Omarchy skips because the theme was installed
+/// from a git repository.
+pub fn git_ignored_note(cx: &App) -> Div {
+    help_text(
+        "Ignored: Omarchy does not load this from a theme installed from git.",
+        cx.theme().warning,
+    )
 }

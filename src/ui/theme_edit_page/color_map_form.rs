@@ -6,7 +6,6 @@ use gpui_component::{
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
-    label::Label,
     v_flex,
 };
 
@@ -14,7 +13,9 @@ use crate::system::themes::overrides::OverrideSpec;
 use crate::system::themes::overrides::color_map::{self, ColorEntry, ColorUse};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::override_editors::ContentChanged;
-use crate::ui::theme_edit_page::shared::{color_picker_with_clipboard, help_text};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, field_grid, field_label, group_title, help_text, pane_grid_columns,
+};
 
 /// Above this many entries a picker per entry is too many to use, and only
 /// the by-color view is offered.
@@ -134,7 +135,7 @@ impl ColorMapForm {
         cx.emit(ContentChanged(self.content.clone()));
     }
 
-    fn render_by_key(&self) -> Vec<AnyElement> {
+    fn render_by_key(&self, columns: usize, cx: &App) -> Vec<AnyElement> {
         let mut groups: Vec<(&str, Vec<usize>)> = Vec::new();
         for (index, entry) in self.entries.iter().enumerate() {
             match groups.iter_mut().find(|(name, _)| *name == entry.group) {
@@ -161,27 +162,23 @@ impl ColorMapForm {
                     let entry = &self.entries[index];
                     let picker = self.pickers.get(index)?;
                     let label = if shared && !entry.key.is_empty() {
-                        entry.key.clone()
+                        words(&entry.key)
                     } else {
-                        entry.label()
+                        words(&entry.label())
                     };
                     let id = format!("color-map-{}-{index}", self.file);
                     Some(color_picker_with_clipboard(id, label, picker).into_any_element())
                 });
                 v_flex()
                     .gap_3()
-                    .child(
-                        Label::new(heading)
-                            .text_sm()
-                            .font_weight(FontWeight::MEDIUM),
-                    )
-                    .child(h_flex().gap_x_10().gap_y_4().flex_wrap().children(items))
+                    .child(group_title(heading, cx))
+                    .child(field_grid(columns, items.collect()))
                     .into_any_element()
             })
             .collect()
     }
 
-    fn render_by_color(&self) -> Vec<AnyElement> {
+    fn render_by_color(&self, columns: usize) -> Vec<AnyElement> {
         let items =
             self.uses
                 .iter()
@@ -201,27 +198,18 @@ impl ColorMapForm {
                     )
                     .into_any_element()
                 });
-        vec![
-            h_flex()
-                .gap_x_10()
-                .gap_y_4()
-                .flex_wrap()
-                .children(items)
-                .into_any_element(),
-        ]
+        vec![field_grid(columns, items.collect()).into_any_element()]
     }
 }
 
 impl Render for ColorMapForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         if self.entries.is_empty() {
-            return v_flex().child(help_text(
-                "This file has no hex colors to pick. Edit it in Source.",
-                muted,
-            ));
+            return v_flex().child(help_text("No colors to pick.", muted));
         }
 
+        let columns = pane_grid_columns(window);
         let keyed_allowed = self.entries.len() <= MAX_KEYED_ENTRIES;
         let mode_button = |id: &'static str, label: &'static str, mode: Mode, this: &Self| {
             Button::new(id)
@@ -236,51 +224,29 @@ impl Render for ColorMapForm {
                 })
                 .cursor_pointer()
         };
-        let help = match self.mode {
-            Mode::ByKey => "One picker per entry, grouped where the file groups them.",
-            Mode::ByColor => {
-                "One picker per distinct color. Changing one recolors every entry that uses it."
-            }
-        };
 
         v_flex()
             .gap_6()
             .child(
-                v_flex()
-                    .gap_2()
+                h_flex()
+                    .gap_1()
                     .child(
-                        h_flex()
-                            .gap_1()
-                            .child(
-                                mode_button("color-map-by-key", "By Key", Mode::ByKey, self)
-                                    .disabled(!keyed_allowed)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.set_mode(Mode::ByKey, window, cx)
-                                    })),
-                            )
-                            .child(
-                                mode_button("color-map-by-color", "By Color", Mode::ByColor, self)
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.set_mode(Mode::ByColor, window, cx)
-                                    })),
-                            ),
+                        mode_button("color-map-by-key", "By Key", Mode::ByKey, self)
+                            .disabled(!keyed_allowed)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.set_mode(Mode::ByKey, window, cx)
+                            })),
                     )
-                    .child(help_text(
-                        if keyed_allowed {
-                            help.to_string()
-                        } else {
-                            format!(
-                                "{help} This file has {} entries, too many for a picker each; \
-                                 edit single entries in Source.",
-                                self.entries.len()
-                            )
-                        },
-                        muted,
-                    )),
+                    .child(
+                        mode_button("color-map-by-color", "By Color", Mode::ByColor, self)
+                            .on_click(cx.listener(|this, _, window, cx| {
+                                this.set_mode(Mode::ByColor, window, cx)
+                            })),
+                    ),
             )
             .children(match self.mode {
-                Mode::ByKey => self.render_by_key(),
-                Mode::ByColor => self.render_by_color(),
+                Mode::ByKey => self.render_by_key(columns, cx),
+                Mode::ByColor => self.render_by_color(columns),
             })
     }
 }
@@ -384,46 +350,69 @@ pub fn plugin_lua(repo: &str, colorscheme: &str) -> Option<String> {
 }
 
 impl Render for NeovimPluginForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
-        let input = |label: &'static str, help: &'static str, state: &Entity<InputState>| {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let input = |label: &'static str, state: &Entity<InputState>| {
             v_flex()
                 .gap_2()
-                .flex_1()
-                .min_w(px(220.))
-                .child(Label::new(label).text_sm())
+                .child(field_label(label, None))
                 .child(Input::new(state))
-                .child(div().text_xs().text_color(muted).child(help))
+                .into_any_element()
         };
-        v_flex()
-            .gap_4()
-            .child(help_text(
-                "Use a colorscheme plugin instead of the palette colors. Typing here replaces \
-                 neovim.lua with a LazyVim spec for the plugin.",
-                muted,
-            ))
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
-                    .items_start()
-                    .child(input(
-                        "Plugin",
-                        "The plugin's GitHub repository, as owner/name.",
-                        &self.repo,
-                    ))
-                    .child(input(
-                        "Colorscheme",
-                        "The name you would pass to :colorscheme.",
-                        &self.colorscheme,
-                    )),
-            )
+        field_grid(
+            (pane_grid_columns(window) / 2).max(1),
+            vec![
+                input("Plugin", &self.repo),
+                input("Colorscheme", &self.colorscheme),
+            ],
+        )
     }
+}
+
+/// A file's key as words: `diffAddedDimmed` and `dark_bg` become
+/// `Diff added dimmed` and `Dark bg`, which wrap inside a grid cell.
+fn words(key: &str) -> String {
+    let mut out = String::with_capacity(key.len() + 4);
+    let mut previous_lower = false;
+    for c in key.chars() {
+        if matches!(c, '_' | '-' | '.') {
+            out.push(' ');
+            previous_lower = false;
+            continue;
+        }
+        if c.is_uppercase() && previous_lower {
+            out.push(' ');
+        }
+        previous_lower = c.is_lowercase() || c.is_ascii_digit();
+        out.push(c);
+    }
+    let mut chars = out.chars();
+    let first: String = chars
+        .next()
+        .map(|c| c.to_uppercase().collect())
+        .unwrap_or_default();
+    let rest: String = chars
+        .map(|c| {
+            if c.is_uppercase() {
+                c.to_ascii_lowercase()
+            } else {
+                c
+            }
+        })
+        .collect();
+    first + &rest
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{parse_plugin, plugin_lua};
+    use super::{parse_plugin, plugin_lua, words};
+
+    #[test]
+    fn keys_become_words() {
+        assert_eq!(words("diffAddedDimmed"), "Diff added dimmed");
+        assert_eq!(words("dark_bg"), "Dark bg");
+        assert_eq!(words("Comment · foreground"), "Comment · foreground");
+        assert_eq!(words("editor.background"), "Editor background");
+    }
 
     #[test]
     fn plugin_round_trip() {

@@ -30,7 +30,7 @@ The **General** tab lists every app you customized under **Customized Apps**. Cl
 
 ## Two kinds of apps
 
-**Apps that follow your palette.** Terminal Colors, Terminal Menus, Screen Share Picker, and Obsidian show the palette colors the app uses, each marked **From palette**. Change a color and only that app uses the new one. Every color you leave alone keeps following the palette, even when you change the palette later. **Reset** under a color hands it back to the palette.
+**Apps that follow your palette.** Terminal Colors, Terminal Menus, Screen Share Picker, and Obsidian show the palette colors the app uses. Change a color and only that app uses the new one. Every color you leave alone keeps following the palette, even when you change the palette later. **Reset** under a color hands it back to the palette.
 
 **Apps with their own colors.** Every other app keeps the colors you set for it. When you change the palette later, those apps keep their colors. Click **Reset to Generated** to pick up the palette again.
 
@@ -41,7 +41,7 @@ The Omarchy shell draws the bar, notifications, launcher, menus, popups, tooltip
 - **Colors** open a color picker.
 - **Opacity** goes from `0` (invisible) to `1` (solid). Use <kbd>−</kbd> and <kbd>+</kbd> or type a number.
 - **Sizes** are in pixels.
-- **Borders** follow the window border you set on the **Colors** tab. Choose **Window border**, **Window border, else text color**, or **Custom color**.
+- **Borders** follow the window border you set on the **Colors** tab. Choose **Window border**, **Border, else text color**, or **Custom color**.
 
 **Spacing** and **Font Sizes** scale the whole shell. Their per-size fields are empty until you fill one in; an empty field uses the shell's own size.
 
@@ -88,7 +88,7 @@ Apps with many colors, such as the AI tools and the editors, show two views:
 
 ## Sharing a theme through git
 
-When someone installs a theme with `omarchy theme install`, Omarchy skips the parts that could run code: Neovim, Terminal Menus, Terminal Colors, and **VS Code Extension**. Those entries say so. Everything else works for everyone who installs your theme.
+When someone installs a theme with `omarchy theme install`, Omarchy skips the parts that could run code: Neovim, Terminal Menus, Terminal Colors, and **VS Code Extension**. Everything else works for everyone who installs your theme.
 
 ## Keyboard
 

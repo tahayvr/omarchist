@@ -3,11 +3,10 @@ use std::rc::Rc;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Colorize,
+    Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
-    label::Label,
     radio::Radio,
     v_flex,
 };
@@ -15,7 +14,9 @@ use gpui_component::{
 use crate::system::themes::overrides::{EditorKind, OverrideSpec, btop, chromium};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::color_map_form::{ColorMapForm, NeovimPluginForm};
-use crate::ui::theme_edit_page::shared::color_picker_with_clipboard;
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, field_grid, field_label, group_title, pane_grid_columns,
+};
 use crate::ui::theme_edit_page::shell_section_form::ShellSectionForm;
 
 /// Emitted with the file's full new content after every edit.
@@ -358,7 +359,8 @@ impl ColorFieldsForm {
 }
 
 impl Render for ColorFieldsForm {
-    fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let columns = pane_grid_columns(window);
         let mut groups: Vec<(&'static str, Vec<AnyElement>)> = Vec::new();
         for (field, picker) in self.fields.iter().zip(&self.pickers) {
             let element =
@@ -374,10 +376,8 @@ impl Render for ColorFieldsForm {
             .children(groups.into_iter().map(|(name, items)| {
                 v_flex()
                     .gap_3()
-                    .when(!name.is_empty(), |group| {
-                        group.child(Label::new(name).text_sm().font_weight(FontWeight::MEDIUM))
-                    })
-                    .child(h_flex().gap_x_12().gap_y_4().flex_wrap().children(items))
+                    .when(!name.is_empty(), |group| group.child(group_title(name, cx)))
+                    .child(field_grid(columns, items))
             }))
     }
 }
@@ -444,12 +444,10 @@ impl IconsForm {
 }
 
 impl Render for IconsForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        h_flex()
-            .gap_x_8()
-            .gap_y_3()
-            .flex_wrap()
-            .children(YARU_COLORS.iter().map(|yaru| {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let cells = YARU_COLORS
+            .iter()
+            .map(|yaru| {
                 h_flex()
                     .gap_2()
                     .items_center()
@@ -464,7 +462,10 @@ impl Render for IconsForm {
                             })),
                     )
                     .child(div().size_5().bg(rgb(yaru.color)).rounded_sm())
-            }))
+                    .into_any_element()
+            })
+            .collect();
+        field_grid(pane_grid_columns(window), cells)
     }
 }
 
@@ -522,30 +523,20 @@ impl VscodeForm {
 }
 
 impl Render for VscodeForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
-        let input = |label: &'static str, help: &'static str, state: &Entity<InputState>| {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+        let input = |label: &'static str, state: &Entity<InputState>| {
             v_flex()
                 .gap_2()
-                .flex_1()
-                .min_w(px(220.))
-                .child(Label::new(label).text_sm())
+                .child(field_label(label, None))
                 .child(Input::new(state))
-                .child(div().text_xs().text_color(muted).child(help))
+                .into_any_element()
         };
-        h_flex()
-            .gap_6()
-            .flex_wrap()
-            .items_start()
-            .child(input(
-                "Extension",
-                "The Marketplace id, shown as publisher.name on the extension's page.",
-                &self.extension,
-            ))
-            .child(input(
-                "Theme Name",
-                "The color theme's name as VS Code lists it.",
-                &self.name,
-            ))
+        field_grid(
+            (pane_grid_columns(window) / 2).max(1),
+            vec![
+                input("Extension", &self.extension),
+                input("Theme Name", &self.name),
+            ],
+        )
     }
 }

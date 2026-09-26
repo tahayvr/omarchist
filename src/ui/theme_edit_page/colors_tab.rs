@@ -1,18 +1,15 @@
-use crate::system::themes::overrides;
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, focus_section, form_section, help_text, tab_container,
+    color_picker_with_clipboard, error_message, field_grid, field_label, focus_section,
+    section_title, tab_container, tab_grid_columns,
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Colorize,
+    Colorize,
     color_picker::{ColorPickerEvent, ColorPickerState},
-    h_flex,
     input::{Input, InputEvent, InputState},
-    label::Label,
-    separator::Separator,
     v_flex,
 };
 
@@ -271,255 +268,110 @@ impl ColorsTab {
 
 impl Render for ColorsTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let wide = window.viewport_size().width >= px(1000.0);
+        // One column per ANSI color, so each bright color sits under its
+        // normal one; halved on narrower windows so the pairs stay together.
+        let columns = match tab_grid_columns(window) {
+            8.. => 8,
+            4..=7 => 4,
+            _ => 2,
+        };
+        let cell = |id: &'static str, label: &'static str, picker: &Entity<ColorPickerState>| {
+            color_picker_with_clipboard(id, label, picker).into_any_element()
+        };
+        let section = |title: &'static str, cells: Vec<AnyElement>| {
+            v_flex()
+                .gap_4()
+                .child(section_title(title))
+                .child(field_grid(columns, cells))
+        };
 
-        let selection_section = form_section()
-            .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Selection Colors"),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-selection-bg",
-                        "Background",
-                        &self.selection_bg_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-selection-fg",
-                        "Foreground",
-                        &self.selection_fg_picker,
-                    )),
-            );
-
-        let primary_section = form_section()
-            .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Primary Colors"),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-accent",
-                        "Accent",
-                        &self.accent_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-background",
-                        "Background",
-                        &self.background_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-foreground",
-                        "Foreground",
-                        &self.foreground_picker,
-                    )),
-            );
-
-        let normal_section = form_section()
-            .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Normal Colors"),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-black",
-                        "Black",
-                        &self.normal_black_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-red",
-                        "Red",
-                        &self.normal_red_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-green",
-                        "Green",
-                        &self.normal_green_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-yellow",
-                        "Yellow",
-                        &self.normal_yellow_picker,
-                    )),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-blue",
-                        "Blue",
-                        &self.normal_blue_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-magenta",
-                        "Magenta",
-                        &self.normal_magenta_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-cyan",
-                        "Cyan",
-                        &self.normal_cyan_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-normal-white",
-                        "White",
-                        &self.normal_white_picker,
-                    )),
-            );
-
-        let bright_section = form_section()
-            .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Bright Colors"),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-black",
-                        "Black",
-                        &self.bright_black_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-red",
-                        "Red",
-                        &self.bright_red_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-green",
-                        "Green",
-                        &self.bright_green_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-yellow",
-                        "Yellow",
-                        &self.bright_yellow_picker,
-                    )),
-            )
-            .child(
-                h_flex()
-                    .gap_24()
-                    .flex_wrap()
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-blue",
-                        "Blue",
-                        &self.bright_blue_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-magenta",
-                        "Magenta",
-                        &self.bright_magenta_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-cyan",
-                        "Cyan",
-                        &self.bright_cyan_picker,
-                    ))
-                    .child(color_picker_with_clipboard(
-                        "colors-bright-white",
-                        "White",
-                        &self.bright_white_picker,
-                    )),
-            );
+        let primary = section(
+            "Primary Colors",
+            vec![
+                cell("colors-accent", "Accent", &self.accent_picker),
+                cell("colors-background", "Background", &self.background_picker),
+                cell("colors-foreground", "Foreground", &self.foreground_picker),
+            ],
+        );
+        let selection = section(
+            "Selection Colors",
+            vec![
+                cell(
+                    "colors-selection-bg",
+                    "Background",
+                    &self.selection_bg_picker,
+                ),
+                cell(
+                    "colors-selection-fg",
+                    "Foreground",
+                    &self.selection_fg_picker,
+                ),
+            ],
+        );
+        let normal = section(
+            "Normal Colors",
+            vec![
+                cell("colors-normal-black", "Black", &self.normal_black_picker),
+                cell("colors-normal-red", "Red", &self.normal_red_picker),
+                cell("colors-normal-green", "Green", &self.normal_green_picker),
+                cell("colors-normal-yellow", "Yellow", &self.normal_yellow_picker),
+                cell("colors-normal-blue", "Blue", &self.normal_blue_picker),
+                cell(
+                    "colors-normal-magenta",
+                    "Magenta",
+                    &self.normal_magenta_picker,
+                ),
+                cell("colors-normal-cyan", "Cyan", &self.normal_cyan_picker),
+                cell("colors-normal-white", "White", &self.normal_white_picker),
+            ],
+        );
+        let bright = section(
+            "Bright Colors",
+            vec![
+                cell("colors-bright-black", "Black", &self.bright_black_picker),
+                cell("colors-bright-red", "Red", &self.bright_red_picker),
+                cell("colors-bright-green", "Green", &self.bright_green_picker),
+                cell("colors-bright-yellow", "Yellow", &self.bright_yellow_picker),
+                cell("colors-bright-blue", "Blue", &self.bright_blue_picker),
+                cell(
+                    "colors-bright-magenta",
+                    "Magenta",
+                    &self.bright_magenta_picker,
+                ),
+                cell("colors-bright-cyan", "Cyan", &self.bright_cyan_picker),
+                cell("colors-bright-white", "White", &self.bright_white_picker),
+            ],
+        );
 
         let border_input = |label: &'static str, state: &Entity<InputState>| {
             v_flex()
                 .gap_2()
-                .flex_1()
-                .min_w(px(220.))
-                .child(Label::new(label).text_sm())
+                .child(field_label(label, None))
                 .child(Input::new(state).cleanable(true))
+                .into_any_element()
         };
-        let border_override = overrides::find("hyprland.lua").is_some_and(|spec| {
-            overrides::status(&self.theme_name, spec) == overrides::OverrideStatus::Custom
-        });
-        let borders_section = form_section()
+        let borders = v_flex()
             .gap_4()
-            .child(
-                div()
-                    .text_lg()
-                    .font_weight(FontWeight::SEMIBOLD)
-                    .child("Window Borders"),
-            )
-            .child(help_text(
-                "Hyprland border colors. Omarchy uses the accent color for the active border \
-                 and a neutral grey for inactive ones unless you set them. Any Hyprland color \
-                 works, including gradients such as rgba(26a269ee) rgba(2ec27eee) 45deg.",
-                cx.theme().muted_foreground,
-            ))
-            .children(border_override.then(|| {
-                help_text(
-                    "This theme ships its own hyprland.lua (Desktop tab, Hyprland), and Omarchy \
-                     does not read these two fields when it does. Set the border colors in that \
-                     file, or stop customizing it to use these.",
-                    cx.theme().warning,
-                )
-            }))
-            .child(
-                h_flex()
-                    .gap_6()
-                    .flex_wrap()
-                    .child(border_input("Active Border", &self.active_border_input))
-                    .child(border_input("Inactive Border", &self.inactive_border_input)),
-            );
+            .child(section_title("Window Borders"))
+            .child(field_grid(
+                (columns / 4).max(1),
+                vec![
+                    border_input("Active Border", &self.active_border_input),
+                    border_input("Inactive Border", &self.inactive_border_input),
+                ],
+            ));
 
         tab_container()
-            .child(help_text(
-                "This is the theme's full palette (colors.toml) — Omarchy generates your terminal, window borders, and other app colors from these values.",
-                cx.theme().muted_foreground,
-            ))
-            .child(
-                v_flex()
-                    .gap_6()
-                    .child(focus_section("colors-primary", &self.scroll, primary_section))
-                    .child(Separator::horizontal())
-                    .child(focus_section("colors-selection", &self.scroll, selection_section))
-                    .child(Separator::horizontal())
-                    // Normal + Bright — 2 cols on wide, stacked on narrow
-                    .child(if wide {
-                        div()
-                            .grid()
-                            .grid_cols(2)
-                            .gap_6()
-                            .child(focus_section("colors-normal", &self.scroll, normal_section))
-                            .child(focus_section("colors-bright", &self.scroll, bright_section))
-                    } else {
-                        div()
-                            .flex()
-                            .flex_col()
-                            .gap_6()
-                            .child(focus_section("colors-normal", &self.scroll, normal_section))
-                            .child(focus_section("colors-bright", &self.scroll, bright_section))
-                    })
-                    .child(Separator::horizontal())
-                    .child(focus_section("colors-borders", &self.scroll, borders_section)),
-            )
+            .gap_8()
+            .child(focus_section("colors-primary", &self.scroll, primary))
+            .child(focus_section("colors-selection", &self.scroll, selection))
+            .child(focus_section("colors-normal", &self.scroll, normal))
+            .child(focus_section("colors-bright", &self.scroll, bright))
+            .child(focus_section("colors-borders", &self.scroll, borders))
             .children(
                 self.error_message
                     .as_ref()
-                    .map(|msg| crate::ui::theme_edit_page::shared::error_message(msg.clone(), cx)),
+                    .map(|msg| error_message(msg.clone(), cx)),
             )
     }
 }

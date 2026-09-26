@@ -6,12 +6,11 @@ use gpui_kit::TestSupportExt;
 use crate::system::flows::requirements::is_installed;
 use crate::system::themes::overrides::Category;
 use crate::system::themes::overrides::entries::{self, Entry};
-use crate::system::themes::theme_file_ops::get_theme_path;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::ui::focus;
 use crate::ui::theme_edit_page::override_pane::{OverridePane, StatusChanged};
 use crate::ui::theme_edit_page::palette_pane::PalettePane;
-use crate::ui::theme_edit_page::shared::{help_text, tab_container};
+use crate::ui::theme_edit_page::shared::tab_container;
 
 pub mod override_nav {
     gpui::actions!(override_nav, [Prev, Next, First, Last, Activate]);
@@ -38,7 +37,6 @@ impl Pane {
 /// left, the selected app's pane on the right.
 pub struct OverrideTab {
     theme_name: String,
-    category: Category,
     entries: Vec<Entry>,
     installed: Vec<bool>,
     custom: Vec<bool>,
@@ -68,7 +66,6 @@ impl OverrideTab {
             .collect();
         let mut tab = Self {
             theme_name,
-            category,
             panes: vec![None; entries.len()],
             custom: vec![false; entries.len()],
             entries,
@@ -273,26 +270,6 @@ impl Render for OverrideTab {
             div().flex().flex_col().gap_4().child(nav).child(content)
         };
 
-        // A whole shell.toml stops Omarchy from generating one; section files
-        // are still applied on top of it.
-        let whole_shell = self.category == Category::Desktop
-            && get_theme_path(&self.theme_name, false)
-                .is_some_and(|dir| dir.join("shell.toml").is_file());
-
-        tab_container()
-            .child(help_text(
-                "Everything here is optional. Your palette already themes these apps; \
-                 customize one only when you want it to look different.",
-                cx.theme().muted_foreground,
-            ))
-            .when(whole_shell, |tab| {
-                tab.child(help_text(
-                    "This theme ships a complete shell.toml, which Omarchy uses instead of \
-                     generating one. The shell sections below still apply on top of it, but \
-                     their starting values come from Omarchy's template, not from that file.",
-                    cx.theme().warning,
-                ))
-            })
-            .child(layout)
+        tab_container().child(layout)
     }
 }

@@ -7,9 +7,7 @@ use gpui_component::{
     ActiveTheme, Colorize, Sizable,
     button::{Button, ButtonVariants},
     color_picker::{ColorPickerEvent, ColorPickerState},
-    h_flex,
-    label::Label,
-    v_flex,
+    h_flex, v_flex,
 };
 use gpui_kit::TestSupportExt;
 
@@ -22,7 +20,8 @@ use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_pane::StatusChanged;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, git_sharing_note, help_text, theme_is_cloned,
+    color_picker_with_clipboard, error_message, field_grid, git_ignored_note, group_title,
+    help_text, pane_grid_columns, theme_is_cloned,
 };
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
@@ -295,31 +294,26 @@ impl PalettePane {
             .justify_between()
             .flex_wrap()
             .child(
-                v_flex()
-                    .gap_1()
-                    .min_w_0()
-                    .flex_1()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .flex_wrap()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(self.bundle.app),
-                            )
-                            .child(if custom {
-                                badge("Custom", theme.primary)
-                            } else {
-                                badge("Generated", theme.muted_foreground)
-                            })
-                            .when(!self.installed, |row| {
-                                row.child(badge("Not installed", theme.muted_foreground))
-                            }),
-                    )
-                    .child(help_text(self.bundle.description, theme.muted_foreground)),
+                v_flex().gap_1().min_w_0().flex_1().child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .flex_wrap()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(self.bundle.app),
+                        )
+                        .child(if custom {
+                            badge("Custom", theme.primary)
+                        } else {
+                            badge("Generated", theme.muted_foreground)
+                        })
+                        .when(!self.installed, |row| {
+                            row.child(badge("Not installed", theme.muted_foreground))
+                        }),
+                ),
             )
             .child(
                 FocusableSwitch::new(SharedString::from(format!("customize-{}", self.bundle.id)))
@@ -336,10 +330,10 @@ impl PalettePane {
             )
     }
 
-    fn render_colors(&self, cx: &mut Context<Self>) -> AnyElement {
+    fn render_colors(&self, columns: usize, cx: &mut Context<Self>) -> AnyElement {
         let muted = cx.theme().muted_foreground;
         let Some(keys) = &self.keys else {
-            return help_text("Finding the colors these files use…", muted).into_any_element();
+            return help_text("Loading…", muted).into_any_element();
         };
         let overrides = self.overrides.clone().unwrap_or_default();
 
@@ -349,27 +343,22 @@ impl PalettePane {
                 continue;
             };
             let id = format!("palette-{}-{}", self.bundle.id, base.key);
-            let changed = overrides.contains_key(base.key);
             let key = base.key;
             let field = v_flex()
                 .gap_1()
+                .items_start()
                 .child(color_picker_with_clipboard(id.clone(), base.label, picker))
-                .child(if changed {
-                    Button::new(SharedString::from(format!("{id}-reset")))
-                        .label("Reset")
-                        .xsmall()
-                        .ghost()
-                        .cursor_pointer()
-                        .on_click(
-                            cx.listener(move |this, _, window, cx| this.reset_key(key, window, cx)),
-                        )
-                        .into_any_element()
-                } else {
-                    div()
-                        .text_xs()
-                        .text_color(muted)
-                        .child("From palette")
-                        .into_any_element()
+                .when(overrides.contains_key(base.key), |cell| {
+                    cell.child(
+                        Button::new(SharedString::from(format!("{id}-reset")))
+                            .label("Reset")
+                            .xsmall()
+                            .ghost()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.reset_key(key, window, cx)
+                            })),
+                    )
                 })
                 .into_any_element();
             match groups.iter_mut().find(|(name, _)| *name == base.group) {
@@ -380,26 +369,21 @@ impl PalettePane {
 
         v_flex()
             .gap_6()
-            .child(help_text(
-                "Change any color here and only these files use it. Colors you leave alone \
-                 follow the theme's palette.",
-                muted,
-            ))
             .children(groups.into_iter().map(|(name, items)| {
                 v_flex()
                     .gap_3()
-                    .child(Label::new(name).text_sm().font_weight(FontWeight::MEDIUM))
-                    .child(h_flex().gap_x_12().gap_y_4().flex_wrap().children(items))
+                    .child(group_title(name, cx))
+                    .child(field_grid(columns, items))
             }))
             .into_any_element()
     }
 }
 
 impl Render for PalettePane {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let warning = cx.theme().warning;
         let custom = self.is_custom();
+        let columns = pane_grid_columns(window);
         let git_restricted = self
             .bundle
             .files
@@ -416,23 +400,14 @@ impl Render for PalettePane {
             .gap_4()
             .min_w_0()
             .child(self.render_header(cx))
-            .when(git_restricted, |pane| {
-                pane.child(git_sharing_note(self.cloned, cx))
+            .when(git_restricted && self.cloned, |pane| {
+                pane.child(git_ignored_note(cx))
             })
             .children(self.error.clone().map(|error| error_message(error, cx)))
-            .when(!custom && self.old_files.is_empty(), |pane| {
-                pane.child(help_text(
-                    "Omarchy generates these from your palette. Turn on Customize to pick \
-                     different colors for them.",
-                    muted,
-                ))
-            })
             .when(!custom && !self.old_files.is_empty(), |pane| {
                 pane.child(help_text(
                     format!(
-                        "This theme ships {} from an older Omarchist, which Omarchy uses instead \
-                         of generating them. Turn on Customize to replace them with colors you \
-                         pick here, or remove them to follow the palette.",
+                        "{} from an older Omarchist are in this theme.",
                         self.old_files.join(", ")
                     ),
                     warning,
@@ -450,6 +425,6 @@ impl Render for PalettePane {
                     ),
                 )
             })
-            .when(custom, |pane| pane.child(self.render_colors(cx)))
+            .when(custom, |pane| pane.child(self.render_colors(columns, cx)))
     }
 }

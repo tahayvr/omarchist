@@ -4,7 +4,7 @@ use crate::system::themes::theme_management::{load_theme_for_editing, rename_the
 use crate::types::themes::EditingTheme;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    error_message, focus_section, form_section, help_text, tab_container,
+    error_message, focus_section, form_section, tab_container,
 };
 use gpui::*;
 use gpui_component::{
@@ -192,12 +192,7 @@ impl GeneralTab {
             .collect();
 
         let body = if customized.is_empty() {
-            help_text(
-                "None. Omarchy themes every app from this theme's colors; the Optional tabs \
-                 let you customize one.",
-                muted,
-            )
-            .into_any_element()
+            Label::new("None").text_sm().into_any_element()
         } else {
             h_flex()
                 .gap_2()
@@ -284,10 +279,6 @@ impl Render for GeneralTab {
                     .on_change(cx.listener(|this, checked, window, cx| {
                         this.on_light_mode_toggle(*checked, window, cx);
                     })),
-            ))
-            .child(help_text(
-                "Themes are in dark mode by default.",
-                cx.theme().muted_foreground,
             ))
             .child(focus_section(
                 "general-customized",

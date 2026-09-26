@@ -2,7 +2,7 @@ use crate::system::themes::theme_file_ops::{
     add_background_image, boot_logo, list_background_images, remove_background_image,
     remove_boot_logo, render_boot_preview, set_boot_logo,
 };
-use crate::ui::theme_edit_page::shared::{error_message, focus_section, help_text, tab_container};
+use crate::ui::theme_edit_page::shared::{error_message, focus_section, tab_container};
 use anyhow;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -236,7 +236,7 @@ impl BackgroundsTab {
                         .object_fit(ObjectFit::Contain),
                 )
                 .into_any_element(),
-            None => Label::new("No boot logo. Omarchy's own logo is used.")
+            None => Label::new("No boot logo")
                 .text_sm()
                 .text_color(muted)
                 .into_any_element(),
@@ -249,13 +249,6 @@ impl BackgroundsTab {
                     .text_lg()
                     .font_weight(FontWeight::MEDIUM),
             )
-            .child(help_text(
-                "Optional. The logo on the disk-unlock and login screens (unlock.png). It is \
-                 not applied with the theme: pick this theme in Omarchy's boot screen switcher, \
-                 which asks for your password. Omarchist renders the switcher's preview from the \
-                 logo and the theme's background and foreground colors.",
-                muted,
-            ))
             .child(preview)
             .children(self.boot_error.clone().map(|e| error_message(e, cx)))
             .when(editable, |section| {
@@ -345,19 +338,6 @@ impl Render for BackgroundsTab {
                             })),
                     ),
             ))
-            .child(help_text(
-                "Manage background images for this theme.",
-                cx.theme().muted_foreground,
-            ))
-            .child(
-                Label::new(format!(
-                    "{} image{}",
-                    images.len(),
-                    if images.len() == 1 { "" } else { "s" }
-                ))
-                .text_sm()
-                .text_color(cx.theme().muted_foreground),
-            )
             .child(focus_section(
                 "backgrounds-grid",
                 &self.scroll,
@@ -385,10 +365,6 @@ impl Render for BackgroundsTab {
                             Label::new("No background images")
                                 .text_color(cx.theme().muted_foreground),
                         )
-                        .child(help_text(
-                            "Click \"Add Images\" to select background images",
-                            cx.theme().muted_foreground,
-                        ))
                         .into_any_element()
                 } else {
                     let mut grid = v_flex().gap_6();

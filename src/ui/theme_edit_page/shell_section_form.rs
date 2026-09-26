@@ -4,11 +4,10 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize, Sizable,
-    color_picker::{ColorPickerEvent, ColorPickerState},
-    h_flex,
+    button::Button,
+    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
     input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
-    label::Label,
-    radio::Radio,
+    menu::{DropdownMenu, PopupMenuItem},
     v_flex,
 };
 
@@ -19,14 +18,17 @@ use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_editors::ContentChanged;
-use crate::ui::theme_edit_page::shared::{color_picker_with_clipboard, error_message, help_text};
+use crate::ui::theme_edit_page::shared::{
+    color_picker_with_clipboard, error_message, field_grid, field_label, group_title, help_text,
+    pane_grid_columns,
+};
 
 /// Shell values that refer to the Hyprland border instead of naming a color.
 const REFERENCES: &[(&str, &str)] = &[
     ("hyprland.active-border", "Window border"),
     (
         "hyprland.active-border-foreground",
-        "Window border, else text color",
+        "Border, else text color",
     ),
 ];
 
@@ -297,6 +299,13 @@ impl ShellSectionForm {
         cx.notify();
     }
 
+    fn set_reference(&mut self, key: &str, value: String, cx: &mut Context<Self>) {
+        if let Some(Field::Reference { value: current, .. }) = self.fields.get_mut(key) {
+            *current = value.clone();
+        }
+        self.set(key, Some(toml::Value::String(value)), cx);
+    }
+
     fn render_field(&self, key: &SectionKey, cx: &mut Context<Self>) -> Option<AnyElement> {
         let label = humanize(&key.key);
         let id = format!("shell-{}-{}", self.section, key.key);
@@ -306,108 +315,126 @@ impl ShellSectionForm {
             }
             Field::Reference { value, picker } => {
                 let custom = !value.starts_with("hyprland.");
-                let name = key.key.clone();
-                let options = REFERENCES
+                let current = value.clone();
+                let current_label = REFERENCES
                     .iter()
-                    .enumerate()
-                    .map(|(ix, (reference, text))| {
-                        let name = name.clone();
-                        Radio::new(SharedString::from(format!("{id}-ref-{ix}")))
-                            .label(*text)
-                            .checked(value == reference)
-                            .on_click(cx.listener(move |this, _: &bool, _, cx| {
-                                if let Some(Field::Reference { value, .. }) =
-                                    this.fields.get_mut(&name)
-                                {
-                                    *value = reference.to_string();
-                                }
-                                this.set(
-                                    &name,
-                                    Some(toml::Value::String(reference.to_string())),
-                                    cx,
-                                );
-                            }))
-                    });
-                let custom_radio = Radio::new(SharedString::from(format!("{id}-ref-custom")))
-                    .label("Custom color")
-                    .checked(custom)
-                    .on_click(cx.listener({
-                        let name = name.clone();
-                        let picker = picker.clone();
-                        move |this, _: &bool, _, cx| {
-                            let hex = picker
-                                .read(cx)
-                                .value()
-                                .map(|c| c.to_hex())
-                                .unwrap_or_else(|| "#ffffff".into());
-                            let hex = hex[..hex.len().min(7)].to_lowercase();
-                            if let Some(Field::Reference { value, .. }) = this.fields.get_mut(&name)
-                            {
-                                *value = hex.clone();
-                            }
-                            this.set(&name, Some(toml::Value::String(hex)), cx);
-                        }
-                    }));
+                    .find(|(reference, _)| *reference == value)
+                    .map(|(_, label)| *label)
+                    .unwrap_or("Custom color");
+                let name = key.key.clone();
+                let view = cx.entity();
+                let picker = picker.clone();
+                let menu_picker = picker.clone();
                 v_flex()
                     .gap_2()
-                    .min_w(px(240.))
-                    .child(Label::new(label).text_sm())
-                    .child(v_flex().gap_1().children(options).child(custom_radio))
-                    .when(custom, |col| {
-                        col.child(gpui_component::color_picker::ColorPicker::new(picker))
-                    })
+                    .items_start()
+                    .child(field_label(label, None))
+                    .child(
+                        Button::new(SharedString::from(format!("{id}-ref")))
+                            .label(current_label)
+                            .dropdown_caret(true)
+                            .outline()
+                            .small()
+                            .cursor_pointer()
+                            .dropdown_menu(move |menu, _, _| {
+                                let menu =
+                                    REFERENCES.iter().fold(menu, |menu, (reference, text)| {
+                                        let view = view.clone();
+                                        let name = name.clone();
+                                        menu.item(
+                                            PopupMenuItem::new(*text)
+                                                .checked(current == *reference)
+                                                .on_click(move |_, _, cx| {
+                                                    view.update(cx, |this, cx| {
+                                                        this.set_reference(
+                                                            &name,
+                                                            reference.to_string(),
+                                                            cx,
+                                                        )
+                                                    });
+                                                }),
+                                        )
+                                    });
+                                let view = view.clone();
+                                let name = name.clone();
+                                let picker = menu_picker.clone();
+                                menu.item(
+                                    PopupMenuItem::new("Custom color").checked(custom).on_click(
+                                        move |_, _, cx| {
+                                            let hex = picker
+                                                .read(cx)
+                                                .value()
+                                                .map(|c| c.to_hex())
+                                                .unwrap_or_else(|| "#ffffff".into());
+                                            let hex = hex[..hex.len().min(7)].to_lowercase();
+                                            view.update(cx, |this, cx| {
+                                                this.set_reference(&name, hex, cx)
+                                            });
+                                        },
+                                    ),
+                                )
+                            }),
+                    )
+                    .when(custom, |col| col.child(ColorPicker::new(&picker)))
                     .into_any_element()
             }
             Field::Input(input) => v_flex()
                 .gap_2()
-                .w(px(180.))
-                .child(Label::new(label).text_sm())
+                .child(field_label(label, None))
                 .child(Input::new(input).small())
                 .into_any_element(),
             Field::Number(input) => v_flex()
                 .gap_2()
-                .child(Label::new(label).text_sm())
-                .child(NumberInput::new(input).small().w(px(140.)))
+                .child(field_label(label, None))
+                .child(NumberInput::new(input).small())
                 .into_any_element(),
             Field::Bool(checked) => {
                 let name = key.key.clone();
-                FocusableSwitch::new(SharedString::from(id))
-                    .label(label)
-                    .checked(*checked)
-                    .on_change(cx.listener(move |this, checked: &bool, _, cx| {
-                        if let Some(Field::Bool(value)) = this.fields.get_mut(&name) {
-                            *value = *checked;
-                        }
-                        this.set(&name, Some(toml::Value::Boolean(*checked)), cx);
-                    }))
+                v_flex()
+                    .gap_2()
+                    .child(field_label("", None))
+                    .child(
+                        FocusableSwitch::new(SharedString::from(id))
+                            .label(label)
+                            .checked(*checked)
+                            .on_change(cx.listener(move |this, checked: &bool, _, cx| {
+                                if let Some(Field::Bool(value)) = this.fields.get_mut(&name) {
+                                    *value = *checked;
+                                }
+                                this.set(&name, Some(toml::Value::Boolean(*checked)), cx);
+                            })),
+                    )
                     .into_any_element()
             }
         };
         Some(element)
     }
 
-    fn render_group(&self, help: &str, keys: &[SectionKey], cx: &mut Context<Self>) -> Div {
-        let muted = cx.theme().muted_foreground;
+    fn render_group(
+        &self,
+        help: &str,
+        keys: &[SectionKey],
+        columns: usize,
+        cx: &mut Context<Self>,
+    ) -> Div {
         let fields: Vec<AnyElement> = keys
             .iter()
             .filter_map(|key| self.render_field(key, cx))
             .collect();
         v_flex()
             .gap_3()
-            .when(!help.is_empty(), |group| {
-                group.child(help_text(help.to_string(), muted))
-            })
+            .children(group_title_of(help).map(|title| group_title(title, cx)))
             .when(!fields.is_empty(), |group| {
-                group.child(
-                    h_flex()
-                        .gap_x_10()
-                        .gap_y_4()
-                        .flex_wrap()
-                        .items_start()
-                        .children(fields),
-                )
+                group.child(field_grid(columns, fields))
             })
     }
+}
+
+// The name a template comment gives its keys, as in "Normal: idle control
+// chrome." Longer prefixes are sentences, not names.
+fn group_title_of(help: &str) -> Option<String> {
+    let (title, _) = help.split_once(':')?;
+    (title.split_whitespace().count() <= 3 && !title.contains('.')).then(|| title.to_string())
 }
 
 /// `background-alpha` → `Background alpha`.
@@ -421,30 +448,28 @@ fn humanize(key: &str) -> String {
 }
 
 impl Render for ShellSectionForm {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         let Some(groups) = self.groups.clone() else {
             return v_flex()
                 .children(self.error.clone().map(|e| error_message(e, cx)))
                 .when(self.error.is_none(), |this| {
-                    this.child(help_text("Reading the section's settings…", muted))
+                    this.child(help_text("Loading…", muted))
                 });
         };
 
+        let columns = pane_grid_columns(window);
         let extra = self.extra.clone();
         v_flex()
             .gap_6()
             .children(
                 groups
                     .iter()
-                    .map(|group| self.render_group(&group.help, &group.keys, cx)),
+                    .filter(|group| !group.keys.is_empty())
+                    .map(|group| self.render_group(&group.help, &group.keys, columns, cx)),
             )
             .when(!extra.is_empty(), |form| {
-                form.child(self.render_group(
-                    "Other keys this file sets, which Omarchy's template does not have.",
-                    &extra,
-                    cx,
-                ))
+                form.child(self.render_group("", &extra, columns, cx))
             })
     }
 }
@@ -457,5 +482,18 @@ mod tests {
     fn humanizes_keys() {
         assert_eq!(humanize("background-alpha"), "Background alpha");
         assert_eq!(humanize("base_size"), "Base size");
+    }
+
+    #[test]
+    fn group_titles_come_from_short_comment_prefixes() {
+        assert_eq!(
+            super::group_title_of("Normal: idle control chrome.").as_deref(),
+            Some("Normal")
+        );
+        assert_eq!(super::group_title_of("Momentary fills."), None);
+        assert_eq!(
+            super::group_title_of("Lock screen password input. border/border-active cycle: idle"),
+            None
+        );
     }
 }

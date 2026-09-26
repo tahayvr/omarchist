@@ -13,9 +13,7 @@ use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor};
-use crate::ui::theme_edit_page::shared::{
-    error_message, git_sharing_note, help_text, theme_is_cloned,
-};
+use crate::ui::theme_edit_page::shared::{error_message, git_ignored_note, theme_is_cloned};
 
 const SAVE_DELAY: Duration = Duration::from_millis(300);
 
@@ -257,38 +255,26 @@ impl OverridePane {
             .justify_between()
             .flex_wrap()
             .child(
-                v_flex()
-                    .gap_1()
-                    .min_w_0()
-                    .flex_1()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .flex_wrap()
-                            .child(
-                                div()
-                                    .text_lg()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(self.spec.app),
-                            )
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_family(theme.mono_font_family.clone())
-                                    .text_color(theme.muted_foreground)
-                                    .child(self.spec.file),
-                            )
-                            .child(if custom {
-                                badge("Custom", theme.primary)
-                            } else {
-                                badge("Generated", theme.muted_foreground)
-                            })
-                            .when(!self.installed, |row| {
-                                row.child(badge("Not installed", theme.muted_foreground))
-                            }),
-                    )
-                    .child(help_text(self.spec.description, theme.muted_foreground)),
+                v_flex().gap_1().min_w_0().flex_1().child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .flex_wrap()
+                        .child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(self.spec.app),
+                        )
+                        .child(if custom {
+                            badge("Custom", theme.primary)
+                        } else {
+                            badge("Generated", theme.muted_foreground)
+                        })
+                        .when(!self.installed, |row| {
+                            row.child(badge("Not installed", theme.muted_foreground))
+                        }),
+                ),
             )
             .child(
                 FocusableSwitch::new(SharedString::from(format!("customize-{}", self.spec.file)))
@@ -308,8 +294,6 @@ impl OverridePane {
 
 impl Render for OverridePane {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let muted = theme.muted_foreground;
         let file = self.spec.file;
 
         let mut pane = v_flex()
@@ -318,8 +302,8 @@ impl Render for OverridePane {
             .gap_4()
             .min_w_0()
             .child(self.render_header(cx))
-            .when(self.spec.git_restricted(), |pane| {
-                pane.child(git_sharing_note(self.cloned, cx))
+            .when(self.spec.git_restricted() && self.cloned, |pane| {
+                pane.child(git_ignored_note(cx))
             })
             .children(self.error.clone().map(|error| error_message(error, cx)));
 
@@ -339,11 +323,7 @@ impl Render for OverridePane {
                             ),
                     ),
                 ),
-            None => pane.child(help_text(
-                "Omarchy generates this from your palette. Turn on Customize to pick \
-                 different colors for it.",
-                muted,
-            )),
+            None => pane,
         };
 
         pane
