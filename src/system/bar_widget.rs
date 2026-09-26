@@ -128,13 +128,22 @@ pub fn ensure_current() -> Result<()> {
         return Ok(());
     }
     let dir = plugin_dir().ok_or(Error::UnknownDirectory("home"))?;
-    let command_current = fs::read_to_string(dir.join(COMMAND_FILE))
-        .is_ok_and(|saved| saved.trim() == current_command().unwrap_or_default());
-    if installed_version().as_deref() != Some(embedded_version()?.as_str()) || !command_current {
-        install()?;
-        rescan()?;
+    let saved_command = fs::read_to_string(dir.join(COMMAND_FILE)).unwrap_or_default();
+    let command = current_command()?;
+    let installed = installed_version();
+    let embedded = embedded_version()?;
+    if installed.as_deref() != Some(embedded.as_str()) {
+        eprintln!(
+            "Refreshing the bar widget: version {} -> {embedded}",
+            installed.as_deref().unwrap_or("none")
+        );
+    } else if saved_command.trim() != command {
+        eprintln!("Refreshing the bar widget: binary moved to {command}");
+    } else {
+        return Ok(());
     }
-    Ok(())
+    install()?;
+    rescan()
 }
 
 fn rescan() -> Result<()> {

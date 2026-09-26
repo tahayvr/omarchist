@@ -1,8 +1,27 @@
-//! The Configuration page's content as data: pages of groups of items,
-//! each item one Hyprland option addressed by its dotted path
-//! (`input.touchpad.tap_to_click`). Ranges and the values of choices come
-//! from `hyprctl descriptions`; a test checks them against the running
-//! compositor.
+//! The Configuration page's content as data: pages of groups of items.
+//! A Hyprland item is one option addressed by its dotted path
+//! (`input.touchpad.tap_to_click`); ranges and the values of choices come
+//! from `hyprctl descriptions`, and a test checks them against the running
+//! compositor. An Omarchy item is a [`Backing`]: read and written through
+//! Omarchy's own files and scripts (`system::omarchy_settings`).
+use crate::system::omarchy_settings::{Backing, Options, Parse, Read, Write};
+
+/// Where an item's value lives.
+pub enum Source {
+    /// A Hyprland option by dotted path.
+    Hyprland(&'static str),
+    /// An Omarchy setting.
+    Omarchy(Backing),
+    /// An action with no value.
+    None,
+}
+
+/// Which product a page belongs to; the nav groups pages by it.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum PageGroup {
+    Hyprland,
+    Omarchy,
+}
 
 /// How an item is edited.
 pub enum FieldDef {
@@ -30,15 +49,49 @@ pub enum FieldDef {
         options: &'static [(i64, &'static str)],
     },
     KeyboardLayout,
+    /// A string setting whose choices are found at runtime.
+    DynamicDropdown {
+        options: Options,
+    },
+    /// A button that runs a command; in Omarchy's floating terminal when
+    /// the command asks for sudo or confirmation.
+    Action {
+        button: &'static str,
+        argv: &'static [&'static str],
+        terminal: bool,
+    },
+    /// Something that is set up or not: a status read at runtime, a setup
+    /// command, and a removal command, both run in the floating terminal.
+    Feature {
+        status: Read,
+        setup: &'static [&'static str],
+        remove: Option<&'static [&'static str]>,
+    },
 }
 
 pub struct ItemDef {
     pub id: &'static str,
-    /// The Hyprland option, dotted (`input.touchpad.tap_to_click`).
-    pub path: &'static str,
+    pub source: Source,
     pub label: &'static str,
     pub description: &'static str,
     pub field: FieldDef,
+    /// A command that must succeed for the item to be shown
+    /// (`omarchy-hw-laptop`).
+    pub when: Option<&'static [&'static str]>,
+    /// The id of a switch item that, while on, makes this item's value
+    /// irrelevant (an Omarchy toggle that overrides it), so the control is
+    /// disabled.
+    pub disabled_by: Option<&'static str>,
+}
+
+impl ItemDef {
+    /// The Hyprland option path, for Hyprland items.
+    pub fn hyprland_path(&self) -> Option<&'static str> {
+        match self.source {
+            Source::Hyprland(path) => Some(path),
+            _ => None,
+        }
+    }
 }
 
 pub struct GroupDef {
@@ -49,16 +102,59 @@ pub struct GroupDef {
 pub struct PageDef {
     pub title: &'static str,
     pub description: &'static str,
+    pub group: PageGroup,
     pub groups: &'static [GroupDef],
+    /// Content built at runtime instead of from `groups`.
+    pub dynamic: Option<Dynamic>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Dynamic {
+    /// The install/remove catalog from Omarchy's menu.
+    Software,
+}
+
+/// The Hyprland option older versions overrode directly; the layout now
+/// goes through `/etc/vconsole.conf`, which Omarchy's `input.lua` reads.
 pub const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
+
+/// The system keyboard layout: read from vconsole, set with `localectl`
+/// (which asks for the password), then Hyprland reloads so Omarchy's
+/// `input.lua` picks it up.
+pub const KEYBOARD_LAYOUT: Backing = Backing {
+    read: Read::EnvFile {
+        path: "/etc/vconsole.conf",
+        key: "XKBLAYOUT",
+    },
+    write: Write::CommandAnd {
+        argv: &["localectl", "set-x11-keymap"],
+        then: &[&["hyprctl", "reload"]],
+    },
+};
+
+/// Every page in nav order: Hyprland first, then Omarchy.
+pub fn pages() -> impl Iterator<Item = &'static PageDef> {
+    HYPRLAND_PAGES.iter().chain(OMARCHY_PAGES.iter())
+}
+
+pub fn page(index: usize) -> Option<&'static PageDef> {
+    pages().nth(index)
+}
+
+pub fn page_count() -> usize {
+    HYPRLAND_PAGES.len() + OMARCHY_PAGES.len()
+}
+
+/// Every item of every page.
+pub fn items() -> impl Iterator<Item = &'static ItemDef> {
+    pages().flat_map(|p| p.groups).flat_map(|g| g.items)
+}
 
 macro_rules! int_item {
     ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Number {
@@ -67,6 +163,8 @@ macro_rules! int_item {
                 step: $step,
                 integer: true,
             },
+            when: None,
+            disabled_by: None,
         }
     };
 }
@@ -75,7 +173,7 @@ macro_rules! float_item {
     ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Number {
@@ -84,6 +182,8 @@ macro_rules! float_item {
                 step: $step,
                 integer: false,
             },
+            when: None,
+            disabled_by: None,
         }
     };
 }
@@ -92,7 +192,7 @@ macro_rules! pair_item {
     ($id:expr, $path:expr, $index:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Pair {
@@ -101,6 +201,8 @@ macro_rules! pair_item {
                 max: $max,
                 step: $step,
             },
+            when: None,
+            disabled_by: None,
         }
     };
 }
@@ -109,10 +211,12 @@ macro_rules! switch_item {
     ($id:expr, $path:expr, $label:expr, $desc:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Switch,
+            when: None,
+            disabled_by: None,
         }
     };
 }
@@ -121,10 +225,12 @@ macro_rules! dropdown_item {
     ($id:expr, $path:expr, $label:expr, $desc:expr, $options:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Dropdown { options: $options },
+            when: None,
+            disabled_by: None,
         }
     };
 }
@@ -133,33 +239,42 @@ macro_rules! choice_item {
     ($id:expr, $path:expr, $label:expr, $desc:expr, $options:expr) => {
         ItemDef {
             id: $id,
-            path: $path,
+            source: Source::Hyprland($path),
             label: $label,
             description: $desc,
             field: FieldDef::Choice { options: $options },
+            when: None,
+            disabled_by: None,
         }
     };
 }
 
 const ON_OFF_AUTO: &[(i64, &str)] = &[(0, "Off"), (1, "On"), (2, "Auto")];
 
-pub const PAGES: &[PageDef] = &[
+pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "General",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Borders, gaps, layout, and floating windows",
         groups: &[
             GroupDef {
                 title: "Window Borders",
                 items: &[
-                    int_item!(
-                        "border-size",
-                        "general.border_size",
-                        "Border Size",
-                        "Size of the border around windows",
-                        0.0,
-                        20.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "border-size",
+                        source: Source::Hyprland("general.border_size"),
+                        label: "Border Size",
+                        description: "Size of the border around windows",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 20.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     switch_item!(
                         "resize-on-border",
                         "general.resize_on_border",
@@ -192,24 +307,34 @@ pub const PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Gaps",
                 items: &[
-                    int_item!(
-                        "gaps-in",
-                        "general.gaps_in",
-                        "Gaps In",
-                        "Gaps between windows",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "gaps-out",
-                        "general.gaps_out",
-                        "Gaps Out",
-                        "Gaps between windows and monitor edges",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "gaps-in",
+                        source: Source::Hyprland("general.gaps_in"),
+                        label: "Gaps In",
+                        description: "Gaps between windows",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 100.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
+                    ItemDef {
+                        id: "gaps-out",
+                        source: Source::Hyprland("general.gaps_out"),
+                        label: "Gaps Out",
+                        description: "Gaps between windows and monitor edges",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 100.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     int_item!(
                         "float-gaps",
                         "general.float_gaps",
@@ -228,6 +353,24 @@ pub const PAGES: &[PageDef] = &[
                         100.0,
                         1.0
                     ),
+                    ItemDef {
+                        id: "no-gaps",
+                        source: Source::Omarchy(Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/window-no-gaps.lua",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-hyprland-toggle", "window-no-gaps", "on"]],
+                                off: &[&["omarchy-hyprland-toggle", "window-no-gaps", "off"]],
+                            },
+                        }),
+                        label: "No Gaps",
+                        description: "Omarchy's toggle: no gaps, borders, or rounding, overriding the fields above",
+                        field: FieldDef::Switch,
+                        when: None,
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -323,20 +466,27 @@ pub const PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Appearance",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Rounding, opacity, dimming, blur, shadows, and animations",
         groups: &[
             GroupDef {
                 title: "Rounding",
                 items: &[
-                    int_item!(
-                        "rounding",
-                        "decoration.rounding",
-                        "Rounding",
-                        "Corner radius in pixels",
-                        0.0,
-                        20.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "rounding",
+                        source: Source::Hyprland("decoration.rounding"),
+                        label: "Rounding",
+                        description: "Corner radius in pixels",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 20.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     float_item!(
                         "rounding-power",
                         "decoration.rounding_power",
@@ -529,12 +679,6 @@ pub const PAGES: &[PageDef] = &[
                         1.0,
                         0.05
                     ),
-                    switch_item!(
-                        "blur-new-optimizations",
-                        "decoration.blur.new_optimizations",
-                        "Blur Optimizations",
-                        "Use the faster blur path"
-                    ),
                 ],
             },
             GroupDef {
@@ -678,40 +822,81 @@ pub const PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Layouts",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Dwindle, master, and scrolling layout behaviour",
         groups: &[
             GroupDef {
                 title: "Single Window",
                 items: &[
-                    pair_item!(
-                        "single-window-aspect-width",
-                        "layout.single_window_aspect_ratio",
-                        0,
-                        "Aspect Ratio Width",
-                        "Shape a lone window to this ratio; 0 and 0 is off",
-                        0.0,
-                        32.0,
-                        1.0
-                    ),
-                    pair_item!(
-                        "single-window-aspect-height",
-                        "layout.single_window_aspect_ratio",
-                        1,
-                        "Aspect Ratio Height",
-                        "Shape a lone window to this ratio; 0 and 0 is off",
-                        0.0,
-                        32.0,
-                        1.0
-                    ),
-                    float_item!(
-                        "single-window-aspect-tolerance",
-                        "layout.single_window_aspect_ratio_tolerance",
-                        "Aspect Ratio Tolerance",
-                        "Minimum difference before the ratio is applied",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
+                    ItemDef {
+                        id: "single-window-aspect-width",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio"),
+                        label: "Aspect Ratio Width",
+                        description: "Shape a lone window to this ratio; 0 and 0 is off",
+                        field: FieldDef::Pair {
+                            index: 0,
+                            min: 0.0,
+                            max: 32.0,
+                            step: 1.0,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "single-window-aspect-height",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio"),
+                        label: "Aspect Ratio Height",
+                        description: "Shape a lone window to this ratio; 0 and 0 is off",
+                        field: FieldDef::Pair {
+                            index: 1,
+                            min: 0.0,
+                            max: 32.0,
+                            step: 1.0,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "single-window-aspect-tolerance",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio_tolerance"),
+                        label: "Aspect Ratio Tolerance",
+                        description: "Minimum difference before the ratio is applied",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 1.0,
+                            step: 0.05,
+                            integer: false,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "square-single-window",
+                        source: Source::Omarchy(Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/single-window-aspect-ratio.lua",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&[
+                                    "omarchy-hyprland-toggle",
+                                    "single-window-aspect-ratio",
+                                    "on",
+                                ]],
+                                off: &[&[
+                                    "omarchy-hyprland-toggle",
+                                    "single-window-aspect-ratio",
+                                    "off",
+                                ]],
+                            },
+                        }),
+                        label: "Square Single Window",
+                        description: "Omarchy's toggle: a lone window is kept square, overriding the ratio above",
+                        field: FieldDef::Switch,
+                        when: None,
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -991,6 +1176,8 @@ pub const PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Keyboard",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Layout, repeat, and modifiers",
         groups: &[
             GroupDef {
@@ -998,10 +1185,12 @@ pub const PAGES: &[PageDef] = &[
                 items: &[
                     ItemDef {
                         id: "kb-layout",
-                        path: KEYBOARD_LAYOUT_PATH,
+                        source: Source::Omarchy(KEYBOARD_LAYOUT),
                         label: "Keyboard Layout",
-                        description: "XKB layout, for example us, de, or fr",
+                        description: "Set system-wide; Omarchy adds a Latin fallback for non-Latin layouts",
                         field: FieldDef::KeyboardLayout,
+                        when: None,
+                        disabled_by: None,
                     },
                     switch_item!(
                         "numlock-by-default",
@@ -1044,6 +1233,8 @@ pub const PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Mouse",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Pointer speed, scrolling, and focus",
         groups: &[
             GroupDef {
@@ -1223,6 +1414,8 @@ pub const PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Touchpad",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Tapping, scrolling, and gestures on the touchpad",
         groups: &[
             GroupDef {
@@ -1317,114 +1510,12 @@ pub const PAGES: &[PageDef] = &[
                     ),
                 ],
             },
-            GroupDef {
-                title: "Workspace Swipe",
-                items: &[
-                    int_item!(
-                        "workspace-swipe-distance",
-                        "gestures.workspace_swipe_distance",
-                        "Swipe Distance",
-                        "Pixels a swipe travels to change workspace",
-                        0.0,
-                        2000.0,
-                        10.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-invert",
-                        "gestures.workspace_swipe_invert",
-                        "Invert Swipe",
-                        "Swipe the other way to change workspace"
-                    ),
-                    float_item!(
-                        "workspace-swipe-cancel-ratio",
-                        "gestures.workspace_swipe_cancel_ratio",
-                        "Cancel Ratio",
-                        "Share of the swipe needed before it commits",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
-                    int_item!(
-                        "workspace-swipe-min-speed-to-force",
-                        "gestures.workspace_swipe_min_speed_to_force",
-                        "Force Speed",
-                        "Swipe speed that commits regardless of distance",
-                        0.0,
-                        200.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-create-new",
-                        "gestures.workspace_swipe_create_new",
-                        "Swipe Creates Workspace",
-                        "Swiping past the last workspace creates a new one"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-forever",
-                        "gestures.workspace_swipe_forever",
-                        "Swipe Past Neighbours",
-                        "A long swipe crosses several workspaces"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-direction-lock",
-                        "gestures.workspace_swipe_direction_lock",
-                        "Direction Lock",
-                        "Lock the swipe direction once it is clear"
-                    ),
-                    int_item!(
-                        "workspace-swipe-direction-lock-threshold",
-                        "gestures.workspace_swipe_direction_lock_threshold",
-                        "Direction Lock Distance",
-                        "Pixels before the direction locks",
-                        0.0,
-                        200.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-use-r",
-                        "gestures.workspace_swipe_use_r",
-                        "Swipe Ignores Empty Workspaces",
-                        "Swipe between workspaces that have windows"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-touch",
-                        "gestures.workspace_swipe_touch",
-                        "Touchscreen Edge Swipe",
-                        "Swipe from a touchscreen edge to change workspace"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-touch-invert",
-                        "gestures.workspace_swipe_touch_invert",
-                        "Invert Touchscreen Swipe",
-                        "Swipe the other way on a touchscreen"
-                    ),
-                    int_item!(
-                        "close-max-timeout",
-                        "gestures.close_max_timeout",
-                        "Close Gesture Timeout",
-                        "Milliseconds the close gesture may take",
-                        10.0,
-                        2000.0,
-                        10.0
-                    ),
-                    switch_item!(
-                        "scrolling-move-snap-to-grid",
-                        "gestures.scrolling.move_snap_to_grid",
-                        "Scroll Move Snaps to Grid",
-                        "Snap a moved scrolling column to the grid on release"
-                    ),
-                    switch_item!(
-                        "scrolling-move-snap-cursor",
-                        "gestures.scrolling.move_snap_cursor",
-                        "Scroll Move Snaps Cursor",
-                        "Snap the cursor to the moved column on release"
-                    ),
-                ],
-            },
         ],
     },
     PageDef {
         title: "Groups",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Tabbed window groups and their bar",
         groups: &[
             GroupDef {
@@ -1658,21 +1749,14 @@ pub const PAGES: &[PageDef] = &[
                         "Middle Click Closes",
                         "Middle clicking a tab closes its window"
                     ),
-                    int_item!(
-                        "groupbar-priority",
-                        "group.groupbar.priority",
-                        "Decoration Priority",
-                        "Order of the bar among window decorations",
-                        0.0,
-                        6.0,
-                        1.0
-                    ),
                 ],
             },
         ],
     },
     PageDef {
         title: "Cursor",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Hiding, warping, and zooming the pointer",
         groups: &[
             GroupDef {
@@ -1704,12 +1788,6 @@ pub const PAGES: &[PageDef] = &[
                         0.0,
                         20.0,
                         1.0
-                    ),
-                    switch_item!(
-                        "cursor-invisible",
-                        "cursor.invisible",
-                        "Invisible",
-                        "Never draw the pointer"
                     ),
                 ],
             },
@@ -1791,57 +1869,12 @@ pub const PAGES: &[PageDef] = &[
                     ),
                 ],
             },
-            GroupDef {
-                title: "Rendering",
-                items: &[
-                    switch_item!(
-                        "enable-hyprcursor",
-                        "cursor.enable_hyprcursor",
-                        "Hyprcursor",
-                        "Use hyprcursor themes"
-                    ),
-                    switch_item!(
-                        "sync-gsettings-theme",
-                        "cursor.sync_gsettings_theme",
-                        "Sync GTK Theme",
-                        "Keep the GTK cursor theme in step"
-                    ),
-                    choice_item!(
-                        "no-hardware-cursors",
-                        "cursor.no_hardware_cursors",
-                        "Software Cursor",
-                        "Draw the pointer in software instead of the GPU plane",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "use-cpu-buffer",
-                        "cursor.use_cpu_buffer",
-                        "CPU Cursor Buffer",
-                        "Keep the hardware cursor in a CPU buffer",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "no-break-fs-vrr",
-                        "cursor.no_break_fs_vrr",
-                        "Keep VRR in Fullscreen",
-                        "Do not render a frame for pointer movement over fullscreen apps",
-                        ON_OFF_AUTO
-                    ),
-                    int_item!(
-                        "min-refresh-rate",
-                        "cursor.min_refresh_rate",
-                        "Minimum Refresh Rate",
-                        "Lowest refresh rate for pointer movement when VRR is kept",
-                        10.0,
-                        500.0,
-                        1.0
-                    ),
-                ],
-            },
         ],
     },
     PageDef {
         title: "Windows",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Focus, workspaces, and fullscreen behaviour",
         groups: &[
             GroupDef {
@@ -2009,30 +2042,17 @@ pub const PAGES: &[PageDef] = &[
                     ),
                 ],
             },
-            GroupDef {
-                title: "Swallowing",
-                items: &[switch_item!(
-                    "enable-swallow",
-                    "misc.enable_swallow",
-                    "Window Swallowing",
-                    "A terminal hides while an app it launched is open"
-                )],
-            },
         ],
     },
     PageDef {
         title: "System",
+        group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Rendering, displays, sessions, and XWayland",
         groups: &[
             GroupDef {
                 title: "Rendering",
                 items: &[
-                    switch_item!(
-                        "vfr",
-                        "debug.vfr",
-                        "Variable Frame Rate",
-                        "Render only when something changes; saves battery"
-                    ),
                     choice_item!(
                         "vrr",
                         "misc.vrr",
@@ -2052,45 +2072,15 @@ pub const PAGES: &[PageDef] = &[
                         "Show a fullscreen window's buffer directly, skipping compositing",
                         ON_OFF_AUTO
                     ),
-                    switch_item!(
-                        "new-render-scheduling",
-                        "render.new_render_scheduling",
-                        "New Render Scheduling",
-                        "Newer frame scheduling, better on slow GPUs"
-                    ),
-                    switch_item!(
-                        "expand-undersized-textures",
-                        "render.expand_undersized_textures",
-                        "Expand Undersized Textures",
-                        "Stretch a window that has not yet resized"
-                    ),
-                    switch_item!(
-                        "xp-mode",
-                        "render.xp_mode",
-                        "XP Mode",
-                        "Skip the back buffer and bottom layer"
-                    ),
-                    switch_item!(
-                        "nvidia-anti-flicker",
-                        "opengl.nvidia_anti_flicker",
-                        "NVIDIA Anti-Flicker",
-                        "Reduce flicker on NVIDIA, at the cost of possible frame drops"
-                    ),
-                    int_item!(
-                        "render-unfocused-fps",
-                        "misc.render_unfocused_fps",
-                        "Background FPS Limit",
-                        "Frame rate for windows rendered while unfocused",
-                        1.0,
-                        120.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "screencopy-force-8b",
-                        "misc.screencopy_force_8b",
-                        "8-bit Screen Capture",
-                        "Capture the screen in 8-bit color"
-                    ),
+                    ItemDef {
+                        id: "nvidia-anti-flicker",
+                        source: Source::Hyprland("opengl.nvidia_anti_flicker"),
+                        label: "NVIDIA Anti-Flicker",
+                        description: "Reduce flicker on NVIDIA, at the cost of possible frame drops",
+                        field: FieldDef::Switch,
+                        when: Some(&["omarchy-hw-nvidia"]),
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -2140,59 +2130,6 @@ pub const PAGES: &[PageDef] = &[
                         "Fade between color transforms such as night light",
                         ON_OFF_AUTO
                     ),
-                    choice_item!(
-                        "non-shader-cm",
-                        "render.non_shader_cm",
-                        "Hardware Color Management",
-                        "Do color management without shaders",
-                        &[(0, "Off"), (1, "Always"), (2, "On demand"), (3, "Ignore")]
-                    ),
-                    choice_item!(
-                        "non-shader-cm-interop",
-                        "render.non_shader_cm_interop",
-                        "Hardware CM With Night Light",
-                        "Hardware color management alongside color transforms",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "use-fp16",
-                        "render.use_fp16",
-                        "FP16 Buffer",
-                        "Render into a 16-bit float buffer",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "fp16-sdr-tf",
-                        "render.fp16_sdr_tf",
-                        "FP16 SDR Transfer",
-                        "Transfer function of the FP16 buffer in SDR",
-                        &[(0, "Monitor"), (1, "Linear")]
-                    ),
-                    choice_item!(
-                        "keep-unmodified-copy",
-                        "render.keep_unmodified_copy",
-                        "Keep SDR Copy for Sharing",
-                        "Keep an unmodified SDR frame for screen sharing",
-                        ON_OFF_AUTO
-                    ),
-                    switch_item!(
-                        "icc-vcgt-enabled",
-                        "render.icc_vcgt_enabled",
-                        "ICC Gamma Ramps",
-                        "Send ICC profile gamma ramps to the display"
-                    ),
-                    switch_item!(
-                        "commit-timing-enabled",
-                        "render.commit_timing_enabled",
-                        "Commit Timing",
-                        "Commit timing protocol; takes effect after a restart"
-                    ),
-                    switch_item!(
-                        "use-shader-blur-blend",
-                        "render.use_shader_blur_blend",
-                        "Shader Blur Blend",
-                        "Experimental blurred background blending"
-                    ),
                 ],
             },
             GroupDef {
@@ -2213,65 +2150,8 @@ pub const PAGES: &[PageDef] = &[
                 ],
             },
             GroupDef {
-                title: "Lock Screen",
+                title: "Notices",
                 items: &[
-                    switch_item!(
-                        "allow-session-lock-restore",
-                        "misc.allow_session_lock_restore",
-                        "Recover Lock Screen",
-                        "Let the lock screen restart if it crashes"
-                    ),
-                    switch_item!(
-                        "session-lock-xray",
-                        "misc.session_lock_xray",
-                        "Render Behind Lock Screen",
-                        "Keep rendering workspaces below the lock screen"
-                    ),
-                    switch_item!(
-                        "session-lock-blur",
-                        "misc.session_lock_blur",
-                        "Blur Lock Screen",
-                        "Blur behind the lock screen"
-                    ),
-                    int_item!(
-                        "lockdead-screen-delay",
-                        "misc.lockdead_screen_delay",
-                        "Lock Failure Delay",
-                        "Milliseconds before the fallback lock screen appears",
-                        0.0,
-                        5000.0,
-                        100.0
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Startup and Notices",
-                items: &[
-                    switch_item!(
-                        "disable-hyprland-logo",
-                        "misc.disable_hyprland_logo",
-                        "No Hyprland Logo",
-                        "No default wallpaper with the Hyprland logo"
-                    ),
-                    switch_item!(
-                        "disable-splash-rendering",
-                        "misc.disable_splash_rendering",
-                        "No Splash",
-                        "No splash text on the default wallpaper"
-                    ),
-                    choice_item!(
-                        "force-default-wallpaper",
-                        "misc.force_default_wallpaper",
-                        "Default Wallpaper",
-                        "Which built-in wallpaper to use when none is set",
-                        &[(-1, "Random"), (0, "First"), (1, "Second"), (2, "Third")]
-                    ),
-                    switch_item!(
-                        "disable-scale-notification",
-                        "misc.disable_scale_notification",
-                        "No Scale Warning",
-                        "No notice when a monitor scale is not clean"
-                    ),
                     switch_item!(
                         "enable-anr-dialog",
                         "misc.enable_anr_dialog",
@@ -2288,28 +2168,10 @@ pub const PAGES: &[PageDef] = &[
                         1.0
                     ),
                     switch_item!(
-                        "no-update-news",
-                        "ecosystem.no_update_news",
-                        "No Update News",
-                        "No popup after a Hyprland update"
-                    ),
-                    switch_item!(
                         "no-donation-nag",
                         "ecosystem.no_donation_nag",
                         "No Donation Reminder",
                         "No twice-yearly donation popup"
-                    ),
-                    switch_item!(
-                        "enforce-permissions",
-                        "ecosystem.enforce_permissions",
-                        "Enforce Permissions",
-                        "Ask before apps capture the screen or keyboard"
-                    ),
-                    switch_item!(
-                        "disable-autoreload",
-                        "misc.disable_autoreload",
-                        "No Auto Reload",
-                        "Do not reload the config when a file changes"
                     ),
                 ],
             },
@@ -2334,11 +2196,875 @@ pub const PAGES: &[PageDef] = &[
                         "Pixelated Scaling",
                         "Scale X11 apps with nearest-neighbor filtering"
                     ),
-                    switch_item!(
-                        "xwayland-create-abstract-socket",
-                        "xwayland.create_abstract_socket",
-                        "Abstract Socket",
-                        "Create the abstract Unix socket for XWayland"
+                ],
+            },
+        ],
+    },
+];
+
+// ── Omarchy ────────────────────────────────────────────────────────────
+
+macro_rules! o_int {
+    ($id:expr, $backing:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
+        ItemDef {
+            id: $id,
+            source: Source::Omarchy($backing),
+            label: $label,
+            description: $desc,
+            field: FieldDef::Number {
+                min: $min,
+                max: $max,
+                step: $step,
+                integer: true,
+            },
+            when: None,
+            disabled_by: None,
+        }
+    };
+}
+
+macro_rules! o_switch {
+    ($id:expr, $backing:expr, $label:expr, $desc:expr) => {
+        o_switch!($id, $backing, $label, $desc, None)
+    };
+    ($id:expr, $backing:expr, $label:expr, $desc:expr, $when:expr) => {
+        ItemDef {
+            id: $id,
+            source: Source::Omarchy($backing),
+            label: $label,
+            description: $desc,
+            field: FieldDef::Switch,
+            when: $when,
+            disabled_by: None,
+        }
+    };
+}
+
+macro_rules! o_dropdown {
+    ($id:expr, $backing:expr, $label:expr, $desc:expr, $options:expr) => {
+        o_dropdown!($id, $backing, $label, $desc, $options, None)
+    };
+    ($id:expr, $backing:expr, $label:expr, $desc:expr, $options:expr, $when:expr) => {
+        ItemDef {
+            id: $id,
+            source: Source::Omarchy($backing),
+            label: $label,
+            description: $desc,
+            field: FieldDef::DynamicDropdown { options: $options },
+            when: $when,
+            disabled_by: None,
+        }
+    };
+}
+
+macro_rules! action {
+    ($id:expr, $label:expr, $desc:expr, $button:expr, $argv:expr, $terminal:expr) => {
+        action!($id, $label, $desc, $button, $argv, $terminal, None)
+    };
+    ($id:expr, $label:expr, $desc:expr, $button:expr, $argv:expr, $terminal:expr, $when:expr) => {
+        ItemDef {
+            id: $id,
+            source: Source::None,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Action {
+                button: $button,
+                argv: $argv,
+                terminal: $terminal,
+            },
+            when: $when,
+            disabled_by: None,
+        }
+    };
+}
+
+macro_rules! feature {
+    ($id:expr, $label:expr, $desc:expr, $status:expr, $setup:expr, $remove:expr) => {
+        feature!($id, $label, $desc, $status, $setup, $remove, None)
+    };
+    ($id:expr, $label:expr, $desc:expr, $status:expr, $setup:expr, $remove:expr, $when:expr) => {
+        ItemDef {
+            id: $id,
+            source: Source::None,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Feature {
+                status: $status,
+                setup: $setup,
+                remove: $remove,
+            },
+            when: $when,
+            disabled_by: None,
+        }
+    };
+}
+
+const LAPTOP: Option<&[&str]> = Some(&["omarchy-hw-laptop"]);
+
+pub const OMARCHY_PAGES: &[PageDef] = &[
+    PageDef {
+        title: "Lock & Idle",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Screensaver, lock screen, and staying awake",
+        groups: &[
+            GroupDef {
+                title: "Idle",
+                items: &[
+                    o_int!(
+                        "idle-screensaver",
+                        Backing {
+                            read: Read::ShellJson("idle.screensaver"),
+                            write: Write::ShellJson("idle.screensaver"),
+                        },
+                        "Screensaver After",
+                        "Seconds of inactivity before the screensaver starts",
+                        30.0,
+                        7200.0,
+                        30.0
+                    ),
+                    o_int!(
+                        "idle-lock",
+                        Backing {
+                            read: Read::ShellJson("idle.lock"),
+                            write: Write::ShellJson("idle.lock"),
+                        },
+                        "Lock After",
+                        "Seconds of inactivity before the screen locks",
+                        30.0,
+                        7200.0,
+                        30.0
+                    ),
+                    o_switch!(
+                        "stay-awake",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "indicators/stay-awake",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-toggle-idle", "stay-awake"]],
+                                off: &[&["omarchy-toggle-idle", "allow-idle"]],
+                            },
+                        },
+                        "Stay Awake",
+                        "No screensaver or lock while this is on"
+                    ),
+                    o_switch!(
+                        "screensaver-enabled",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/screensaver-off",
+                                inverted: true,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-toggle", "screensaver-off", "off"]],
+                                off: &[&["omarchy-toggle", "screensaver-off", "on"]],
+                            },
+                        },
+                        "Screensaver",
+                        "Start the screensaver when idle"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "System Menu",
+                items: &[
+                    o_switch!(
+                        "suspend-available",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/suspend-off",
+                                inverted: true,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-toggle", "suspend-off", "off"]],
+                                off: &[&["omarchy-toggle", "suspend-off", "on"]],
+                            },
+                        },
+                        "Show Suspend",
+                        "Offer Suspend in the system menu"
+                    ),
+                    action!(
+                        "lock-now",
+                        "Lock Screen",
+                        "Lock the screen now",
+                        "Lock",
+                        &["omarchy-system-lock"],
+                        false
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Power",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Power profiles and the battery",
+        groups: &[
+            GroupDef {
+                title: "Power Profile",
+                items: &[
+                    o_dropdown!(
+                        "profile-ac",
+                        Backing {
+                            read: Read::StateFile("powerprofiles/ac"),
+                            write: Write::Command(&["omarchy-powerprofiles-set", "ac"]),
+                        },
+                        "On Power",
+                        "Profile used while plugged in",
+                        Options::Lines(&["omarchy-powerprofiles-list"])
+                    ),
+                    o_dropdown!(
+                        "profile-battery",
+                        Backing {
+                            read: Read::StateFile("powerprofiles/battery"),
+                            write: Write::Command(&["omarchy-powerprofiles-set", "battery"]),
+                        },
+                        "On Battery",
+                        "Profile used on battery",
+                        Options::Lines(&["omarchy-powerprofiles-list"]),
+                        LAPTOP
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Battery",
+                items: &[
+                    o_switch!(
+                        "battery-percentage",
+                        Backing {
+                            read: Read::ShellWidget {
+                                id: "omarchy.power",
+                                key: "showPercentage",
+                            },
+                            write: Write::CommandJson(&[
+                                "omarchy",
+                                "bar",
+                                "set",
+                                "omarchy.power",
+                                "showPercentage",
+                            ]),
+                        },
+                        "Battery Percentage",
+                        "Show the percentage next to the battery in the bar",
+                        LAPTOP
+                    ),
+                    action!(
+                        "hybrid-gpu",
+                        "Hybrid GPU",
+                        "Switch between the integrated and the dedicated GPU; reboots",
+                        "Switch…",
+                        &["omarchy-toggle-hybrid-gpu"],
+                        true,
+                        Some(&["omarchy-hw-hybrid-gpu"])
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Notifications",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Do not disturb and crash reports",
+        groups: &[GroupDef {
+            title: "Notifications",
+            items: &[
+                o_switch!(
+                    "do-not-disturb",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-shell", "notifications", "isDnd"],
+                            parse: Parse::LineIs("on"),
+                        },
+                        write: Write::Bool {
+                            on: &[&["omarchy-shell", "notifications", "setDnd", "true"]],
+                            off: &[&["omarchy-shell", "notifications", "setDnd", "false"]],
+                        },
+                    },
+                    "Do Not Disturb",
+                    "Hold notifications instead of showing them"
+                ),
+                o_switch!(
+                    "crash-capture",
+                    Backing {
+                        read: Read::Flag {
+                            flag: "toggles/crash-capture-off",
+                            inverted: true,
+                        },
+                        write: Write::Bool {
+                            on: &[
+                                &["omarchy-toggle", "crash-capture-off", "off"],
+                                &[
+                                    "systemctl",
+                                    "--user",
+                                    "start",
+                                    "omarchy-crash-watch.service"
+                                ],
+                            ],
+                            off: &[
+                                &["omarchy-toggle", "crash-capture-off", "on"],
+                                &["systemctl", "--user", "stop", "omarchy-crash-watch.service"],
+                            ],
+                        },
+                    },
+                    "Crash Capture",
+                    "Notify when an app crashes and capture a report"
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Default Apps",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "The browser, terminal, and editor Omarchy opens",
+        groups: &[GroupDef {
+            title: "Defaults",
+            items: &[
+                o_dropdown!(
+                    "default-browser",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-default-browser"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-default-browser"]),
+                    },
+                    "Browser",
+                    "Opens links and web apps",
+                    Options::Installed(&[
+                        ("chromium", "chromium", "Chromium", "chromium"),
+                        ("chrome", "chrome", "Chrome", "google-chrome-stable"),
+                        ("brave", "brave", "Brave", "brave"),
+                        (
+                            "brave-origin",
+                            "brave-origin",
+                            "Brave Origin",
+                            "brave-origin"
+                        ),
+                        ("edge", "edge", "Edge", "microsoft-edge-stable"),
+                        ("firefox", "firefox", "Firefox", "firefox"),
+                        ("zen", "zen", "Zen", "zen-browser"),
+                    ])
+                ),
+                o_dropdown!(
+                    "default-terminal",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-default-terminal"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-default-terminal"]),
+                    },
+                    "Terminal",
+                    "Opens with Super + Return and runs TUIs",
+                    Options::Installed(&[
+                        ("alacritty", "alacritty", "Alacritty", "alacritty"),
+                        ("foot", "foot", "Foot", "foot"),
+                        ("ghostty", "ghostty", "Ghostty", "ghostty"),
+                        ("kitty", "kitty", "Kitty", "kitty"),
+                    ])
+                ),
+                o_dropdown!(
+                    "default-editor",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-default-editor"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-default-editor"]),
+                    },
+                    "Editor",
+                    "Opens config files and text",
+                    Options::Installed(&[
+                        ("nvim", "nvim", "Neovim", "nvim"),
+                        ("code", "code", "VS Code", "code"),
+                        ("cursor", "cursor", "Cursor", "cursor"),
+                        ("zed", "zeditor", "Zed", "zeditor"),
+                        (
+                            "sublime_text",
+                            "sublime_text",
+                            "Sublime Text",
+                            "sublime_text"
+                        ),
+                        ("helix", "helix", "Helix", "helix"),
+                        ("vim", "vim", "Vim", "vim"),
+                        ("emacs", "emacs", "Emacs", "emacs"),
+                    ])
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Bar",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Where the bar sits and how it looks",
+        groups: &[GroupDef {
+            title: "Bar",
+            items: &[
+                o_switch!(
+                    "bar-visible",
+                    Backing {
+                        read: Read::Flag {
+                            flag: "toggles/bar-off",
+                            inverted: true,
+                        },
+                        write: Write::Bool {
+                            on: &[&["omarchy-toggle-bar", "on"]],
+                            off: &[&["omarchy-toggle-bar", "off"]],
+                        },
+                    },
+                    "Show Bar",
+                    "Hide the bar for a clean screen"
+                ),
+                o_dropdown!(
+                    "bar-position",
+                    Backing {
+                        read: Read::ShellJson("bar.position"),
+                        write: Write::Command(&["omarchy", "bar", "position"]),
+                    },
+                    "Position",
+                    "Edge of the screen the bar sits on",
+                    Options::Static(&[
+                        ("top", "Top"),
+                        ("bottom", "Bottom"),
+                        ("left", "Left"),
+                        ("right", "Right"),
+                    ])
+                ),
+                o_switch!(
+                    "bar-transparent",
+                    Backing {
+                        read: Read::ShellJson("bar.transparent"),
+                        write: Write::Bool {
+                            on: &[&["omarchy", "bar", "transparent", "true"]],
+                            off: &[&["omarchy", "bar", "transparent", "false"]],
+                        },
+                    },
+                    "Transparent",
+                    "See the wallpaper through the bar"
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Fonts",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "The monospace font and text size everywhere",
+        groups: &[GroupDef {
+            title: "Text",
+            items: &[
+                o_dropdown!(
+                    "mono-font",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-font-current"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-font-set"]),
+                    },
+                    "Monospace Font",
+                    "Used by the shell and the terminals; restarts the shell",
+                    Options::Lines(&["omarchy-font-list"])
+                ),
+                o_int!(
+                    "text-size",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-display-text-size"],
+                            parse: Parse::Int,
+                        },
+                        write: Write::Command(&["omarchy-display-text-size"]),
+                    },
+                    "Text Size",
+                    "Pixel size for the shell, GTK apps, and terminals",
+                    9.0,
+                    20.0,
+                    1.0
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Displays",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Scale, night light, and the laptop display",
+        groups: &[
+            GroupDef {
+                title: "Scale",
+                items: &[o_dropdown!(
+                    "monitor-scale",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-hyprland-monitor-scaling"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-hyprland-monitor-scaling"]),
+                    },
+                    "Scale",
+                    "Scale of the focused monitor, kept in monitors.lua",
+                    Options::Static(&[
+                        ("1", "1×"),
+                        ("1.25", "1.25×"),
+                        ("1.6", "1.6×"),
+                        ("2", "2×"),
+                        ("3", "3×"),
+                        ("4", "4×"),
+                    ])
+                )],
+            },
+            GroupDef {
+                title: "Night Light",
+                items: &[
+                    o_switch!(
+                        "night-light",
+                        Backing {
+                            read: Read::Command {
+                                argv: &["omarchy-toggle-nightlight", "--status"],
+                                parse: Parse::JsonBool("enabled"),
+                            },
+                            write: Write::ToggleIfDifferent(&["omarchy-toggle-nightlight"]),
+                        },
+                        "Night Light",
+                        "Warm the screen's colors"
+                    ),
+                    o_int!(
+                        "night-light-temperature",
+                        Backing {
+                            read: Read::Command {
+                                argv: &["omarchy-toggle-nightlight", "--status"],
+                                parse: Parse::JsonInt {
+                                    field: "temperature",
+                                    fallback: 6500,
+                                },
+                            },
+                            write: Write::Command(&["hyprctl", "hyprsunset", "temperature"]),
+                        },
+                        "Temperature",
+                        "Color temperature in kelvin; 6500 is neutral",
+                        1000.0,
+                        6500.0,
+                        100.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Laptop Display",
+                items: &[
+                    o_switch!(
+                        "internal-display",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/internal-monitor-disable.lua",
+                                inverted: true,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-hyprland-monitor-internal", "on"]],
+                                off: &[&["omarchy-hyprland-monitor-internal", "off"]],
+                            },
+                        },
+                        "Laptop Display",
+                        "Turn the built-in display off when using external ones",
+                        LAPTOP
+                    ),
+                    o_switch!(
+                        "mirror-internal-display",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/internal-monitor-mirror.lua",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-hyprland-monitor-internal-mirror", "on"]],
+                                off: &[&["omarchy-hyprland-monitor-internal-mirror", "off"]],
+                            },
+                        },
+                        "Mirror Laptop Display",
+                        "Show the built-in display on an external one",
+                        LAPTOP
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Devices",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Touchpad, touchscreen, and Bluetooth",
+        groups: &[
+            GroupDef {
+                title: "Input",
+                items: &[
+                    o_switch!(
+                        "touchpad-enabled",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/touchpad-disabled-name",
+                                inverted: true,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-toggle-touchpad", "on"]],
+                                off: &[&["omarchy-toggle-touchpad", "off"]],
+                            },
+                        },
+                        "Touchpad",
+                        "Turn the touchpad off, for an external mouse",
+                        Some(&["omarchy-hw-touchpad"])
+                    ),
+                    o_switch!(
+                        "touchscreen-enabled",
+                        Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/touchscreen-disabled-name",
+                                inverted: true,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-toggle-touchscreen", "on"]],
+                                off: &[&["omarchy-toggle-touchscreen", "off"]],
+                            },
+                        },
+                        "Touchscreen",
+                        "Turn touch input off",
+                        Some(&["omarchy-hw-touchscreen"])
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Bluetooth",
+                items: &[o_switch!(
+                    "bluetooth-power",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-bluetooth-power", "is-on"],
+                            parse: Parse::Succeeds,
+                        },
+                        write: Write::Bool {
+                            on: &[&["omarchy-bluetooth-power", "on"]],
+                            off: &[&["omarchy-bluetooth-power", "off"]],
+                        },
+                    },
+                    "Bluetooth",
+                    "Remembered across reboots"
+                )],
+            },
+        ],
+    },
+    PageDef {
+        title: "Network",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "DNS and Wi-Fi",
+        groups: &[GroupDef {
+            title: "Network",
+            items: &[
+                o_dropdown!(
+                    "dns",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-dns"],
+                            parse: Parse::Line,
+                        },
+                        write: Write::Command(&["omarchy-dns"]),
+                    },
+                    "DNS",
+                    "Resolver for every connection; asks for your password",
+                    Options::Static(&[
+                        ("DHCP", "From the network (DHCP)"),
+                        ("Cloudflare", "Cloudflare"),
+                        ("Google", "Google"),
+                    ])
+                ),
+                o_dropdown!(
+                    "wifi-band",
+                    Backing {
+                        read: Read::Command {
+                            argv: &["omarchy-network-band"],
+                            parse: Parse::SecondToken,
+                        },
+                        write: Write::Command(&["omarchy-network-band"]),
+                    },
+                    "Wi-Fi Band",
+                    "Pin the band of the active connection",
+                    Options::Static(&[
+                        ("auto", "Automatic"),
+                        ("2.4", "2.4 GHz"),
+                        ("5", "5 GHz"),
+                        ("6", "6 GHz"),
+                    ])
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Security",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Ways to unlock and log in; each opens a terminal",
+        groups: &[GroupDef {
+            title: "Authentication",
+            items: &[
+                feature!(
+                    "fingerprint",
+                    "Fingerprint",
+                    "Unlock, sudo, and polkit with a fingerprint",
+                    Read::Command {
+                        argv: &["pacman", "-Q", "fprintd"],
+                        parse: Parse::Succeeds,
+                    },
+                    &["omarchy-setup-security-fingerprint"],
+                    Some(&["omarchy-remove-security-fingerprint"]),
+                    Some(&["omarchy-hw-fingerprint"])
+                ),
+                feature!(
+                    "fido2",
+                    "FIDO2 Key",
+                    "Sudo and polkit with a hardware security key",
+                    Read::Command {
+                        argv: &["pacman", "-Q", "pam-u2f"],
+                        parse: Parse::Succeeds,
+                    },
+                    &["omarchy-setup-security-fido2"],
+                    Some(&["omarchy-remove-security-fido2"])
+                ),
+                feature!(
+                    "sshd",
+                    "SSH Server",
+                    "Accept SSH logins with a key; opens the firewall",
+                    Read::Command {
+                        argv: &["systemctl", "is-enabled", "sshd"],
+                        parse: Parse::Succeeds,
+                    },
+                    &["omarchy-setup-security-sshd"],
+                    Some(&["omarchy-remove-security-sshd"])
+                ),
+                feature!(
+                    "sudoless-docker",
+                    "Sudoless Docker",
+                    "Use Docker without sudo; equivalent to root",
+                    Read::Command {
+                        argv: &["omarchy-sudo-docker", "--configured"],
+                        parse: Parse::Fails,
+                    },
+                    &["omarchy-setup-security-sudoless-docker"],
+                    Some(&["omarchy-remove-security-sudoless-docker"])
+                ),
+                action!(
+                    "passwordless-sudo",
+                    "Passwordless Sudo",
+                    "Skip the sudo password for a while",
+                    "Toggle…",
+                    &["omarchy-sudo-passwordless"],
+                    true
+                ),
+            ],
+        }],
+    },
+    PageDef {
+        title: "Software",
+        group: PageGroup::Omarchy,
+        dynamic: Some(Dynamic::Software),
+        description: "Install and remove the apps Omarchy's menu offers",
+        groups: &[],
+    },
+    PageDef {
+        title: "Updates & Resets",
+        group: PageGroup::Omarchy,
+        dynamic: None,
+        description: "Package channel, firmware, time, and config resets",
+        groups: &[
+            GroupDef {
+                title: "Updates",
+                items: &[
+                    o_dropdown!(
+                        "update-channel",
+                        Backing {
+                            read: Read::Command {
+                                argv: &["omarchy-channel-current"],
+                                parse: Parse::Line,
+                            },
+                            write: Write::Terminal(&["omarchy-channel-set"]),
+                        },
+                        "Package Channel",
+                        "Which Omarchy releases you get; switching updates at once",
+                        Options::Static(&[
+                            ("stable", "Stable"),
+                            ("rc", "Release candidate"),
+                            ("edge", "Edge"),
+                            ("dev", "Development"),
+                        ])
+                    ),
+                    action!(
+                        "firmware-update",
+                        "Firmware",
+                        "Update device firmware with fwupd",
+                        "Update…",
+                        &["omarchy-update-firmware"],
+                        true
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Time",
+                items: &[
+                    action!(
+                        "timezone",
+                        "Timezone",
+                        "Pick the system timezone",
+                        "Change…",
+                        &["omarchy-menu-timezone"],
+                        true
+                    ),
+                    action!(
+                        "time-sync",
+                        "Clock",
+                        "Sync the clock over the network",
+                        "Sync…",
+                        &["omarchy-update-time"],
+                        true
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Reset to Omarchy Defaults",
+                items: &[
+                    action!(
+                        "reset-hyprland",
+                        "Hyprland Config",
+                        "Overwrite your ~/.config/hypr Lua files with Omarchy's",
+                        "Reset…",
+                        &["omarchy-refresh-hyprland"],
+                        true
+                    ),
+                    action!(
+                        "reset-shell",
+                        "Shell",
+                        "Reset the bar layout and shell settings",
+                        "Reset…",
+                        &["omarchy-refresh-shell"],
+                        true
+                    ),
+                    action!(
+                        "reset-tmux",
+                        "Tmux",
+                        "Overwrite your tmux config with Omarchy's",
+                        "Reset…",
+                        &["omarchy-refresh-tmux"],
+                        true
+                    ),
+                    action!(
+                        "reset-plymouth",
+                        "Boot Screen",
+                        "Reset the Plymouth boot and unlock screen",
+                        "Reset…",
+                        &["omarchy-refresh-plymouth"],
+                        true
                     ),
                 ],
             },

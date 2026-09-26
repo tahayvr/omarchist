@@ -43,6 +43,21 @@ pub fn user_themes_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))
 }
 
+// `$OMARCHY_PATH/default/omarchy/omarchy-menu.jsonc` — the shell menu's definition.
+pub fn menu_file() -> PathBuf {
+    omarchy_install_dir().join("default/omarchy/omarchy-menu.jsonc")
+}
+
+// `~/.config/omarchy/extensions/omarchy-menu.jsonc` — the user's menu additions.
+pub fn user_menu_extensions_file() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| {
+        h.join(".config")
+            .join("omarchy")
+            .join("extensions")
+            .join("omarchy-menu.jsonc")
+    })
+}
+
 // `~/.config/omarchy/plugins` — third-party shell plugins, one folder per id.
 pub fn user_plugins_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("plugins"))

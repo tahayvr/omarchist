@@ -1,15 +1,21 @@
-// The Configuration page: Hyprland settings as a declarative table of
-// pages, groups, and items, rendered with a keyboard-driven page list on
-// the left and native tab stops on the right. (gpui-component's `Settings`
-// component keeps its page selection private, so it cannot be driven from
-// the keyboard; this page renders the same content itself.)
+// The Configuration page: Hyprland and Omarchy settings as a declarative
+// table of pages, groups, and items (`pages.rs`), rendered with a
+// keyboard-driven page list on the left and native tab stops on the
+// right. (gpui-component's `Settings` component keeps its page selection
+// private, so it cannot be driven from the keyboard; this page renders the
+// same content itself.)
+//
+// Hyprland items read and write the `HyprlandConfigManager` at once.
+// Omarchy items go through `omarchy_settings` backings, which run
+// Omarchy's scripts, so their values are read in the background when a
+// page opens and written in the background when a control changes.
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable as _,
+    ActiveTheme, Disableable as _, Icon, IconName, IndexPath, Sizable as _,
     button::{Button, ButtonVariants as _},
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -24,8 +30,11 @@ use gpui_component::{
 use serde_json::Value;
 
 use crate::system::hyprland_config::HyprlandConfigManager;
+use crate::system::omarchy_settings::{self, Choice};
+use crate::system::software_catalog::{self, Availability, SoftwareGroup};
 use crate::ui::config_page::pages::{
-    FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PAGES, PageDef,
+    Dynamic, FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items,
+    page, page_count, pages,
 };
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
@@ -45,41 +54,6 @@ fn format_number(value: f64) -> String {
         let text = format!("{value:.3}");
         text.trim_end_matches('0').trim_end_matches('.').to_string()
     }
-}
-
-/// The number a `Number` or `Pair` item shows.
-fn number_at(manager: &HyprlandConfigManager, item: &ItemDef) -> f64 {
-    let value = manager.value(item.path);
-    match item.field {
-        FieldDef::Pair { index, .. } => value
-            .and_then(|v| v.get(index).and_then(Value::as_f64))
-            .unwrap_or_default(),
-        _ => value.and_then(|v| v.as_f64()).unwrap_or_default(),
-    }
-}
-
-/// The JSON value a `Number` or `Pair` item writes for `next`.
-fn number_value_for(manager: &HyprlandConfigManager, item: &ItemDef, next: f64) -> Value {
-    match item.field {
-        FieldDef::Number { integer, .. } => number_value(next, integer),
-        FieldDef::Pair { index, .. } => {
-            let mut pair = manager
-                .value(item.path)
-                .and_then(|v| v.as_array().cloned())
-                .unwrap_or_else(|| vec![Value::from(0.0), Value::from(0.0)]);
-            pair.resize(2, Value::from(0.0));
-            pair[index] = Value::from(next);
-            Value::Array(pair)
-        }
-        _ => Value::from(next),
-    }
-}
-
-fn string_at(manager: &HyprlandConfigManager, path: &str) -> String {
-    manager
-        .value(path)
-        .and_then(|v| v.as_str().map(str::to_string))
-        .unwrap_or_default()
 }
 
 /// The JSON value a number field writes: an integer when Hyprland declares
@@ -118,9 +92,124 @@ fn display_value(value: &Value, field: &FieldDef) -> String {
     }
 }
 
-// ---------------------------------------------------------------------
-// View
-// ---------------------------------------------------------------------
+/// What a background load of an Omarchy page found.
+struct PageLoad {
+    page: usize,
+    values: Vec<(&'static str, Value)>,
+    choices: Vec<(&'static str, Vec<Choice>)>,
+    hidden: Vec<&'static str>,
+}
+
+/// Runs every read of one Omarchy page. Blocking; runs off the UI thread.
+fn load_omarchy_page(page_ix: usize) -> PageLoad {
+    let mut load = PageLoad {
+        page: page_ix,
+        values: Vec::new(),
+        choices: Vec::new(),
+        hidden: Vec::new(),
+    };
+    let Some(def) = page(page_ix) else {
+        return load;
+    };
+    for item in def.groups.iter().flat_map(|g| g.items) {
+        if let Some(when) = item.when
+            && !omarchy_settings::condition_holds(when)
+        {
+            load.hidden.push(item.id);
+            continue;
+        }
+        match (&item.source, &item.field) {
+            (Source::Omarchy(backing), _) => {
+                if let Some(value) = omarchy_settings::read(backing) {
+                    load.values.push((item.id, value));
+                }
+            }
+            (Source::None, FieldDef::Feature { status, .. }) => {
+                if let Some(value) = omarchy_settings::read_from(status) {
+                    load.values.push((item.id, value));
+                }
+            }
+            _ => {}
+        }
+        if let FieldDef::DynamicDropdown { options } = &item.field {
+            load.choices
+                .push((item.id, omarchy_settings::choices(options)));
+        }
+    }
+    load
+}
+
+/// The Software page's catalog with each item's availability, read in
+/// the background.
+#[derive(Default)]
+struct SoftwareState {
+    groups: Vec<SoftwareGroup>,
+    availability: HashMap<String, Availability>,
+    loaded: bool,
+    loading: bool,
+    error: Option<String>,
+}
+
+/// Reads Omarchy's menu and evaluates every item's conditions, a few at a
+/// time. Blocking; runs off the UI thread.
+fn load_software() -> std::result::Result<SoftwareState, String> {
+    let menu = software_catalog::load_menu().map_err(|e| e.to_string())?;
+    let groups = software_catalog::catalog(&menu);
+    let items: Vec<_> = groups
+        .iter()
+        .flat_map(|g| g.items.iter())
+        .cloned()
+        .collect();
+    let availability: HashMap<String, Availability> = std::thread::scope(|scope| {
+        let chunks: Vec<Vec<_>> = items
+            .chunks(items.len().div_ceil(8).max(1))
+            .map(|c| c.to_vec())
+            .collect();
+        let handles: Vec<_> = chunks
+            .into_iter()
+            .map(|chunk| {
+                scope.spawn(move || {
+                    chunk
+                        .iter()
+                        .map(|item| (item.id.clone(), software_catalog::availability(item)))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    });
+    Ok(SoftwareState {
+        groups,
+        availability,
+        loaded: true,
+        loading: false,
+        error: None,
+    })
+}
+
+/// Whether a page has anything that is read in the background: Omarchy
+/// items, feature statuses, or conditions.
+fn page_needs_load(page: &PageDef) -> bool {
+    page.groups.iter().flat_map(|g| g.items).any(|item| {
+        item.when.is_some()
+            || matches!(item.source, Source::Omarchy(_))
+            || matches!(item.field, FieldDef::Feature { .. })
+    })
+}
+
+/// Values of the Omarchy-backed items, filled in page by page.
+#[derive(Default)]
+struct OmarchyState {
+    values: HashMap<&'static str, Value>,
+    choices: HashMap<&'static str, Vec<Choice>>,
+    hidden: HashSet<&'static str>,
+    loaded: HashSet<usize>,
+    loading: HashSet<usize>,
+    errors: HashMap<&'static str, String>,
+}
 
 #[derive(Clone, Debug)]
 struct KeyboardLayoutItem {
@@ -143,6 +232,8 @@ impl SelectItem for KeyboardLayoutItem {
 
 pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
+    omarchy: OmarchyState,
+    software: SoftwareState,
     keyboard_layout_select: Entity<SelectState<SearchableVec<KeyboardLayoutItem>>>,
     /// One text state per number field, keyed by the item id.
     number_inputs: HashMap<&'static str, Entity<InputState>>,
@@ -154,6 +245,7 @@ pub struct ConfigView {
     /// Non-tab-stop handle on the content column for `focus_first_in`.
     content_focus: FocusHandle,
     scroll: ScrollHandle,
+    nav_scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -187,7 +279,12 @@ impl ConfigView {
         };
         layout_items.sort_by(|a, b| a.label.cmp(&b.label));
 
-        let current_kb = string_at(&config_manager, KEYBOARD_LAYOUT_PATH);
+        // vconsole's layout is read with the page; until then the select
+        // shows Hyprland's live value.
+        let current_kb = config_manager
+            .value(KEYBOARD_LAYOUT_PATH)
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default();
         let initial_index = layout_items
             .iter()
             .position(|item| item.value.as_ref() == current_kb.as_str())
@@ -201,68 +298,88 @@ impl ConfigView {
             &keyboard_layout_select,
             window,
             |this, _select, event: &SelectEvent<SearchableVec<KeyboardLayoutItem>>, _window, cx| {
-                if let SelectEvent::Confirm(Some(value)) = event {
-                    this.set_value(KEYBOARD_LAYOUT_PATH, Value::String(value.to_string()), cx);
+                if let SelectEvent::Confirm(Some(value)) = event
+                    && let Some(item) = items().find(|item| item.id == "kb-layout")
+                    && this.string_at(item) != value.as_ref()
+                {
+                    this.write_item(item, Value::String(value.to_string()), cx);
                 }
             },
         )];
 
         let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search settings"));
-        subscriptions.push(
-            cx.subscribe_in(&search, window, |_, _, event: &InputEvent, _, cx| {
+        subscriptions.push(cx.subscribe_in(
+            &search,
+            window,
+            |this, _, event: &InputEvent, window, cx| {
                 if matches!(event, InputEvent::Change) {
+                    this.load_matching_pages(window, cx);
                     cx.notify();
                 }
-            }),
-        );
+            },
+        ));
 
-        let mut number_inputs = HashMap::new();
-        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
+        let mut this = Self {
+            config_manager: Rc::new(RefCell::new(config_manager)),
+            omarchy: OmarchyState::default(),
+            software: SoftwareState::default(),
+            keyboard_layout_select,
+            number_inputs: HashMap::new(),
+            search,
+            active_page: 0,
+            focus_handle: cx.focus_handle(),
+            nav_focus: focus::tab_stop(cx),
+            content_focus: cx.focus_handle(),
+            scroll: ScrollHandle::new(),
+            nav_scroll: ScrollHandle::new(),
+            _subscriptions: subscriptions,
+        };
+
+        for item in items() {
             let (min, max, step) = match item.field {
                 FieldDef::Number { min, max, step, .. } | FieldDef::Pair { min, max, step, .. } => {
                     (min, max, step)
                 }
                 _ => continue,
             };
-            let initial = number_at(&config_manager, item);
+            let initial = this.number_at(item);
             let input =
                 cx.new(|cx| InputState::new(window, cx).default_value(format_number(initial)));
-            subscriptions.push(cx.subscribe_in(
+            this._subscriptions.push(cx.subscribe_in(
                 &input,
                 window,
                 move |this, input, event: &NumberInputEvent, window, cx| {
                     let NumberInputEvent::Step(action) = event;
-                    let current = number_at(&this.config_manager.borrow(), item);
+                    let current = this.number_at(item);
                     let next = match action {
                         StepAction::Increment => current + step,
                         StepAction::Decrement => current - step,
                     };
                     let next = (next * 1000.0).round() / 1000.0;
                     let next = next.clamp(min, max);
-                    let value = number_value_for(&this.config_manager.borrow(), item, next);
-                    this.set_value(item.path, value, cx);
+                    let value = this.number_value_for(item, next);
+                    this.write_item(item, value, cx);
                     input.update(cx, |input, cx| {
                         input.set_value(format_number(next), window, cx);
                     });
                 },
             ));
-            subscriptions.push(cx.subscribe_in(
+            this._subscriptions.push(cx.subscribe_in(
                 &input,
                 window,
                 move |this, input, event: &InputEvent, window, cx| match event {
                     InputEvent::Change => {
                         if let Ok(value) = input.read(cx).value().trim().parse::<f64>() {
                             let value = value.clamp(min, max);
-                            if number_at(&this.config_manager.borrow(), item) != value {
-                                let value =
-                                    number_value_for(&this.config_manager.borrow(), item, value);
-                                this.set_value(item.path, value, cx);
+                            if this.number_at(item) != value {
+                                let value = this.number_value_for(item, value);
+                                this.write_item(item, value, cx);
                             }
                         }
                     }
                     InputEvent::Blur => {
                         // Normalise the text (clamped, trimmed) once editing ends.
-                        let value = number_at(&this.config_manager.borrow(), item);
+                        let value = this.number_at(item);
                         input.update(cx, |input, cx| {
                             let text = format_number(value);
                             if input.value() != text {
@@ -273,21 +390,11 @@ impl ConfigView {
                     _ => {}
                 },
             ));
-            number_inputs.insert(item.id, input);
+            this.number_inputs.insert(item.id, input);
         }
 
-        Self {
-            config_manager: Rc::new(RefCell::new(config_manager)),
-            keyboard_layout_select,
-            number_inputs,
-            search,
-            active_page: 0,
-            focus_handle: cx.focus_handle(),
-            nav_focus: focus::tab_stop(cx),
-            content_focus: cx.focus_handle(),
-            scroll: ScrollHandle::new(),
-            _subscriptions: subscriptions,
-        }
+        this.load_page(this.active_page, window, cx);
+        this
     }
 
     /// Focuses the page list, the page's first control.
@@ -305,27 +412,101 @@ impl ConfigView {
             }
             Err(e) => eprintln!("Failed to reload Hyprland config: {}", e),
         }
+        self.omarchy.loaded.clear();
+        self.software.loaded = false;
+        self.load_page(self.active_page, window, cx);
+        self.load_matching_pages(window, cx);
     }
 
-    fn sync_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            if let FieldDef::Number { .. } | FieldDef::Pair { .. } = item.field
-                && let Some(input) = self.number_inputs.get(item.id)
-            {
-                let value = number_at(&self.config_manager.borrow(), item);
-                input.update(cx, |input, cx| {
-                    input.set_value(format_number(value), window, cx);
-                });
-            }
+    // ── values ───────────────────────────────────────────────────────
+
+    /// The item's current value, wherever it lives.
+    fn item_value(&self, item: &ItemDef) -> Option<Value> {
+        match &item.source {
+            Source::Hyprland(path) => self.config_manager.borrow().value(path),
+            Source::Omarchy(_) | Source::None => self.omarchy.values.get(item.id).cloned(),
         }
-        let layout: SharedString =
-            string_at(&self.config_manager.borrow(), KEYBOARD_LAYOUT_PATH).into();
-        self.keyboard_layout_select.update(cx, |select, cx| {
-            select.set_selected_value(&layout, window, cx);
-        });
     }
 
-    fn set_value(&mut self, path: &str, value: Value, cx: &mut Context<Self>) {
+    /// The number a `Number` or `Pair` item shows.
+    fn number_at(&self, item: &ItemDef) -> f64 {
+        let value = self.item_value(item);
+        match item.field {
+            FieldDef::Pair { index, .. } => value
+                .and_then(|v| v.get(index).and_then(Value::as_f64))
+                .unwrap_or_default(),
+            _ => value.and_then(|v| v.as_f64()).unwrap_or_default(),
+        }
+    }
+
+    /// The JSON value a `Number` or `Pair` item writes for `next`.
+    fn number_value_for(&self, item: &ItemDef, next: f64) -> Value {
+        match item.field {
+            FieldDef::Number { integer, .. } => number_value(next, integer),
+            FieldDef::Pair { index, .. } => {
+                let mut pair = self
+                    .item_value(item)
+                    .and_then(|v| v.as_array().cloned())
+                    .unwrap_or_else(|| vec![Value::from(0.0), Value::from(0.0)]);
+                pair.resize(2, Value::from(0.0));
+                pair[index] = Value::from(next);
+                Value::Array(pair)
+            }
+            _ => Value::from(next),
+        }
+    }
+
+    fn string_at(&self, item: &ItemDef) -> String {
+        self.item_value(item)
+            .and_then(|v| v.as_str().map(str::to_string))
+            .unwrap_or_default()
+    }
+
+    fn write_item(&mut self, item: &'static ItemDef, value: Value, cx: &mut Context<Self>) {
+        match &item.source {
+            Source::Hyprland(path) => self.set_hyprland(path, value, cx),
+            Source::Omarchy(backing) => {
+                // Optimistic: the control shows the choice at once and the
+                // read-back after the write corrects it if Omarchy disagreed.
+                self.omarchy.values.insert(item.id, value.clone());
+                self.omarchy.errors.remove(item.id);
+                cx.notify();
+                let backing = *backing;
+                cx.spawn(async move |this, cx| {
+                    let wanted = value.clone();
+                    let result = cx
+                        .background_spawn(async move {
+                            let result = omarchy_settings::write(&backing, &wanted);
+                            (result, omarchy_settings::read(&backing))
+                        })
+                        .await;
+                    this.update(cx, |this, cx| {
+                        let (result, current) = result;
+                        // A script that did its work but ended with a slow
+                        // `hyprctl reload` exits non-zero; the read-back is
+                        // what counts.
+                        let applied = current
+                            .as_ref()
+                            .is_some_and(|c| omarchy_settings::same_value(c, &value));
+                        if let Err(e) = result
+                            && !applied
+                        {
+                            this.omarchy.errors.insert(item.id, e.to_string());
+                        }
+                        if let Some(current) = current {
+                            this.omarchy.values.insert(item.id, current);
+                        }
+                        cx.notify();
+                    })
+                    .ok();
+                })
+                .detach();
+            }
+            Source::None => {}
+        }
+    }
+
+    fn set_hyprland(&mut self, path: &str, value: Value, cx: &mut Context<Self>) {
         self.config_manager.borrow_mut().set_value(path, value);
         self.persist(cx);
     }
@@ -345,13 +526,226 @@ impl ConfigView {
         cx.notify();
     }
 
-    fn set_page(&mut self, index: usize, cx: &mut Context<Self>) {
-        let index = index.min(PAGES.len() - 1);
+    fn sync_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        for item in items() {
+            if let FieldDef::Number { .. } | FieldDef::Pair { .. } = item.field
+                && let Some(input) = self.number_inputs.get(item.id)
+            {
+                let value = self.number_at(item);
+                input.update(cx, |input, cx| {
+                    input.set_value(format_number(value), window, cx);
+                });
+            }
+        }
+        let layout: SharedString = self
+            .omarchy
+            .values
+            .get("kb-layout")
+            .and_then(|v| v.as_str().map(str::to_string))
+            .or_else(|| {
+                self.config_manager
+                    .borrow()
+                    .value(KEYBOARD_LAYOUT_PATH)
+                    .and_then(|v| v.as_str().map(str::to_string))
+            })
+            .unwrap_or_default()
+            .into();
+        self.keyboard_layout_select.update(cx, |select, cx| {
+            select.set_selected_value(&layout, window, cx);
+        });
+    }
+
+    /// Runs an action item's command: in the floating terminal, or in the
+    /// background with any failure shown under the item.
+    fn run_action(
+        &mut self,
+        item: &'static ItemDef,
+        argv: &'static [&'static str],
+        terminal: bool,
+        cx: &mut Context<Self>,
+    ) {
+        self.omarchy.errors.remove(item.id);
+        if terminal {
+            let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
+            if let Err(e) = omarchy_settings::launch_in_terminal(&argv) {
+                self.omarchy.errors.insert(item.id, e.to_string());
+            }
+            cx.notify();
+            return;
+        }
+        cx.spawn(async move |this, cx| {
+            let ok = cx
+                .background_spawn(async move { omarchy_settings::condition_holds(argv) })
+                .await;
+            this.update(cx, |this, cx| {
+                if !ok {
+                    this.omarchy
+                        .errors
+                        .insert(item.id, format!("{} failed", argv.join(" ")));
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    // ── loading ──────────────────────────────────────────────────────
+
+    /// Reads an Omarchy page's values in the background, once.
+    fn load_page(&mut self, page_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(def) = page(page_ix) else {
+            return;
+        };
+        if def.dynamic == Some(Dynamic::Software) {
+            self.load_software(cx);
+            return;
+        }
+        if !page_needs_load(def)
+            || self.omarchy.loaded.contains(&page_ix)
+            || self.omarchy.loading.contains(&page_ix)
+        {
+            return;
+        }
+        self.omarchy.loading.insert(page_ix);
+        cx.spawn_in(window, async move |this, cx| {
+            let load = cx
+                .background_spawn(async move { load_omarchy_page(page_ix) })
+                .await;
+            this.update_in(cx, |this, window, cx| this.apply_load(load, window, cx))
+                .ok();
+        })
+        .detach();
+    }
+
+    fn load_software(&mut self, cx: &mut Context<Self>) {
+        if self.software.loaded || self.software.loading {
+            return;
+        }
+        self.software.loading = true;
+        cx.spawn(async move |this, cx| {
+            let result = cx.background_spawn(async move { load_software() }).await;
+            this.update(cx, |this, cx| {
+                match result {
+                    Ok(state) => this.software = state,
+                    Err(message) => {
+                        this.software.loading = false;
+                        this.software.loaded = true;
+                        this.software.error = Some(message);
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Runs a menu action for a software item and re-reads its
+    /// availability afterwards (the install runs in a terminal, so the
+    /// row is refreshed again when the page is next opened).
+    fn run_software_action(&mut self, id: String, action: String, cx: &mut Context<Self>) {
+        if let Err(e) = software_catalog::run_action(&action) {
+            self.software.error = Some(e.to_string());
+            cx.notify();
+            return;
+        }
+        let _ = id;
+    }
+
+    fn apply_load(&mut self, load: PageLoad, window: &mut Window, cx: &mut Context<Self>) {
+        self.omarchy.loading.remove(&load.page);
+        self.omarchy.loaded.insert(load.page);
+        for (id, value) in load.values {
+            self.omarchy.values.insert(id, value);
+        }
+        for (id, choices) in load.choices {
+            self.omarchy.choices.insert(id, choices);
+        }
+        for id in load.hidden {
+            self.omarchy.hidden.insert(id);
+        }
+        // Number inputs were created before the values were known.
+        let updates: Vec<(Entity<InputState>, String)> = page(load.page)
+            .into_iter()
+            .flat_map(|p| p.groups)
+            .flat_map(|g| g.items)
+            .filter(|item| matches!(item.field, FieldDef::Number { .. }))
+            .filter_map(|item| {
+                let input = self.number_inputs.get(item.id)?.clone();
+                Some((input, format_number(self.number_at(item))))
+            })
+            .collect();
+        for (input, text) in updates {
+            input.update(cx, |input, cx| input.set_value(text, window, cx));
+        }
+        if let Some(layout) = self
+            .omarchy
+            .values
+            .get("kb-layout")
+            .and_then(|v| v.as_str())
+        {
+            let layout: SharedString = layout.to_string().into();
+            self.keyboard_layout_select.update(cx, |select, cx| {
+                select.set_selected_value(&layout, window, cx);
+            });
+        }
+        cx.notify();
+    }
+
+    /// While searching, every page with a match is shown, so each needs
+    /// its values.
+    fn load_matching_pages(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let query = self.query(cx);
+        if query.is_empty() {
+            return;
+        }
+        let matching: Vec<usize> = pages()
+            .enumerate()
+            .filter(|(_, page)| {
+                page.dynamic.is_some()
+                    || page
+                        .groups
+                        .iter()
+                        .flat_map(|g| g.items)
+                        .any(|item| Self::item_matches(item, &query))
+            })
+            .map(|(ix, _)| ix)
+            .collect();
+        for ix in matching {
+            self.load_page(ix, window, cx);
+        }
+    }
+
+    // ── navigation ───────────────────────────────────────────────────
+
+    fn set_page(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let index = index.min(page_count() - 1);
         if self.active_page != index {
             self.active_page = index;
             self.scroll.set_offset(Point::default());
+            self.nav_scroll.scroll_to_item(Self::nav_child_index(index));
+            self.load_page(index, window, cx);
             cx.notify();
         }
+    }
+
+    /// The nav shows a heading before each group's pages, so a page's
+    /// child index is offset by the headings above it.
+    fn nav_child_index(page_ix: usize) -> usize {
+        let mut child = 0;
+        let mut last_group = None;
+        for (ix, page) in pages().enumerate() {
+            if last_group != Some(page.group) {
+                last_group = Some(page.group);
+                child += 1;
+            }
+            if ix == page_ix {
+                return child;
+            }
+            child += 1;
+        }
+        child
     }
 
     fn query(&self, cx: &App) -> String {
@@ -364,37 +758,37 @@ impl ConfigView {
             || item.description.to_lowercase().contains(query)
     }
 
+    // ── rendering ────────────────────────────────────────────────────
+
     fn render_nav(&self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let nav_focused = self.nav_focus.is_focused(window);
         let radius = cx.theme().radius;
         let transparent = cx.theme().transparent;
+        let muted = cx.theme().muted_foreground;
 
-        v_flex()
-            .id("config-nav")
-            .key_context(NAV_CONTEXT)
-            .track_focus(&self.nav_focus)
-            .on_action(cx.listener(|this, _: &config_nav::Prev, _, cx| {
-                this.set_page(this.active_page.saturating_sub(1), cx);
-            }))
-            .on_action(cx.listener(|this, _: &config_nav::Next, _, cx| {
-                this.set_page(this.active_page + 1, cx);
-            }))
-            .on_action(cx.listener(|this, _: &config_nav::First, _, cx| {
-                this.set_page(0, cx);
-            }))
-            .on_action(cx.listener(|this, _: &config_nav::Last, _, cx| {
-                this.set_page(usize::MAX, cx);
-            }))
-            .on_action(cx.listener(|this, _: &config_nav::Activate, window, cx| {
-                focus::focus_first_in(&this.content_focus, window, cx);
-            }))
-            .w(px(220.))
-            .flex_none()
-            .gap_2()
-            .pr_4()
-            .cursor_pointer()
-            .children(PAGES.iter().enumerate().map(|(ix, page)| {
-                let focused = nav_focused && self.active_page == ix;
+        let mut children: Vec<AnyElement> = Vec::new();
+        let mut last_group = None;
+        for (ix, page) in pages().enumerate() {
+            if last_group != Some(page.group) {
+                last_group = Some(page.group);
+                let heading = match page.group {
+                    PageGroup::Hyprland => "HYPRLAND",
+                    PageGroup::Omarchy => "OMARCHY",
+                };
+                children.push(
+                    div()
+                        .px_3()
+                        .pt_2()
+                        .pb_1()
+                        .text_xs()
+                        .font_weight(FontWeight::SEMIBOLD)
+                        .text_color(muted)
+                        .child(heading)
+                        .into_any_element(),
+                );
+            }
+            let focused = nav_focused && self.active_page == ix;
+            children.push(
                 div()
                     .id(("config-page", ix))
                     .rounded(radius)
@@ -405,21 +799,91 @@ impl ConfigView {
                             .active(self.active_page == ix)
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.nav_focus.focus(window, cx);
-                                this.set_page(ix, cx);
+                                this.set_page(ix, window, cx);
                             }))
                             .render(("config-page-item", ix), window, cx),
                     )
+                    .into_any_element(),
+            );
+        }
+
+        v_flex()
+            .id("config-nav")
+            .key_context(NAV_CONTEXT)
+            .track_focus(&self.nav_focus)
+            .on_action(cx.listener(|this, _: &config_nav::Prev, window, cx| {
+                this.set_page(this.active_page.saturating_sub(1), window, cx);
             }))
+            .on_action(cx.listener(|this, _: &config_nav::Next, window, cx| {
+                this.set_page(this.active_page + 1, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &config_nav::First, window, cx| {
+                this.set_page(0, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &config_nav::Last, window, cx| {
+                this.set_page(usize::MAX, window, cx);
+            }))
+            .on_action(cx.listener(|this, _: &config_nav::Activate, window, cx| {
+                focus::focus_first_in(&this.content_focus, window, cx);
+            }))
+            .w(px(220.))
+            .flex_none()
+            .h_full()
+            .overflow_y_scroll()
+            .track_scroll(&self.nav_scroll)
+            .gap_1()
+            .pr_4()
+            .cursor_pointer()
+            .children(children)
+    }
+
+    fn render_dropdown_button(
+        &self,
+        item: &'static ItemDef,
+        label: String,
+        choices: Vec<(String, String, bool)>,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let view = cx.entity();
+        Button::new(item.id)
+            .label(label)
+            .dropdown_caret(true)
+            .outline()
+            .small()
+            .cursor_pointer()
+            .dropdown_menu(move |menu, _, _| {
+                choices.iter().fold(menu, |menu, (value, label, checked)| {
+                    let view = view.clone();
+                    let value = value.clone();
+                    menu.item(
+                        PopupMenuItem::new(SharedString::from(label.clone()))
+                            .checked(*checked)
+                            .on_click(move |_, _, cx| {
+                                let value = value.clone();
+                                view.update(cx, |this, cx| {
+                                    this.write_item(item, Value::String(value), cx);
+                                });
+                            }),
+                    )
+                })
+            })
+            .into_any_element()
     }
 
     fn render_item(&self, item: &'static ItemDef, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let path = item.path;
+        let theme = cx.theme().clone();
+        // An Omarchy toggle that overrides this setting is on.
+        let disabled = item
+            .disabled_by
+            .and_then(|id| self.omarchy.values.get(id))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let control: AnyElement = match &item.field {
             FieldDef::Number { .. } | FieldDef::Pair { .. } => {
                 match self.number_inputs.get(item.id) {
                     Some(input) => NumberInput::new(input)
                         .small()
+                        .disabled(disabled)
                         .w(px(140.))
                         .into_any_element(),
                     None => div().into_any_element(),
@@ -427,53 +891,61 @@ impl ConfigView {
             }
             FieldDef::Switch => {
                 let checked = self
-                    .config_manager
-                    .borrow()
-                    .value(path)
+                    .item_value(item)
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
                 FocusableSwitch::new(item.id)
                     .checked(checked)
                     .on_change(cx.listener(move |this, value, _, cx| {
-                        this.set_value(path, Value::Bool(*value), cx);
+                        this.write_item(item, Value::Bool(*value), cx);
                     }))
                     .into_any_element()
             }
             FieldDef::Dropdown { options } => {
-                let current = string_at(&self.config_manager.borrow(), path);
+                let current = self.string_at(item);
                 let label = options
                     .iter()
                     .find(|(value, _)| *value == current)
-                    .map(|(_, label)| *label)
-                    .unwrap_or(current.as_str())
-                    .to_string();
-                let view = cx.entity();
-                Button::new(item.id)
-                    .label(label)
-                    .dropdown_caret(true)
-                    .outline()
-                    .small()
-                    .cursor_pointer()
-                    .dropdown_menu(move |menu, _, _| {
-                        options.iter().fold(menu, |menu, (value, label)| {
-                            let checked = *value == current;
-                            let view = view.clone();
-                            menu.item(PopupMenuItem::new(*label).checked(checked).on_click(
-                                move |_, _, cx| {
-                                    view.update(cx, |this, cx| {
-                                        this.set_value(path, Value::String(value.to_string()), cx);
-                                    });
-                                },
-                            ))
-                        })
+                    .map(|(_, label)| label.to_string())
+                    .unwrap_or_else(|| current.clone());
+                let choices = options
+                    .iter()
+                    .map(|(value, label)| (value.to_string(), label.to_string(), *value == current))
+                    .collect();
+                self.render_dropdown_button(item, label, choices, cx)
+            }
+            FieldDef::DynamicDropdown { .. } => {
+                let current = self.string_at(item);
+                let choices = self
+                    .omarchy
+                    .choices
+                    .get(item.id)
+                    .cloned()
+                    .unwrap_or_default();
+                let label = choices
+                    .iter()
+                    .find(|c| c.reads_as == current)
+                    .map(|c| c.label.clone())
+                    .unwrap_or_else(|| {
+                        if current.is_empty() {
+                            "Not set".to_string()
+                        } else {
+                            current.clone()
+                        }
+                    });
+                let choices = choices
+                    .into_iter()
+                    .filter(|c| c.available)
+                    .map(|c| {
+                        let checked = c.reads_as == current;
+                        (c.value, c.label, checked)
                     })
-                    .into_any_element()
+                    .collect();
+                self.render_dropdown_button(item, label, choices, cx)
             }
             FieldDef::Choice { options } => {
                 let current = self
-                    .config_manager
-                    .borrow()
-                    .value(path)
+                    .item_value(item)
                     .and_then(|v| v.as_i64())
                     .unwrap_or_default();
                 let label = options
@@ -496,7 +968,7 @@ impl ConfigView {
                             menu.item(PopupMenuItem::new(*label).checked(checked).on_click(
                                 move |_, _, cx| {
                                     view.update(cx, |this, cx| {
-                                        this.set_value(path, Value::from(value), cx);
+                                        this.write_item(item, Value::from(value), cx);
                                     });
                                 },
                             ))
@@ -514,10 +986,64 @@ impl ConfigView {
                         .small(),
                 )
                 .into_any_element(),
+            FieldDef::Action {
+                button,
+                argv,
+                terminal,
+            } => {
+                let (argv, terminal) = (*argv, *terminal);
+                Button::new(item.id)
+                    .label(*button)
+                    .outline()
+                    .small()
+                    .cursor_pointer()
+                    .on_click(cx.listener(move |this, _, _, cx| {
+                        this.run_action(item, argv, terminal, cx);
+                    }))
+                    .into_any_element()
+            }
+            FieldDef::Feature { setup, remove, .. } => {
+                let on = self
+                    .item_value(item)
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                let (button, argv): (&str, &'static [&'static str]) = match (on, remove) {
+                    (true, Some(remove)) => ("Remove…", remove),
+                    _ => ("Set up…", setup),
+                };
+                h_flex()
+                    .gap_3()
+                    .items_center()
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(if on {
+                                theme.success
+                            } else {
+                                theme.muted_foreground
+                            })
+                            .child(if on { "Set up" } else { "Not set up" }),
+                    )
+                    .child(
+                        Button::new(item.id)
+                            .label(button)
+                            .outline()
+                            .small()
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _, _, cx| {
+                                this.run_action(item, argv, true, cx);
+                            })),
+                    )
+                    .into_any_element()
+            }
         };
 
-        // A changed setting gets a reset button that shows what it goes back to.
-        let reset = {
+        // A changed Hyprland setting gets a reset button that shows what
+        // it goes back to. The layout row is Omarchy's now, but an override
+        // from an older version still applies until it is reset here.
+        let legacy_layout =
+            matches!(item.field, FieldDef::KeyboardLayout).then_some(KEYBOARD_LAYOUT_PATH);
+        let reset = item.hyprland_path().or(legacy_layout).and_then(|path| {
             let manager = self.config_manager.borrow();
             manager.is_overridden(path).then(|| {
                 let fallback = manager
@@ -534,36 +1060,48 @@ impl ConfigView {
                         this.reset(path, window, cx);
                     }))
             })
-        };
+        });
+        let error = self.omarchy.errors.get(item.id).cloned();
 
-        h_flex()
+        v_flex()
             .id(ElementId::Name(format!("config-item-{}", item.id).into()))
             .w_full()
-            .gap_4()
-            .items_center()
-            .justify_between()
             .py_2()
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap_0p5()
-                    .child(div().text_sm().child(item.label))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(selectable("desc", item.description)),
-                    ),
-            )
+            .gap_1()
             .child(
                 h_flex()
-                    .flex_none()
-                    .gap_2()
+                    .w_full()
+                    .gap_4()
                     .items_center()
-                    .children(reset)
-                    .child(control),
+                    .justify_between()
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .gap_0p5()
+                            .child(div().text_sm().child(item.label))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(theme.muted_foreground)
+                                    .child(selectable("desc", item.description)),
+                            ),
+                    )
+                    .child(
+                        h_flex()
+                            .flex_none()
+                            .gap_2()
+                            .items_center()
+                            .children(reset)
+                            .child(control),
+                    ),
             )
+            .children(error.map(|message| {
+                div()
+                    .text_xs()
+                    .text_color(theme.danger)
+                    .child(selectable("error", message))
+            }))
     }
 
     fn render_group(
@@ -577,6 +1115,12 @@ impl ConfigView {
             .items
             .iter()
             .filter(|item| Self::item_matches(item, query))
+            .filter(|item| !self.omarchy.hidden.contains(item.id))
+            .filter(|item| {
+                !matches!(item.source, Source::Omarchy(_))
+                    || self.omarchy.loaded.contains(&page_ix)
+                    || matches!(item.field, FieldDef::KeyboardLayout)
+            })
             .map(|item| self.render_item(item, cx).into_any_element())
             .collect();
         if items.is_empty() {
@@ -602,25 +1146,180 @@ impl ConfigView {
         )
     }
 
+    /// One row of the Software page: the label, whether it is installed,
+    /// and the button for what the menu offers right now.
+    fn render_software_row(
+        &self,
+        group_ix: usize,
+        item: &software_catalog::SoftwareItem,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let theme = cx.theme().clone();
+        let availability = self
+            .software
+            .availability
+            .get(&item.id)
+            .copied()
+            .unwrap_or_default();
+        // A menu entry with a condition knows whether it is installed; a
+        // plain action (a picker, a one-off setup) does not.
+        let (status, button, action) = if availability.remove {
+            let remove = item.remove.as_ref()?;
+            (Some("Installed"), "Remove…", remove.action.clone())
+        } else if availability.install {
+            (
+                (item.install.when.is_some() || item.remove.is_some()).then_some("Not installed"),
+                "Install…",
+                item.install.action.clone(),
+            )
+        } else {
+            return None;
+        };
+        let id = item.id.clone();
+        let element_id = ElementId::Name(format!("software-{group_ix}-{}", item.id).into());
+        Some(
+            h_flex()
+                .id(element_id.clone())
+                .w_full()
+                .gap_4()
+                .items_center()
+                .justify_between()
+                .py_2()
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_sm()
+                        .child(selectable("label", SharedString::from(item.label.clone()))),
+                )
+                .child(
+                    h_flex()
+                        .flex_none()
+                        .gap_3()
+                        .items_center()
+                        .children(status.map(|status| {
+                            div()
+                                .text_sm()
+                                .text_color(if availability.remove {
+                                    theme.success
+                                } else {
+                                    theme.muted_foreground
+                                })
+                                .child(status)
+                        }))
+                        .child(
+                            Button::new(ElementId::Name(
+                                format!("software-action-{group_ix}-{}", item.id).into(),
+                            ))
+                            .label(button)
+                            .outline()
+                            .small()
+                            .cursor_pointer()
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.run_software_action(id.clone(), action.clone(), cx);
+                                },
+                            )),
+                        ),
+                )
+                .into_any_element(),
+        )
+    }
+
+    fn render_software(
+        &self,
+        page_ix: usize,
+        query: &str,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let muted = cx.theme().muted_foreground;
+        let danger = cx.theme().danger;
+        let mut sections: Vec<AnyElement> = Vec::new();
+        if let Some(error) = &self.software.error {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(danger)
+                    .child(selectable(
+                        "software-error",
+                        SharedString::from(error.clone()),
+                    ))
+                    .into_any_element(),
+            );
+            return sections;
+        }
+        if !self.software.loaded {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(muted)
+                    .child(selectable("software-loading", "Reading Omarchy's menu…"))
+                    .into_any_element(),
+            );
+            return sections;
+        }
+        for (group_ix, group) in self.software.groups.iter().enumerate() {
+            let rows: Vec<AnyElement> = group
+                .items
+                .iter()
+                .filter(|item| query.is_empty() || item.label.to_lowercase().contains(query))
+                .filter_map(|item| self.render_software_row(group_ix, item, cx))
+                .collect();
+            if rows.is_empty() {
+                continue;
+            }
+            sections.push(
+                FocusSection::new(
+                    ElementId::Name(format!("config-group-{page_ix}-{}", group.title).into()),
+                    &self.scroll,
+                )
+                .child(
+                    GroupBox::new()
+                        .with_variant(GroupBoxVariant::Outline)
+                        .title(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(SharedString::from(group.title.clone())),
+                        )
+                        .children(rows),
+                )
+                .into_any_element(),
+            );
+        }
+        sections
+    }
+
     fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let query = self.query(cx);
         let muted = cx.theme().muted_foreground;
         let searching = !query.is_empty();
 
-        let pages: Vec<(usize, &'static PageDef)> = if searching {
-            PAGES.iter().enumerate().collect()
+        let shown: Vec<(usize, &'static PageDef)> = if searching {
+            pages().enumerate().collect()
         } else {
-            vec![(self.active_page, &PAGES[self.active_page])]
+            page(self.active_page)
+                .map(|p| vec![(self.active_page, p)])
+                .unwrap_or_default()
         };
 
         let mut sections: Vec<AnyElement> = Vec::new();
-        for (page_ix, page) in pages {
-            let groups: Vec<AnyElement> = page
-                .groups
-                .iter()
-                .filter_map(|group| self.render_group(page_ix, group, &query, cx))
-                .collect();
-            if groups.is_empty() {
+        for (page_ix, page) in shown {
+            let dynamic = page.dynamic.is_some();
+            let loading = !dynamic
+                && page.group == PageGroup::Omarchy
+                && !self.omarchy.loaded.contains(&page_ix);
+            let groups: Vec<AnyElement> = if dynamic {
+                self.render_software(page_ix, &query, cx)
+            } else if loading {
+                Vec::new()
+            } else {
+                page.groups
+                    .iter()
+                    .filter_map(|group| self.render_group(page_ix, group, &query, cx))
+                    .collect()
+            };
+            if groups.is_empty() && !loading {
                 continue;
             }
             sections.push(
@@ -640,6 +1339,15 @@ impl ConfigView {
                     )
                     .into_any_element(),
             );
+            if loading {
+                sections.push(
+                    div()
+                        .text_sm()
+                        .text_color(muted)
+                        .child(selectable(("page-loading", page_ix), "Reading…"))
+                        .into_any_element(),
+                );
+            }
             sections.extend(groups);
         }
         if sections.is_empty() {
@@ -664,7 +1372,9 @@ impl ConfigView {
             .h_full()
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
-            .child(v_flex().gap_4().pb_8().pr_4().children(sections))
+            // Full width, or the column sizes to its widest row and the
+            // controls fall off the right edge of a narrow window.
+            .child(v_flex().w_full().gap_4().pb_8().pr_4().children(sections))
     }
 }
 
@@ -702,7 +1412,7 @@ impl Render for ConfigView {
 #[cfg(test)]
 mod tests {
     // `use super::*` would import gpui's `test` attribute macro and shadow `#[test]`.
-    use super::{FieldDef, KEYBOARD_LAYOUT_PATH, PAGES, format_number};
+    use super::{FieldDef, Source, format_number, items};
     use crate::system::hyprland_config::baseline::get_path;
     use crate::types::hyprland_config::HyprlandConfig;
     use std::collections::HashSet;
@@ -710,63 +1420,84 @@ mod tests {
     #[test]
     fn item_ids_are_unique() {
         let mut seen = HashSet::new();
-        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
+        for item in items() {
             assert!(seen.insert(item.id), "duplicate item id {}", item.id);
         }
     }
 
-    /// Every item edits a real key of the model, with a control of the
-    /// key's type.
+    /// Every Hyprland item edits a real key of the model, with a control of
+    /// the key's type; every Omarchy item has a control that fits its source.
     #[test]
-    fn every_item_path_exists_in_the_config_with_the_right_type() {
+    fn every_item_fits_its_source() {
         let defaults = serde_json::to_value(HyprlandConfig::default()).unwrap();
-        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            let value = get_path(&defaults, item.path)
-                .unwrap_or_else(|| panic!("{}: no key {} in the model", item.id, item.path));
-            match &item.field {
-                FieldDef::Number {
-                    integer, min, max, ..
-                } => {
-                    assert!(
-                        value.is_number(),
-                        "{}: {} is not a number",
-                        item.id,
-                        item.path
-                    );
-                    assert_eq!(value.is_i64(), *integer, "{}: integer flag", item.id);
-                    assert!(min < max, "{}: empty range", item.id);
+        for item in items() {
+            match (&item.source, &item.field) {
+                (Source::Hyprland(path), field) => {
+                    let value = get_path(&defaults, path)
+                        .unwrap_or_else(|| panic!("{}: no key {} in the model", item.id, path));
+                    match field {
+                        FieldDef::Number {
+                            integer, min, max, ..
+                        } => {
+                            assert!(value.is_number(), "{}: {} is not a number", item.id, path);
+                            assert_eq!(value.is_i64(), *integer, "{}: integer flag", item.id);
+                            assert!(min < max, "{}: empty range", item.id);
+                        }
+                        FieldDef::Pair {
+                            index, min, max, ..
+                        } => {
+                            assert!(
+                                value.as_array().is_some_and(|a| a.len() == 2),
+                                "{}: not a pair",
+                                item.id
+                            );
+                            assert!(*index < 2, "{}: index", item.id);
+                            assert!(min < max, "{}: empty range", item.id);
+                        }
+                        FieldDef::Switch => assert!(value.is_boolean(), "{}: not a bool", item.id),
+                        FieldDef::Dropdown { options } => {
+                            assert!(value.is_string(), "{}: not a string", item.id);
+                            let default = value.as_str().unwrap();
+                            assert!(
+                                options.iter().any(|(v, _)| *v == default),
+                                "{}: default {default:?} is not an option",
+                                item.id
+                            );
+                        }
+                        FieldDef::Choice { options } => {
+                            assert!(value.is_i64(), "{}: not an integer", item.id);
+                            let default = value.as_i64().unwrap();
+                            assert!(
+                                options.iter().any(|(v, _)| *v == default),
+                                "{}: default {default} is not an option",
+                                item.id
+                            );
+                        }
+                        FieldDef::KeyboardLayout
+                        | FieldDef::DynamicDropdown { .. }
+                        | FieldDef::Action { .. }
+                        | FieldDef::Feature { .. } => {
+                            panic!("{}: a Hyprland item needs a value control", item.id)
+                        }
+                    }
                 }
-                FieldDef::Pair {
-                    index, min, max, ..
-                } => {
-                    assert!(
-                        value.as_array().is_some_and(|a| a.len() == 2),
-                        "{}: not a pair",
-                        item.id
-                    );
-                    assert!(*index < 2, "{}: index", item.id);
-                    assert!(min < max, "{}: empty range", item.id);
-                }
-                FieldDef::Switch => assert!(value.is_boolean(), "{}: not a bool", item.id),
-                FieldDef::Dropdown { options } => {
-                    assert!(value.is_string(), "{}: not a string", item.id);
-                    let default = value.as_str().unwrap();
-                    assert!(
-                        options.iter().any(|(v, _)| *v == default),
-                        "{}: default {default:?} is not an option",
-                        item.id
-                    );
-                }
-                FieldDef::Choice { options } => {
-                    assert!(value.is_i64(), "{}: not an integer", item.id);
-                    let default = value.as_i64().unwrap();
-                    assert!(
-                        options.iter().any(|(v, _)| *v == default),
-                        "{}: default {default} is not an option",
-                        item.id
-                    );
-                }
-                FieldDef::KeyboardLayout => assert_eq!(item.path, KEYBOARD_LAYOUT_PATH),
+                (Source::Omarchy(_), field) => assert!(
+                    matches!(
+                        field,
+                        FieldDef::Number { .. }
+                            | FieldDef::Switch
+                            | FieldDef::Dropdown { .. }
+                            | FieldDef::DynamicDropdown { .. }
+                            | FieldDef::KeyboardLayout
+                    ),
+                    "{}: an Omarchy item needs a value control",
+                    item.id
+                ),
+                (Source::None, field) => assert!(
+                    matches!(field, FieldDef::Action { .. } | FieldDef::Feature { .. }),
+                    "{}: an item without a value must be an action or a feature",
+                    item.id
+                ),
             }
         }
     }
@@ -780,9 +1511,12 @@ mod tests {
             return;
         };
         let mut problems = Vec::new();
-        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            let Some(option) = described.get(item.path) else {
-                problems.push(format!("{}: {} is not described", item.id, item.path));
+        for item in items() {
+            let Some(path) = item.hyprland_path() else {
+                continue;
+            };
+            let Some(option) = described.get(path) else {
+                problems.push(format!("{}: {} is not described", item.id, path));
                 continue;
             };
             let declared = (option["min"].as_f64(), option["max"].as_f64());
@@ -832,6 +1566,99 @@ mod tests {
             }
         }
         assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
+    /// Every command an Omarchy item runs or reads exists on this machine
+    /// (skipped without Omarchy).
+    #[test]
+    fn omarchy_items_reference_installed_commands() {
+        use crate::system::omarchy_settings::{Read, Write};
+        if !std::path::Path::new("/usr/share/omarchy/bin").is_dir() {
+            eprintln!("skipping: no Omarchy");
+            return;
+        }
+        let exists = |program: &str| {
+            std::env::var_os("PATH").is_some_and(|path| {
+                std::env::split_paths(&path).any(|dir| dir.join(program).is_file())
+            }) || std::path::Path::new("/usr/share/omarchy/bin")
+                .join(program)
+                .is_file()
+        };
+        let mut missing = Vec::new();
+        let mut check = |program: &str, id: &str| {
+            if !exists(program) {
+                missing.push(format!("{id}: {program}"));
+            }
+        };
+        for item in items() {
+            if let Some(when) = item.when {
+                check(when[0], item.id);
+            }
+            match &item.source {
+                Source::Omarchy(backing) => {
+                    if let Read::Command { argv, .. } = backing.read {
+                        check(argv[0], item.id);
+                    }
+                    match backing.write {
+                        Write::Bool { on, off } => {
+                            for argv in on.iter().chain(off.iter()) {
+                                check(argv[0], item.id);
+                            }
+                        }
+                        Write::ToggleIfDifferent(argv)
+                        | Write::Command(argv)
+                        | Write::CommandJson(argv)
+                        | Write::Terminal(argv) => check(argv[0], item.id),
+                        Write::CommandAnd { argv, then } => {
+                            check(argv[0], item.id);
+                            for argv in then {
+                                check(argv[0], item.id);
+                            }
+                        }
+                        Write::ShellJson(_) => {}
+                    }
+                }
+                Source::None => match &item.field {
+                    FieldDef::Action { argv, .. } => check(argv[0], item.id),
+                    FieldDef::Feature {
+                        status,
+                        setup,
+                        remove,
+                    } => {
+                        if let Read::Command { argv, .. } = status {
+                            check(argv[0], item.id);
+                        }
+                        check(setup[0], item.id);
+                        if let Some(remove) = remove {
+                            check(remove[0], item.id);
+                        }
+                    }
+                    _ => {}
+                },
+                Source::Hyprland(_) => {}
+            }
+        }
+        assert!(
+            missing.is_empty(),
+            "missing commands:\n{}",
+            missing.join("\n")
+        );
+    }
+
+    #[test]
+    fn disabled_by_points_at_a_switch() {
+        for item in items() {
+            if let Some(id) = item.disabled_by {
+                let toggle = items()
+                    .find(|i| i.id == id)
+                    .unwrap_or_else(|| panic!("{}: no item {id}", item.id));
+                assert!(
+                    matches!(toggle.field, FieldDef::Switch),
+                    "{}: {id} is not a switch",
+                    item.id
+                );
+            }
+        }
     }
 
     #[test]
