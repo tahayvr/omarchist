@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_flex};
+use gpui_component::{
+    ActiveTheme, Icon, IconName, Sizable, WindowExt, button::Button, spinner::Spinner, v_flex,
+};
 use smol;
 
 use crate::system::themes::theme_generator::create_theme_from_image;
@@ -106,14 +108,18 @@ impl Render for ThemeCreationProgressDialog {
                 Icon::new(IconName::TriangleAlert)
                     .size(px(48.0))
                     .text_color(theme.red)
+                    .into_any_element()
             } else if self.is_complete {
                 Icon::new(IconName::Check)
                     .size(px(48.0))
                     .text_color(theme.green)
+                    .into_any_element()
             } else {
-                Icon::new(IconName::Loader)
-                    .size(px(48.0))
-                    .text_color(theme.primary)
+                Spinner::new()
+                    .icon(Icon::new(IconName::Loader))
+                    .with_size(px(48.0))
+                    .color(theme.primary)
+                    .into_any_element()
             })
             .child(
                 div()
