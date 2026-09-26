@@ -32,3 +32,4 @@ The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own optio
 | **Omarchy Updates** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. |
 | **Theme Designer** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |
 | **Flows** | A desktop notification when a flow run from a keybind or the command line finishes. |
+| **Bar** | Show Omarchist in Omarchy's bar. See [Bar Widget](/configuring/bar-widget). |

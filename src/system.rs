@@ -1,7 +1,9 @@
 pub mod apps;
+pub mod bar_widget;
 pub mod config;
 pub mod flows;
 pub mod hyprland_config;
+pub mod instance;
 pub mod keybinds;
 pub mod notify;
 pub mod omarchy;

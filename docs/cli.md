@@ -14,6 +14,8 @@ omarchist flow <run | list | export | import> ...
 
 `--view` (`-v`) opens Omarchist on a page: `themes`, `config`, `keybinds`, `flows`, `settings`, `about`, or `omarchy`. `--theme` (`-t`) with `--view themes` opens that theme in the Theme Designer.
 
+Omarchist runs one window at a time. If it is already running, a new `omarchist --view <page>` brings that window forward on the page and exits, so a keybind or the [bar widget](/configuring/bar-widget) never opens a second window. Without `--view`, Omarchist opens on the page chosen in Settings.
+
 ```bash
 omarchist --view keybinds
 omarchist --view themes --theme my-theme
@@ -39,7 +41,7 @@ These run without opening the window.
 | Command | What it does |
 | --- | --- |
 | `flow run <name or id>` | Runs the flow and prints each step. Exits with status 1 and sends a notification if a step fails, so a keybind never fails silently. |
-| `flow list` | Every flow with its id and step count. |
+| `flow list` | Every flow with its id and step count. `--json` prints an array of `{id, name, icon, steps}` for scripts and the bar widget. |
 | `flow export <name or id> [--output <path>]` | Writes the flow as a shareable `.flow.toml` file, to stdout or to a file or directory. |
 | `flow import <file or https URL> [--yes]` | Prints the flow's steps and saves it after you confirm. `--yes` skips the question. |
 

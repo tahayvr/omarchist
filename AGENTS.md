@@ -351,6 +351,11 @@ A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reus
 - Sharing (`share.rs`): `export_toml` strips the id and triggers; `read_import` reads a file or `https://` URL (64 KB cap, redirects followed but never off https, `meta.source` set for URLs) into an `Imported` flow with no id and no triggers, since both belong to the receiving machine. Import never saves or runs: the UI opens the editor as `FlowEditSource::Imported` with a review banner, and the CLI prints the steps and asks unless `--yes`. Keep it that way; it is the safety gate for third-party flows.
 - UI: `src/ui/flows_page/` — `flows_view.rs` (card grid, one tab stop with a roving index), `flow_edit_view.rs` (details, triggers, step list as one tab stop, live run states through a `smol::channel`), `step_dialog.rs` + `step_builder.rs` (hosts `ActionBuilder` with its kind strip hidden via `set_kind_strip(false)` and adds Wait/Notify), `step_summary.rs` (titles and icons for steps, resolving installed apps and flow names), `templates.rs` (starter flows: `.flow.toml` files without an id, embedded from `defaults/flows/` through `DefaultAssets` and parsed with the same code as saved flows; a test validates every one, so adding a template is adding a file). Assigning a keybind opens `KeybindDialog` in `DialogMode::AddPreset`.
 
+### Bar Widget and Single Instance
+
+- **The bar widget** is a Quattro shell plugin in `defaults/plugin/tahayvr.omarchist/` (manifest + `BarWidget.qml`, embedded through `DefaultAssets`). `src/system/bar_widget.rs` installs it into `~/.config/omarchy/plugins/tahayvr.omarchist/` (plus the flow icons with `currentColor` made black so `MultiEffect` can tint them, and a `command` file holding `current_exe()`), enables it with `omarchy plugin enable`, and refreshes the files at startup when the embedded version or the binary path changed (`ensure_current`, run from `main.rs` when `settings.bar_widget` is on). Enabled state is read from `shell.json`'s `bar.layout`, never stored twice. The shell keeps a widget instance until it restarts (plugin file changes and `reloadConfig` do not recreate it), which is why the binary path goes through a watched file and not a layout setting. The widget reads flows with `omarchist flow list --json` and opens pages with `omarchist --view`.
+- **Single instance** (`src/system/instance.rs`): `main.rs` forwards `--view`/`--theme` as one JSON line over `$XDG_RUNTIME_DIR/omarchist.sock` to a running instance (which answers `ok`, navigates through `AppEvent::Navigate`, and activates its window) and exits; otherwise it binds the socket and serves it from a background task. The socket is removed on quit; a stale one nobody answers is replaced.
+
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
@@ -365,6 +370,8 @@ A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reus
 - **Hyprland Config:** `src/system/hyprland_config/` (`manager.rs`, `lua_writer.rs`, `hyprctl_reader.rs`)
 - **Keybinds:** `src/system/keybinds/` (`scan.lua`, `scanner.rs`, `replay.rs`, `overrides.rs`, `store.rs`, `submap.rs`) and `src/ui/keybinds_page/` (`keybinds_view.rs`, `keybinds_table.rs`, `keystroke_input.rs`, `keybind_dialog.rs`)
 - **Flows:** `src/system/flows/` (`store.rs`, `runner.rs`, `launcher.rs`, `templates.rs`) and `src/ui/flows_page/` (`flows_view.rs`, `flow_edit_view.rs`, `step_dialog.rs`, `step_builder.rs`, `step_summary.rs`)
+- **App settings:** `src/system/config/config_setup.rs`, `src/ui/settings_page/settings_view.rs`
+- **Bar widget and single instance:** `src/system/bar_widget.rs`, `defaults/plugin/tahayvr.omarchist/`, `src/system/instance.rs`
 
 ## CLI Handling
 

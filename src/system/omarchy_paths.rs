@@ -43,6 +43,16 @@ pub fn user_themes_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("themes"))
 }
 
+// `~/.config/omarchy/plugins` — third-party shell plugins, one folder per id.
+pub fn user_plugins_dir() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("plugins"))
+}
+
+// `~/.config/omarchy/shell.json` — the shell's bar layout and plugin state.
+pub fn shell_json_path() -> Option<PathBuf> {
+    dirs::home_dir().map(|h| h.join(".config").join("omarchy").join("shell.json"))
+}
+
 // `~/.local/state/omarchy` — Quattro's runtime state directory.
 pub fn omarchy_state_dir() -> Option<PathBuf> {
     dirs::home_dir().map(|h| h.join(".local").join("state").join("omarchy"))

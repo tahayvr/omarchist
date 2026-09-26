@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable as _,
+    ActiveTheme, Sizable as _, WindowExt as _,
     button::Button,
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -14,6 +14,7 @@ use gpui_component::{
     v_flex,
 };
 
+use crate::system::bar_widget;
 use crate::system::config::config_setup::{SettingsConfig, settings, update_settings};
 use crate::system::ui_theme_watcher;
 use crate::ui::focus::{FocusSection, FocusableSwitch};
@@ -77,6 +78,31 @@ impl SettingsView {
         self.change(move |s| s.font_size = size.to_string(), cx);
         gpui_component::Theme::global_mut(cx).font_size = px(font_size_px(size));
         cx.refresh_windows();
+    }
+
+    /// Installs and enables the bar widget, or takes it off the bar, and
+    /// keeps the setting in step with what the shell ended up with.
+    fn set_bar_widget(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let result = if on {
+            bar_widget::enable()
+        } else {
+            bar_widget::disable()
+        };
+        match result {
+            Ok(()) => {
+                self.change(move |s| s.bar_widget = on, cx);
+                let message = if on {
+                    "Omarchist is on the bar. Move it with the bar's Edit Layout."
+                } else {
+                    "Omarchist was removed from the bar."
+                };
+                window.push_notification(message, cx);
+            }
+            Err(e) => {
+                self.change(move |s| s.bar_widget = bar_widget::is_enabled(), cx);
+                window.push_notification(e.to_string(), cx);
+            }
+        }
     }
 
     fn set_theme_mode(&mut self, mode: &'static str, cx: &mut Context<Self>) {
@@ -339,6 +365,26 @@ impl Render for SettingsView {
             ],
         );
 
+        let bar = self.section(
+            "settings-bar",
+            "Bar",
+            vec![
+                self.render_row(
+                    "bar-widget",
+                    "Show Omarchist in the Bar",
+                    "A bar widget that runs your flows and opens Omarchist on a page",
+                    FocusableSwitch::new("bar-widget-switch")
+                        .checked(s.bar_widget)
+                        .on_change(cx.listener(|this, value, window, cx| {
+                            this.set_bar_widget(*value, window, cx);
+                        }))
+                        .into_any_element(),
+                    cx,
+                )
+                .into_any_element(),
+            ],
+        );
+
         let flows = self.section(
             "settings-flows",
             "Flows",
@@ -382,7 +428,8 @@ impl Render for SettingsView {
                             .child(startup)
                             .child(updates)
                             .child(designer)
-                            .child(flows),
+                            .child(flows)
+                            .child(bar),
                     ),
             )
             .vertical_scrollbar(&self.scroll)

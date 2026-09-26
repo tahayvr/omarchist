@@ -44,6 +44,21 @@ pub enum ViewOption {
     Flows,
 }
 
+impl ViewOption {
+    /// The name used on the command line and in `settings.json`.
+    pub fn name(&self) -> &'static str {
+        match self {
+            ViewOption::Themes => "themes",
+            ViewOption::Config => "config",
+            ViewOption::Keybinds => "keybinds",
+            ViewOption::Flows => "flows",
+            ViewOption::Settings => "settings",
+            ViewOption::About => "about",
+            ViewOption::Omarchy => "omarchy",
+        }
+    }
+}
+
 /// Commands that run without opening the window.
 #[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -82,7 +97,11 @@ pub enum FlowCommand {
         name: String,
     },
     /// List every flow with its id
-    List,
+    List {
+        /// Print JSON: an array of {id, name, icon, steps}
+        #[arg(long)]
+        json: bool,
+    },
     /// Write a flow as a shareable file (to stdout unless --output is given)
     Export {
         /// The flow's name (case-insensitive) or id
@@ -112,7 +131,33 @@ impl CliArgs {
 pub fn run_command(command: &Command) -> ExitCode {
     match command {
         Command::Flow {
-            action: FlowCommand::List,
+            action: FlowCommand::List { json: true },
+        } => match load_flows() {
+            Ok(flows) => {
+                let entries: Vec<serde_json::Value> = flows
+                    .iter()
+                    .map(|flow| {
+                        serde_json::json!({
+                            "id": flow.id,
+                            "name": flow.name,
+                            "icon": flow.icon,
+                            "steps": flow.enabled_steps(),
+                        })
+                    })
+                    .collect();
+                println!(
+                    "{}",
+                    serde_json::to_string(&entries).unwrap_or_else(|_| "[]".to_string())
+                );
+                ExitCode::SUCCESS
+            }
+            Err(e) => {
+                eprintln!("{e}");
+                ExitCode::FAILURE
+            }
+        },
+        Command::Flow {
+            action: FlowCommand::List { json: false },
         } => match load_flows() {
             Ok(flows) if flows.is_empty() => {
                 println!("No flows yet. Create one on the Flows page of Omarchist.");
@@ -449,7 +494,7 @@ mod tests {
         assert_eq!(
             args.command,
             Some(Command::Flow {
-                action: FlowCommand::List
+                action: FlowCommand::List { json: false }
             })
         );
         assert!(CliArgs::try_parse_from(["omarchist", "flow", "run"]).is_err());

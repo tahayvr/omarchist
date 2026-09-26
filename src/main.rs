@@ -3,6 +3,7 @@ use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
+use omarchist::system::instance;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
@@ -37,6 +38,40 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
             ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
         }
     }
+}
+
+/// Answers other launches over the instance socket: brings the window
+/// forward and navigates to the requested page.
+fn serve_open_requests(cx: &mut App) {
+    let Some(listener) = instance::listen() else {
+        return;
+    };
+    let listener = std::sync::Arc::new(listener);
+    cx.spawn(async move |cx| {
+        loop {
+            let accepting = listener.clone();
+            let Some(request) = cx
+                .background_spawn(async move { instance::accept(&accepting) })
+                .await
+            else {
+                break;
+            };
+            let page = match (request.view.as_deref(), request.theme) {
+                (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
+                (Some(view), _) => ActivePage::from_view_name(view),
+                (None, _) => None,
+            };
+            cx.update(|cx| {
+                if let Some(page) = page {
+                    app_events::emit(cx, AppEvent::Navigate(page));
+                }
+                for window in cx.windows() {
+                    let _ = window.update(cx, |_, window, _| window.activate_window());
+                }
+            });
+        }
+    })
+    .detach();
 }
 
 const THEME_FILE: &str = include_str!("../ui_themes/theme.json");
@@ -101,6 +136,15 @@ fn main() -> ExitCode {
         return omarchist::cli::run_command(command);
     }
 
+    // A running window takes the request instead of a second window opening.
+    let request = instance::OpenRequest {
+        view: cli_args.view.map(|view| view.name().to_string()),
+        theme: cli_args.theme.clone(),
+    };
+    if instance::forward(&request) {
+        return ExitCode::SUCCESS;
+    }
+
     let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
@@ -122,6 +166,14 @@ fn main() -> ExitCode {
         }
 
         cx.set_global(AppEvents::default());
+        serve_open_requests(cx);
+        if settings.settings.bar_widget {
+            std::thread::spawn(|| {
+                if let Err(e) = omarchist::system::bar_widget::ensure_current() {
+                    eprintln!("Failed to refresh the bar widget: {e}");
+                }
+            });
+        }
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
@@ -173,9 +225,11 @@ fn main() -> ExitCode {
             app_events::emit(cx, AppEvent::ToggleSidebar);
         });
 
-        // Never leave Hyprland stuck in the keystroke-recording submap.
+        // Never leave Hyprland stuck in the keystroke-recording submap, and
+        // let the next launch open its own window.
         cx.on_app_quit(|_cx| {
             omarchist::system::keybinds::submap::leave_recording_submap();
+            instance::remove_socket();
             async {}
         })
         .detach();

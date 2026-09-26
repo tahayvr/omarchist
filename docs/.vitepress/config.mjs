@@ -103,6 +103,7 @@ export default defineConfig({
           { text: "Hyprland", link: "/configuring/" },
           { text: "Keybinds", link: "/configuring/keybinds" },
           { text: "Omarchy", link: "/configuring/omarchy" },
+          { text: "Bar Widget", link: "/configuring/bar-widget" },
         ],
       },
       {
