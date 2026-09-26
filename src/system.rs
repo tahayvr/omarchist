@@ -3,6 +3,7 @@ pub mod config;
 pub mod flows;
 pub mod hyprland_config;
 pub mod keybinds;
+pub mod notify;
 pub mod omarchy;
 pub mod omarchy_paths;
 pub mod themes;

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::App;
-use gpui_component::{Theme, ThemeConfig};
+use gpui_component::{Theme, ThemeConfig, ThemeMode};
 use smol::Timer;
 
 use crate::system::themes::color_utils::{
@@ -315,7 +315,8 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
     })
 }
 
-// Loads the omarchy current theme from `colors.toml` and applies it to the UI.
+// Loads the omarchy current theme from `colors.toml` and applies it to the UI,
+// then the look the Settings page forces, if any.
 pub fn load_and_apply_omarchy_theme(cx: &mut App) {
     let theme_name = get_active_omarchy_theme_name().unwrap_or_else(|| "omarchy".to_string());
     if let Some(colors_path) = get_colors_toml_path()
@@ -332,6 +333,20 @@ pub fn load_and_apply_omarchy_theme(cx: &mut App) {
         Theme::change(mode, None, cx);
     }
     // If omarchy theme is unavailable, the embedded theme stays in effect.
+    apply_forced_mode(cx);
+}
+
+/// The Settings page can force light or dark regardless of the desktop
+/// theme (`theme_mode`); `omarchy` follows the theme.
+pub fn apply_forced_mode(cx: &mut App) {
+    match crate::system::config::config_setup::settings()
+        .theme_mode
+        .as_str()
+    {
+        "light" => Theme::change(ThemeMode::Light, None, cx),
+        "dark" => Theme::change(ThemeMode::Dark, None, cx),
+        _ => {}
+    }
 }
 
 // Check the omarchy current theme directory every second.

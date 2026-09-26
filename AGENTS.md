@@ -38,7 +38,7 @@ cargo add <crate_name>
 Important distinction between two config directories:
 
 - **`~/.config/omarchy`** - Belongs to Omarchy Linux system. Used to store themes created by Omarchist app (the OS reads themes from here)
-- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state, `flows/*.toml`)
+- **`~/.config/omarchist`** - Belongs to the Omarchist app itself. Used for app operations (settings.json, Hyprland settings state, `flows/*.toml`). `settings.json` is `SettingsSchema` in `src/system/config/config_setup.rs`; every field of `SettingsConfig` has a serde default, a version bump **merges** the new defaults into the user's file (`merge_settings`, keeping their values), and `defaults/omarchist/settings.json` must equal `SettingsConfig::default()` (a test checks). Change settings through `update_settings(|s| ..)`; read them with `settings()`.
 
 Omarchy (Quattro/v4) itself is installed at `$OMARCHY_PATH`, defaulting to `/usr/share/omarchy` — see `src/system/omarchy_paths.rs`, the single canonical source for every Omarchy-related path.
 

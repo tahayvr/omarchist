@@ -57,6 +57,39 @@ pub enum ActivePage {
     Omarchy,
 }
 
+impl ActivePage {
+    /// The page's name on the command line (`--view`) and in
+    /// `settings.json`; the editors count as their list page.
+    pub fn view_name(&self) -> &'static str {
+        match self {
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => "themes",
+            ActivePage::Configuration => "config",
+            ActivePage::Keybinds => "keybinds",
+            ActivePage::Flows
+            | ActivePage::FlowEdit(_)
+            | ActivePage::FlowNew(_)
+            | ActivePage::FlowImport(_)
+            | ActivePage::FlowTemplates => "flows",
+            ActivePage::Settings => "settings",
+            ActivePage::About => "about",
+            ActivePage::Omarchy => "omarchy",
+        }
+    }
+
+    pub fn from_view_name(name: &str) -> Option<Self> {
+        Some(match name {
+            "themes" => ActivePage::Themes,
+            "config" => ActivePage::Configuration,
+            "keybinds" => ActivePage::Keybinds,
+            "flows" => ActivePage::Flows,
+            "settings" => ActivePage::Settings,
+            "about" => ActivePage::About,
+            "omarchy" => ActivePage::Omarchy,
+            _ => return None,
+        })
+    }
+}
+
 pub struct MainWindowView {
     title_bar: Entity<MainTitleBar>,
     active_page: ActivePage,
@@ -335,6 +368,12 @@ impl MainWindowView {
         self.active_page = page;
         if let Some(ix) = Self::sidebar_index_for(&self.active_page) {
             self.sidebar_index = ix;
+        }
+        // Only written when the Settings page asks to reopen on the last page.
+        if let Err(e) =
+            crate::system::config::config_setup::remember_last_page(self.active_page.view_name())
+        {
+            eprintln!("Failed to remember the last page: {e}");
         }
 
         // Keyboard users land on the page's first control.

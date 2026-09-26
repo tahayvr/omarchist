@@ -9,6 +9,7 @@ use crate::system::flows::runner::{RunEvent, Runner};
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_flow};
 use crate::system::flows::unique_id;
+use crate::system::notify;
 use crate::system::omarchy_paths::user_themes_dir;
 use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_generator::create_theme_from_image;
@@ -177,6 +178,13 @@ pub fn run_command(command: &Command) -> ExitCode {
             let summary = outcome.summary(&flow);
             if outcome.is_ok() {
                 println!("{summary}");
+                if crate::system::config::config_setup::settings().notify_flows {
+                    notify::send(
+                        &format!("{} finished", flow.name),
+                        &summary,
+                        notify::Urgency::Low,
+                    );
+                }
                 ExitCode::SUCCESS
             } else {
                 eprintln!("{summary}");
@@ -332,20 +340,7 @@ fn confirm(question: &str) -> bool {
 }
 
 fn notify_failure(message: &str) {
-    let _ = std::process::Command::new("notify-send")
-        .args([
-            "-a",
-            "Omarchist",
-            "-u",
-            "normal",
-            "--",
-            "Flow failed",
-            message,
-        ])
-        .stdin(std::process::Stdio::null())
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status();
+    notify::send("Flow failed", message, notify::Urgency::Normal);
 }
 
 #[cfg(test)]

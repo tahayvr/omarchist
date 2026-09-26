@@ -12,7 +12,9 @@ use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
 use std::rc::Rc;
 
-fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
+/// The page to open: `--view` wins, then the Settings page's startup page
+/// (or the page shown last), then Themes.
+fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
@@ -27,7 +29,13 @@ fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
                 ActivePage::Themes
             }
         }
-        None => ActivePage::Themes, // Default page
+        None => {
+            let name = match settings.settings.startup_page.as_str() {
+                "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
+                name => name,
+            };
+            ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
+        }
     }
 }
 
@@ -96,11 +104,18 @@ fn main() -> ExitCode {
     let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
-        let initial_page = cli_args_to_active_page(&cli_args);
-
         if let Err(e) = config_setup::ensure_config() {
             eprintln!("Failed to initialize config: {}", e);
         }
+        let settings = config_setup::read_settings().unwrap_or_else(|e| {
+            eprintln!("Failed to read settings: {e}");
+            config_setup::SettingsSchema {
+                version: String::new(),
+                settings: config_setup::SettingsConfig::default(),
+                metadata: config_setup::Metadata::default(),
+            }
+        });
+        let initial_page = cli_args_to_active_page(&cli_args, &settings);
 
         if let Err(e) = hypr_setup::ensure_hypr_source() {
             eprintln!("Failed to set up Hyprland config: {}", e);
@@ -124,11 +139,14 @@ fn main() -> ExitCode {
             gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size_px);
         }
 
+        // The menu's light/dark switch is the Settings page's "Look".
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
+            let _ = config_setup::update_settings(|s| s.theme_mode = "light".to_string());
             gpui_component::Theme::change(gpui_component::ThemeMode::Light, None, cx);
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::SwitchToDark, cx: &mut App| {
+            let _ = config_setup::update_settings(|s| s.theme_mode = "dark".to_string());
             gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
             cx.refresh_windows();
         });

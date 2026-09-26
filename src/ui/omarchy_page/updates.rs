@@ -4,9 +4,15 @@ use std::time::{Duration, Instant};
 
 use gpui::*;
 
+use crate::system::config::config_setup::settings;
+use crate::system::notify;
 use crate::system::omarchy::updates::{
-    PERIODIC_CHECK_INTERVAL, UpdateCheck, check_for_updates, installed_version, update_in_progress,
+    UpdateCheck, check_for_updates, installed_version, update_in_progress,
 };
+
+/// How long a disabled background check sleeps before looking at the
+/// setting again.
+const DISABLED_RECHECK: Duration = Duration::from_secs(60 * 60);
 
 /// A check older than this is re-run when the Omarchy page opens.
 const STALE_AFTER: Duration = Duration::from_secs(5 * 60);
@@ -30,6 +36,8 @@ pub struct OmarchyUpdates {
     state: UpdateState,
     checking: bool,
     last_checked: Option<Instant>,
+    /// An update was found by an earlier check, so the next one is not news.
+    known_available: bool,
 }
 
 impl OmarchyUpdates {
@@ -41,6 +49,7 @@ impl OmarchyUpdates {
             state: UpdateState::Checking,
             checking: false,
             last_checked: None,
+            known_available: false,
         }
     }
 
@@ -64,6 +73,7 @@ impl OmarchyUpdates {
         self.checking = true;
         self.state = UpdateState::Checking;
         cx.notify();
+        let was_available = self.known_available;
         cx.spawn(async move |this, cx| {
             let (version, check) = cx
                 .background_spawn(async { (installed_version(), check_for_updates()) })
@@ -77,6 +87,19 @@ impl OmarchyUpdates {
                 };
                 this.checking = false;
                 this.last_checked = Some(Instant::now());
+                if let UpdateState::Available(lines) = &this.state {
+                    // Say so once per update, and only when asked to.
+                    if !was_available && settings().notify_updates {
+                        notify::send(
+                            "Omarchy update available",
+                            &lines.join("\n"),
+                            notify::Urgency::Low,
+                        );
+                    }
+                    this.known_available = true;
+                } else if this.state == UpdateState::UpToDate {
+                    this.known_available = false;
+                }
                 cx.notify();
             })
             .ok();
@@ -116,15 +139,25 @@ impl OmarchyUpdates {
         .detach();
     }
 
-    /// Checks now and again every `PERIODIC_CHECK_INTERVAL`.
+    /// Checks now and again on the schedule from the Settings page
+    /// (`check_updates`, `update_check_hours`), re-reading it each time so
+    /// a change applies without a restart.
     pub fn start_periodic(this: Entity<Self>, cx: &mut App) {
         let this = this.downgrade();
         cx.spawn(async move |cx| {
             loop {
-                if this.update(cx, |this, cx| this.refresh(cx)).is_err() {
-                    break;
-                }
-                smol::Timer::after(PERIODIC_CHECK_INTERVAL).await;
+                let settings = settings();
+                let wait = if settings.check_updates {
+                    if this.update(cx, |this, cx| this.refresh(cx)).is_err() {
+                        break;
+                    }
+                    Duration::from_secs(
+                        u64::from(settings.update_check_hours.clamp(1, 24 * 7)) * 3600,
+                    )
+                } else {
+                    DISABLED_RECHECK
+                };
+                smol::Timer::after(wait).await;
             }
         })
         .detach();
