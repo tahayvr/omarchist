@@ -31,9 +31,10 @@ use serde_json::Value;
 
 use crate::system::hyprland_config::HyprlandConfigManager;
 use crate::system::omarchy_settings::{self, Choice};
+use crate::system::software_catalog::{self, Availability, SoftwareGroup};
 use crate::ui::config_page::pages::{
-    FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items, page,
-    page_count, pages,
+    Dynamic, FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items,
+    page, page_count, pages,
 };
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
@@ -138,6 +139,57 @@ fn load_omarchy_page(page_ix: usize) -> PageLoad {
     load
 }
 
+/// The Software page's catalog with each item's availability, read in
+/// the background.
+#[derive(Default)]
+struct SoftwareState {
+    groups: Vec<SoftwareGroup>,
+    availability: HashMap<String, Availability>,
+    loaded: bool,
+    loading: bool,
+    error: Option<String>,
+}
+
+/// Reads Omarchy's menu and evaluates every item's conditions, a few at a
+/// time. Blocking; runs off the UI thread.
+fn load_software() -> std::result::Result<SoftwareState, String> {
+    let menu = software_catalog::load_menu().map_err(|e| e.to_string())?;
+    let groups = software_catalog::catalog(&menu);
+    let items: Vec<_> = groups
+        .iter()
+        .flat_map(|g| g.items.iter())
+        .cloned()
+        .collect();
+    let availability: HashMap<String, Availability> = std::thread::scope(|scope| {
+        let chunks: Vec<Vec<_>> = items
+            .chunks(items.len().div_ceil(8).max(1))
+            .map(|c| c.to_vec())
+            .collect();
+        let handles: Vec<_> = chunks
+            .into_iter()
+            .map(|chunk| {
+                scope.spawn(move || {
+                    chunk
+                        .iter()
+                        .map(|item| (item.id.clone(), software_catalog::availability(item)))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().unwrap_or_default())
+            .collect()
+    });
+    Ok(SoftwareState {
+        groups,
+        availability,
+        loaded: true,
+        loading: false,
+        error: None,
+    })
+}
+
 /// Values of the Omarchy-backed items, filled in page by page.
 #[derive(Default)]
 struct OmarchyState {
@@ -171,6 +223,7 @@ impl SelectItem for KeyboardLayoutItem {
 pub struct ConfigView {
     config_manager: Rc<RefCell<HyprlandConfigManager>>,
     omarchy: OmarchyState,
+    software: SoftwareState,
     keyboard_layout_select: Entity<SelectState<SearchableVec<KeyboardLayoutItem>>>,
     /// One text state per number field, keyed by the item id.
     number_inputs: HashMap<&'static str, Entity<InputState>>,
@@ -254,6 +307,7 @@ impl ConfigView {
         let mut this = Self {
             config_manager: Rc::new(RefCell::new(config_manager)),
             omarchy: OmarchyState::default(),
+            software: SoftwareState::default(),
             keyboard_layout_select,
             number_inputs: HashMap::new(),
             search,
@@ -344,6 +398,7 @@ impl ConfigView {
             Err(e) => eprintln!("Failed to reload Hyprland config: {}", e),
         }
         self.omarchy.loaded.clear();
+        self.software.loaded = false;
         self.load_page(self.active_page, window, cx);
         self.load_matching_pages(window, cx);
     }
@@ -512,6 +567,10 @@ impl ConfigView {
         let Some(def) = page(page_ix) else {
             return;
         };
+        if def.dynamic == Some(Dynamic::Software) {
+            self.load_software(cx);
+            return;
+        }
         if def.group != PageGroup::Omarchy
             || self.omarchy.loaded.contains(&page_ix)
             || self.omarchy.loading.contains(&page_ix)
@@ -527,6 +586,41 @@ impl ConfigView {
                 .ok();
         })
         .detach();
+    }
+
+    fn load_software(&mut self, cx: &mut Context<Self>) {
+        if self.software.loaded || self.software.loading {
+            return;
+        }
+        self.software.loading = true;
+        cx.spawn(async move |this, cx| {
+            let result = cx.background_spawn(async move { load_software() }).await;
+            this.update(cx, |this, cx| {
+                match result {
+                    Ok(state) => this.software = state,
+                    Err(message) => {
+                        this.software.loading = false;
+                        this.software.loaded = true;
+                        this.software.error = Some(message);
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// Runs a menu action for a software item and re-reads its
+    /// availability afterwards (the install runs in a terminal, so the
+    /// row is refreshed again when the page is next opened).
+    fn run_software_action(&mut self, id: String, action: String, cx: &mut Context<Self>) {
+        if let Err(e) = software_catalog::run_action(&action) {
+            self.software.error = Some(e.to_string());
+            cx.notify();
+            return;
+        }
+        let _ = id;
     }
 
     fn apply_load(&mut self, load: PageLoad, window: &mut Window, cx: &mut Context<Self>) {
@@ -568,10 +662,12 @@ impl ConfigView {
         let matching: Vec<usize> = pages()
             .enumerate()
             .filter(|(_, page)| {
-                page.groups
-                    .iter()
-                    .flat_map(|g| g.items)
-                    .any(|item| Self::item_matches(item, &query))
+                page.dynamic.is_some()
+                    || page
+                        .groups
+                        .iter()
+                        .flat_map(|g| g.items)
+                        .any(|item| Self::item_matches(item, &query))
             })
             .map(|(ix, _)| ix)
             .collect();
@@ -987,6 +1083,148 @@ impl ConfigView {
         )
     }
 
+    /// One row of the Software page: the label, whether it is installed,
+    /// and the button for what the menu offers right now.
+    fn render_software_row(
+        &self,
+        group_ix: usize,
+        item: &software_catalog::SoftwareItem,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let theme = cx.theme().clone();
+        let availability = self
+            .software
+            .availability
+            .get(&item.id)
+            .copied()
+            .unwrap_or_default();
+        let (status, button, action) = if availability.remove {
+            let remove = item.remove.as_ref()?;
+            (Some("Installed"), "Remove…", remove.action.clone())
+        } else if availability.install {
+            (
+                item.remove.as_ref().map(|_| "Not installed"),
+                "Install…",
+                item.install.action.clone(),
+            )
+        } else {
+            return None;
+        };
+        let id = item.id.clone();
+        let element_id = ElementId::Name(format!("software-{group_ix}-{}", item.id).into());
+        Some(
+            h_flex()
+                .id(element_id.clone())
+                .w_full()
+                .gap_4()
+                .items_center()
+                .justify_between()
+                .py_2()
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_sm()
+                        .child(selectable("label", SharedString::from(item.label.clone()))),
+                )
+                .child(
+                    h_flex()
+                        .flex_none()
+                        .gap_3()
+                        .items_center()
+                        .children(status.map(|status| {
+                            div()
+                                .text_sm()
+                                .text_color(if availability.remove {
+                                    theme.success
+                                } else {
+                                    theme.muted_foreground
+                                })
+                                .child(status)
+                        }))
+                        .child(
+                            Button::new(ElementId::Name(
+                                format!("software-action-{group_ix}-{}", item.id).into(),
+                            ))
+                            .label(button)
+                            .outline()
+                            .small()
+                            .cursor_pointer()
+                            .on_click(cx.listener(
+                                move |this, _, _, cx| {
+                                    this.run_software_action(id.clone(), action.clone(), cx);
+                                },
+                            )),
+                        ),
+                )
+                .into_any_element(),
+        )
+    }
+
+    fn render_software(
+        &self,
+        page_ix: usize,
+        query: &str,
+        cx: &mut Context<Self>,
+    ) -> Vec<AnyElement> {
+        let muted = cx.theme().muted_foreground;
+        let danger = cx.theme().danger;
+        let mut sections: Vec<AnyElement> = Vec::new();
+        if let Some(error) = &self.software.error {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(danger)
+                    .child(selectable(
+                        "software-error",
+                        SharedString::from(error.clone()),
+                    ))
+                    .into_any_element(),
+            );
+            return sections;
+        }
+        if !self.software.loaded {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(muted)
+                    .child(selectable("software-loading", "Reading Omarchy's menu…"))
+                    .into_any_element(),
+            );
+            return sections;
+        }
+        for (group_ix, group) in self.software.groups.iter().enumerate() {
+            let rows: Vec<AnyElement> = group
+                .items
+                .iter()
+                .filter(|item| query.is_empty() || item.label.to_lowercase().contains(query))
+                .filter_map(|item| self.render_software_row(group_ix, item, cx))
+                .collect();
+            if rows.is_empty() {
+                continue;
+            }
+            sections.push(
+                FocusSection::new(
+                    ElementId::Name(format!("config-group-{page_ix}-{}", group.title).into()),
+                    &self.scroll,
+                )
+                .child(
+                    GroupBox::new()
+                        .with_variant(GroupBoxVariant::Outline)
+                        .title(
+                            div()
+                                .text_sm()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .child(SharedString::from(group.title.clone())),
+                        )
+                        .children(rows),
+                )
+                .into_any_element(),
+            );
+        }
+        sections
+    }
+
     fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let query = self.query(cx);
         let muted = cx.theme().muted_foreground;
@@ -1002,9 +1240,13 @@ impl ConfigView {
 
         let mut sections: Vec<AnyElement> = Vec::new();
         for (page_ix, page) in shown {
-            let loading =
-                page.group == PageGroup::Omarchy && !self.omarchy.loaded.contains(&page_ix);
-            let groups: Vec<AnyElement> = if loading {
+            let dynamic = page.dynamic.is_some();
+            let loading = !dynamic
+                && page.group == PageGroup::Omarchy
+                && !self.omarchy.loaded.contains(&page_ix);
+            let groups: Vec<AnyElement> = if dynamic {
+                self.render_software(page_ix, &query, cx)
+            } else if loading {
                 Vec::new()
             } else {
                 page.groups

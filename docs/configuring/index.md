@@ -38,6 +38,7 @@ Below the Hyprland pages, the list continues with Omarchy's own settings. These 
 | **Devices** | Touchpad, touchscreen, and Bluetooth. |
 | **Network** | The DNS provider and the Wi-Fi band. |
 | **Security** | Fingerprint, FIDO2 key, SSH server, sudoless Docker, and passwordless sudo. Each shows whether it is set up and opens Omarchy's terminal to set it up or remove it. |
+| **Software** | Everything Omarchy's menu can install or remove, grouped as the menu groups it: browsers, editors, terminals, services, AI tools, games, and development environments. Each row says whether it is installed and opens Omarchy's terminal to install or remove it. |
 | **Updates & Resets** | The package channel, firmware updates, timezone, clock sync, and resets of the Hyprland, shell, tmux, and boot screen configs. |
 
 Pages show only what applies to this machine: laptop-only rows appear on laptops, and the fingerprint row when a reader is present. Settings that need your password or a confirmation open in Omarchy's floating terminal, the same as from the menu.

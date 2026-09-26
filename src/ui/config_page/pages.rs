@@ -100,6 +100,14 @@ pub struct PageDef {
     pub description: &'static str,
     pub group: PageGroup,
     pub groups: &'static [GroupDef],
+    /// Content built at runtime instead of from `groups`.
+    pub dynamic: Option<Dynamic>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum Dynamic {
+    /// The install/remove catalog from Omarchy's menu.
+    Software,
 }
 
 pub const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
@@ -221,6 +229,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "General",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Borders, gaps, layout, and floating windows",
         groups: &[
             GroupDef {
@@ -399,6 +408,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Appearance",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Rounding, opacity, dimming, blur, shadows, and animations",
         groups: &[
             GroupDef {
@@ -755,6 +765,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Layouts",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Dwindle, master, and scrolling layout behaviour",
         groups: &[
             GroupDef {
@@ -1069,6 +1080,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Keyboard",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Layout, repeat, and modifiers",
         groups: &[
             GroupDef {
@@ -1124,6 +1136,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Mouse",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Pointer speed, scrolling, and focus",
         groups: &[
             GroupDef {
@@ -1304,6 +1317,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Touchpad",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Tapping, scrolling, and gestures on the touchpad",
         groups: &[
             GroupDef {
@@ -1507,6 +1521,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Groups",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Tabbed window groups and their bar",
         groups: &[
             GroupDef {
@@ -1756,6 +1771,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Cursor",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Hiding, warping, and zooming the pointer",
         groups: &[
             GroupDef {
@@ -1926,6 +1942,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "Windows",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Focus, workspaces, and fullscreen behaviour",
         groups: &[
             GroupDef {
@@ -2107,6 +2124,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "System",
         group: PageGroup::Hyprland,
+        dynamic: None,
         description: "Rendering, displays, sessions, and XWayland",
         groups: &[
             GroupDef {
@@ -2529,6 +2547,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Lock & Idle",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Screensaver, lock screen, and staying awake",
         groups: &[
             GroupDef {
@@ -2623,6 +2642,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Power",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Power profiles and the battery",
         groups: &[
             GroupDef {
@@ -2689,6 +2709,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Notifications",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Do not disturb and crash reports",
         groups: &[GroupDef {
             title: "Notifications",
@@ -2740,6 +2761,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Default Apps",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "The browser, terminal, and editor Omarchy opens",
         groups: &[GroupDef {
             title: "Defaults",
@@ -2821,6 +2843,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Bar",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Where the bar sits and how it looks",
         groups: &[GroupDef {
             title: "Bar",
@@ -2873,6 +2896,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Fonts",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "The monospace font and text size everywhere",
         groups: &[GroupDef {
             title: "Text",
@@ -2911,6 +2935,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Displays",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Scale, night light, and the laptop display",
         groups: &[
             GroupDef {
@@ -3013,6 +3038,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Devices",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Touchpad, touchscreen, and Bluetooth",
         groups: &[
             GroupDef {
@@ -3075,6 +3101,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Network",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "DNS and Wi-Fi",
         groups: &[GroupDef {
             title: "Network",
@@ -3120,6 +3147,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Security",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Ways to unlock and log in; each opens a terminal",
         groups: &[GroupDef {
             title: "Authentication",
@@ -3181,8 +3209,16 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
         }],
     },
     PageDef {
+        title: "Software",
+        group: PageGroup::Omarchy,
+        dynamic: Some(Dynamic::Software),
+        description: "Install and remove the apps Omarchy's menu offers",
+        groups: &[],
+    },
+    PageDef {
         title: "Updates & Resets",
         group: PageGroup::Omarchy,
+        dynamic: None,
         description: "Package channel, firmware, time, and config resets",
         groups: &[
             GroupDef {
