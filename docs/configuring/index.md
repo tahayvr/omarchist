@@ -11,16 +11,16 @@ The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) sets Hyprland option
 
 | Section | Settings |
 | --- | --- |
-| **General** | Border size and grab area, gaps (in, out, floating, workspaces), the layout (Dwindle, Master, Scrolling, or Monocle), tearing, and floating-window snapping. |
+| **General** | Border size and grab area, gaps (in, out, floating, workspaces) with Omarchy's no-gaps toggle beside them, the layout (Dwindle, Master, Scrolling, or Monocle), tearing, and floating-window snapping. |
 | **Appearance** | Corner rounding, opacity, dimming, blur, shadows, glow, motion blur, and animations. |
-| **Layouts** | Single-window aspect ratio, and every option of the Dwindle, Master, and Scrolling layouts. |
-| **Keyboard** | Layout, Num Lock on start, keybinds by symbol, repeat rate and delay. |
+| **Layouts** | Single-window aspect ratio with Omarchy's square-window toggle, and every option of the Dwindle, Master, and Scrolling layouts. |
+| **Keyboard** | Layout (set system-wide through `localectl`, so Omarchy's own layout logic applies), Num Lock on start, keybinds by symbol, repeat rate and delay. |
 | **Mouse** | Sensitivity and acceleration, scrolling, and how the pointer changes focus. |
-| **Touchpad** | Tapping, clicking, scrolling, and workspace swipe gestures. |
+| **Touchpad** | Tapping, clicking, and scrolling. |
 | **Groups** | Window grouping behaviour and the group bar. |
-| **Cursor** | Hiding, warping, zooming, and rendering of the pointer. |
-| **Windows** | Focus, workspaces, moving focus, keybind and drag behaviour, and window swallowing. |
-| **System** | Variable frame rate and adaptive sync, rendering, color management and HDR, display wake, the lock screen, startup notices, and XWayland. |
+| **Cursor** | Hiding, warping, and zooming the pointer. |
+| **Windows** | Focus, workspaces, moving focus, and keybind and drag behaviour. |
+| **System** | Adaptive sync and direct scanout, HDR, display wake, the not-responding dialog, and XWayland. |
 
 ## Omarchy settings
 
@@ -48,6 +48,10 @@ Pages show only what applies to this machine: laptop-only rows appear on laptops
 Every setting starts at the value Omarchy gives it, or the value your own `looknfeel.lua` and `input.lua` set. When you change one, a reset button <span class="icon-inline icon-inline-rotate-ccw"></span> appears next to it. Its tooltip shows the value Omarchy uses, and clicking it puts the setting back under Omarchy's control. Setting a value back by hand does the same.
 
 Settings you have not changed keep following Omarchy, so an Omarchy update that changes a default reaches you.
+
+Two of Omarchy's own toggles override Hyprland fields while they are on: **No Gaps** (gaps, border, and rounding) and **Square Single Window** (the single-window aspect ratio). They sit next to the fields they override, which are disabled while the toggle is on.
+
+The page leaves out Hyprland options that do nothing on Omarchy (the default wallpaper and splash, workspace swipe without a gesture, swallowing without a pattern), options that would break it (auto reload, lock-screen recovery, permission enforcement), and driver and debugging knobs.
 
 ## How it works
 

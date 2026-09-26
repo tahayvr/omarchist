@@ -78,6 +78,10 @@ pub struct ItemDef {
     /// A command that must succeed for the item to be shown
     /// (`omarchy-hw-laptop`).
     pub when: Option<&'static [&'static str]>,
+    /// The id of a switch item that, while on, makes this item's value
+    /// irrelevant (an Omarchy toggle that overrides it), so the control is
+    /// disabled.
+    pub disabled_by: Option<&'static str>,
 }
 
 impl ItemDef {
@@ -110,7 +114,23 @@ pub enum Dynamic {
     Software,
 }
 
+/// The Hyprland option older versions overrode directly; the layout now
+/// goes through `/etc/vconsole.conf`, which Omarchy's `input.lua` reads.
 pub const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
+
+/// The system keyboard layout: read from vconsole, set with `localectl`
+/// (which asks for the password), then Hyprland reloads so Omarchy's
+/// `input.lua` picks it up.
+pub const KEYBOARD_LAYOUT: Backing = Backing {
+    read: Read::EnvFile {
+        path: "/etc/vconsole.conf",
+        key: "XKBLAYOUT",
+    },
+    write: Write::CommandAnd {
+        argv: &["localectl", "set-x11-keymap"],
+        then: &[&["hyprctl", "reload"]],
+    },
+};
 
 /// Every page in nav order: Hyprland first, then Omarchy.
 pub fn pages() -> impl Iterator<Item = &'static PageDef> {
@@ -144,6 +164,7 @@ macro_rules! int_item {
                 integer: true,
             },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -162,6 +183,7 @@ macro_rules! float_item {
                 integer: false,
             },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -180,6 +202,7 @@ macro_rules! pair_item {
                 step: $step,
             },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -193,6 +216,7 @@ macro_rules! switch_item {
             description: $desc,
             field: FieldDef::Switch,
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -206,6 +230,7 @@ macro_rules! dropdown_item {
             description: $desc,
             field: FieldDef::Dropdown { options: $options },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -219,6 +244,7 @@ macro_rules! choice_item {
             description: $desc,
             field: FieldDef::Choice { options: $options },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -235,15 +261,20 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Window Borders",
                 items: &[
-                    int_item!(
-                        "border-size",
-                        "general.border_size",
-                        "Border Size",
-                        "Size of the border around windows",
-                        0.0,
-                        20.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "border-size",
+                        source: Source::Hyprland("general.border_size"),
+                        label: "Border Size",
+                        description: "Size of the border around windows",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 20.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     switch_item!(
                         "resize-on-border",
                         "general.resize_on_border",
@@ -276,24 +307,34 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Gaps",
                 items: &[
-                    int_item!(
-                        "gaps-in",
-                        "general.gaps_in",
-                        "Gaps In",
-                        "Gaps between windows",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "gaps-out",
-                        "general.gaps_out",
-                        "Gaps Out",
-                        "Gaps between windows and monitor edges",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "gaps-in",
+                        source: Source::Hyprland("general.gaps_in"),
+                        label: "Gaps In",
+                        description: "Gaps between windows",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 100.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
+                    ItemDef {
+                        id: "gaps-out",
+                        source: Source::Hyprland("general.gaps_out"),
+                        label: "Gaps Out",
+                        description: "Gaps between windows and monitor edges",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 100.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     int_item!(
                         "float-gaps",
                         "general.float_gaps",
@@ -312,6 +353,24 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         100.0,
                         1.0
                     ),
+                    ItemDef {
+                        id: "no-gaps",
+                        source: Source::Omarchy(Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/window-no-gaps.lua",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&["omarchy-hyprland-toggle", "window-no-gaps", "on"]],
+                                off: &[&["omarchy-hyprland-toggle", "window-no-gaps", "off"]],
+                            },
+                        }),
+                        label: "No Gaps",
+                        description: "Omarchy's toggle: no gaps, borders, or rounding, overriding the fields above",
+                        field: FieldDef::Switch,
+                        when: None,
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -414,15 +473,20 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Rounding",
                 items: &[
-                    int_item!(
-                        "rounding",
-                        "decoration.rounding",
-                        "Rounding",
-                        "Corner radius in pixels",
-                        0.0,
-                        20.0,
-                        1.0
-                    ),
+                    ItemDef {
+                        id: "rounding",
+                        source: Source::Hyprland("decoration.rounding"),
+                        label: "Rounding",
+                        description: "Corner radius in pixels",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 20.0,
+                            step: 1.0,
+                            integer: true,
+                        },
+                        when: None,
+                        disabled_by: Some("no-gaps"),
+                    },
                     float_item!(
                         "rounding-power",
                         "decoration.rounding_power",
@@ -615,12 +679,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         1.0,
                         0.05
                     ),
-                    switch_item!(
-                        "blur-new-optimizations",
-                        "decoration.blur.new_optimizations",
-                        "Blur Optimizations",
-                        "Use the faster blur path"
-                    ),
                 ],
             },
             GroupDef {
@@ -771,35 +829,74 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Single Window",
                 items: &[
-                    pair_item!(
-                        "single-window-aspect-width",
-                        "layout.single_window_aspect_ratio",
-                        0,
-                        "Aspect Ratio Width",
-                        "Shape a lone window to this ratio; 0 and 0 is off",
-                        0.0,
-                        32.0,
-                        1.0
-                    ),
-                    pair_item!(
-                        "single-window-aspect-height",
-                        "layout.single_window_aspect_ratio",
-                        1,
-                        "Aspect Ratio Height",
-                        "Shape a lone window to this ratio; 0 and 0 is off",
-                        0.0,
-                        32.0,
-                        1.0
-                    ),
-                    float_item!(
-                        "single-window-aspect-tolerance",
-                        "layout.single_window_aspect_ratio_tolerance",
-                        "Aspect Ratio Tolerance",
-                        "Minimum difference before the ratio is applied",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
+                    ItemDef {
+                        id: "single-window-aspect-width",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio"),
+                        label: "Aspect Ratio Width",
+                        description: "Shape a lone window to this ratio; 0 and 0 is off",
+                        field: FieldDef::Pair {
+                            index: 0,
+                            min: 0.0,
+                            max: 32.0,
+                            step: 1.0,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "single-window-aspect-height",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio"),
+                        label: "Aspect Ratio Height",
+                        description: "Shape a lone window to this ratio; 0 and 0 is off",
+                        field: FieldDef::Pair {
+                            index: 1,
+                            min: 0.0,
+                            max: 32.0,
+                            step: 1.0,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "single-window-aspect-tolerance",
+                        source: Source::Hyprland("layout.single_window_aspect_ratio_tolerance"),
+                        label: "Aspect Ratio Tolerance",
+                        description: "Minimum difference before the ratio is applied",
+                        field: FieldDef::Number {
+                            min: 0.0,
+                            max: 1.0,
+                            step: 0.05,
+                            integer: false,
+                        },
+                        when: None,
+                        disabled_by: Some("square-single-window"),
+                    },
+                    ItemDef {
+                        id: "square-single-window",
+                        source: Source::Omarchy(Backing {
+                            read: Read::Flag {
+                                flag: "toggles/hypr/single-window-aspect-ratio.lua",
+                                inverted: false,
+                            },
+                            write: Write::Bool {
+                                on: &[&[
+                                    "omarchy-hyprland-toggle",
+                                    "single-window-aspect-ratio",
+                                    "on",
+                                ]],
+                                off: &[&[
+                                    "omarchy-hyprland-toggle",
+                                    "single-window-aspect-ratio",
+                                    "off",
+                                ]],
+                            },
+                        }),
+                        label: "Square Single Window",
+                        description: "Omarchy's toggle: a lone window is kept square, overriding the ratio above",
+                        field: FieldDef::Switch,
+                        when: None,
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -1088,11 +1185,12 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                 items: &[
                     ItemDef {
                         id: "kb-layout",
-                        source: Source::Hyprland(KEYBOARD_LAYOUT_PATH),
+                        source: Source::Omarchy(KEYBOARD_LAYOUT),
                         label: "Keyboard Layout",
-                        description: "XKB layout, for example us, de, or fr",
+                        description: "Set system-wide; Omarchy adds a Latin fallback for non-Latin layouts",
                         field: FieldDef::KeyboardLayout,
                         when: None,
+                        disabled_by: None,
                     },
                     switch_item!(
                         "numlock-by-default",
@@ -1412,110 +1510,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                     ),
                 ],
             },
-            GroupDef {
-                title: "Workspace Swipe",
-                items: &[
-                    int_item!(
-                        "workspace-swipe-distance",
-                        "gestures.workspace_swipe_distance",
-                        "Swipe Distance",
-                        "Pixels a swipe travels to change workspace",
-                        0.0,
-                        2000.0,
-                        10.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-invert",
-                        "gestures.workspace_swipe_invert",
-                        "Invert Swipe",
-                        "Swipe the other way to change workspace"
-                    ),
-                    float_item!(
-                        "workspace-swipe-cancel-ratio",
-                        "gestures.workspace_swipe_cancel_ratio",
-                        "Cancel Ratio",
-                        "Share of the swipe needed before it commits",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
-                    int_item!(
-                        "workspace-swipe-min-speed-to-force",
-                        "gestures.workspace_swipe_min_speed_to_force",
-                        "Force Speed",
-                        "Swipe speed that commits regardless of distance",
-                        0.0,
-                        200.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-create-new",
-                        "gestures.workspace_swipe_create_new",
-                        "Swipe Creates Workspace",
-                        "Swiping past the last workspace creates a new one"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-forever",
-                        "gestures.workspace_swipe_forever",
-                        "Swipe Past Neighbours",
-                        "A long swipe crosses several workspaces"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-direction-lock",
-                        "gestures.workspace_swipe_direction_lock",
-                        "Direction Lock",
-                        "Lock the swipe direction once it is clear"
-                    ),
-                    int_item!(
-                        "workspace-swipe-direction-lock-threshold",
-                        "gestures.workspace_swipe_direction_lock_threshold",
-                        "Direction Lock Distance",
-                        "Pixels before the direction locks",
-                        0.0,
-                        200.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "workspace-swipe-use-r",
-                        "gestures.workspace_swipe_use_r",
-                        "Swipe Ignores Empty Workspaces",
-                        "Swipe between workspaces that have windows"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-touch",
-                        "gestures.workspace_swipe_touch",
-                        "Touchscreen Edge Swipe",
-                        "Swipe from a touchscreen edge to change workspace"
-                    ),
-                    switch_item!(
-                        "workspace-swipe-touch-invert",
-                        "gestures.workspace_swipe_touch_invert",
-                        "Invert Touchscreen Swipe",
-                        "Swipe the other way on a touchscreen"
-                    ),
-                    int_item!(
-                        "close-max-timeout",
-                        "gestures.close_max_timeout",
-                        "Close Gesture Timeout",
-                        "Milliseconds the close gesture may take",
-                        10.0,
-                        2000.0,
-                        10.0
-                    ),
-                    switch_item!(
-                        "scrolling-move-snap-to-grid",
-                        "gestures.scrolling.move_snap_to_grid",
-                        "Scroll Move Snaps to Grid",
-                        "Snap a moved scrolling column to the grid on release"
-                    ),
-                    switch_item!(
-                        "scrolling-move-snap-cursor",
-                        "gestures.scrolling.move_snap_cursor",
-                        "Scroll Move Snaps Cursor",
-                        "Snap the cursor to the moved column on release"
-                    ),
-                ],
-            },
         ],
     },
     PageDef {
@@ -1755,15 +1749,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Middle Click Closes",
                         "Middle clicking a tab closes its window"
                     ),
-                    int_item!(
-                        "groupbar-priority",
-                        "group.groupbar.priority",
-                        "Decoration Priority",
-                        "Order of the bar among window decorations",
-                        0.0,
-                        6.0,
-                        1.0
-                    ),
                 ],
             },
         ],
@@ -1803,12 +1788,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         0.0,
                         20.0,
                         1.0
-                    ),
-                    switch_item!(
-                        "cursor-invisible",
-                        "cursor.invisible",
-                        "Invisible",
-                        "Never draw the pointer"
                     ),
                 ],
             },
@@ -1887,53 +1866,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "cursor.zoom_disable_aa",
                         "No Anti-Aliasing",
                         "Sharp pixels when zoomed"
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Rendering",
-                items: &[
-                    switch_item!(
-                        "enable-hyprcursor",
-                        "cursor.enable_hyprcursor",
-                        "Hyprcursor",
-                        "Use hyprcursor themes"
-                    ),
-                    switch_item!(
-                        "sync-gsettings-theme",
-                        "cursor.sync_gsettings_theme",
-                        "Sync GTK Theme",
-                        "Keep the GTK cursor theme in step"
-                    ),
-                    choice_item!(
-                        "no-hardware-cursors",
-                        "cursor.no_hardware_cursors",
-                        "Software Cursor",
-                        "Draw the pointer in software instead of the GPU plane",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "use-cpu-buffer",
-                        "cursor.use_cpu_buffer",
-                        "CPU Cursor Buffer",
-                        "Keep the hardware cursor in a CPU buffer",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "no-break-fs-vrr",
-                        "cursor.no_break_fs_vrr",
-                        "Keep VRR in Fullscreen",
-                        "Do not render a frame for pointer movement over fullscreen apps",
-                        ON_OFF_AUTO
-                    ),
-                    int_item!(
-                        "min-refresh-rate",
-                        "cursor.min_refresh_rate",
-                        "Minimum Refresh Rate",
-                        "Lowest refresh rate for pointer movement when VRR is kept",
-                        10.0,
-                        500.0,
-                        1.0
                     ),
                 ],
             },
@@ -2110,15 +2042,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                     ),
                 ],
             },
-            GroupDef {
-                title: "Swallowing",
-                items: &[switch_item!(
-                    "enable-swallow",
-                    "misc.enable_swallow",
-                    "Window Swallowing",
-                    "A terminal hides while an app it launched is open"
-                )],
-            },
         ],
     },
     PageDef {
@@ -2130,12 +2053,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Rendering",
                 items: &[
-                    switch_item!(
-                        "vfr",
-                        "debug.vfr",
-                        "Variable Frame Rate",
-                        "Render only when something changes; saves battery"
-                    ),
                     choice_item!(
                         "vrr",
                         "misc.vrr",
@@ -2155,45 +2072,15 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Show a fullscreen window's buffer directly, skipping compositing",
                         ON_OFF_AUTO
                     ),
-                    switch_item!(
-                        "new-render-scheduling",
-                        "render.new_render_scheduling",
-                        "New Render Scheduling",
-                        "Newer frame scheduling, better on slow GPUs"
-                    ),
-                    switch_item!(
-                        "expand-undersized-textures",
-                        "render.expand_undersized_textures",
-                        "Expand Undersized Textures",
-                        "Stretch a window that has not yet resized"
-                    ),
-                    switch_item!(
-                        "xp-mode",
-                        "render.xp_mode",
-                        "XP Mode",
-                        "Skip the back buffer and bottom layer"
-                    ),
-                    switch_item!(
-                        "nvidia-anti-flicker",
-                        "opengl.nvidia_anti_flicker",
-                        "NVIDIA Anti-Flicker",
-                        "Reduce flicker on NVIDIA, at the cost of possible frame drops"
-                    ),
-                    int_item!(
-                        "render-unfocused-fps",
-                        "misc.render_unfocused_fps",
-                        "Background FPS Limit",
-                        "Frame rate for windows rendered while unfocused",
-                        1.0,
-                        120.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "screencopy-force-8b",
-                        "misc.screencopy_force_8b",
-                        "8-bit Screen Capture",
-                        "Capture the screen in 8-bit color"
-                    ),
+                    ItemDef {
+                        id: "nvidia-anti-flicker",
+                        source: Source::Hyprland("opengl.nvidia_anti_flicker"),
+                        label: "NVIDIA Anti-Flicker",
+                        description: "Reduce flicker on NVIDIA, at the cost of possible frame drops",
+                        field: FieldDef::Switch,
+                        when: Some(&["omarchy-hw-nvidia"]),
+                        disabled_by: None,
+                    },
                 ],
             },
             GroupDef {
@@ -2243,59 +2130,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Fade between color transforms such as night light",
                         ON_OFF_AUTO
                     ),
-                    choice_item!(
-                        "non-shader-cm",
-                        "render.non_shader_cm",
-                        "Hardware Color Management",
-                        "Do color management without shaders",
-                        &[(0, "Off"), (1, "Always"), (2, "On demand"), (3, "Ignore")]
-                    ),
-                    choice_item!(
-                        "non-shader-cm-interop",
-                        "render.non_shader_cm_interop",
-                        "Hardware CM With Night Light",
-                        "Hardware color management alongside color transforms",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "use-fp16",
-                        "render.use_fp16",
-                        "FP16 Buffer",
-                        "Render into a 16-bit float buffer",
-                        ON_OFF_AUTO
-                    ),
-                    choice_item!(
-                        "fp16-sdr-tf",
-                        "render.fp16_sdr_tf",
-                        "FP16 SDR Transfer",
-                        "Transfer function of the FP16 buffer in SDR",
-                        &[(0, "Monitor"), (1, "Linear")]
-                    ),
-                    choice_item!(
-                        "keep-unmodified-copy",
-                        "render.keep_unmodified_copy",
-                        "Keep SDR Copy for Sharing",
-                        "Keep an unmodified SDR frame for screen sharing",
-                        ON_OFF_AUTO
-                    ),
-                    switch_item!(
-                        "icc-vcgt-enabled",
-                        "render.icc_vcgt_enabled",
-                        "ICC Gamma Ramps",
-                        "Send ICC profile gamma ramps to the display"
-                    ),
-                    switch_item!(
-                        "commit-timing-enabled",
-                        "render.commit_timing_enabled",
-                        "Commit Timing",
-                        "Commit timing protocol; takes effect after a restart"
-                    ),
-                    switch_item!(
-                        "use-shader-blur-blend",
-                        "render.use_shader_blur_blend",
-                        "Shader Blur Blend",
-                        "Experimental blurred background blending"
-                    ),
                 ],
             },
             GroupDef {
@@ -2316,65 +2150,8 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                 ],
             },
             GroupDef {
-                title: "Lock Screen",
+                title: "Notices",
                 items: &[
-                    switch_item!(
-                        "allow-session-lock-restore",
-                        "misc.allow_session_lock_restore",
-                        "Recover Lock Screen",
-                        "Let the lock screen restart if it crashes"
-                    ),
-                    switch_item!(
-                        "session-lock-xray",
-                        "misc.session_lock_xray",
-                        "Render Behind Lock Screen",
-                        "Keep rendering workspaces below the lock screen"
-                    ),
-                    switch_item!(
-                        "session-lock-blur",
-                        "misc.session_lock_blur",
-                        "Blur Lock Screen",
-                        "Blur behind the lock screen"
-                    ),
-                    int_item!(
-                        "lockdead-screen-delay",
-                        "misc.lockdead_screen_delay",
-                        "Lock Failure Delay",
-                        "Milliseconds before the fallback lock screen appears",
-                        0.0,
-                        5000.0,
-                        100.0
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Startup and Notices",
-                items: &[
-                    switch_item!(
-                        "disable-hyprland-logo",
-                        "misc.disable_hyprland_logo",
-                        "No Hyprland Logo",
-                        "No default wallpaper with the Hyprland logo"
-                    ),
-                    switch_item!(
-                        "disable-splash-rendering",
-                        "misc.disable_splash_rendering",
-                        "No Splash",
-                        "No splash text on the default wallpaper"
-                    ),
-                    choice_item!(
-                        "force-default-wallpaper",
-                        "misc.force_default_wallpaper",
-                        "Default Wallpaper",
-                        "Which built-in wallpaper to use when none is set",
-                        &[(-1, "Random"), (0, "First"), (1, "Second"), (2, "Third")]
-                    ),
-                    switch_item!(
-                        "disable-scale-notification",
-                        "misc.disable_scale_notification",
-                        "No Scale Warning",
-                        "No notice when a monitor scale is not clean"
-                    ),
                     switch_item!(
                         "enable-anr-dialog",
                         "misc.enable_anr_dialog",
@@ -2391,28 +2168,10 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         1.0
                     ),
                     switch_item!(
-                        "no-update-news",
-                        "ecosystem.no_update_news",
-                        "No Update News",
-                        "No popup after a Hyprland update"
-                    ),
-                    switch_item!(
                         "no-donation-nag",
                         "ecosystem.no_donation_nag",
                         "No Donation Reminder",
                         "No twice-yearly donation popup"
-                    ),
-                    switch_item!(
-                        "enforce-permissions",
-                        "ecosystem.enforce_permissions",
-                        "Enforce Permissions",
-                        "Ask before apps capture the screen or keyboard"
-                    ),
-                    switch_item!(
-                        "disable-autoreload",
-                        "misc.disable_autoreload",
-                        "No Auto Reload",
-                        "Do not reload the config when a file changes"
                     ),
                 ],
             },
@@ -2437,12 +2196,6 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Pixelated Scaling",
                         "Scale X11 apps with nearest-neighbor filtering"
                     ),
-                    switch_item!(
-                        "xwayland-create-abstract-socket",
-                        "xwayland.create_abstract_socket",
-                        "Abstract Socket",
-                        "Create the abstract Unix socket for XWayland"
-                    ),
                 ],
             },
         ],
@@ -2465,6 +2218,7 @@ macro_rules! o_int {
                 integer: true,
             },
             when: None,
+            disabled_by: None,
         }
     };
 }
@@ -2481,6 +2235,7 @@ macro_rules! o_switch {
             description: $desc,
             field: FieldDef::Switch,
             when: $when,
+            disabled_by: None,
         }
     };
 }
@@ -2497,6 +2252,7 @@ macro_rules! o_dropdown {
             description: $desc,
             field: FieldDef::DynamicDropdown { options: $options },
             when: $when,
+            disabled_by: None,
         }
     };
 }
@@ -2517,6 +2273,7 @@ macro_rules! action {
                 terminal: $terminal,
             },
             when: $when,
+            disabled_by: None,
         }
     };
 }
@@ -2537,6 +2294,7 @@ macro_rules! feature {
                 remove: $remove,
             },
             when: $when,
+            disabled_by: None,
         }
     };
 }

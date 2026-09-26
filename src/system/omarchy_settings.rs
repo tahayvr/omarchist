@@ -26,6 +26,11 @@ pub enum Read {
     Flag { flag: &'static str, inverted: bool },
     /// The trimmed content of a file under `~/.local/state/omarchy/`.
     StateFile(&'static str),
+    /// A `KEY=value` line of a shell-style file (`/etc/vconsole.conf`).
+    EnvFile {
+        path: &'static str,
+        key: &'static str,
+    },
     /// What a command prints, read as `parse` says.
     Command {
         argv: &'static [&'static str],
@@ -70,6 +75,11 @@ pub enum Write {
     ToggleIfDifferent(&'static [&'static str]),
     /// A command with the value appended as its last argument.
     Command(&'static [&'static str]),
+    /// `Command`, followed by more commands once it succeeded.
+    CommandAnd {
+        argv: &'static [&'static str],
+        then: &'static [&'static [&'static str]],
+    },
     /// A command with the value appended as JSON plus `--json`
     /// (`omarchy bar set <id> <key> <value> --json`).
     CommandJson(&'static [&'static str]),
@@ -129,6 +139,10 @@ pub fn read_from(read: &Read) -> Option<Value> {
         Read::StateFile(rel) => fs::read_to_string(omarchy_state_dir()?.join(rel))
             .ok()
             .map(|s| Value::String(s.trim().to_string())),
+        Read::EnvFile { path, key } => {
+            let content = fs::read_to_string(path).ok()?;
+            env_file_value(&content, key).map(Value::String)
+        }
         Read::Command { argv, parse } => {
             let output = Command::new(argv[0])
                 .args(&argv[1..])
@@ -195,6 +209,13 @@ pub fn write(backing: &Backing, value: &Value) -> Result<()> {
             Ok(())
         }
         Write::Command(argv) => run_with(argv, &[&value_text(value)]),
+        Write::CommandAnd { argv, then } => {
+            run_with(argv, &[&value_text(value)])?;
+            for argv in then {
+                run(argv)?;
+            }
+            Ok(())
+        }
         Write::CommandJson(argv) => run_with(argv, &[&value.to_string(), "--json"]),
         Write::Terminal(argv) => {
             let mut full: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
@@ -202,6 +223,15 @@ pub fn write(backing: &Backing, value: &Value) -> Result<()> {
             launch_in_terminal(&full)
         }
     }
+}
+
+/// `KEY=value` from a shell-style file, unquoted.
+fn env_file_value(content: &str, key: &str) -> Option<String> {
+    content.lines().find_map(|line| {
+        let line = line.trim();
+        let rest = line.strip_prefix(key)?.strip_prefix('=')?;
+        Some(rest.trim().trim_matches('"').trim_matches('\'').to_string())
+    })
 }
 
 /// The value as a command argument: strings bare, numbers without a
@@ -438,6 +468,14 @@ mod tests {
             ),
             Some(json!(6500))
         );
+    }
+
+    #[test]
+    fn env_files_are_read_by_key() {
+        let content = "# comment\nKEYMAP=us\nXKBLAYOUT=\"de\"\nXKBMODEL=pc105\n";
+        assert_eq!(env_file_value(content, "XKBLAYOUT").as_deref(), Some("de"));
+        assert_eq!(env_file_value(content, "KEYMAP").as_deref(), Some("us"));
+        assert_eq!(env_file_value(content, "XKBVARIANT"), None);
     }
 
     #[test]

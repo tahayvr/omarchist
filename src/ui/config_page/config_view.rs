@@ -15,7 +15,7 @@ use std::rc::Rc;
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, IndexPath, Sizable as _,
+    ActiveTheme, Disableable as _, Icon, IconName, IndexPath, Sizable as _,
     button::{Button, ButtonVariants as _},
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -190,6 +190,16 @@ fn load_software() -> std::result::Result<SoftwareState, String> {
     })
 }
 
+/// Whether a page has anything that is read in the background: Omarchy
+/// items, feature statuses, or conditions.
+fn page_needs_load(page: &PageDef) -> bool {
+    page.groups.iter().flat_map(|g| g.items).any(|item| {
+        item.when.is_some()
+            || matches!(item.source, Source::Omarchy(_))
+            || matches!(item.field, FieldDef::Feature { .. })
+    })
+}
+
 /// Values of the Omarchy-backed items, filled in page by page.
 #[derive(Default)]
 struct OmarchyState {
@@ -269,6 +279,8 @@ impl ConfigView {
         };
         layout_items.sort_by(|a, b| a.label.cmp(&b.label));
 
+        // vconsole's layout is read with the page; until then the select
+        // shows Hyprland's live value.
         let current_kb = config_manager
             .value(KEYBOARD_LAYOUT_PATH)
             .and_then(|v| v.as_str().map(str::to_string))
@@ -286,8 +298,11 @@ impl ConfigView {
             &keyboard_layout_select,
             window,
             |this, _select, event: &SelectEvent<SearchableVec<KeyboardLayoutItem>>, _window, cx| {
-                if let SelectEvent::Confirm(Some(value)) = event {
-                    this.set_hyprland(KEYBOARD_LAYOUT_PATH, Value::String(value.to_string()), cx);
+                if let SelectEvent::Confirm(Some(value)) = event
+                    && let Some(item) = items().find(|item| item.id == "kb-layout")
+                    && this.string_at(item) != value.as_ref()
+                {
+                    this.write_item(item, Value::String(value.to_string()), cx);
                 }
             },
         )];
@@ -514,10 +529,16 @@ impl ConfigView {
             }
         }
         let layout: SharedString = self
-            .config_manager
-            .borrow()
-            .value(KEYBOARD_LAYOUT_PATH)
+            .omarchy
+            .values
+            .get("kb-layout")
             .and_then(|v| v.as_str().map(str::to_string))
+            .or_else(|| {
+                self.config_manager
+                    .borrow()
+                    .value(KEYBOARD_LAYOUT_PATH)
+                    .and_then(|v| v.as_str().map(str::to_string))
+            })
             .unwrap_or_default()
             .into();
         self.keyboard_layout_select.update(cx, |select, cx| {
@@ -571,7 +592,7 @@ impl ConfigView {
             self.load_software(cx);
             return;
         }
-        if def.group != PageGroup::Omarchy
+        if !page_needs_load(def)
             || self.omarchy.loaded.contains(&page_ix)
             || self.omarchy.loading.contains(&page_ix)
         {
@@ -648,6 +669,17 @@ impl ConfigView {
             .collect();
         for (input, text) in updates {
             input.update(cx, |input, cx| input.set_value(text, window, cx));
+        }
+        if let Some(layout) = self
+            .omarchy
+            .values
+            .get("kb-layout")
+            .and_then(|v| v.as_str())
+        {
+            let layout: SharedString = layout.to_string().into();
+            self.keyboard_layout_select.update(cx, |select, cx| {
+                select.set_selected_value(&layout, window, cx);
+            });
         }
         cx.notify();
     }
@@ -831,11 +863,18 @@ impl ConfigView {
 
     fn render_item(&self, item: &'static ItemDef, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
+        // An Omarchy toggle that overrides this setting is on.
+        let disabled = item
+            .disabled_by
+            .and_then(|id| self.omarchy.values.get(id))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
         let control: AnyElement = match &item.field {
             FieldDef::Number { .. } | FieldDef::Pair { .. } => {
                 match self.number_inputs.get(item.id) {
                     Some(input) => NumberInput::new(input)
                         .small()
+                        .disabled(disabled)
                         .w(px(140.))
                         .into_any_element(),
                     None => div().into_any_element(),
@@ -984,8 +1023,11 @@ impl ConfigView {
         };
 
         // A changed Hyprland setting gets a reset button that shows what
-        // it goes back to.
-        let reset = item.hyprland_path().and_then(|path| {
+        // it goes back to. The layout row is Omarchy's now, but an override
+        // from an older version still applies until it is reset here.
+        let legacy_layout =
+            matches!(item.field, FieldDef::KeyboardLayout).then_some(KEYBOARD_LAYOUT_PATH);
+        let reset = item.hyprland_path().or(legacy_layout).and_then(|path| {
             let manager = self.config_manager.borrow();
             manager.is_overridden(path).then(|| {
                 let fallback = manager
@@ -1058,6 +1100,11 @@ impl ConfigView {
             .iter()
             .filter(|item| Self::item_matches(item, query))
             .filter(|item| !self.omarchy.hidden.contains(item.id))
+            .filter(|item| {
+                !matches!(item.source, Source::Omarchy(_))
+                    || self.omarchy.loaded.contains(&page_ix)
+                    || matches!(item.field, FieldDef::KeyboardLayout)
+            })
             .map(|item| self.render_item(item, cx).into_any_element())
             .collect();
         if items.is_empty() {
@@ -1345,7 +1392,7 @@ impl Render for ConfigView {
 #[cfg(test)]
 mod tests {
     // `use super::*` would import gpui's `test` attribute macro and shadow `#[test]`.
-    use super::{FieldDef, KEYBOARD_LAYOUT_PATH, Source, format_number, items};
+    use super::{FieldDef, Source, format_number, items};
     use crate::system::hyprland_config::baseline::get_path;
     use crate::types::hyprland_config::HyprlandConfig;
     use std::collections::HashSet;
@@ -1406,8 +1453,8 @@ mod tests {
                                 item.id
                             );
                         }
-                        FieldDef::KeyboardLayout => assert_eq!(*path, KEYBOARD_LAYOUT_PATH),
-                        FieldDef::DynamicDropdown { .. }
+                        FieldDef::KeyboardLayout
+                        | FieldDef::DynamicDropdown { .. }
                         | FieldDef::Action { .. }
                         | FieldDef::Feature { .. } => {
                             panic!("{}: a Hyprland item needs a value control", item.id)
@@ -1421,6 +1468,7 @@ mod tests {
                             | FieldDef::Switch
                             | FieldDef::Dropdown { .. }
                             | FieldDef::DynamicDropdown { .. }
+                            | FieldDef::KeyboardLayout
                     ),
                     "{}: an Omarchy item needs a value control",
                     item.id
@@ -1541,6 +1589,12 @@ mod tests {
                         | Write::Command(argv)
                         | Write::CommandJson(argv)
                         | Write::Terminal(argv) => check(argv[0], item.id),
+                        Write::CommandAnd { argv, then } => {
+                            check(argv[0], item.id);
+                            for argv in then {
+                                check(argv[0], item.id);
+                            }
+                        }
                         Write::ShellJson(_) => {}
                     }
                 }
@@ -1569,6 +1623,22 @@ mod tests {
             "missing commands:\n{}",
             missing.join("\n")
         );
+    }
+
+    #[test]
+    fn disabled_by_points_at_a_switch() {
+        for item in items() {
+            if let Some(id) = item.disabled_by {
+                let toggle = items()
+                    .find(|i| i.id == id)
+                    .unwrap_or_else(|| panic!("{}: no item {id}", item.id));
+                assert!(
+                    matches!(toggle.field, FieldDef::Switch),
+                    "{}: {id} is not a switch",
+                    item.id
+                );
+            }
+        }
     }
 
     #[test]
