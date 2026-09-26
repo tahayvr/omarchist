@@ -12,5 +12,6 @@ pub mod omarchy_page;
 pub mod settings_page;
 pub mod shortcuts;
 pub mod sidebar_nav;
+pub mod text;
 pub mod theme_edit_page;
 pub mod themes_page;

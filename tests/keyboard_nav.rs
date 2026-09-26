@@ -222,3 +222,20 @@ fn override_app_list_moves_with_the_arrow_keys(cx: &mut TestAppContext) {
     })
     .unwrap();
 }
+
+#[gpui_kit::test]
+fn about_page_text_can_be_selected(cx: &mut TestAppContext) {
+    let (handle, _) = open(cx, ActivePage::About);
+
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.double_click("omarchist-version", cx);
+        gpui_kit::base::TextSelection::selected_text(window, cx)
+    })
+    .map(|selected| {
+        // A double click selects one word, and the dots of the version split
+        // it into several.
+        assert!(!selected.is_empty());
+        assert!(concat!("v", env!("CARGO_PKG_VERSION")).contains(&selected));
+    })
+    .unwrap();
+}

@@ -6,6 +6,7 @@ use gpui_component::{
 
 use crate::system::omarchy::release_notes::fetch_latest_release_notes;
 use crate::ui::omarchy_page::updates::{OmarchyUpdates, UpdateState};
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "OmarchyView";
 const RELEASE_NOTES_CONTEXT: &str = "ReleaseNotes";
@@ -108,19 +109,22 @@ impl OmarchyView {
             .version()
             .map(|v| format!("Version {v}"))
             .unwrap_or_else(|| "Version unknown".to_string());
-        let muted = |text: String| {
+        let muted = |id: &'static str, text: String| {
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child(text)
+                .child(selectable(id, text))
         };
 
         let detail: AnyElement = match updates.state() {
-            UpdateState::Checking => muted("Checking for updates…".into()).into_any_element(),
-            UpdateState::Updating => {
-                muted("Updating… the status refreshes when omarchy-update finishes".into())
-                    .into_any_element()
+            UpdateState::Checking => {
+                muted("checking", "Checking for updates…".into()).into_any_element()
             }
+            UpdateState::Updating => muted(
+                "updating",
+                "Updating… the status refreshes when omarchy-update finishes".into(),
+            )
+            .into_any_element(),
             UpdateState::UpToDate => h_flex()
                 .gap_3()
                 .items_center()
@@ -160,12 +164,12 @@ impl OmarchyView {
                                 .on_click(cx.listener(|this, _, _, cx| this.run_update(cx))),
                         ),
                 )
-                .children(pending.iter().map(|line| {
+                .children(pending.iter().enumerate().map(|(ix, line)| {
                     div()
                         .font_family("monospace")
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child(line.clone())
+                        .child(selectable(("pending", ix), line.clone()))
                 }))
                 .into_any_element(),
             UpdateState::Failed(error) => v_flex()
@@ -175,7 +179,7 @@ impl OmarchyView {
                     h_flex()
                         .gap_3()
                         .items_center()
-                        .child(muted("Couldn't check for updates".into()))
+                        .child(muted("check-failed", "Couldn't check for updates".into()))
                         .child(
                             Button::new("check-updates")
                                 .ghost()
@@ -185,7 +189,7 @@ impl OmarchyView {
                                 .on_click(cx.listener(|this, _, _, cx| this.check_again(cx))),
                         ),
                 )
-                .child(muted(error.clone()))
+                .child(muted("check-error", error.clone()))
                 .into_any_element(),
         };
 
@@ -196,7 +200,7 @@ impl OmarchyView {
                 div()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child(version),
+                    .child(selectable("version", version)),
             )
             .child(detail)
             .into_any_element()
@@ -263,7 +267,10 @@ impl Render for OmarchyView {
                                 .text_sm()
                                 .font_weight(FontWeight::SEMIBOLD)
                                 .text_color(cx.theme().foreground)
-                                .child(format!("Latest release notes  ·  {tag}")),
+                                .child(selectable(
+                                    "release-notes-title",
+                                    format!("Latest release notes  ·  {tag}"),
+                                )),
                         ),
                 )
                 .child(
@@ -316,13 +323,13 @@ impl Render for OmarchyView {
                     div()
                         .text_sm()
                         .text_color(theme.muted_foreground)
-                        .child(label),
+                        .child(selectable("notes-status", label)),
                 )
                 .children(detail.map(|detail| {
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child(detail)
+                        .child(selectable("notes-error", detail))
                 }))
         };
 

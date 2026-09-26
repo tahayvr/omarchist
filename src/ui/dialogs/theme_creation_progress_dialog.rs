@@ -9,6 +9,7 @@ use smol;
 use crate::system::themes::theme_generator::create_theme_from_image;
 use crate::ui::app_events::{AppEvent, emit_async};
 use crate::ui::app_view::ActivePage;
+use crate::ui::text::selectable;
 
 pub struct ThemeCreationProgressDialog {
     theme_name: String,
@@ -136,7 +137,7 @@ impl Render for ThemeCreationProgressDialog {
                     } else {
                         theme.muted_foreground
                     })
-                    .child(self.status_message.clone()),
+                    .child(selectable("status", self.status_message.clone())),
             )
             .child(if self.has_error {
                 Button::new("close-btn")

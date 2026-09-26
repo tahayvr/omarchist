@@ -7,6 +7,7 @@ use crate::system::flows::{Flow, icon_path};
 use crate::system::keybinds::chord::Chord;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
+use crate::ui::text::selectable;
 
 /// The flow's icon on a tinted square.
 pub fn icon_tile(icon: &str, size: Pixels, cx: &App) -> impl IntoElement {
@@ -50,7 +51,7 @@ pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoE
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("Runs from the command line"),
+                .child(selectable("runs-from-cli", "Runs from the command line")),
         );
     }
     row
@@ -94,7 +95,7 @@ pub fn step_strip(flow: &Flow, summaries: &SummaryContext, cx: &App) -> impl Int
             div()
                 .text_xs()
                 .text_color(theme.muted_foreground)
-                .child("No steps yet"),
+                .child(selectable("no-steps", "No steps yet")),
         );
     }
     row
@@ -139,7 +140,7 @@ pub fn template_card(
                         .child(
                             div()
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child(flow.name.clone()),
+                                .child(selectable("template-name", flow.name.clone())),
                         ),
                 )
                 .child(
@@ -149,7 +150,7 @@ pub fn template_card(
                         .text_sm()
                         .font_weight(FontWeight::NORMAL)
                         .text_color(theme.muted_foreground)
-                        .child(flow.description.clone()),
+                        .child(selectable("template-description", flow.description.clone())),
                 )
                 .child(step_strip(flow, summaries, cx)),
         )

@@ -12,6 +12,7 @@ use gpui_kit::TestSupportExt;
 use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
+use crate::ui::text::selectable;
 use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor};
 use crate::ui::theme_edit_page::shared::{error_message, git_ignored_note, theme_is_cloned};
 
@@ -283,7 +284,7 @@ impl OverridePane {
                             div()
                                 .text_lg()
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child(self.spec.app),
+                                .child(selectable("app", self.spec.app)),
                         )
                         .child(if custom {
                             badge("Custom", theme.primary)

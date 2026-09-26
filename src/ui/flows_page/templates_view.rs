@@ -13,6 +13,7 @@ use crate::ui::flows_page::flow_card::template_card;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::menu::app_menu;
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "FlowTemplatesPage";
 
@@ -118,8 +119,11 @@ impl Render for TemplatesView {
             div()
                 .text_sm()
                 .text_color(muted)
-                .child(format!(
-                    "No templates of your own yet. Put a .flow.toml file in {user_dir} to add one."
+                .child(selectable(
+                    "no-user-templates",
+                    format!(
+                        "No templates of your own yet. Put a .flow.toml file in {user_dir} to add one."
+                    ),
                 ))
                 .into_any_element()
         } else {
@@ -152,12 +156,10 @@ impl Render for TemplatesView {
                             .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
                     )
                     .child(div().font_weight(FontWeight::SEMIBOLD).child("Templates"))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(muted)
-                            .child("Pick one to start a new flow from it."),
-                    ),
+                    .child(div().text_xs().text_color(muted).child(selectable(
+                        "templates-note",
+                        "Pick one to start a new flow from it.",
+                    ))),
             )
             .child(
                 div()
@@ -172,7 +174,7 @@ impl Render for TemplatesView {
                             div()
                                 .text_sm()
                                 .text_color(muted)
-                                .child("Loading templates…"),
+                                .child(selectable("templates-loading", "Loading templates…")),
                         )
                     })
                     .when(self.loaded, |this| {

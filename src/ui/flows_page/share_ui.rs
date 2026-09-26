@@ -9,6 +9,7 @@ use crate::system::flows::Flow;
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
+use crate::ui::text::selectable;
 
 /// Asks where to save the flow as a shared file, then writes it and reports
 /// in a notification. The prompt starts in the Downloads folder.
@@ -75,8 +76,9 @@ pub fn import_flow_path<V: 'static>(path: PathBuf, window: &mut Window, cx: &mut
     .detach();
 }
 
-/// A one-line notice in the warning colour with a triangle icon.
-pub fn warning_banner(text: String, cx: &App) -> impl IntoElement {
+/// A one-line notice in the warning colour with a triangle icon. `id` keeps
+/// the text of sibling banners apart.
+pub fn warning_banner(id: impl Into<ElementId>, text: String, cx: &App) -> impl IntoElement {
     let theme = cx.theme();
     h_flex()
         .gap_2()
@@ -93,5 +95,5 @@ pub fn warning_banner(text: String, cx: &App) -> impl IntoElement {
                 .size_4()
                 .text_color(theme.warning),
         )
-        .child(text)
+        .child(selectable(id, text))
 }

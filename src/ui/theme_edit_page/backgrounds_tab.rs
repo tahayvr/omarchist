@@ -2,6 +2,7 @@ use crate::system::themes::theme_file_ops::{
     add_background_image, boot_logo, list_background_images, remove_background_image,
     remove_boot_logo, render_boot_preview, set_boot_logo,
 };
+use crate::ui::text::selectable;
 use crate::ui::theme_edit_page::shared::{error_message, focus_section, tab_container};
 use anyhow;
 use gpui::prelude::FluentBuilder;
@@ -417,10 +418,14 @@ impl Render for BackgroundsTab {
                                     )
                                     .child(
                                         div().w(px(150.)).child(
-                                            Label::new(&filename)
+                                            div()
                                                 .text_xs()
                                                 .text_color(cx.theme().muted_foreground)
-                                                .truncate(),
+                                                .truncate()
+                                                .child(selectable(
+                                                    ("bg-filename", current_index),
+                                                    filename.clone(),
+                                                )),
                                         ),
                                     ),
                             );

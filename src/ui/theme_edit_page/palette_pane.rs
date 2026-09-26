@@ -18,6 +18,7 @@ use crate::types::themes::ColorsConfig;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
+use crate::ui::text::selectable;
 use crate::ui::theme_edit_page::override_pane::StatusChanged;
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, error_message, field_grid, git_ignored_note, group_title,
@@ -303,7 +304,7 @@ impl PalettePane {
                             div()
                                 .text_lg()
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child(self.bundle.app),
+                                .child(selectable("app", self.bundle.app)),
                         )
                         .child(if custom {
                             badge("Custom", theme.primary)
@@ -333,7 +334,7 @@ impl PalettePane {
     fn render_colors(&self, columns: usize, cx: &mut Context<Self>) -> AnyElement {
         let muted = cx.theme().muted_foreground;
         let Some(keys) = &self.keys else {
-            return help_text("Loading…", muted).into_any_element();
+            return help_text("loading", "Loading…", muted).into_any_element();
         };
         let overrides = self.overrides.clone().unwrap_or_default();
 
@@ -406,6 +407,7 @@ impl Render for PalettePane {
             .children(self.error.clone().map(|error| error_message(error, cx)))
             .when(!custom && !self.old_files.is_empty(), |pane| {
                 pane.child(help_text(
+                    "old-files",
                     format!(
                         "{} from an older Omarchist are in this theme.",
                         self.old_files.join(", ")

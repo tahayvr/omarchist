@@ -2,6 +2,10 @@ use gpui::FontWeight;
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, Sizable, button::*, h_flex, v_flex};
 
+use gpui_base::TestSupportExt;
+
+use crate::ui::text::selectable;
+
 const KEY_CONTEXT: &str = "AboutView";
 
 pub struct AboutView {
@@ -51,13 +55,17 @@ impl Render for AboutView {
                             .font_weight(FontWeight::BOLD)
                             .text_color(theme.foreground)
                             .line_height(relative(1.0))
-                            .child("OMARCHIST"),
+                            .child(selectable("app-name", "OMARCHIST")),
                     )
                     .child(
                         div()
                             .id("omarchist-version")
+                            .test_support()
                             .text_color(theme.muted_foreground)
-                            .child(concat!("v", env!("CARGO_PKG_VERSION"))),
+                            .child(selectable(
+                                "version",
+                                concat!("v", env!("CARGO_PKG_VERSION")),
+                            )),
                     ),
             )
             .child(

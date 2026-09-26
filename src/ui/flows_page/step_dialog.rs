@@ -10,6 +10,7 @@ use gpui_component::{
 use crate::system::flows::StepKind;
 use crate::ui::flows_page::step_builder::{StepBuilder, StepBuilderEvent};
 use crate::ui::focus;
+use crate::ui::text::selectable;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StepDialogMode {
@@ -95,7 +96,7 @@ impl Render for StepDialog {
                             .border_color(theme.danger.opacity(0.4))
                             .bg(theme.danger.opacity(0.08))
                             .text_sm()
-                            .child(error),
+                            .child(selectable("step-error", error)),
                     )
                 })
                 .child(

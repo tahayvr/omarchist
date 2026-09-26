@@ -14,6 +14,7 @@ use gpui_component::{
 use crate::system::keybinds::{Keybind, Origin};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybinds_view::{CopyCommand, DisableRow, EditRow, ResetRow};
+use crate::ui::text::selectable;
 
 /// How a row relates to the user's overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -161,7 +162,7 @@ impl KeybindsTableDelegate {
                     .when(undescribed, |this: Div| {
                         this.italic().text_color(theme.muted_foreground)
                     })
-                    .child(label),
+                    .child(selectable(("kb-action", row_ix), label)),
             )
             .when(row.conflict, |this| {
                 let others = row.conflicts_with.join(", ");
@@ -194,7 +195,7 @@ impl KeybindsTableDelegate {
             .font_family("monospace")
             .text_xs()
             .text_color(theme.muted_foreground)
-            .child(text)
+            .child(selectable(("kb-cmd-text", row_ix), text))
             .tooltip(move |window, cx| Tooltip::new(tooltip_text.clone()).build(window, cx))
             .into_any_element()
     }
@@ -372,7 +373,12 @@ impl TableDelegate for KeybindsTableDelegate {
             .justify_center()
             .text_color(color)
             .child(Icon::new(icon).size_6())
-            .child(div().max_w(px(640.)).text_sm().child(text))
+            .child(
+                div()
+                    .max_w(px(640.))
+                    .text_sm()
+                    .child(selectable("kb-empty", text)),
+            )
             .into_any_element()
     }
 }

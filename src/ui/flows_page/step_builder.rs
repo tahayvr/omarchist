@@ -15,6 +15,7 @@ use crate::system::keybinds::action::{Action, ActionKind};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
+use crate::ui::text::selectable;
 
 pub enum StepBuilderEvent {
     Changed,
@@ -265,11 +266,11 @@ impl StepBuilder {
             )
     }
 
-    fn hint(text: &'static str, cx: &App) -> Div {
+    fn hint(id: &'static str, text: &'static str, cx: &App) -> Div {
         div()
             .text_xs()
             .text_color(cx.theme().muted_foreground)
-            .child(text)
+            .child(selectable(id, text))
     }
 
     fn render_body(&self, cx: &mut Context<Self>) -> AnyElement {
@@ -290,6 +291,7 @@ impl StepBuilder {
                         ),
                     )
                     .child(Self::hint(
+                        "wait-hint",
                         "Off, the command is started and the flow moves on, which is what \
                          opening an app needs. On, the flow waits for it to exit and treats \
                          a failure as the step failing.",
@@ -307,7 +309,12 @@ impl StepBuilder {
                             .items_center()
                             .flex_wrap()
                             .child(div().w_32().child(Input::new(&self.wait_ms).small()))
-                            .child(Self::hint("ms", cx))
+                            .child(
+                                div()
+                                    .text_xs()
+                                    .text_color(cx.theme().muted_foreground)
+                                    .child("ms"),
+                            )
                             .children(WAIT_PRESETS.iter().enumerate().map(|(ix, &ms)| {
                                 let button = Button::new(("wait-preset", ix))
                                     .label(format_duration(ms))
@@ -328,6 +335,7 @@ impl StepBuilder {
                             })),
                     )
                     .child(Self::hint(
+                        "delay-hint",
                         "Gives the previous step time to finish, such as a window appearing \
                          before the next step moves it.",
                         cx,
@@ -339,6 +347,7 @@ impl StepBuilder {
                 .child(Input::new(&self.notify_title).small())
                 .child(Input::new(&self.notify_body).small())
                 .child(Self::hint(
+                    "notify-hint",
                     "Shows a desktop notification, handy as the last step so you know the flow ran.",
                     cx,
                 ))
@@ -369,11 +378,15 @@ impl StepBuilder {
                         .rounded(theme.radius)
                         .bg(theme.secondary)
                         .font_family("monospace")
-                        .child(step.text()),
+                        .child(selectable("step-preview", step.text())),
                 )
                 .into_any_element(),
             Err(message) => row
-                .child(div().text_color(theme.muted_foreground).child(message))
+                .child(
+                    div()
+                        .text_color(theme.muted_foreground)
+                        .child(selectable("step-preview-message", message)),
+                )
                 .into_any_element(),
         })
     }

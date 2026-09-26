@@ -31,6 +31,7 @@ use crate::ui::focus;
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_table::{KeybindRow, RowKind};
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
+use crate::ui::text::selectable;
 
 pub enum DialogMode {
     Edit {
@@ -381,13 +382,16 @@ impl KeybindDialog {
                     div()
                         .text_xs()
                         .text_color(theme.muted_foreground)
-                        .child(hint),
+                        .child(selectable(
+                            SharedString::from(format!("hint-{label}")),
+                            hint,
+                        )),
                 )
             })
             .into_any_element()
     }
 
-    fn render_notice(&self, text: String, color: Hsla, cx: &App) -> AnyElement {
+    fn render_notice(&self, id: &'static str, text: String, color: Hsla, cx: &App) -> AnyElement {
         let theme = cx.theme();
         h_flex()
             .gap_2()
@@ -405,7 +409,7 @@ impl KeybindDialog {
                     .flex_shrink_0()
                     .text_color(color),
             )
-            .child(div().min_w_0().child(text))
+            .child(div().min_w_0().child(selectable(id, text)))
             .into_any_element()
     }
 
@@ -424,7 +428,10 @@ impl KeybindDialog {
                 div()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child("Runs a Lua function from Omarchy's config. Its keys cannot be changed here, but the keybind can be disabled.")
+                    .child(selectable(
+                        "lua-action",
+                        "Runs a Lua function from Omarchy's config. Its keys cannot be changed here, but the keybind can be disabled.",
+                    ))
                     .into_any_element(),
                 cx,
             ),
@@ -546,7 +553,12 @@ impl Render for KeybindDialog {
                 ))
             })
             .when_some(self.chord_error.clone(), |this, error| {
-                this.child(div().text_xs().text_color(theme.danger).child(error))
+                this.child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.danger)
+                        .child(selectable("chord-error", error)),
+                )
             })
             .child(self.render_field(
                 "Description",
@@ -565,17 +577,17 @@ impl Render for KeybindDialog {
                         ""
                     }
                 );
-                this.child(self.render_notice(text, theme.warning, cx))
+                this.child(self.render_notice("conflicts-notice", text, theme.warning, cx))
             })
             .when(!self.lost_siblings.is_empty(), |this| {
                 let list = self.lost_siblings.join(", ");
                 let text = format!(
                     "Changing this keybind also removes {list} from the same keys, and those run Lua functions that cannot be restored."
                 );
-                this.child(self.render_notice(text, theme.warning, cx))
+                this.child(self.render_notice("lost-siblings-notice", text, theme.warning, cx))
             })
             .when_some(self.error.clone(), |this, error| {
-                this.child(self.render_notice(error, theme.danger, cx))
+                this.child(self.render_notice("error-notice", error, theme.danger, cx))
             })
             .child(self.render_footer(cx)),
         )

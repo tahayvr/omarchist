@@ -454,7 +454,7 @@ impl Render for ShellSectionForm {
             return v_flex()
                 .children(self.error.clone().map(|e| error_message(e, cx)))
                 .when(self.error.is_none(), |this| {
-                    this.child(help_text("Loading…", muted))
+                    this.child(help_text("loading", "Loading…", muted))
                 });
         };
 

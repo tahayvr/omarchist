@@ -206,7 +206,7 @@ impl Render for ColorMapForm {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
         if self.entries.is_empty() {
-            return v_flex().child(help_text("No colors to pick.", muted));
+            return v_flex().child(help_text("no-colors", "No colors to pick.", muted));
         }
 
         let columns = pane_grid_columns(window);

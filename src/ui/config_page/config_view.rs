@@ -24,6 +24,7 @@ use gpui_component::{
 use crate::system::hyprland_config::HyprlandConfigManager;
 use crate::types::hyprland_config::HyprlandConfig;
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "ConfigPage";
 pub const NAV_CONTEXT: &str = "ConfigNav";
@@ -741,7 +742,7 @@ impl ConfigView {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child(item.description),
+                            .child(selectable("desc", item.description)),
                     ),
             )
             .child(div().flex_none().child(control))
@@ -813,7 +814,12 @@ impl ConfigView {
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(page.title),
                     )
-                    .child(div().text_sm().text_color(muted).child(page.description))
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(muted)
+                            .child(selectable(("page-desc", page_ix), page.description)),
+                    )
                     .into_any_element(),
             );
             sections.extend(groups);
@@ -823,7 +829,7 @@ impl ConfigView {
                 div()
                     .text_sm()
                     .text_color(muted)
-                    .child("No settings match your search.")
+                    .child(selectable("config-empty", "No settings match your search."))
                     .into_any_element(),
             );
         }

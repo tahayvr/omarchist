@@ -5,6 +5,7 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
+use crate::ui::text::selectable;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
@@ -147,7 +148,10 @@ impl Render for ThemeCard {
                             .text_color(theme.foreground)
                             .text_sm()
                             .font_weight(FontWeight::BOLD)
-                            .child(self.theme.title.clone()),
+                            .child(selectable(
+                                ("theme-title", self.index),
+                                self.theme.title.clone(),
+                            )),
                     )
                     .child({
                         let is_editable = self.theme.origin.is_editable();
@@ -219,7 +223,10 @@ impl Render for ThemeCard {
                                     .text_color(theme.muted_foreground)
                                     .text_sm()
                                     .font_weight(FontWeight::BOLD)
-                                    .child(self.theme.title.clone()),
+                                    .child(selectable(
+                                        ("theme-title-fallback", self.index),
+                                        self.theme.title.clone(),
+                                    )),
                             )
                         })
                     }),

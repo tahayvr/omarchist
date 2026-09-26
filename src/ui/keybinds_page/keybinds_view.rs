@@ -35,6 +35,7 @@ use crate::ui::keybinds_page::keybinds_table::{
     EmptyReason, KeybindRow, KeybindsTableDelegate, RowKind,
 };
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "KeybindsPage";
 /// Wraps the search box (text or keystroke) so Down/Escape can hand off to
@@ -837,7 +838,12 @@ impl KeybindsView {
                         .size_4()
                         .text_color(theme.warning),
                 )
-                .child(div().min_w_0().truncate().child(text))
+                .child(
+                    div()
+                        .min_w_0()
+                        .truncate()
+                        .child(selectable("kb-notice", text)),
+                )
                 .into_any_element(),
         )
     }
@@ -863,8 +869,11 @@ impl KeybindsView {
             .items_center()
             .text_xs()
             .text_color(theme.muted_foreground)
-            .child(summary)
-            .child("Changes are written to ~/.config/hypr/omarchist.lua and applied immediately")
+            .child(selectable("kb-summary", summary))
+            .child(selectable(
+                "kb-footer-note",
+                "Changes are written to ~/.config/hypr/omarchist.lua and applied immediately",
+            ))
     }
 }
 

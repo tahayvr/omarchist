@@ -26,6 +26,7 @@ use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::keymap::{keystroke_to_chord, modifiers_to_modmask};
 use crate::system::keybinds::submap;
 use crate::ui::keybinds_page::chord_chips::{chord_chips, modifier_chips};
+use crate::ui::text::selectable;
 
 actions!(
     keystroke_input,
@@ -408,7 +409,7 @@ impl Render for KeystrokeInput {
                         .mt_1()
                         .text_xs()
                         .text_color(theme.warning)
-                        .child(error),
+                        .child(selectable("submap-error", error)),
                 )
             })
     }

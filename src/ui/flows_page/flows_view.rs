@@ -30,6 +30,7 @@ use crate::ui::flows_page::flow_card::{
 use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, import_flow_path};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "FlowsPage";
 /// Wraps the search box so Down and Escape hand off from inside the input.
@@ -470,17 +471,19 @@ impl FlowsView {
                             .min_w_0()
                             .gap_0p5()
                             .child(
-                                div()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .truncate()
-                                    .child(flow.name.clone()),
+                                div().font_weight(FontWeight::SEMIBOLD).truncate().child(
+                                    selectable(("flow-name", filtered_ix), flow.name.clone()),
+                                ),
                             )
                             .child(
                                 div()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
                                     .truncate()
-                                    .child(description),
+                                    .child(selectable(
+                                        ("flow-description", filtered_ix),
+                                        description,
+                                    )),
                             ),
                     )
                     .child(
@@ -576,11 +579,10 @@ impl FlowsView {
                 .items_center()
                 .py_12()
                 .gap_1()
-                .child(
-                    div()
-                        .text_color(theme.muted_foreground)
-                        .child(format!("No flows match \"{}\"", self.query.trim())),
-                )
+                .child(div().text_color(theme.muted_foreground).child(selectable(
+                    "no-match",
+                    format!("No flows match \"{}\"", self.query.trim()),
+                )))
                 .into_any_element();
         }
         if !self.loaded {
@@ -613,20 +615,22 @@ impl FlowsView {
                             .text_sm()
                             .text_left()
                             .text_color(theme.muted_foreground)
-                            .child(
+                            .child(selectable(
+                                "empty-what",
                                 "A flow strings actions together: open apps, switch workspaces, \
                                  send a notification, wait a moment.",
-                            ),
+                            )),
                     )
                     .child(
                         div()
                             .text_sm()
                             .text_left()
                             .text_color(theme.muted_foreground)
-                            .child(
+                            .child(selectable(
+                                "empty-how",
                                 "Run it from a keybind, the app launcher, at startup, or with \
                                  one command.",
-                            ),
+                            )),
                     ),
             )
             .child(

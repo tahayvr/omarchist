@@ -1,4 +1,5 @@
 use crate::ui::focus::FocusSection;
+use crate::ui::text::selectable;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Colorize,
@@ -113,8 +114,12 @@ pub fn form_section() -> Div {
     v_flex().gap_2()
 }
 
-pub fn help_text(text: impl Into<SharedString>, color: Hsla) -> Div {
-    div().text_sm().text_color(color).child(text.into())
+/// A short message in `color`; `id` must be unique among its siblings.
+pub fn help_text(id: impl Into<ElementId>, text: impl Into<SharedString>, color: Hsla) -> Div {
+    div()
+        .text_sm()
+        .text_color(color)
+        .child(selectable(id, text))
 }
 
 pub trait TabInputHandler: Sized {
@@ -150,7 +155,12 @@ pub fn error_message(text: impl Into<SharedString>, cx: &App) -> Div {
         .bg(theme.danger.opacity(0.1))
         .border_1()
         .border_color(theme.danger)
-        .child(div().text_sm().text_color(theme.danger).child(text.into()))
+        .child(
+            div()
+                .text_sm()
+                .text_color(theme.danger)
+                .child(selectable("error-message", text)),
+        )
 }
 
 /// Lays `cells` out in rows of `columns` equal-width cells. The last row is
@@ -266,6 +276,7 @@ pub fn theme_is_cloned(theme_name: &str) -> bool {
 /// from a git repository.
 pub fn git_ignored_note(cx: &App) -> Div {
     help_text(
+        "git-ignored-note",
         "Ignored: Omarchy does not load this from a theme installed from git.",
         cx.theme().warning,
     )

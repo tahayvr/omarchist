@@ -44,6 +44,7 @@ use crate::ui::keybinds_page::keybind_dialog::{
 };
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
+use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "FlowEditPage";
 /// Wraps the step list: up/down select, Enter edits, Alt+arrows reorder.
@@ -589,6 +590,7 @@ impl FlowEditPage {
     fn render_import_banner(&self, cx: &App) -> Option<impl IntoElement> {
         let origin = self.import_origin.as_ref()?;
         Some(warning_banner(
+            "import-banner",
             format!("Imported from {origin}. Check every step before you save."),
             cx,
         ))
@@ -610,6 +612,7 @@ impl FlowEditPage {
         }
         let verb = if missing.len() == 1 { "is" } else { "are" };
         Some(warning_banner(
+            "requirements-banner",
             format!(
                 "This flow needs {}, which {verb} not installed.",
                 missing.join(", ")
@@ -645,19 +648,25 @@ impl FlowEditPage {
                     .gap_2()
                     .items_center()
                     .child(icon_tile(&self.flow.icon, px(28.), cx))
-                    .child(div().font_weight(FontWeight::SEMIBOLD).truncate().child(
-                        if name.is_empty() {
-                            "New flow".to_string()
-                        } else {
-                            name
-                        },
-                    ))
+                    .child(
+                        div()
+                            .font_weight(FontWeight::SEMIBOLD)
+                            .truncate()
+                            .child(selectable(
+                                "flow-title",
+                                if name.is_empty() {
+                                    "New flow".to_string()
+                                } else {
+                                    name
+                                },
+                            )),
+                    )
                     .when(dirty, |this| {
                         this.child(
                             div()
                                 .text_xs()
                                 .text_color(theme.muted_foreground)
-                                .child("Unsaved"),
+                                .child(selectable("flow-unsaved", "Unsaved")),
                         )
                     }),
             )
@@ -806,7 +815,7 @@ impl FlowEditPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("Set in your bindings.lua"),
+                            .child(selectable("keybind-external", "Set in your bindings.lua")),
                     )
                 }),
             None => h_flex()
@@ -829,7 +838,7 @@ impl FlowEditPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("after saving"),
+                            .child(selectable("keybind-after-saving", "after saving")),
                     )
                 }),
         };
@@ -886,7 +895,7 @@ impl FlowEditPage {
                                     } else {
                                         theme.foreground
                                     })
-                                    .child(command),
+                                    .child(selectable("flow-command", command)),
                             )
                             .when(!is_new, |this| {
                                 this.child(
@@ -903,7 +912,10 @@ impl FlowEditPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("Works from any script, terminal, or keybind."),
+                            .child(selectable(
+                                "command-note",
+                                "Works from any script, terminal, or keybind.",
+                            )),
                     ),
             )
     }
@@ -1000,7 +1012,7 @@ impl FlowEditPage {
                             } else {
                                 theme.muted_foreground
                             })
-                            .child(summary.title),
+                            .child(selectable(("step-title", ix), summary.title)),
                     )
                     .child(
                         div()
@@ -1008,7 +1020,7 @@ impl FlowEditPage {
                             .font_family("monospace")
                             .text_color(theme.muted_foreground)
                             .truncate()
-                            .child(summary.detail),
+                            .child(selectable(("step-detail", ix), summary.detail)),
                     )
                     .when_some(missing_program, |this, program| {
                         this.child(
@@ -1018,7 +1030,10 @@ impl FlowEditPage {
                                 .text_xs()
                                 .text_color(theme.warning)
                                 .child(Icon::new(IconName::TriangleAlert).size_3())
-                                .child(format!("{program} is not installed")),
+                                .child(selectable(
+                                    ("step-missing", ix),
+                                    format!("{program} is not installed"),
+                                )),
                         )
                     }),
             )
@@ -1123,12 +1138,11 @@ impl FlowEditPage {
                     .gap_1()
                     .text_sm()
                     .text_color(theme.muted_foreground)
-                    .child("No steps yet")
-                    .child(
-                        div()
-                            .text_xs()
-                            .child("Add the first thing this flow should do."),
-                    ),
+                    .child(selectable("no-steps", "No steps yet"))
+                    .child(div().text_xs().child(selectable(
+                        "no-steps-hint",
+                        "Add the first thing this flow should do.",
+                    ))),
             );
         }
 
@@ -1143,7 +1157,7 @@ impl FlowEditPage {
                         div()
                             .text_xs()
                             .text_color(theme.muted_foreground)
-                            .child("Run in order, top to bottom"),
+                            .child(selectable("steps-order", "Run in order, top to bottom")),
                     ),
             )
             .child(list)

@@ -11,6 +11,7 @@ use gpui_component::{
 };
 
 use crate::ui::focus;
+use crate::ui::text::selectable;
 
 type ConfirmHandler = Rc<dyn Fn(&mut Window, &mut App)>;
 
@@ -55,7 +56,12 @@ pub fn open_confirm_dialog(
                 .child(
                     v_flex()
                         .gap_4()
-                        .child(div().text_sm().text_color(muted).child(message.clone()))
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(muted)
+                                .child(selectable("confirm-message", message.clone())),
+                        )
                         .child(
                             h_flex()
                                 .justify_end()

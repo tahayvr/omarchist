@@ -23,6 +23,7 @@ use crate::system::keybinds::action::{
 };
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
+use crate::ui::text::selectable;
 
 pub enum ActionBuilderEvent {
     Changed,
@@ -843,11 +844,11 @@ impl ActionBuilder {
             .child(text)
     }
 
-    fn hint(text: impl Into<SharedString>, cx: &App) -> Div {
+    fn hint(id: &'static str, text: impl Into<SharedString>, cx: &App) -> Div {
         div()
             .text_xs()
             .text_color(cx.theme().muted_foreground)
-            .child(text.into())
+            .child(selectable(id, text))
     }
 
     fn render_body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
@@ -872,6 +873,7 @@ impl ActionBuilder {
                     )
                     .when_some(carried, |this, (app, _)| {
                         this.child(Self::hint(
+                            "app-carried-hint",
                             format!("Currently launches `{}`, which has no menu entry.", app.exec),
                             cx,
                         ))
@@ -891,7 +893,12 @@ impl ActionBuilder {
                     h_flex()
                         .gap_2()
                         .items_center()
-                        .child(Self::hint("or pick one you have installed", cx))
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child("or pick one you have installed"),
+                        )
                         .child(
                             div().flex_1().min_w_0().child(
                                 Select::new(&self.webapp_select)
@@ -913,6 +920,7 @@ impl ActionBuilder {
                 .gap_2()
                 .child(Input::new(&self.terminal_command).small())
                 .child(Self::hint(
+                    "terminal-hint",
                     "Opens a terminal window running the command, the way Omarchy launches btop or lazydocker.",
                     cx,
                 ))
@@ -946,7 +954,7 @@ impl ActionBuilder {
                     )
                     .when_some(self.kept_lua.as_ref().filter(|_| self.window.is_none()), |this, expr| {
                         this.child(
-                            v_flex().gap_1().child(Self::hint("Currently runs this Hyprland dispatcher, which the builder cannot edit. Choosing an action replaces it.", cx)).child(
+                            v_flex().gap_1().child(Self::hint("kept-lua-hint", "Currently runs this Hyprland dispatcher, which the builder cannot edit. Choosing an action replaces it.", cx)).child(
                                 div()
                                     .px_2()
                                     .py_1()
@@ -954,7 +962,7 @@ impl ActionBuilder {
                                     .bg(theme.secondary)
                                     .font_family("monospace")
                                     .text_xs()
-                                    .child(expr.clone()),
+                                    .child(selectable("kept-lua", expr.clone())),
                             ),
                         )
                     })
@@ -1013,6 +1021,7 @@ impl ActionBuilder {
                                         .child(field("Height change (px)", &self.resize_y)),
                                 )
                                 .child(Self::hint(
+                                    "resize-hint",
                                     "Negative values shrink the window.",
                                     cx,
                                 )),
@@ -1034,6 +1043,7 @@ impl ActionBuilder {
                         .small(),
                 )
                 .child(Self::hint(
+                    "flow-hint",
                     if self.flows.is_empty() {
                         "Create a flow on the Flows page first: a sequence of actions that runs from one keybind."
                     } else {
@@ -1046,6 +1056,7 @@ impl ActionBuilder {
                 .gap_2()
                 .child(Input::new(&self.command).small())
                 .child(Self::hint(
+                    "command-hint",
                     "Runs through Hyprland's exec dispatcher, so shell syntax such as || works.",
                     cx,
                 ))
@@ -1075,9 +1086,13 @@ impl ActionBuilder {
                         .rounded(theme.radius)
                         .bg(theme.secondary)
                         .font_family("monospace")
-                        .child(dispatcher.text().to_string()),
+                        .child(selectable("preview-cmd", dispatcher.text().to_string())),
                 ),
-            Err(message) => row.child(div().text_color(theme.muted_foreground).child(message)),
+            Err(message) => row.child(
+                div()
+                    .text_color(theme.muted_foreground)
+                    .child(selectable("preview-error", message)),
+            ),
         }
     }
 }

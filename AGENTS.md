@@ -182,6 +182,10 @@ impl Render for MyComponent {
 }
 ```
 
+### Selectable Text
+
+Every value the app shows (names, descriptions, ids, paths, commands, step summaries, messages, versions) is rendered with `crate::ui::text::selectable(id, text)` from `src/ui/text.rs`, a `gpui_base::SelectableText` run that joins gpui-component's window selection layer (`Root` renders it; Ctrl+C copies). The run takes its parent `div()`'s text style, so styling stays on the div and only the text child changes. The `id` must be unique among siblings (`("flow-name", ix)` in lists). Button labels, chips, control labels, and headings stay plain. A headless test double-clicks the About page's version and reads the selection back with `TextSelection::selected_text`.
+
 ### Responsive Design (REQUIRED)
 
 **ALL pages, tabs, and content MUST be responsive.** Never use fixed widths causing overflow.
@@ -348,6 +352,7 @@ A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reus
 ## Key File Locations
 
 - **Navigation:** `src/ui/app_view.rs`
+- **Selectable text:** `src/ui/text.rs`
 - **Keyboard:** `src/ui/shortcuts.rs` (every binding), `src/ui/focus.rs` (tab stops, trap-aware focus moves, focusable switch, scroll-into-view), `src/ui/dialogs/shortcuts_dialog.rs`, `src/ui/dialogs/command_palette.rs`, `tests/keyboard_nav.rs`
 - **Theme Creation:** `src/ui/dialogs/create_theme_dialog.rs`
 - **Theme Editing:** `src/ui/theme_edit_page/theme_edit_view.rs`
