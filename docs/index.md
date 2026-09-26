@@ -25,6 +25,9 @@ Omarchist 2.x requires Omarchy Quattro (v4). Use an Omarchist 1.x release with O
 
 The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own options. They live in `~/.config/omarchist/settings.json`, and an Omarchist update adds new options without touching the ones you set.
 
+<img src="/images/settings-light.webp" alt="Settings page" class="screenshot light-only">
+<img src="/images/settings-dark.webp" alt="Settings page" class="screenshot dark-only">
+
 | Section | Options |
 | --- | --- |
 | **Appearance** | Font size. Look: follow the desktop theme's light or dark mode, or force one. The gear menu's light and dark switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. |
