@@ -280,7 +280,7 @@ impl Render for ColorsTab {
         };
         let section = |title: &'static str, cells: Vec<AnyElement>| {
             v_flex()
-                .gap_4()
+                .gap_1()
                 .child(section_title(title))
                 .child(field_grid(columns, cells))
         };
@@ -351,7 +351,7 @@ impl Render for ColorsTab {
                 .into_any_element()
         };
         let borders = v_flex()
-            .gap_4()
+            .gap_1()
             .child(section_title("Window Borders"))
             .child(field_grid(
                 (columns / 4).max(1),

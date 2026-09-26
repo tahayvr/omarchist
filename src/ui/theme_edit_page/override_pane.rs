@@ -146,9 +146,19 @@ impl OverridePane {
         .detach();
     }
 
-    /// Writes what Omarchy would generate and opens it in the editor.
+    /// Writes what Omarchy would generate and opens it in the editor. A file
+    /// with a fixed seed, such as the VS Code descriptor, starts blank and is
+    /// not valid until filled in, so it is opened without being written.
     fn customize(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.busy {
+            return;
+        }
+        if let overrides::Seed::Fixed(seed) = self.spec.seed {
+            self.edit_generation += 1;
+            self.error = None;
+            self.show_editor(seed, window, cx);
+            cx.emit(StatusChanged);
+            cx.notify();
             return;
         }
         self.busy = true;

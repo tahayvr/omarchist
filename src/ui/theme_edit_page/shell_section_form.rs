@@ -422,7 +422,7 @@ impl ShellSectionForm {
             .filter_map(|key| self.render_field(key, cx))
             .collect();
         v_flex()
-            .gap_3()
+            .gap_1()
             .children(group_title_of(help).map(|title| group_title(title, cx)))
             .when(!fields.is_empty(), |group| {
                 group.child(field_grid(columns, fields))

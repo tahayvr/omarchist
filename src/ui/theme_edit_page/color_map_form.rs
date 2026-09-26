@@ -170,7 +170,7 @@ impl ColorMapForm {
                     Some(color_picker_with_clipboard(id, label, picker).into_any_element())
                 });
                 v_flex()
-                    .gap_3()
+                    .gap_1()
                     .child(group_title(heading, cx))
                     .child(field_grid(columns, items.collect()))
                     .into_any_element()

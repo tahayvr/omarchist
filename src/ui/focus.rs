@@ -162,7 +162,12 @@ impl RenderOnce for FocusableSwitch {
                     .checked(checked)
                     .disabled(disabled)
                     .when_some(on_change.clone(), |this, handler| {
-                        this.on_click(move |value, window, cx| handler(value, window, cx))
+                        this.on_click(move |value, window, cx| {
+                            // Otherwise the row's own click handler toggles
+                            // a second time.
+                            cx.stop_propagation();
+                            handler(value, window, cx)
+                        })
                     }),
             )
             .when_some(on_change.filter(|_| !disabled), |this, handler| {

@@ -375,7 +375,7 @@ impl Render for ColorFieldsForm {
             .gap_6()
             .children(groups.into_iter().map(|(name, items)| {
                 v_flex()
-                    .gap_3()
+                    .gap_1()
                     .when(!name.is_empty(), |group| group.child(group_title(name, cx)))
                     .child(field_grid(columns, items))
             }))

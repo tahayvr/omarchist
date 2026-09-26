@@ -371,7 +371,7 @@ impl PalettePane {
             .gap_6()
             .children(groups.into_iter().map(|(name, items)| {
                 v_flex()
-                    .gap_3()
+                    .gap_1()
                     .child(group_title(name, cx))
                     .child(field_grid(columns, items))
             }))
