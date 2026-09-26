@@ -107,12 +107,14 @@ pub enum Options {
 }
 
 /// One choice of a dropdown: the value written, the value read back
-/// (usually the same), and the label.
+/// (usually the same), the label, and whether it can be chosen now (an
+/// app that is not installed still gets its label when it is current).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Choice {
     pub value: String,
     pub reads_as: String,
     pub label: String,
+    pub available: bool,
 }
 
 pub fn read(backing: &Backing) -> Option<Value> {
@@ -234,6 +236,18 @@ fn env_file_value(content: &str, key: &str) -> Option<String> {
     })
 }
 
+/// Whether a read-back matches what was written: numbers compare as
+/// floats, strings and booleans exactly.
+pub fn same_value(a: &Value, b: &Value) -> bool {
+    match (a, b) {
+        (Value::Number(x), Value::Number(y)) => match (x.as_f64(), y.as_f64()) {
+            (Some(x), Some(y)) => (x - y).abs() < 1e-9,
+            _ => false,
+        },
+        _ => a == b,
+    }
+}
+
 /// The value as a command argument: strings bare, numbers without a
 /// trailing `.0`, booleans as `true`/`false`.
 fn value_text(value: &Value) -> String {
@@ -297,6 +311,7 @@ pub fn choices(options: &Options) -> Vec<Choice> {
                 value: value.to_string(),
                 reads_as: value.to_string(),
                 label: label.to_string(),
+                available: true,
             })
             .collect(),
         Options::Lines(argv) => Command::new(argv[0])
@@ -312,17 +327,18 @@ pub fn choices(options: &Options) -> Vec<Choice> {
                         value: l.to_string(),
                         reads_as: l.to_string(),
                         label: l.to_string(),
+                        available: true,
                     })
                     .collect()
             })
             .unwrap_or_default(),
         Options::Installed(list) => list
             .iter()
-            .filter(|(_, _, _, binary)| condition_holds(&["omarchy-cmd-present", binary]))
-            .map(|(value, reads_as, label, _)| Choice {
+            .map(|(value, reads_as, label, binary)| Choice {
                 value: value.to_string(),
                 reads_as: reads_as.to_string(),
                 label: label.to_string(),
+                available: condition_holds(&["omarchy-cmd-present", binary]),
             })
             .collect(),
     }
@@ -519,5 +535,6 @@ mod tests {
         assert_eq!(choices[0].value, "top");
         assert_eq!(choices[0].reads_as, "top");
         assert_eq!(choices[1].label, "Bottom");
+        assert!(choices.iter().all(|c| c.available));
     }
 }

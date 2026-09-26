@@ -415,6 +415,7 @@ impl Render for SettingsView {
                     .track_scroll(&self.scroll)
                     .child(
                         v_flex()
+                            .w_full()
                             .gap_4()
                             .pb_8()
                             .pr_4()

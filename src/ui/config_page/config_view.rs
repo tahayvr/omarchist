@@ -473,15 +473,24 @@ impl ConfigView {
                 cx.notify();
                 let backing = *backing;
                 cx.spawn(async move |this, cx| {
+                    let wanted = value.clone();
                     let result = cx
                         .background_spawn(async move {
-                            let result = omarchy_settings::write(&backing, &value);
+                            let result = omarchy_settings::write(&backing, &wanted);
                             (result, omarchy_settings::read(&backing))
                         })
                         .await;
                     this.update(cx, |this, cx| {
                         let (result, current) = result;
-                        if let Err(e) = result {
+                        // A script that did its work but ended with a slow
+                        // `hyprctl reload` exits non-zero; the read-back is
+                        // what counts.
+                        let applied = current
+                            .as_ref()
+                            .is_some_and(|c| omarchy_settings::same_value(c, &value));
+                        if let Err(e) = result
+                            && !applied
+                        {
                             this.omarchy.errors.insert(item.id, e.to_string());
                         }
                         if let Some(current) = current {
@@ -917,9 +926,16 @@ impl ConfigView {
                     .iter()
                     .find(|c| c.reads_as == current)
                     .map(|c| c.label.clone())
-                    .unwrap_or_else(|| current.clone());
+                    .unwrap_or_else(|| {
+                        if current.is_empty() {
+                            "Not set".to_string()
+                        } else {
+                            current.clone()
+                        }
+                    });
                 let choices = choices
                     .into_iter()
+                    .filter(|c| c.available)
                     .map(|c| {
                         let checked = c.reads_as == current;
                         (c.value, c.label, checked)
@@ -1145,12 +1161,14 @@ impl ConfigView {
             .get(&item.id)
             .copied()
             .unwrap_or_default();
+        // A menu entry with a condition knows whether it is installed; a
+        // plain action (a picker, a one-off setup) does not.
         let (status, button, action) = if availability.remove {
             let remove = item.remove.as_ref()?;
             (Some("Installed"), "Remove…", remove.action.clone())
         } else if availability.install {
             (
-                item.remove.as_ref().map(|_| "Not installed"),
+                (item.install.when.is_some() || item.remove.is_some()).then_some("Not installed"),
                 "Install…",
                 item.install.action.clone(),
             )
@@ -1354,7 +1372,9 @@ impl ConfigView {
             .h_full()
             .overflow_y_scroll()
             .track_scroll(&self.scroll)
-            .child(v_flex().gap_4().pb_8().pr_4().children(sections))
+            // Full width, or the column sizes to its widest row and the
+            // controls fall off the right edge of a narrow window.
+            .child(v_flex().w_full().gap_4().pb_8().pr_4().children(sections))
     }
 }
 
