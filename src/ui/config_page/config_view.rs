@@ -24,6 +24,9 @@ use gpui_component::{
 use serde_json::Value;
 
 use crate::system::hyprland_config::HyprlandConfigManager;
+use crate::ui::config_page::pages::{
+    FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PAGES, PageDef,
+};
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
 
@@ -35,342 +38,6 @@ pub mod config_nav {
     gpui::actions!(config_nav, [Prev, Next, First, Last, Activate, Back]);
 }
 
-// ---------------------------------------------------------------------
-// Declarative definition of the page
-// ---------------------------------------------------------------------
-
-// How an item is edited. Values are read and written by the dotted
-// Hyprland option path (`general.gaps_in`), the same path the manager
-// stores overrides under.
-enum FieldDef {
-    Number {
-        min: f64,
-        max: f64,
-        step: f64,
-        /// Written as an integer, as Hyprland declares the option.
-        integer: bool,
-    },
-    Switch,
-    Dropdown {
-        options: &'static [(&'static str, &'static str)],
-    },
-    KeyboardLayout,
-}
-
-struct ItemDef {
-    id: &'static str,
-    /// The Hyprland option, dotted (`input.touchpad.tap_to_click`).
-    path: &'static str,
-    label: &'static str,
-    description: &'static str,
-    field: FieldDef,
-}
-
-const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
-
-struct GroupDef {
-    title: &'static str,
-    items: &'static [ItemDef],
-}
-
-struct PageDef {
-    title: &'static str,
-    description: &'static str,
-    groups: &'static [GroupDef],
-}
-
-macro_rules! int_item {
-    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
-        ItemDef {
-            id: $id,
-            path: $path,
-            label: $label,
-            description: $desc,
-            field: FieldDef::Number {
-                min: $min,
-                max: $max,
-                step: $step,
-                integer: true,
-            },
-        }
-    };
-}
-
-macro_rules! float_item {
-    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
-        ItemDef {
-            id: $id,
-            path: $path,
-            label: $label,
-            description: $desc,
-            field: FieldDef::Number {
-                min: $min,
-                max: $max,
-                step: $step,
-                integer: false,
-            },
-        }
-    };
-}
-
-macro_rules! switch_item {
-    ($id:expr, $path:expr, $label:expr, $desc:expr) => {
-        ItemDef {
-            id: $id,
-            path: $path,
-            label: $label,
-            description: $desc,
-            field: FieldDef::Switch,
-        }
-    };
-}
-
-const PAGES: &[PageDef] = &[
-    PageDef {
-        title: "General",
-        description: "General window manager settings",
-        groups: &[
-            GroupDef {
-                title: "Window Borders",
-                items: &[
-                    int_item!(
-                        "border-size",
-                        "general.border_size",
-                        "Border Size",
-                        "Size of the border around windows",
-                        0.0,
-                        20.0,
-                        1.0
-                    ),
-                    switch_item!(
-                        "resize-on-border",
-                        "general.resize_on_border",
-                        "Resize on Border",
-                        "Enable resizing windows by clicking and dragging on borders"
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Gaps",
-                items: &[
-                    int_item!(
-                        "gaps-in",
-                        "general.gaps_in",
-                        "Gaps In",
-                        "Gaps between windows",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "gaps-out",
-                        "general.gaps_out",
-                        "Gaps Out",
-                        "Gaps between windows and monitor edges",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "gaps-workspaces",
-                        "general.gaps_workspaces",
-                        "Gaps Workspaces",
-                        "Gaps between workspaces. Stacks with gaps out",
-                        0.0,
-                        100.0,
-                        1.0
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Layout",
-                items: &[ItemDef {
-                    id: "layout",
-                    path: "general.layout",
-                    label: "Layout",
-                    description: "Window layout algorithm",
-                    field: FieldDef::Dropdown {
-                        options: &[
-                            ("dwindle", "Dwindle"),
-                            ("master", "Master"),
-                            ("scrolling", "Scrolling"),
-                            ("monocle", "Monocle"),
-                        ],
-                    },
-                }],
-            },
-        ],
-    },
-    PageDef {
-        title: "Appearance",
-        description: "Visual appearance and effects",
-        groups: &[
-            GroupDef {
-                title: "Rounding",
-                items: &[int_item!(
-                    "rounding",
-                    "decoration.rounding",
-                    "Rounding",
-                    "Rounded corners radius in pixels",
-                    0.0,
-                    20.0,
-                    1.0
-                )],
-            },
-            GroupDef {
-                title: "Opacity",
-                items: &[
-                    float_item!(
-                        "active-opacity",
-                        "decoration.active_opacity",
-                        "Active Opacity",
-                        "Opacity of active windows",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
-                    float_item!(
-                        "inactive-opacity",
-                        "decoration.inactive_opacity",
-                        "Inactive Opacity",
-                        "Opacity of inactive windows",
-                        0.0,
-                        1.0,
-                        0.05
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Blur",
-                items: &[
-                    switch_item!(
-                        "blur-enabled",
-                        "decoration.blur.enabled",
-                        "Enable Blur",
-                        "Enable window background blur"
-                    ),
-                    int_item!(
-                        "blur-size",
-                        "decoration.blur.size",
-                        "Blur Size",
-                        "Blur size/distance",
-                        1.0,
-                        100.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "blur-passes",
-                        "decoration.blur.passes",
-                        "Blur Passes",
-                        "Number of blur passes",
-                        1.0,
-                        10.0,
-                        1.0
-                    ),
-                ],
-            },
-        ],
-    },
-    PageDef {
-        title: "Input",
-        description: "Mouse, keyboard, and touchpad settings",
-        groups: &[
-            GroupDef {
-                title: "Keyboard",
-                items: &[
-                    ItemDef {
-                        id: "kb-layout",
-                        path: KEYBOARD_LAYOUT_PATH,
-                        label: "Keyboard Layout",
-                        description: "Keyboard layout (e.g., us, de, fr)",
-                        field: FieldDef::KeyboardLayout,
-                    },
-                    int_item!(
-                        "repeat-rate",
-                        "input.repeat_rate",
-                        "Repeat Rate",
-                        "Repeat rate for held-down keys (repeats per second)",
-                        1.0,
-                        200.0,
-                        1.0
-                    ),
-                    int_item!(
-                        "repeat-delay",
-                        "input.repeat_delay",
-                        "Repeat Delay",
-                        "Delay before key repeat starts (milliseconds)",
-                        100.0,
-                        2000.0,
-                        25.0
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Mouse",
-                items: &[
-                    float_item!(
-                        "sensitivity",
-                        "input.sensitivity",
-                        "Sensitivity",
-                        "Mouse sensitivity (-1.0 to 1.0)",
-                        -1.0,
-                        1.0,
-                        0.05
-                    ),
-                    switch_item!(
-                        "natural-scroll",
-                        "input.natural_scroll",
-                        "Natural Scroll",
-                        "Invert scrolling direction"
-                    ),
-                    switch_item!(
-                        "left-handed",
-                        "input.left_handed",
-                        "Left Handed",
-                        "Switch left and right mouse buttons"
-                    ),
-                ],
-            },
-            GroupDef {
-                title: "Touchpad",
-                items: &[
-                    switch_item!(
-                        "disable-while-typing",
-                        "input.touchpad.disable_while_typing",
-                        "Disable While Typing",
-                        "Disable touchpad while typing"
-                    ),
-                    switch_item!(
-                        "tap-to-click",
-                        "input.touchpad.tap_to_click",
-                        "Tap to Click",
-                        "Tap on touchpad to click"
-                    ),
-                    switch_item!(
-                        "touchpad-natural-scroll",
-                        "input.touchpad.natural_scroll",
-                        "Natural Scroll",
-                        "Invert touchpad scrolling direction"
-                    ),
-                ],
-            },
-        ],
-    },
-    PageDef {
-        title: "Miscellaneous",
-        description: "Miscellaneous settings",
-        groups: &[GroupDef {
-            title: "General",
-            items: &[switch_item!(
-                "vfr",
-                "debug.vfr",
-                "VFR",
-                "Variable frame rate: render only when something changes (saves battery)"
-            )],
-        }],
-    },
-];
-
 fn format_number(value: f64) -> String {
     if value.fract() == 0.0 {
         format!("{}", value as i64)
@@ -380,11 +47,32 @@ fn format_number(value: f64) -> String {
     }
 }
 
-fn number_at(manager: &HyprlandConfigManager, path: &str) -> f64 {
-    manager
-        .value(path)
-        .and_then(|v| v.as_f64())
-        .unwrap_or_default()
+/// The number a `Number` or `Pair` item shows.
+fn number_at(manager: &HyprlandConfigManager, item: &ItemDef) -> f64 {
+    let value = manager.value(item.path);
+    match item.field {
+        FieldDef::Pair { index, .. } => value
+            .and_then(|v| v.get(index).and_then(Value::as_f64))
+            .unwrap_or_default(),
+        _ => value.and_then(|v| v.as_f64()).unwrap_or_default(),
+    }
+}
+
+/// The JSON value a `Number` or `Pair` item writes for `next`.
+fn number_value_for(manager: &HyprlandConfigManager, item: &ItemDef, next: f64) -> Value {
+    match item.field {
+        FieldDef::Number { integer, .. } => number_value(next, integer),
+        FieldDef::Pair { index, .. } => {
+            let mut pair = manager
+                .value(item.path)
+                .and_then(|v| v.as_array().cloned())
+                .unwrap_or_else(|| vec![Value::from(0.0), Value::from(0.0)]);
+            pair.resize(2, Value::from(0.0));
+            pair[index] = Value::from(next);
+            Value::Array(pair)
+        }
+        _ => Value::from(next),
+    }
 }
 
 fn string_at(manager: &HyprlandConfigManager, path: &str) -> String {
@@ -409,7 +97,17 @@ fn display_value(value: &Value, field: &FieldDef) -> String {
     match (value, field) {
         (Value::Bool(true), _) => "on".to_string(),
         (Value::Bool(false), _) => "off".to_string(),
+        (Value::Number(n), FieldDef::Choice { options }) => n
+            .as_i64()
+            .and_then(|n| options.iter().find(|(v, _)| *v == n))
+            .map(|(_, label)| label.to_string())
+            .unwrap_or_else(|| n.to_string()),
         (Value::Number(n), _) => format_number(n.as_f64().unwrap_or_default()),
+        (Value::Array(pair), FieldDef::Pair { index, .. }) => pair
+            .get(*index)
+            .and_then(Value::as_f64)
+            .map(format_number)
+            .unwrap_or_default(),
         (Value::String(s), FieldDef::Dropdown { options }) => options
             .iter()
             .find(|(v, _)| v == s)
@@ -520,17 +218,13 @@ impl ConfigView {
 
         let mut number_inputs = HashMap::new();
         for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            let FieldDef::Number {
-                min,
-                max,
-                step,
-                integer,
-            } = item.field
-            else {
-                continue;
+            let (min, max, step) = match item.field {
+                FieldDef::Number { min, max, step, .. } | FieldDef::Pair { min, max, step, .. } => {
+                    (min, max, step)
+                }
+                _ => continue,
             };
-            let path = item.path;
-            let initial = number_at(&config_manager, path);
+            let initial = number_at(&config_manager, item);
             let input =
                 cx.new(|cx| InputState::new(window, cx).default_value(format_number(initial)));
             subscriptions.push(cx.subscribe_in(
@@ -538,14 +232,15 @@ impl ConfigView {
                 window,
                 move |this, input, event: &NumberInputEvent, window, cx| {
                     let NumberInputEvent::Step(action) = event;
-                    let current = number_at(&this.config_manager.borrow(), path);
+                    let current = number_at(&this.config_manager.borrow(), item);
                     let next = match action {
                         StepAction::Increment => current + step,
                         StepAction::Decrement => current - step,
                     };
                     let next = (next * 1000.0).round() / 1000.0;
                     let next = next.clamp(min, max);
-                    this.set_value(path, number_value(next, integer), cx);
+                    let value = number_value_for(&this.config_manager.borrow(), item, next);
+                    this.set_value(item.path, value, cx);
                     input.update(cx, |input, cx| {
                         input.set_value(format_number(next), window, cx);
                     });
@@ -558,14 +253,16 @@ impl ConfigView {
                     InputEvent::Change => {
                         if let Ok(value) = input.read(cx).value().trim().parse::<f64>() {
                             let value = value.clamp(min, max);
-                            if number_at(&this.config_manager.borrow(), path) != value {
-                                this.set_value(path, number_value(value, integer), cx);
+                            if number_at(&this.config_manager.borrow(), item) != value {
+                                let value =
+                                    number_value_for(&this.config_manager.borrow(), item, value);
+                                this.set_value(item.path, value, cx);
                             }
                         }
                     }
                     InputEvent::Blur => {
                         // Normalise the text (clamped, trimmed) once editing ends.
-                        let value = number_at(&this.config_manager.borrow(), path);
+                        let value = number_at(&this.config_manager.borrow(), item);
                         input.update(cx, |input, cx| {
                             let text = format_number(value);
                             if input.value() != text {
@@ -612,10 +309,10 @@ impl ConfigView {
 
     fn sync_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            if let FieldDef::Number { .. } = item.field
+            if let FieldDef::Number { .. } | FieldDef::Pair { .. } = item.field
                 && let Some(input) = self.number_inputs.get(item.id)
             {
-                let value = number_at(&self.config_manager.borrow(), item.path);
+                let value = number_at(&self.config_manager.borrow(), item);
                 input.update(cx, |input, cx| {
                     input.set_value(format_number(value), window, cx);
                 });
@@ -719,13 +416,15 @@ impl ConfigView {
         let theme = cx.theme();
         let path = item.path;
         let control: AnyElement = match &item.field {
-            FieldDef::Number { .. } => match self.number_inputs.get(item.id) {
-                Some(input) => NumberInput::new(input)
-                    .small()
-                    .w(px(140.))
-                    .into_any_element(),
-                None => div().into_any_element(),
-            },
+            FieldDef::Number { .. } | FieldDef::Pair { .. } => {
+                match self.number_inputs.get(item.id) {
+                    Some(input) => NumberInput::new(input)
+                        .small()
+                        .w(px(140.))
+                        .into_any_element(),
+                    None => div().into_any_element(),
+                }
+            }
             FieldDef::Switch => {
                 let checked = self
                     .config_manager
@@ -763,6 +462,41 @@ impl ConfigView {
                                 move |_, _, cx| {
                                     view.update(cx, |this, cx| {
                                         this.set_value(path, Value::String(value.to_string()), cx);
+                                    });
+                                },
+                            ))
+                        })
+                    })
+                    .into_any_element()
+            }
+            FieldDef::Choice { options } => {
+                let current = self
+                    .config_manager
+                    .borrow()
+                    .value(path)
+                    .and_then(|v| v.as_i64())
+                    .unwrap_or_default();
+                let label = options
+                    .iter()
+                    .find(|(value, _)| *value == current)
+                    .map(|(_, label)| label.to_string())
+                    .unwrap_or_else(|| current.to_string());
+                let view = cx.entity();
+                Button::new(item.id)
+                    .label(label)
+                    .dropdown_caret(true)
+                    .outline()
+                    .small()
+                    .cursor_pointer()
+                    .dropdown_menu(move |menu, _, _| {
+                        options.iter().fold(menu, |menu, (value, label)| {
+                            let checked = *value == current;
+                            let view = view.clone();
+                            let value = *value;
+                            menu.item(PopupMenuItem::new(*label).checked(checked).on_click(
+                                move |_, _, cx| {
+                                    view.update(cx, |this, cx| {
+                                        this.set_value(path, Value::from(value), cx);
                                     });
                                 },
                             ))
@@ -1002,14 +736,102 @@ mod tests {
                     assert_eq!(value.is_i64(), *integer, "{}: integer flag", item.id);
                     assert!(min < max, "{}: empty range", item.id);
                 }
+                FieldDef::Pair {
+                    index, min, max, ..
+                } => {
+                    assert!(
+                        value.as_array().is_some_and(|a| a.len() == 2),
+                        "{}: not a pair",
+                        item.id
+                    );
+                    assert!(*index < 2, "{}: index", item.id);
+                    assert!(min < max, "{}: empty range", item.id);
+                }
                 FieldDef::Switch => assert!(value.is_boolean(), "{}: not a bool", item.id),
                 FieldDef::Dropdown { options } => {
                     assert!(value.is_string(), "{}: not a string", item.id);
-                    assert!(!options.is_empty(), "{}: no options", item.id);
+                    let default = value.as_str().unwrap();
+                    assert!(
+                        options.iter().any(|(v, _)| *v == default),
+                        "{}: default {default:?} is not an option",
+                        item.id
+                    );
+                }
+                FieldDef::Choice { options } => {
+                    assert!(value.is_i64(), "{}: not an integer", item.id);
+                    let default = value.as_i64().unwrap();
+                    assert!(
+                        options.iter().any(|(v, _)| *v == default),
+                        "{}: default {default} is not an option",
+                        item.id
+                    );
                 }
                 FieldDef::KeyboardLayout => assert_eq!(item.path, KEYBOARD_LAYOUT_PATH),
             }
         }
+    }
+
+    /// Ranges and choices match what the running compositor declares.
+    #[test]
+    fn ranges_and_choices_match_hyprland_descriptions() {
+        use crate::system::hyprland_config::hyprctl_reader::defaults_audit::described_options;
+        let Some(described) = described_options() else {
+            eprintln!("skipping: no hyprctl");
+            return;
+        };
+        let mut problems = Vec::new();
+        for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
+            let Some(option) = described.get(item.path) else {
+                problems.push(format!("{}: {} is not described", item.id, item.path));
+                continue;
+            };
+            let declared = (option["min"].as_f64(), option["max"].as_f64());
+            match &item.field {
+                FieldDef::Number { min, max, .. } => {
+                    if let (Some(lo), Some(hi)) = declared
+                        && (*min < lo || *max > hi)
+                    {
+                        problems.push(format!(
+                            "{}: range {min}..{max} outside Hyprland's {lo}..{hi}",
+                            item.id
+                        ));
+                    }
+                }
+                FieldDef::Choice { options } => {
+                    if let Some(map) = option["map"].as_array() {
+                        let declared: Vec<i64> = map
+                            .iter()
+                            .filter_map(|e| e.as_object()?.values().next()?.as_i64())
+                            .collect();
+                        for (value, _) in options.iter() {
+                            if !declared.contains(value) {
+                                problems.push(format!(
+                                    "{}: value {value} is not in Hyprland's map",
+                                    item.id
+                                ));
+                            }
+                        }
+                        for value in &declared {
+                            if !options.iter().any(|(v, _)| v == value) {
+                                problems.push(format!(
+                                    "{}: Hyprland's value {value} is missing",
+                                    item.id
+                                ));
+                            }
+                        }
+                    } else if let (Some(lo), Some(hi)) = declared {
+                        for (value, _) in options.iter() {
+                            if (*value as f64) < lo || (*value as f64) > hi {
+                                problems
+                                    .push(format!("{}: value {value} outside {lo}..{hi}", item.id));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        assert!(problems.is_empty(), "{}", problems.join("\n"));
     }
 
     #[test]

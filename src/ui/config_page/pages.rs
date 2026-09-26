@@ -1,0 +1,2347 @@
+//! The Configuration page's content as data: pages of groups of items,
+//! each item one Hyprland option addressed by its dotted path
+//! (`input.touchpad.tap_to_click`). Ranges and the values of choices come
+//! from `hyprctl descriptions`; a test checks them against the running
+//! compositor.
+
+/// How an item is edited.
+pub enum FieldDef {
+    Number {
+        min: f64,
+        max: f64,
+        step: f64,
+        /// Written as an integer, as Hyprland declares the option.
+        integer: bool,
+    },
+    /// One component of a two-number option (`decoration.shadow.offset`).
+    Pair {
+        index: usize,
+        min: f64,
+        max: f64,
+        step: f64,
+    },
+    Switch,
+    /// A string option with a fixed set of values.
+    Dropdown {
+        options: &'static [(&'static str, &'static str)],
+    },
+    /// An integer option whose values have names.
+    Choice {
+        options: &'static [(i64, &'static str)],
+    },
+    KeyboardLayout,
+}
+
+pub struct ItemDef {
+    pub id: &'static str,
+    /// The Hyprland option, dotted (`input.touchpad.tap_to_click`).
+    pub path: &'static str,
+    pub label: &'static str,
+    pub description: &'static str,
+    pub field: FieldDef,
+}
+
+pub struct GroupDef {
+    pub title: &'static str,
+    pub items: &'static [ItemDef],
+}
+
+pub struct PageDef {
+    pub title: &'static str,
+    pub description: &'static str,
+    pub groups: &'static [GroupDef],
+}
+
+pub const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
+
+macro_rules! int_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Number {
+                min: $min,
+                max: $max,
+                step: $step,
+                integer: true,
+            },
+        }
+    };
+}
+
+macro_rules! float_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Number {
+                min: $min,
+                max: $max,
+                step: $step,
+                integer: false,
+            },
+        }
+    };
+}
+
+macro_rules! pair_item {
+    ($id:expr, $path:expr, $index:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Pair {
+                index: $index,
+                min: $min,
+                max: $max,
+                step: $step,
+            },
+        }
+    };
+}
+
+macro_rules! switch_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Switch,
+        }
+    };
+}
+
+macro_rules! dropdown_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $options:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Dropdown { options: $options },
+        }
+    };
+}
+
+macro_rules! choice_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $options:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Choice { options: $options },
+        }
+    };
+}
+
+const ON_OFF_AUTO: &[(i64, &str)] = &[(0, "Off"), (1, "On"), (2, "Auto")];
+
+pub const PAGES: &[PageDef] = &[
+    PageDef {
+        title: "General",
+        description: "Borders, gaps, layout, and floating windows",
+        groups: &[
+            GroupDef {
+                title: "Window Borders",
+                items: &[
+                    int_item!(
+                        "border-size",
+                        "general.border_size",
+                        "Border Size",
+                        "Size of the border around windows",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "resize-on-border",
+                        "general.resize_on_border",
+                        "Resize on Border",
+                        "Resize windows by dragging their borders and gaps"
+                    ),
+                    int_item!(
+                        "extend-border-grab-area",
+                        "general.extend_border_grab_area",
+                        "Border Grab Area",
+                        "Extra pixels around the border that resize the window",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "hover-icon-on-border",
+                        "general.hover_icon_on_border",
+                        "Resize Cursor on Border",
+                        "Show a resize cursor when hovering a border"
+                    ),
+                    switch_item!(
+                        "border-part-of-window",
+                        "decoration.border_part_of_window",
+                        "Border Part of Window",
+                        "Treat the border as part of the window"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Gaps",
+                items: &[
+                    int_item!(
+                        "gaps-in",
+                        "general.gaps_in",
+                        "Gaps In",
+                        "Gaps between windows",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "gaps-out",
+                        "general.gaps_out",
+                        "Gaps Out",
+                        "Gaps between windows and monitor edges",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "float-gaps",
+                        "general.float_gaps",
+                        "Floating Gaps",
+                        "Gaps between floating windows and monitor edges",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "gaps-workspaces",
+                        "general.gaps_workspaces",
+                        "Gaps Workspaces",
+                        "Gaps between workspaces. Stacks with gaps out",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Layout",
+                items: &[
+                    dropdown_item!(
+                        "layout",
+                        "general.layout",
+                        "Layout",
+                        "How windows are tiled",
+                        &[
+                            ("dwindle", "Dwindle"),
+                            ("master", "Master"),
+                            ("scrolling", "Scrolling"),
+                            ("monocle", "Monocle"),
+                        ]
+                    ),
+                    switch_item!(
+                        "no-focus-fallback",
+                        "general.no_focus_fallback",
+                        "No Focus Fallback",
+                        "Do not fall back to the next window when moving focus fails"
+                    ),
+                    switch_item!(
+                        "allow-tearing",
+                        "general.allow_tearing",
+                        "Allow Tearing",
+                        "Let windows that ask for it tear, for lower latency in games"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Floating Windows",
+                items: &[
+                    choice_item!(
+                        "resize-corner",
+                        "general.resize_corner",
+                        "Resize Corner",
+                        "Corner used when resizing a floating window",
+                        &[
+                            (0, "Nearest"),
+                            (1, "Top left"),
+                            (2, "Top right"),
+                            (3, "Bottom right"),
+                            (4, "Bottom left"),
+                        ]
+                    ),
+                    switch_item!(
+                        "snap-enabled",
+                        "general.snap.enabled",
+                        "Snapping",
+                        "Snap floating windows to windows and edges"
+                    ),
+                    int_item!(
+                        "snap-window-gap",
+                        "general.snap.window_gap",
+                        "Snap Window Gap",
+                        "Distance from a window at which snapping starts",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "snap-monitor-gap",
+                        "general.snap.monitor_gap",
+                        "Snap Monitor Gap",
+                        "Distance from a monitor edge at which snapping starts",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "snap-border-overlap",
+                        "general.snap.border_overlap",
+                        "Snap Borders Overlap",
+                        "Leave one border's width between snapped windows"
+                    ),
+                    switch_item!(
+                        "snap-respect-gaps",
+                        "general.snap.respect_gaps",
+                        "Snap Respects Gaps",
+                        "Keep the configured gaps when snapping"
+                    ),
+                    switch_item!(
+                        "modal-parent-blocking",
+                        "general.modal_parent_blocking",
+                        "Block Parents of Modals",
+                        "Make a window inert while one of its dialogs is open"
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Appearance",
+        description: "Rounding, opacity, dimming, blur, shadows, and animations",
+        groups: &[
+            GroupDef {
+                title: "Rounding",
+                items: &[
+                    int_item!(
+                        "rounding",
+                        "decoration.rounding",
+                        "Rounding",
+                        "Corner radius in pixels",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    float_item!(
+                        "rounding-power",
+                        "decoration.rounding_power",
+                        "Rounding Power",
+                        "Corner shape: 2 is a circle, higher is squarer",
+                        2.0,
+                        10.0,
+                        0.5
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Opacity",
+                items: &[
+                    float_item!(
+                        "active-opacity",
+                        "decoration.active_opacity",
+                        "Active Opacity",
+                        "Opacity of the focused window",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "inactive-opacity",
+                        "decoration.inactive_opacity",
+                        "Inactive Opacity",
+                        "Opacity of unfocused windows",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "fullscreen-opacity",
+                        "decoration.fullscreen_opacity",
+                        "Fullscreen Opacity",
+                        "Opacity of fullscreen windows",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Dimming",
+                items: &[
+                    switch_item!(
+                        "dim-inactive",
+                        "decoration.dim_inactive",
+                        "Dim Inactive Windows",
+                        "Darken windows that do not have focus"
+                    ),
+                    float_item!(
+                        "dim-strength",
+                        "decoration.dim_strength",
+                        "Dim Strength",
+                        "How much inactive windows are darkened",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "dim-special",
+                        "decoration.dim_special",
+                        "Dim Behind Special Workspace",
+                        "How much the screen darkens behind a special workspace",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "dim-around",
+                        "decoration.dim_around",
+                        "Dim Around",
+                        "How much the dimaround window rule darkens the screen",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    switch_item!(
+                        "dim-modal",
+                        "decoration.dim_modal",
+                        "Dim Behind Dialogs",
+                        "Darken a window while one of its dialogs is open"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Blur",
+                items: &[
+                    switch_item!(
+                        "blur-enabled",
+                        "decoration.blur.enabled",
+                        "Blur",
+                        "Blur what is behind translucent windows"
+                    ),
+                    int_item!(
+                        "blur-size",
+                        "decoration.blur.size",
+                        "Blur Size",
+                        "Blur distance",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "blur-passes",
+                        "decoration.blur.passes",
+                        "Blur Passes",
+                        "Number of blur passes; more is smoother and slower",
+                        0.0,
+                        10.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "blur-xray",
+                        "decoration.blur.xray",
+                        "X-Ray",
+                        "Floating windows blur the wallpaper, not the tiled windows below"
+                    ),
+                    switch_item!(
+                        "blur-ignore-opacity",
+                        "decoration.blur.ignore_opacity",
+                        "Ignore Window Opacity",
+                        "Blur at full strength whatever the window's opacity"
+                    ),
+                    float_item!(
+                        "blur-noise",
+                        "decoration.blur.noise",
+                        "Noise",
+                        "Grain added to the blur",
+                        0.0,
+                        1.0,
+                        0.005
+                    ),
+                    float_item!(
+                        "blur-contrast",
+                        "decoration.blur.contrast",
+                        "Contrast",
+                        "Contrast of the blurred area",
+                        0.0,
+                        2.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "blur-brightness",
+                        "decoration.blur.brightness",
+                        "Brightness",
+                        "Brightness of the blurred area",
+                        0.0,
+                        2.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "blur-vibrancy",
+                        "decoration.blur.vibrancy",
+                        "Vibrancy",
+                        "Color saturation of the blurred area",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    float_item!(
+                        "blur-vibrancy-darkness",
+                        "decoration.blur.vibrancy_darkness",
+                        "Vibrancy in Dark Areas",
+                        "How strongly vibrancy applies to dark areas",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    switch_item!(
+                        "blur-special",
+                        "decoration.blur.special",
+                        "Blur Behind Special Workspace",
+                        "Blur the screen behind a special workspace"
+                    ),
+                    switch_item!(
+                        "blur-popups",
+                        "decoration.blur.popups",
+                        "Blur Popups",
+                        "Blur behind menus and other popups"
+                    ),
+                    float_item!(
+                        "blur-popups-ignorealpha",
+                        "decoration.blur.popups_ignorealpha",
+                        "Popup Blur Threshold",
+                        "Popup pixels more transparent than this are not blurred",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    switch_item!(
+                        "blur-new-optimizations",
+                        "decoration.blur.new_optimizations",
+                        "Blur Optimizations",
+                        "Use the faster blur path"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Shadow",
+                items: &[
+                    switch_item!(
+                        "shadow-enabled",
+                        "decoration.shadow.enabled",
+                        "Shadows",
+                        "Draw a drop shadow under windows"
+                    ),
+                    int_item!(
+                        "shadow-range",
+                        "decoration.shadow.range",
+                        "Shadow Range",
+                        "Shadow size in pixels",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "shadow-render-power",
+                        "decoration.shadow.render_power",
+                        "Shadow Falloff",
+                        "Higher fades the shadow out faster",
+                        1.0,
+                        4.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "shadow-sharp",
+                        "decoration.shadow.sharp",
+                        "Sharp Shadow",
+                        "A hard-edged shadow instead of a soft one"
+                    ),
+                    float_item!(
+                        "shadow-scale",
+                        "decoration.shadow.scale",
+                        "Shadow Scale",
+                        "Size of the shadow relative to the window",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    pair_item!(
+                        "shadow-offset-x",
+                        "decoration.shadow.offset",
+                        0,
+                        "Shadow Offset X",
+                        "Horizontal shadow offset in pixels",
+                        -50.0,
+                        50.0,
+                        1.0
+                    ),
+                    pair_item!(
+                        "shadow-offset-y",
+                        "decoration.shadow.offset",
+                        1,
+                        "Shadow Offset Y",
+                        "Vertical shadow offset in pixels",
+                        -50.0,
+                        50.0,
+                        1.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Glow",
+                items: &[
+                    switch_item!(
+                        "glow-enabled",
+                        "decoration.glow.enabled",
+                        "Glow",
+                        "Draw an inner glow on windows"
+                    ),
+                    int_item!(
+                        "glow-range",
+                        "decoration.glow.range",
+                        "Glow Range",
+                        "Glow size in pixels",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "glow-render-power",
+                        "decoration.glow.render_power",
+                        "Glow Falloff",
+                        "Higher fades the glow out faster",
+                        1.0,
+                        4.0,
+                        1.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Animations",
+                items: &[
+                    switch_item!(
+                        "animations-enabled",
+                        "animations.enabled",
+                        "Animations",
+                        "Animate windows, workspaces, and fades"
+                    ),
+                    switch_item!(
+                        "workspace-wraparound",
+                        "animations.workspace_wraparound",
+                        "Workspace Wraparound",
+                        "Slide the other way between the first and last workspace"
+                    ),
+                    switch_item!(
+                        "motion-blur-enabled",
+                        "decoration.motion_blur.enabled",
+                        "Motion Blur",
+                        "Blur windows while they move or resize"
+                    ),
+                    int_item!(
+                        "motion-blur-samples",
+                        "decoration.motion_blur.samples",
+                        "Motion Blur Samples",
+                        "Samples per frame of motion blur",
+                        1.0,
+                        64.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "animate-manual-resizes",
+                        "misc.animate_manual_resizes",
+                        "Animate Manual Resizes",
+                        "Animate windows resized or moved with a keybind"
+                    ),
+                    switch_item!(
+                        "animate-mouse-windowdragging",
+                        "misc.animate_mouse_windowdragging",
+                        "Animate Mouse Dragging",
+                        "Animate windows dragged with the mouse"
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Layouts",
+        description: "Dwindle, master, and scrolling layout behaviour",
+        groups: &[
+            GroupDef {
+                title: "Single Window",
+                items: &[
+                    pair_item!(
+                        "single-window-aspect-width",
+                        "layout.single_window_aspect_ratio",
+                        0,
+                        "Aspect Ratio Width",
+                        "Shape a lone window to this ratio; 0 and 0 is off",
+                        0.0,
+                        32.0,
+                        1.0
+                    ),
+                    pair_item!(
+                        "single-window-aspect-height",
+                        "layout.single_window_aspect_ratio",
+                        1,
+                        "Aspect Ratio Height",
+                        "Shape a lone window to this ratio; 0 and 0 is off",
+                        0.0,
+                        32.0,
+                        1.0
+                    ),
+                    float_item!(
+                        "single-window-aspect-tolerance",
+                        "layout.single_window_aspect_ratio_tolerance",
+                        "Aspect Ratio Tolerance",
+                        "Minimum difference before the ratio is applied",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Dwindle",
+                items: &[
+                    choice_item!(
+                        "dwindle-force-split",
+                        "dwindle.force_split",
+                        "Split Side",
+                        "Where a new window goes",
+                        &[
+                            (0, "Follow mouse"),
+                            (1, "Left or top"),
+                            (2, "Right or bottom")
+                        ]
+                    ),
+                    switch_item!(
+                        "dwindle-preserve-split",
+                        "dwindle.preserve_split",
+                        "Preserve Split",
+                        "Keep the split direction when windows close"
+                    ),
+                    switch_item!(
+                        "dwindle-smart-split",
+                        "dwindle.smart_split",
+                        "Smart Split",
+                        "Split by where the mouse is in the window"
+                    ),
+                    switch_item!(
+                        "dwindle-smart-resizing",
+                        "dwindle.smart_resizing",
+                        "Smart Resizing",
+                        "Resize in the direction the mouse is on"
+                    ),
+                    switch_item!(
+                        "dwindle-use-active-for-splits",
+                        "dwindle.use_active_for_splits",
+                        "Split the Active Window",
+                        "Split the focused window rather than the one under the mouse"
+                    ),
+                    switch_item!(
+                        "dwindle-permanent-direction-override",
+                        "dwindle.permanent_direction_override",
+                        "Keep Preselect Direction",
+                        "A preselected direction stays until changed"
+                    ),
+                    switch_item!(
+                        "dwindle-precise-mouse-move",
+                        "dwindle.precise_mouse_move",
+                        "Precise Mouse Move",
+                        "Drop a dragged window by the exact mouse position"
+                    ),
+                    float_item!(
+                        "dwindle-default-split-ratio",
+                        "dwindle.default_split_ratio",
+                        "Default Split Ratio",
+                        "Size of a new window relative to its sibling",
+                        0.1,
+                        1.9,
+                        0.05
+                    ),
+                    choice_item!(
+                        "dwindle-split-bias",
+                        "dwindle.split_bias",
+                        "Split Ratio Applies To",
+                        "Which window the split ratio sizes",
+                        &[(0, "Directional"), (1, "Current window")]
+                    ),
+                    float_item!(
+                        "dwindle-split-width-multiplier",
+                        "dwindle.split_width_multiplier",
+                        "Split Width Multiplier",
+                        "Prefer vertical splits above this width ratio",
+                        0.1,
+                        3.0,
+                        0.1
+                    ),
+                    float_item!(
+                        "dwindle-special-scale-factor",
+                        "dwindle.special_scale_factor",
+                        "Special Workspace Scale",
+                        "Size of windows on a special workspace",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Master",
+                items: &[
+                    dropdown_item!(
+                        "master-new-status",
+                        "master.new_status",
+                        "New Windows",
+                        "Where a new window goes",
+                        &[
+                            ("slave", "Stack"),
+                            ("master", "Master"),
+                            ("inherit", "Inherit")
+                        ]
+                    ),
+                    dropdown_item!(
+                        "master-new-on-active",
+                        "master.new_on_active",
+                        "New Window Position",
+                        "Place a new window relative to the focused one",
+                        &[
+                            ("none", "End of stack"),
+                            ("before", "Before focused"),
+                            ("after", "After focused")
+                        ]
+                    ),
+                    switch_item!(
+                        "master-new-on-top",
+                        "master.new_on_top",
+                        "New on Top",
+                        "Put a new window at the top of the stack"
+                    ),
+                    dropdown_item!(
+                        "master-orientation",
+                        "master.orientation",
+                        "Master Area",
+                        "Side of the screen the master window takes",
+                        &[
+                            ("left", "Left"),
+                            ("right", "Right"),
+                            ("top", "Top"),
+                            ("bottom", "Bottom"),
+                            ("center", "Center"),
+                        ]
+                    ),
+                    float_item!(
+                        "master-mfact",
+                        "master.mfact",
+                        "Master Size",
+                        "Share of the screen the master window takes",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    int_item!(
+                        "master-slave-count-for-center-master",
+                        "master.slave_count_for_center_master",
+                        "Windows Needed to Center",
+                        "Center the master only with at least this many other windows",
+                        0.0,
+                        10.0,
+                        1.0
+                    ),
+                    dropdown_item!(
+                        "master-center-master-fallback",
+                        "master.center_master_fallback",
+                        "Center Fallback",
+                        "Master side when there are too few windows to center",
+                        &[
+                            ("left", "Left"),
+                            ("right", "Right"),
+                            ("top", "Top"),
+                            ("bottom", "Bottom")
+                        ]
+                    ),
+                    switch_item!(
+                        "master-center-ignores-reserved",
+                        "master.center_ignores_reserved",
+                        "Center Ignores Bars",
+                        "Center the master on the whole monitor, ignoring reserved space"
+                    ),
+                    switch_item!(
+                        "master-allow-small-split",
+                        "master.allow_small_split",
+                        "Allow Small Split",
+                        "Allow more than one master window, split horizontally"
+                    ),
+                    switch_item!(
+                        "master-always-keep-position",
+                        "master.always_keep_position",
+                        "Keep Master Position",
+                        "Keep the master area in place with a single window"
+                    ),
+                    switch_item!(
+                        "master-focus-master-on-close",
+                        "master.focus_master_on_close",
+                        "Focus Master on Close",
+                        "Focus the master window when a window closes"
+                    ),
+                    switch_item!(
+                        "master-drop-at-cursor",
+                        "master.drop_at_cursor",
+                        "Drop at Cursor",
+                        "Dragged windows land where the cursor is"
+                    ),
+                    switch_item!(
+                        "master-smart-resizing",
+                        "master.smart_resizing",
+                        "Smart Resizing",
+                        "Resize in the direction the mouse is on"
+                    ),
+                    float_item!(
+                        "master-special-scale-factor",
+                        "master.special_scale_factor",
+                        "Special Workspace Scale",
+                        "Size of windows on a special workspace",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Scrolling",
+                items: &[
+                    float_item!(
+                        "scrolling-column-width",
+                        "scrolling.column_width",
+                        "Column Width",
+                        "Default width of a column as a share of the screen",
+                        0.1,
+                        1.0,
+                        0.05
+                    ),
+                    dropdown_item!(
+                        "scrolling-direction",
+                        "scrolling.direction",
+                        "Direction",
+                        "Where new columns appear and the layout scrolls",
+                        &[
+                            ("right", "Right"),
+                            ("left", "Left"),
+                            ("down", "Down"),
+                            ("up", "Up")
+                        ]
+                    ),
+                    switch_item!(
+                        "scrolling-fullscreen-on-one-column",
+                        "scrolling.fullscreen_on_one_column",
+                        "Single Column Fills Screen",
+                        "A lone column spans the whole screen"
+                    ),
+                    switch_item!(
+                        "scrolling-follow-focus",
+                        "scrolling.follow_focus",
+                        "Follow Focus",
+                        "Scroll to bring the focused window into view"
+                    ),
+                    choice_item!(
+                        "scrolling-focus-fit-method",
+                        "scrolling.focus_fit_method",
+                        "Bring Into View",
+                        "How a focused column is scrolled into view",
+                        &[(0, "Center"), (1, "Fit")]
+                    ),
+                    float_item!(
+                        "scrolling-follow-min-visible",
+                        "scrolling.follow_min_visible",
+                        "Minimum Visible",
+                        "Share of a focused window that must be visible",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    switch_item!(
+                        "scrolling-wrap-focus",
+                        "scrolling.wrap_focus",
+                        "Wrap Focus",
+                        "Focus wraps from the last column to the first"
+                    ),
+                    switch_item!(
+                        "scrolling-wrap-swapcol",
+                        "scrolling.wrap_swapcol",
+                        "Wrap Column Moves",
+                        "Moving a column wraps around the ends"
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Keyboard",
+        description: "Layout, repeat, and modifiers",
+        groups: &[
+            GroupDef {
+                title: "Layout",
+                items: &[
+                    ItemDef {
+                        id: "kb-layout",
+                        path: KEYBOARD_LAYOUT_PATH,
+                        label: "Keyboard Layout",
+                        description: "XKB layout, for example us, de, or fr",
+                        field: FieldDef::KeyboardLayout,
+                    },
+                    switch_item!(
+                        "numlock-by-default",
+                        "input.numlock_by_default",
+                        "Num Lock on Start",
+                        "Turn Num Lock on when Hyprland starts"
+                    ),
+                    switch_item!(
+                        "resolve-binds-by-sym",
+                        "input.resolve_binds_by_sym",
+                        "Keybinds by Symbol",
+                        "Match keybinds by the key's symbol in the current layout"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Repeat",
+                items: &[
+                    int_item!(
+                        "repeat-rate",
+                        "input.repeat_rate",
+                        "Repeat Rate",
+                        "Repeats per second while a key is held",
+                        0.0,
+                        200.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "repeat-delay",
+                        "input.repeat_delay",
+                        "Repeat Delay",
+                        "Milliseconds before a held key repeats",
+                        0.0,
+                        2000.0,
+                        25.0
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Mouse",
+        description: "Pointer speed, scrolling, and focus",
+        groups: &[
+            GroupDef {
+                title: "Pointer",
+                items: &[
+                    float_item!(
+                        "sensitivity",
+                        "input.sensitivity",
+                        "Sensitivity",
+                        "Pointer speed, from -1 to 1",
+                        -1.0,
+                        1.0,
+                        0.05
+                    ),
+                    dropdown_item!(
+                        "accel-profile",
+                        "input.accel_profile",
+                        "Acceleration",
+                        "Pointer acceleration profile",
+                        &[("", "Default"), ("adaptive", "Adaptive"), ("flat", "Flat")]
+                    ),
+                    switch_item!(
+                        "force-no-accel",
+                        "input.force_no_accel",
+                        "No Acceleration",
+                        "Pass raw pointer movement through"
+                    ),
+                    switch_item!(
+                        "left-handed",
+                        "input.left_handed",
+                        "Left Handed",
+                        "Swap the left and right buttons"
+                    ),
+                    switch_item!(
+                        "middle-click-paste",
+                        "misc.middle_click_paste",
+                        "Middle Click Paste",
+                        "Paste the selection with the middle button"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Scrolling",
+                items: &[
+                    switch_item!(
+                        "natural-scroll",
+                        "input.natural_scroll",
+                        "Natural Scroll",
+                        "Scroll content in the direction of the wheel"
+                    ),
+                    float_item!(
+                        "scroll-factor",
+                        "input.scroll_factor",
+                        "Scroll Speed",
+                        "Multiplier for wheel scrolling",
+                        0.0,
+                        2.0,
+                        0.05
+                    ),
+                    dropdown_item!(
+                        "scroll-method",
+                        "input.scroll_method",
+                        "Scroll Method",
+                        "How scrolling is triggered",
+                        &[
+                            ("", "Default"),
+                            ("2fg", "Two fingers"),
+                            ("edge", "Edge"),
+                            ("on_button_down", "While a button is held"),
+                            ("no_scroll", "No scrolling"),
+                        ]
+                    ),
+                    int_item!(
+                        "scroll-button",
+                        "input.scroll_button",
+                        "Scroll Button",
+                        "Button code that scrolls while held; 0 is the default",
+                        0.0,
+                        300.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "scroll-button-lock",
+                        "input.scroll_button_lock",
+                        "Scroll Button Lock",
+                        "Tap the scroll button once instead of holding it"
+                    ),
+                    choice_item!(
+                        "emulate-discrete-scroll",
+                        "input.emulate_discrete_scroll",
+                        "Discrete Scroll",
+                        "Turn smooth wheel events into steps",
+                        &[(0, "Off"), (1, "Non-standard wheels"), (2, "All wheels")]
+                    ),
+                    choice_item!(
+                        "off-window-axis-events",
+                        "input.off_window_axis_events",
+                        "Scroll Outside Window",
+                        "What scrolling next to the focused window does",
+                        &[(0, "Ignore"), (1, "Send"), (2, "Clamp"), (3, "Warp")]
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Focus",
+                items: &[
+                    choice_item!(
+                        "follow-mouse",
+                        "input.follow_mouse",
+                        "Focus Follows Mouse",
+                        "How moving the pointer changes focus",
+                        &[(0, "Off"), (1, "Follow"), (2, "Detached"), (3, "Separate")]
+                    ),
+                    float_item!(
+                        "follow-mouse-threshold",
+                        "input.follow_mouse_threshold",
+                        "Follow Threshold",
+                        "Pixels the pointer must travel before focus follows",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "follow-mouse-shrink",
+                        "input.follow_mouse_shrink",
+                        "Follow Inset",
+                        "Pixels inside a window's edge before it takes focus",
+                        0.0,
+                        300.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "mouse-refocus",
+                        "input.mouse_refocus",
+                        "Refocus on Hover",
+                        "Hovering a window focuses it without a click"
+                    ),
+                    choice_item!(
+                        "focus-on-close",
+                        "input.focus_on_close",
+                        "Focus After Close",
+                        "Which window gets focus when one closes",
+                        &[
+                            (0, "Next window"),
+                            (1, "Window under cursor"),
+                            (2, "Last used")
+                        ]
+                    ),
+                    choice_item!(
+                        "float-switch-override-focus",
+                        "input.float_switch_override_focus",
+                        "Focus Under Cursor When Floating Changes",
+                        "Focus the window under the cursor when a window floats or tiles",
+                        &[(0, "Off"), (1, "On"), (2, "Also across floating windows")]
+                    ),
+                    switch_item!(
+                        "special-fallthrough",
+                        "input.special_fallthrough",
+                        "Special Workspace Fallthrough",
+                        "Focus windows below a special workspace that only has floating windows"
+                    ),
+                    switch_item!(
+                        "mouse-move-focuses-monitor",
+                        "misc.mouse_move_focuses_monitor",
+                        "Mouse Focuses Monitor",
+                        "Moving the pointer to a monitor focuses it"
+                    ),
+                    switch_item!(
+                        "always-follow-on-dnd",
+                        "misc.always_follow_on_dnd",
+                        "Follow While Dragging",
+                        "Focus follows the pointer during drag and drop"
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Touchpad",
+        description: "Tapping, scrolling, and gestures on the touchpad",
+        groups: &[
+            GroupDef {
+                title: "Tapping",
+                items: &[
+                    switch_item!(
+                        "tap-to-click",
+                        "input.touchpad.tap_to_click",
+                        "Tap to Click",
+                        "One, two, or three fingers tap for left, right, or middle click"
+                    ),
+                    switch_item!(
+                        "tap-and-drag",
+                        "input.touchpad.tap_and_drag",
+                        "Tap and Drag",
+                        "Tap, then drag with the same finger"
+                    ),
+                    choice_item!(
+                        "drag-lock",
+                        "input.touchpad.drag_lock",
+                        "Drag Lock",
+                        "Keep dragging after lifting the finger",
+                        &[(0, "Off"), (1, "Until timeout"), (2, "Until tap")]
+                    ),
+                    dropdown_item!(
+                        "tap-button-map",
+                        "input.touchpad.tap_button_map",
+                        "Tap Buttons",
+                        "Which buttons two and three fingers tap",
+                        &[
+                            ("", "Default"),
+                            ("lrm", "Left, right, middle"),
+                            ("lmr", "Left, middle, right")
+                        ]
+                    ),
+                    switch_item!(
+                        "clickfinger-behavior",
+                        "input.touchpad.clickfinger_behavior",
+                        "Click by Finger Count",
+                        "Pressing with one, two, or three fingers is a left, right, or middle click"
+                    ),
+                    switch_item!(
+                        "middle-button-emulation",
+                        "input.touchpad.middle_button_emulation",
+                        "Middle Button Emulation",
+                        "Pressing left and right together is a middle click"
+                    ),
+                    choice_item!(
+                        "drag-3fg",
+                        "input.touchpad.drag_3fg",
+                        "Drag With Fingers",
+                        "Drag windows with three or four fingers",
+                        &[(0, "Off"), (1, "Three fingers"), (2, "Four fingers")]
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Scrolling",
+                items: &[
+                    switch_item!(
+                        "touchpad-natural-scroll",
+                        "input.touchpad.natural_scroll",
+                        "Natural Scroll",
+                        "Content follows the fingers"
+                    ),
+                    float_item!(
+                        "touchpad-scroll-factor",
+                        "input.touchpad.scroll_factor",
+                        "Scroll Speed",
+                        "Multiplier for touchpad scrolling",
+                        0.0,
+                        2.0,
+                        0.05
+                    ),
+                    switch_item!(
+                        "disable-while-typing",
+                        "input.touchpad.disable_while_typing",
+                        "Disable While Typing",
+                        "Ignore the touchpad while keys are pressed"
+                    ),
+                    switch_item!(
+                        "touchpad-flip-x",
+                        "input.touchpad.flip_x",
+                        "Flip Horizontal",
+                        "Invert horizontal movement"
+                    ),
+                    switch_item!(
+                        "touchpad-flip-y",
+                        "input.touchpad.flip_y",
+                        "Flip Vertical",
+                        "Invert vertical movement"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Workspace Swipe",
+                items: &[
+                    int_item!(
+                        "workspace-swipe-distance",
+                        "gestures.workspace_swipe_distance",
+                        "Swipe Distance",
+                        "Pixels a swipe travels to change workspace",
+                        0.0,
+                        2000.0,
+                        10.0
+                    ),
+                    switch_item!(
+                        "workspace-swipe-invert",
+                        "gestures.workspace_swipe_invert",
+                        "Invert Swipe",
+                        "Swipe the other way to change workspace"
+                    ),
+                    float_item!(
+                        "workspace-swipe-cancel-ratio",
+                        "gestures.workspace_swipe_cancel_ratio",
+                        "Cancel Ratio",
+                        "Share of the swipe needed before it commits",
+                        0.0,
+                        1.0,
+                        0.05
+                    ),
+                    int_item!(
+                        "workspace-swipe-min-speed-to-force",
+                        "gestures.workspace_swipe_min_speed_to_force",
+                        "Force Speed",
+                        "Swipe speed that commits regardless of distance",
+                        0.0,
+                        200.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "workspace-swipe-create-new",
+                        "gestures.workspace_swipe_create_new",
+                        "Swipe Creates Workspace",
+                        "Swiping past the last workspace creates a new one"
+                    ),
+                    switch_item!(
+                        "workspace-swipe-forever",
+                        "gestures.workspace_swipe_forever",
+                        "Swipe Past Neighbours",
+                        "A long swipe crosses several workspaces"
+                    ),
+                    switch_item!(
+                        "workspace-swipe-direction-lock",
+                        "gestures.workspace_swipe_direction_lock",
+                        "Direction Lock",
+                        "Lock the swipe direction once it is clear"
+                    ),
+                    int_item!(
+                        "workspace-swipe-direction-lock-threshold",
+                        "gestures.workspace_swipe_direction_lock_threshold",
+                        "Direction Lock Distance",
+                        "Pixels before the direction locks",
+                        0.0,
+                        200.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "workspace-swipe-use-r",
+                        "gestures.workspace_swipe_use_r",
+                        "Swipe Ignores Empty Workspaces",
+                        "Swipe between workspaces that have windows"
+                    ),
+                    switch_item!(
+                        "workspace-swipe-touch",
+                        "gestures.workspace_swipe_touch",
+                        "Touchscreen Edge Swipe",
+                        "Swipe from a touchscreen edge to change workspace"
+                    ),
+                    switch_item!(
+                        "workspace-swipe-touch-invert",
+                        "gestures.workspace_swipe_touch_invert",
+                        "Invert Touchscreen Swipe",
+                        "Swipe the other way on a touchscreen"
+                    ),
+                    int_item!(
+                        "close-max-timeout",
+                        "gestures.close_max_timeout",
+                        "Close Gesture Timeout",
+                        "Milliseconds the close gesture may take",
+                        10.0,
+                        2000.0,
+                        10.0
+                    ),
+                    switch_item!(
+                        "scrolling-move-snap-to-grid",
+                        "gestures.scrolling.move_snap_to_grid",
+                        "Scroll Move Snaps to Grid",
+                        "Snap a moved scrolling column to the grid on release"
+                    ),
+                    switch_item!(
+                        "scrolling-move-snap-cursor",
+                        "gestures.scrolling.move_snap_cursor",
+                        "Scroll Move Snaps Cursor",
+                        "Snap the cursor to the moved column on release"
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Groups",
+        description: "Tabbed window groups and their bar",
+        groups: &[
+            GroupDef {
+                title: "Grouping",
+                items: &[
+                    switch_item!(
+                        "auto-group",
+                        "group.auto_group",
+                        "Auto Group",
+                        "New windows join the focused group"
+                    ),
+                    switch_item!(
+                        "insert-after-current",
+                        "group.insert_after_current",
+                        "Insert After Current",
+                        "A new window goes after the current one, not at the end"
+                    ),
+                    switch_item!(
+                        "focus-removed-window",
+                        "group.focus_removed_window",
+                        "Focus Removed Window",
+                        "Focus a window taken out of a group"
+                    ),
+                    choice_item!(
+                        "drag-into-group",
+                        "group.drag_into_group",
+                        "Drag Into Group",
+                        "Whether dragging a window onto a group merges it",
+                        &[(0, "Off"), (1, "On"), (2, "Only onto the bar")]
+                    ),
+                    switch_item!(
+                        "merge-groups-on-drag",
+                        "group.merge_groups_on_drag",
+                        "Merge Groups on Drag",
+                        "Dragging a group onto another merges them"
+                    ),
+                    switch_item!(
+                        "merge-groups-on-groupbar",
+                        "group.merge_groups_on_groupbar",
+                        "Merge on Bar",
+                        "Dropping a group on a group bar merges them"
+                    ),
+                    switch_item!(
+                        "merge-floated-into-tiled-on-groupbar",
+                        "group.merge_floated_into_tiled_on_groupbar",
+                        "Merge Floating on Bar",
+                        "Dropping a floating window on a tiled group bar merges it"
+                    ),
+                    switch_item!(
+                        "group-on-movetoworkspace",
+                        "group.group_on_movetoworkspace",
+                        "Group on Move to Workspace",
+                        "Moving a window to a workspace joins that workspace's group"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Group Bar",
+                items: &[
+                    switch_item!(
+                        "groupbar-enabled",
+                        "group.groupbar.enabled",
+                        "Group Bar",
+                        "Show a tab bar above grouped windows"
+                    ),
+                    switch_item!(
+                        "groupbar-disable-when-only",
+                        "group.groupbar.disable_when_only",
+                        "Hide for One Window",
+                        "No bar on a group with a single window"
+                    ),
+                    switch_item!(
+                        "groupbar-render-titles",
+                        "group.groupbar.render_titles",
+                        "Show Titles",
+                        "Window titles on the tabs"
+                    ),
+                    int_item!(
+                        "groupbar-font-size",
+                        "group.groupbar.font_size",
+                        "Font Size",
+                        "Title font size",
+                        2.0,
+                        64.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-height",
+                        "group.groupbar.height",
+                        "Height",
+                        "Bar height in pixels",
+                        1.0,
+                        64.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-indicator-height",
+                        "group.groupbar.indicator_height",
+                        "Indicator Height",
+                        "Height of the active-tab indicator",
+                        1.0,
+                        64.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-indicator-gap",
+                        "group.groupbar.indicator_gap",
+                        "Indicator Gap",
+                        "Gap between the indicator and the title",
+                        0.0,
+                        64.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-gaps-in",
+                        "group.groupbar.gaps_in",
+                        "Gaps Between Tabs",
+                        "Gap between tabs",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-gaps-out",
+                        "group.groupbar.gaps_out",
+                        "Gap to Window",
+                        "Gap between the bar and the window",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "groupbar-keep-upper-gap",
+                        "group.groupbar.keep_upper_gap",
+                        "Keep Upper Gap",
+                        "Keep a gap above the tabs"
+                    ),
+                    switch_item!(
+                        "groupbar-stacked",
+                        "group.groupbar.stacked",
+                        "Stacked",
+                        "Stack the tabs vertically"
+                    ),
+                    switch_item!(
+                        "groupbar-gradients",
+                        "group.groupbar.gradients",
+                        "Gradients",
+                        "Fill tabs with the group colors"
+                    ),
+                    int_item!(
+                        "groupbar-gradient-rounding",
+                        "group.groupbar.gradient_rounding",
+                        "Gradient Rounding",
+                        "Corner radius of the tab fill",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    float_item!(
+                        "groupbar-gradient-rounding-power",
+                        "group.groupbar.gradient_rounding_power",
+                        "Gradient Rounding Power",
+                        "Corner shape of the tab fill: 2 is a circle",
+                        2.0,
+                        10.0,
+                        0.5
+                    ),
+                    switch_item!(
+                        "groupbar-gradient-round-only-edges",
+                        "group.groupbar.gradient_round_only_edges",
+                        "Round Only Outer Tab Corners",
+                        "Round the fill at the ends of the bar only"
+                    ),
+                    int_item!(
+                        "groupbar-rounding",
+                        "group.groupbar.rounding",
+                        "Bar Rounding",
+                        "Corner radius of the bar",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    float_item!(
+                        "groupbar-rounding-power",
+                        "group.groupbar.rounding_power",
+                        "Bar Rounding Power",
+                        "Corner shape of the bar: 2 is a circle",
+                        2.0,
+                        10.0,
+                        0.5
+                    ),
+                    switch_item!(
+                        "groupbar-round-only-edges",
+                        "group.groupbar.round_only_edges",
+                        "Round Only Outer Bar Corners",
+                        "Round the bar at its ends only"
+                    ),
+                    int_item!(
+                        "groupbar-text-offset",
+                        "group.groupbar.text_offset",
+                        "Text Offset",
+                        "Vertical offset of the titles",
+                        -20.0,
+                        20.0,
+                        1.0
+                    ),
+                    int_item!(
+                        "groupbar-text-padding",
+                        "group.groupbar.text_padding",
+                        "Text Padding",
+                        "Horizontal padding around the titles",
+                        0.0,
+                        22.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "groupbar-blur",
+                        "group.groupbar.blur",
+                        "Blur Behind Bar",
+                        "Blur what is behind the bar"
+                    ),
+                    switch_item!(
+                        "groupbar-scrolling",
+                        "group.groupbar.scrolling",
+                        "Scroll Changes Tab",
+                        "Scrolling on the bar switches tabs"
+                    ),
+                    switch_item!(
+                        "groupbar-middle-click-close",
+                        "group.groupbar.middle_click_close",
+                        "Middle Click Closes",
+                        "Middle clicking a tab closes its window"
+                    ),
+                    int_item!(
+                        "groupbar-priority",
+                        "group.groupbar.priority",
+                        "Decoration Priority",
+                        "Order of the bar among window decorations",
+                        0.0,
+                        6.0,
+                        1.0
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Cursor",
+        description: "Hiding, warping, and zooming the pointer",
+        groups: &[
+            GroupDef {
+                title: "Hiding",
+                items: &[
+                    switch_item!(
+                        "hide-on-key-press",
+                        "cursor.hide_on_key_press",
+                        "Hide While Typing",
+                        "Hide the pointer on a key press until it moves"
+                    ),
+                    switch_item!(
+                        "hide-on-touch",
+                        "cursor.hide_on_touch",
+                        "Hide After Touch",
+                        "Hide the pointer after touchscreen input until it moves"
+                    ),
+                    switch_item!(
+                        "hide-on-tablet",
+                        "cursor.hide_on_tablet",
+                        "Hide After Tablet",
+                        "Hide the pointer after tablet input until it moves"
+                    ),
+                    float_item!(
+                        "inactive-timeout",
+                        "cursor.inactive_timeout",
+                        "Hide When Idle",
+                        "Seconds without movement before the pointer hides; 0 never",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "cursor-invisible",
+                        "cursor.invisible",
+                        "Invisible",
+                        "Never draw the pointer"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Warping",
+                items: &[
+                    choice_item!(
+                        "warp-on-change-workspace",
+                        "cursor.warp_on_change_workspace",
+                        "Warp on Workspace Change",
+                        "Move the pointer to the focused window after switching workspace",
+                        &[(0, "Off"), (1, "On"), (2, "Always")]
+                    ),
+                    choice_item!(
+                        "warp-on-toggle-special",
+                        "cursor.warp_on_toggle_special",
+                        "Warp on Special Workspace",
+                        "Move the pointer to the focused window when toggling a special workspace",
+                        &[(0, "Off"), (1, "On"), (2, "Always")]
+                    ),
+                    switch_item!(
+                        "no-warps",
+                        "cursor.no_warps",
+                        "Never Warp",
+                        "Do not move the pointer automatically"
+                    ),
+                    switch_item!(
+                        "persistent-warps",
+                        "cursor.persistent_warps",
+                        "Remember Position per Window",
+                        "Refocusing a window returns the pointer to where it was"
+                    ),
+                    switch_item!(
+                        "warp-back-after-non-mouse-input",
+                        "cursor.warp_back_after_non_mouse_input",
+                        "Warp Back After Keyboard",
+                        "Return the pointer after keyboard or touch input moved it"
+                    ),
+                    int_item!(
+                        "hotspot-padding",
+                        "cursor.hotspot_padding",
+                        "Edge Padding",
+                        "Pixels kept between the pointer and screen edges",
+                        0.0,
+                        20.0,
+                        1.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Zoom",
+                items: &[
+                    float_item!(
+                        "zoom-factor",
+                        "cursor.zoom_factor",
+                        "Zoom",
+                        "Magnification around the pointer; 1 is none",
+                        1.0,
+                        10.0,
+                        0.5
+                    ),
+                    switch_item!(
+                        "zoom-rigid",
+                        "cursor.zoom_rigid",
+                        "Rigid Zoom",
+                        "The zoomed view follows the pointer exactly"
+                    ),
+                    switch_item!(
+                        "zoom-detached-camera",
+                        "cursor.zoom_detached_camera",
+                        "Detached Camera",
+                        "The zoomed view does not follow the pointer"
+                    ),
+                    switch_item!(
+                        "zoom-disable-aa",
+                        "cursor.zoom_disable_aa",
+                        "No Anti-Aliasing",
+                        "Sharp pixels when zoomed"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Rendering",
+                items: &[
+                    switch_item!(
+                        "enable-hyprcursor",
+                        "cursor.enable_hyprcursor",
+                        "Hyprcursor",
+                        "Use hyprcursor themes"
+                    ),
+                    switch_item!(
+                        "sync-gsettings-theme",
+                        "cursor.sync_gsettings_theme",
+                        "Sync GTK Theme",
+                        "Keep the GTK cursor theme in step"
+                    ),
+                    choice_item!(
+                        "no-hardware-cursors",
+                        "cursor.no_hardware_cursors",
+                        "Software Cursor",
+                        "Draw the pointer in software instead of the GPU plane",
+                        ON_OFF_AUTO
+                    ),
+                    choice_item!(
+                        "use-cpu-buffer",
+                        "cursor.use_cpu_buffer",
+                        "CPU Cursor Buffer",
+                        "Keep the hardware cursor in a CPU buffer",
+                        ON_OFF_AUTO
+                    ),
+                    choice_item!(
+                        "no-break-fs-vrr",
+                        "cursor.no_break_fs_vrr",
+                        "Keep VRR in Fullscreen",
+                        "Do not render a frame for pointer movement over fullscreen apps",
+                        ON_OFF_AUTO
+                    ),
+                    int_item!(
+                        "min-refresh-rate",
+                        "cursor.min_refresh_rate",
+                        "Minimum Refresh Rate",
+                        "Lowest refresh rate for pointer movement when VRR is kept",
+                        10.0,
+                        500.0,
+                        1.0
+                    ),
+                ],
+            },
+        ],
+    },
+    PageDef {
+        title: "Windows",
+        description: "Focus, workspaces, and fullscreen behaviour",
+        groups: &[
+            GroupDef {
+                title: "Focus",
+                items: &[
+                    switch_item!(
+                        "focus-on-activate",
+                        "misc.focus_on_activate",
+                        "Focus on Request",
+                        "Focus an app that asks for it"
+                    ),
+                    choice_item!(
+                        "on-focus-under-fullscreen",
+                        "misc.on_focus_under_fullscreen",
+                        "Focus Under Fullscreen",
+                        "What happens when a window behind a fullscreen one wants focus",
+                        &[(0, "Ignore"), (1, "Take over"), (2, "Leave fullscreen")]
+                    ),
+                    switch_item!(
+                        "exit-window-retains-fullscreen",
+                        "misc.exit_window_retains_fullscreen",
+                        "Keep Fullscreen on Close",
+                        "The next window goes fullscreen when a fullscreen one closes"
+                    ),
+                    switch_item!(
+                        "layers-hog-keyboard-focus",
+                        "misc.layers_hog_keyboard_focus",
+                        "Panels Keep Focus",
+                        "Keyboard-interactive panels keep focus when the mouse moves"
+                    ),
+                    switch_item!(
+                        "size-limits-tiled",
+                        "misc.size_limits_tiled",
+                        "Size Limits for Tiled Windows",
+                        "Apply minimum and maximum size rules to tiled windows"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Workspaces",
+                items: &[
+                    choice_item!(
+                        "initial-workspace-tracking",
+                        "misc.initial_workspace_tracking",
+                        "Open Where Launched",
+                        "Open a window on the workspace it was launched from",
+                        &[(0, "Off"), (1, "First window"), (2, "Every window")]
+                    ),
+                    int_item!(
+                        "initial-workspace-token-timeout",
+                        "misc.initial_workspace_token_timeout",
+                        "Launch Tracking Timeout",
+                        "Seconds a launched app has to open on its workspace",
+                        1.0,
+                        3600.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "workspace-back-and-forth",
+                        "binds.workspace_back_and_forth",
+                        "Back and Forth",
+                        "Switching to the current workspace returns to the previous one"
+                    ),
+                    switch_item!(
+                        "allow-workspace-cycles",
+                        "binds.allow_workspace_cycles",
+                        "Remember Previous Workspace",
+                        "Workspaces keep their previous workspace for back and forth"
+                    ),
+                    choice_item!(
+                        "workspace-center-on",
+                        "binds.workspace_center_on",
+                        "Center Pointer On",
+                        "Where the pointer goes when switching workspace",
+                        &[(0, "Workspace center"), (1, "Last window")]
+                    ),
+                    switch_item!(
+                        "hide-special-on-workspace-change",
+                        "binds.hide_special_on_workspace_change",
+                        "Hide Special on Switch",
+                        "Switching workspace hides the special workspace"
+                    ),
+                    switch_item!(
+                        "close-special-on-empty",
+                        "misc.close_special_on_empty",
+                        "Close Empty Special",
+                        "Close the special workspace when its last window closes"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Moving Focus",
+                items: &[
+                    choice_item!(
+                        "focus-preferred-method",
+                        "binds.focus_preferred_method",
+                        "Focus Direction Method",
+                        "How the window in a direction is chosen",
+                        &[(0, "Nearest"), (1, "Largest overlap")]
+                    ),
+                    switch_item!(
+                        "movefocus-cycles-fullscreen",
+                        "binds.movefocus_cycles_fullscreen",
+                        "Cycle in Fullscreen",
+                        "Moving focus on a fullscreen window cycles fullscreen windows"
+                    ),
+                    switch_item!(
+                        "movefocus-cycles-groupfirst",
+                        "binds.movefocus_cycles_groupfirst",
+                        "Cycle Group First",
+                        "Moving focus inside a group cycles its windows first"
+                    ),
+                    switch_item!(
+                        "window-direction-monitor-fallback",
+                        "binds.window_direction_monitor_fallback",
+                        "Cross Monitors",
+                        "Moving focus past a monitor edge continues on the next monitor"
+                    ),
+                    switch_item!(
+                        "ignore-group-lock",
+                        "binds.ignore_group_lock",
+                        "Ignore Group Lock",
+                        "Group dispatchers work on locked groups too"
+                    ),
+                    switch_item!(
+                        "allow-pin-fullscreen",
+                        "binds.allow_pin_fullscreen",
+                        "Pinned Fullscreen",
+                        "Pinned windows can go fullscreen and stay pinned"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Keybinds and Dragging",
+                items: &[
+                    int_item!(
+                        "drag-threshold",
+                        "binds.drag_threshold",
+                        "Drag Threshold",
+                        "Pixels of movement before a mouse bind drags",
+                        0.0,
+                        100.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "pass-mouse-when-bound",
+                        "binds.pass_mouse_when_bound",
+                        "Pass Mouse to Apps",
+                        "Mouse binds also reach the app under the pointer"
+                    ),
+                    int_item!(
+                        "scroll-event-delay",
+                        "binds.scroll_event_delay",
+                        "Scroll Bind Delay",
+                        "Milliseconds between scroll events a bind accepts",
+                        0.0,
+                        2000.0,
+                        10.0
+                    ),
+                    switch_item!(
+                        "disable-keybind-grabbing",
+                        "binds.disable_keybind_grabbing",
+                        "Apps Cannot Grab Keybinds",
+                        "Ignore requests from apps to take over keybinds"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Swallowing",
+                items: &[switch_item!(
+                    "enable-swallow",
+                    "misc.enable_swallow",
+                    "Window Swallowing",
+                    "A terminal hides while an app it launched is open"
+                )],
+            },
+        ],
+    },
+    PageDef {
+        title: "System",
+        description: "Rendering, displays, sessions, and XWayland",
+        groups: &[
+            GroupDef {
+                title: "Rendering",
+                items: &[
+                    switch_item!(
+                        "vfr",
+                        "debug.vfr",
+                        "Variable Frame Rate",
+                        "Render only when something changes; saves battery"
+                    ),
+                    choice_item!(
+                        "vrr",
+                        "misc.vrr",
+                        "Adaptive Sync",
+                        "Variable refresh rate on monitors that support it",
+                        &[
+                            (0, "Off"),
+                            (1, "On"),
+                            (2, "Fullscreen only"),
+                            (3, "Fullscreen games")
+                        ]
+                    ),
+                    choice_item!(
+                        "direct-scanout",
+                        "render.direct_scanout",
+                        "Direct Scanout",
+                        "Show a fullscreen window's buffer directly, skipping compositing",
+                        ON_OFF_AUTO
+                    ),
+                    switch_item!(
+                        "new-render-scheduling",
+                        "render.new_render_scheduling",
+                        "New Render Scheduling",
+                        "Newer frame scheduling, better on slow GPUs"
+                    ),
+                    switch_item!(
+                        "expand-undersized-textures",
+                        "render.expand_undersized_textures",
+                        "Expand Undersized Textures",
+                        "Stretch a window that has not yet resized"
+                    ),
+                    switch_item!(
+                        "xp-mode",
+                        "render.xp_mode",
+                        "XP Mode",
+                        "Skip the back buffer and bottom layer"
+                    ),
+                    switch_item!(
+                        "nvidia-anti-flicker",
+                        "opengl.nvidia_anti_flicker",
+                        "NVIDIA Anti-Flicker",
+                        "Reduce flicker on NVIDIA, at the cost of possible frame drops"
+                    ),
+                    int_item!(
+                        "render-unfocused-fps",
+                        "misc.render_unfocused_fps",
+                        "Background FPS Limit",
+                        "Frame rate for windows rendered while unfocused",
+                        1.0,
+                        120.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "screencopy-force-8b",
+                        "misc.screencopy_force_8b",
+                        "8-bit Screen Capture",
+                        "Capture the screen in 8-bit color"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Color and HDR",
+                items: &[
+                    switch_item!(
+                        "cm-enabled",
+                        "render.cm_enabled",
+                        "Color Management",
+                        "Color management pipelines; takes effect after a restart"
+                    ),
+                    choice_item!(
+                        "cm-auto-hdr",
+                        "render.cm_auto_hdr",
+                        "Auto HDR",
+                        "Switch to HDR for fullscreen HDR apps",
+                        &[(0, "Off"), (1, "HDR"), (2, "HDR from EDID")]
+                    ),
+                    dropdown_item!(
+                        "cm-sdr-eotf",
+                        "render.cm_sdr_eotf",
+                        "SDR Transfer Function",
+                        "How SDR apps are shown on an HDR display",
+                        &[
+                            ("default", "Default"),
+                            ("gamma22", "Gamma 2.2"),
+                            ("srgb", "sRGB")
+                        ]
+                    ),
+                    choice_item!(
+                        "prefer-hdr",
+                        "quirks.prefer_hdr",
+                        "Prefer HDR",
+                        "Prefer HDR mode",
+                        &[(0, "Off"), (1, "On"), (2, "Gamescope only")]
+                    ),
+                    switch_item!(
+                        "send-content-type",
+                        "render.send_content_type",
+                        "Send Content Type",
+                        "Tell monitors what is shown so they can switch profiles"
+                    ),
+                    choice_item!(
+                        "ctm-animation",
+                        "render.ctm_animation",
+                        "Fade Color Changes",
+                        "Fade between color transforms such as night light",
+                        ON_OFF_AUTO
+                    ),
+                    choice_item!(
+                        "non-shader-cm",
+                        "render.non_shader_cm",
+                        "Hardware Color Management",
+                        "Do color management without shaders",
+                        &[(0, "Off"), (1, "Always"), (2, "On demand"), (3, "Ignore")]
+                    ),
+                    choice_item!(
+                        "non-shader-cm-interop",
+                        "render.non_shader_cm_interop",
+                        "Hardware CM With Night Light",
+                        "Hardware color management alongside color transforms",
+                        ON_OFF_AUTO
+                    ),
+                    choice_item!(
+                        "use-fp16",
+                        "render.use_fp16",
+                        "FP16 Buffer",
+                        "Render into a 16-bit float buffer",
+                        ON_OFF_AUTO
+                    ),
+                    choice_item!(
+                        "fp16-sdr-tf",
+                        "render.fp16_sdr_tf",
+                        "FP16 SDR Transfer",
+                        "Transfer function of the FP16 buffer in SDR",
+                        &[(0, "Monitor"), (1, "Linear")]
+                    ),
+                    choice_item!(
+                        "keep-unmodified-copy",
+                        "render.keep_unmodified_copy",
+                        "Keep SDR Copy for Sharing",
+                        "Keep an unmodified SDR frame for screen sharing",
+                        ON_OFF_AUTO
+                    ),
+                    switch_item!(
+                        "icc-vcgt-enabled",
+                        "render.icc_vcgt_enabled",
+                        "ICC Gamma Ramps",
+                        "Send ICC profile gamma ramps to the display"
+                    ),
+                    switch_item!(
+                        "commit-timing-enabled",
+                        "render.commit_timing_enabled",
+                        "Commit Timing",
+                        "Commit timing protocol; takes effect after a restart"
+                    ),
+                    switch_item!(
+                        "use-shader-blur-blend",
+                        "render.use_shader_blur_blend",
+                        "Shader Blur Blend",
+                        "Experimental blurred background blending"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Display Wake",
+                items: &[
+                    switch_item!(
+                        "mouse-move-enables-dpms",
+                        "misc.mouse_move_enables_dpms",
+                        "Mouse Wakes Display",
+                        "Moving the mouse turns the display back on"
+                    ),
+                    switch_item!(
+                        "key-press-enables-dpms",
+                        "misc.key_press_enables_dpms",
+                        "Key Wakes Display",
+                        "A key press turns the display back on"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Lock Screen",
+                items: &[
+                    switch_item!(
+                        "allow-session-lock-restore",
+                        "misc.allow_session_lock_restore",
+                        "Recover Lock Screen",
+                        "Let the lock screen restart if it crashes"
+                    ),
+                    switch_item!(
+                        "session-lock-xray",
+                        "misc.session_lock_xray",
+                        "Render Behind Lock Screen",
+                        "Keep rendering workspaces below the lock screen"
+                    ),
+                    switch_item!(
+                        "session-lock-blur",
+                        "misc.session_lock_blur",
+                        "Blur Lock Screen",
+                        "Blur behind the lock screen"
+                    ),
+                    int_item!(
+                        "lockdead-screen-delay",
+                        "misc.lockdead_screen_delay",
+                        "Lock Failure Delay",
+                        "Milliseconds before the fallback lock screen appears",
+                        0.0,
+                        5000.0,
+                        100.0
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "Startup and Notices",
+                items: &[
+                    switch_item!(
+                        "disable-hyprland-logo",
+                        "misc.disable_hyprland_logo",
+                        "No Hyprland Logo",
+                        "No default wallpaper with the Hyprland logo"
+                    ),
+                    switch_item!(
+                        "disable-splash-rendering",
+                        "misc.disable_splash_rendering",
+                        "No Splash",
+                        "No splash text on the default wallpaper"
+                    ),
+                    choice_item!(
+                        "force-default-wallpaper",
+                        "misc.force_default_wallpaper",
+                        "Default Wallpaper",
+                        "Which built-in wallpaper to use when none is set",
+                        &[(-1, "Random"), (0, "First"), (1, "Second"), (2, "Third")]
+                    ),
+                    switch_item!(
+                        "disable-scale-notification",
+                        "misc.disable_scale_notification",
+                        "No Scale Warning",
+                        "No notice when a monitor scale is not clean"
+                    ),
+                    switch_item!(
+                        "enable-anr-dialog",
+                        "misc.enable_anr_dialog",
+                        "Not Responding Dialog",
+                        "Offer to close an app that stops responding"
+                    ),
+                    int_item!(
+                        "anr-missed-pings",
+                        "misc.anr_missed_pings",
+                        "Missed Pings Before Dialog",
+                        "Unanswered pings before the not responding dialog",
+                        1.0,
+                        20.0,
+                        1.0
+                    ),
+                    switch_item!(
+                        "no-update-news",
+                        "ecosystem.no_update_news",
+                        "No Update News",
+                        "No popup after a Hyprland update"
+                    ),
+                    switch_item!(
+                        "no-donation-nag",
+                        "ecosystem.no_donation_nag",
+                        "No Donation Reminder",
+                        "No twice-yearly donation popup"
+                    ),
+                    switch_item!(
+                        "enforce-permissions",
+                        "ecosystem.enforce_permissions",
+                        "Enforce Permissions",
+                        "Ask before apps capture the screen or keyboard"
+                    ),
+                    switch_item!(
+                        "disable-autoreload",
+                        "misc.disable_autoreload",
+                        "No Auto Reload",
+                        "Do not reload the config when a file changes"
+                    ),
+                ],
+            },
+            GroupDef {
+                title: "XWayland",
+                items: &[
+                    switch_item!(
+                        "xwayland-enabled",
+                        "xwayland.enabled",
+                        "XWayland",
+                        "Run X11 apps"
+                    ),
+                    switch_item!(
+                        "xwayland-force-zero-scaling",
+                        "xwayland.force_zero_scaling",
+                        "Unscaled X11 Apps",
+                        "X11 apps render at scale 1 and scale themselves"
+                    ),
+                    switch_item!(
+                        "xwayland-use-nearest-neighbor",
+                        "xwayland.use_nearest_neighbor",
+                        "Pixelated Scaling",
+                        "Scale X11 apps with nearest-neighbor filtering"
+                    ),
+                    switch_item!(
+                        "xwayland-create-abstract-socket",
+                        "xwayland.create_abstract_socket",
+                        "Abstract Socket",
+                        "Create the abstract Unix socket for XWayland"
+                    ),
+                ],
+            },
+        ],
+    },
+];

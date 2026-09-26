@@ -11,10 +11,16 @@ The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) sets Hyprland option
 
 | Section | Settings |
 | --- | --- |
-| **General** | Border size, resize on border, gaps in, gaps out, gaps between workspaces, and the layout (Dwindle, Master, Scrolling, or Monocle). |
-| **Appearance** | Corner rounding, active and inactive window opacity, and blur with its size and passes. |
-| **Input** | Keyboard layout, repeat rate and delay. Mouse sensitivity, natural scroll, left handed. Touchpad disable while typing, tap to click, natural scroll. |
-| **Miscellaneous** | Variable refresh rate. |
+| **General** | Border size and grab area, gaps (in, out, floating, workspaces), the layout (Dwindle, Master, Scrolling, or Monocle), tearing, and floating-window snapping. |
+| **Appearance** | Corner rounding, opacity, dimming, blur, shadows, glow, motion blur, and animations. |
+| **Layouts** | Single-window aspect ratio, and every option of the Dwindle, Master, and Scrolling layouts. |
+| **Keyboard** | Layout, Num Lock on start, keybinds by symbol, repeat rate and delay. |
+| **Mouse** | Sensitivity and acceleration, scrolling, and how the pointer changes focus. |
+| **Touchpad** | Tapping, clicking, scrolling, and workspace swipe gestures. |
+| **Groups** | Window grouping behaviour and the group bar. |
+| **Cursor** | Hiding, warping, zooming, and rendering of the pointer. |
+| **Windows** | Focus, workspaces, moving focus, keybind and drag behaviour, and window swallowing. |
+| **System** | Variable frame rate and adaptive sync, rendering, color management and HDR, display wake, the lock screen, startup notices, and XWayland. |
 
 ## Settings you changed
 
