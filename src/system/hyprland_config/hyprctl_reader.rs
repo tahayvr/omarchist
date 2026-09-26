@@ -22,6 +22,8 @@ struct HyprctlOption {
     custom: Option<String>,
     #[serde(default)]
     css: Option<String>,
+    #[serde(default)]
+    vec2: Option<[f64; 2]>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -80,9 +82,7 @@ const OPTION_KEYS: &[&str] = &[
     "decoration:shadow:range",
     "decoration:shadow:render_power",
     "decoration:shadow:sharp",
-    "decoration:shadow:ignore_window",
-    "decoration:shadow:offset_x",
-    "decoration:shadow:offset_y",
+    "decoration:shadow:offset",
     "decoration:shadow:scale",
     "animations:enabled",
     "animations:workspace_wraparound",
@@ -138,7 +138,6 @@ const OPTION_KEYS: &[&str] = &[
     "misc:disable_splash_rendering",
     "misc:font_family",
     "misc:force_default_wallpaper",
-    "misc:vfr",
     "misc:vrr",
     "misc:mouse_move_enables_dpms",
     "misc:key_press_enables_dpms",
@@ -192,7 +191,12 @@ const OPTION_KEYS: &[&str] = &[
     "render:xp_mode",
     "render:cm_enabled",
     "render:new_render_scheduling",
+    "render:cm_sdr_eotf",
+    "debug:vfr",
 ];
+
+/// What `hyprctl` prints for a string option that is unset.
+const EMPTY_PLACEHOLDER: &str = "[[EMPTY]]";
 
 struct Options(HashMap<String, HyprctlOption>);
 
@@ -238,8 +242,19 @@ impl Options {
         self.get(key)?.float
     }
 
+    /// The value of a string option; an unset one (`[[EMPTY]]`) is the
+    /// empty string, never the placeholder itself.
     fn string(&self, key: &str) -> Option<String> {
-        self.get(key)?.string.clone()
+        let value = self.get(key)?.string.clone()?;
+        Some(if value == EMPTY_PLACEHOLDER {
+            String::new()
+        } else {
+            value
+        })
+    }
+
+    fn vec2(&self, key: &str) -> Option<[f64; 2]> {
+        self.get(key)?.vec2
     }
 
     /// For options like `gaps_in` / `gaps_out` that come back as
@@ -413,14 +428,8 @@ fn read_from_options(opts: &Options) -> HyprlandConfig {
     if let Some(v) = opts.boolean("decoration:shadow:sharp") {
         cfg.decoration.shadow.sharp = v;
     }
-    if let Some(v) = opts.boolean("decoration:shadow:ignore_window") {
-        cfg.decoration.shadow.ignore_window = v;
-    }
-    if let Some(v) = opts.float("decoration:shadow:offset_x") {
-        cfg.decoration.shadow.offset_x = v;
-    }
-    if let Some(v) = opts.float("decoration:shadow:offset_y") {
-        cfg.decoration.shadow.offset_y = v;
+    if let Some(v) = opts.vec2("decoration:shadow:offset") {
+        cfg.decoration.shadow.offset = v;
     }
     if let Some(v) = opts.float("decoration:shadow:scale") {
         cfg.decoration.shadow.scale = v;
@@ -597,9 +606,6 @@ fn read_from_options(opts: &Options) -> HyprlandConfig {
     if let Some(v) = opts.int("misc:force_default_wallpaper") {
         cfg.misc.force_default_wallpaper = v as i32;
     }
-    if let Some(v) = opts.boolean("misc:vfr") {
-        cfg.misc.vfr = v;
-    }
     if let Some(v) = opts.int("misc:vrr") {
         cfg.misc.vrr = v as i32;
     }
@@ -769,6 +775,14 @@ fn read_from_options(opts: &Options) -> HyprlandConfig {
     if let Some(v) = opts.boolean("render:new_render_scheduling") {
         cfg.render.new_render_scheduling = v;
     }
+    if let Some(v) = opts.string("render:cm_sdr_eotf") {
+        cfg.render.cm_sdr_eotf = v;
+    }
+
+    // ── debug ────────────────────────────────────────────────────────────────
+    if let Some(v) = opts.boolean("debug:vfr") {
+        cfg.debug.vfr = v;
+    }
 
     cfg
 }
@@ -790,6 +804,8 @@ mod tests {
 
 
 {"option": "general:layout", "str": "master", "set": true }
+{"option": "input:accel_profile", "str": "[[EMPTY]]", "set": true }
+{"option": "decoration:shadow:offset", "vec2": [1,2], "set": false }
 no such option
 "#;
 
@@ -802,6 +818,15 @@ no such option
         assert_eq!(opts.float("decoration:active_opacity"), Some(0.95));
         assert_eq!(opts.string("general:layout").as_deref(), Some("master"));
         assert_eq!(opts.int("missing:key"), None);
+        assert_eq!(opts.vec2("decoration:shadow:offset"), Some([1.0, 2.0]));
+    }
+
+    #[test]
+    fn unset_strings_read_as_empty_not_the_placeholder() {
+        let opts = Options::parse(SAMPLE);
+        assert_eq!(opts.string("input:accel_profile").as_deref(), Some(""));
+        let cfg = read_from_options(&opts);
+        assert_eq!(cfg.input.accel_profile, "");
     }
 
     #[test]
@@ -821,5 +846,73 @@ no such option
         for key in OPTION_KEYS {
             assert!(seen.insert(key), "duplicate option key {key}");
         }
+    }
+}
+
+#[cfg(test)]
+mod defaults_audit {
+    //! `HyprlandConfig::default()` is what an overridden key resets to when
+    //! no Lua file sets it, so it must match Hyprland's own defaults. This
+    //! compares every option the reader knows against `hyprctl
+    //! descriptions`, and is skipped where no compositor is running.
+    use std::process::Command;
+
+    use serde_json::Value;
+
+    use super::OPTION_KEYS;
+    use crate::system::hyprland_config::baseline::{get_path, values_equal};
+    use crate::types::hyprland_config::HyprlandConfig;
+
+    #[test]
+    fn rust_defaults_match_hyprland_descriptions() {
+        let Ok(output) = Command::new("hyprctl")
+            .args(["descriptions", "-j"])
+            .output()
+        else {
+            eprintln!("skipping: no hyprctl");
+            return;
+        };
+        let Ok(described) = serde_json::from_slice::<Vec<Value>>(&output.stdout) else {
+            eprintln!("skipping: hyprctl descriptions returned no JSON");
+            return;
+        };
+        let defaults = serde_json::to_value(HyprlandConfig::default()).unwrap();
+        let mut mismatches = Vec::new();
+        for option in described {
+            let Some(name) = option["name"].as_str() else {
+                continue;
+            };
+            if !OPTION_KEYS.contains(&name) {
+                continue;
+            }
+            let path = name.replace(':', ".");
+            let Some(ours) = get_path(&defaults, &path) else {
+                mismatches.push(format!("{name}: not in the model"));
+                continue;
+            };
+            let theirs = match &option["default"] {
+                // `gaps_in` and friends describe as "5 5 5 5"; the model keeps one number.
+                Value::String(s) if ours.is_number() => s
+                    .split_whitespace()
+                    .next()
+                    .and_then(|t| t.parse::<f64>().ok())
+                    .map(Value::from),
+                Value::String(s) if s == super::EMPTY_PLACEHOLDER => {
+                    Some(Value::String(String::new()))
+                }
+                other => Some(other.clone()),
+            };
+            if !theirs.as_ref().is_some_and(|t| values_equal(ours, t)) {
+                mismatches.push(format!(
+                    "{name}: model {ours}, Hyprland {}",
+                    option["default"]
+                ));
+            }
+        }
+        assert!(
+            mismatches.is_empty(),
+            "defaults differ:\n{}",
+            mismatches.join("\n")
+        );
     }
 }

@@ -10,7 +10,7 @@ use std::rc::Rc;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, IndexPath, Sizable as _,
-    button::Button,
+    button::{Button, ButtonVariants as _},
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
     input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
@@ -21,8 +21,9 @@ use gpui_component::{
     v_flex,
 };
 
+use serde_json::Value;
+
 use crate::system::hyprland_config::HyprlandConfigManager;
-use crate::types::hyprland_config::HyprlandConfig;
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
 
@@ -38,32 +39,34 @@ pub mod config_nav {
 // Declarative definition of the page
 // ---------------------------------------------------------------------
 
+// How an item is edited. Values are read and written by the dotted
+// Hyprland option path (`general.gaps_in`), the same path the manager
+// stores overrides under.
 enum FieldDef {
     Number {
         min: f64,
         max: f64,
         step: f64,
-        get: fn(&HyprlandConfig) -> f64,
-        set: fn(&mut HyprlandConfig, f64),
+        /// Written as an integer, as Hyprland declares the option.
+        integer: bool,
     },
-    Switch {
-        get: fn(&HyprlandConfig) -> bool,
-        set: fn(&mut HyprlandConfig, bool),
-    },
+    Switch,
     Dropdown {
         options: &'static [(&'static str, &'static str)],
-        get: fn(&HyprlandConfig) -> String,
-        set: fn(&mut HyprlandConfig, String),
     },
     KeyboardLayout,
 }
 
 struct ItemDef {
     id: &'static str,
+    /// The Hyprland option, dotted (`input.touchpad.tap_to_click`).
+    path: &'static str,
     label: &'static str,
     description: &'static str,
     field: FieldDef,
 }
+
+const KEYBOARD_LAYOUT_PATH: &str = "input.kb_layout";
 
 struct GroupDef {
     title: &'static str,
@@ -76,33 +79,48 @@ struct PageDef {
     groups: &'static [GroupDef],
 }
 
-macro_rules! number_item {
-    ($id:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr, |$c:ident| $get:expr, |$m:ident, $v:ident| $set:expr) => {
+macro_rules! int_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
         ItemDef {
             id: $id,
+            path: $path,
             label: $label,
             description: $desc,
             field: FieldDef::Number {
                 min: $min,
                 max: $max,
                 step: $step,
-                get: |$c| $get,
-                set: |$m, $v| $set,
+                integer: true,
+            },
+        }
+    };
+}
+
+macro_rules! float_item {
+    ($id:expr, $path:expr, $label:expr, $desc:expr, $min:expr, $max:expr, $step:expr) => {
+        ItemDef {
+            id: $id,
+            path: $path,
+            label: $label,
+            description: $desc,
+            field: FieldDef::Number {
+                min: $min,
+                max: $max,
+                step: $step,
+                integer: false,
             },
         }
     };
 }
 
 macro_rules! switch_item {
-    ($id:expr, $label:expr, $desc:expr, |$c:ident| $get:expr, |$m:ident, $v:ident| $set:expr) => {
+    ($id:expr, $path:expr, $label:expr, $desc:expr) => {
         ItemDef {
             id: $id,
+            path: $path,
             label: $label,
             description: $desc,
-            field: FieldDef::Switch {
-                get: |$c| $get,
-                set: |$m, $v| $set,
-            },
+            field: FieldDef::Switch,
         }
     };
 }
@@ -115,57 +133,52 @@ const PAGES: &[PageDef] = &[
             GroupDef {
                 title: "Window Borders",
                 items: &[
-                    number_item!(
+                    int_item!(
                         "border-size",
+                        "general.border_size",
                         "Border Size",
                         "Size of the border around windows",
                         0.0,
-                        10.0,
-                        1.0,
-                        |c| c.general.border_size as f64,
-                        |m, v| m.general.border_size = v as i32
+                        20.0,
+                        1.0
                     ),
                     switch_item!(
                         "resize-on-border",
+                        "general.resize_on_border",
                         "Resize on Border",
-                        "Enable resizing windows by clicking and dragging on borders",
-                        |c| c.general.resize_on_border,
-                        |m, v| m.general.resize_on_border = v
+                        "Enable resizing windows by clicking and dragging on borders"
                     ),
                 ],
             },
             GroupDef {
                 title: "Gaps",
                 items: &[
-                    number_item!(
+                    int_item!(
                         "gaps-in",
+                        "general.gaps_in",
                         "Gaps In",
                         "Gaps between windows",
                         0.0,
                         100.0,
-                        1.0,
-                        |c| c.general.gaps_in as f64,
-                        |m, v| m.general.gaps_in = v as i32
+                        1.0
                     ),
-                    number_item!(
+                    int_item!(
                         "gaps-out",
+                        "general.gaps_out",
                         "Gaps Out",
                         "Gaps between windows and monitor edges",
                         0.0,
                         100.0,
-                        1.0,
-                        |c| c.general.gaps_out as f64,
-                        |m, v| m.general.gaps_out = v as i32
+                        1.0
                     ),
-                    number_item!(
+                    int_item!(
                         "gaps-workspaces",
+                        "general.gaps_workspaces",
                         "Gaps Workspaces",
                         "Gaps between workspaces. Stacks with gaps out",
                         0.0,
                         100.0,
-                        1.0,
-                        |c| c.general.gaps_workspaces as f64,
-                        |m, v| m.general.gaps_workspaces = v as i32
+                        1.0
                     ),
                 ],
             },
@@ -173,12 +186,16 @@ const PAGES: &[PageDef] = &[
                 title: "Layout",
                 items: &[ItemDef {
                     id: "layout",
+                    path: "general.layout",
                     label: "Layout",
                     description: "Window layout algorithm",
                     field: FieldDef::Dropdown {
-                        options: &[("dwindle", "Dwindle"), ("master", "Master")],
-                        get: |c| c.general.layout.clone(),
-                        set: |m, v| m.general.layout = v,
+                        options: &[
+                            ("dwindle", "Dwindle"),
+                            ("master", "Master"),
+                            ("scrolling", "Scrolling"),
+                            ("monocle", "Monocle"),
+                        ],
                     },
                 }],
             },
@@ -190,39 +207,36 @@ const PAGES: &[PageDef] = &[
         groups: &[
             GroupDef {
                 title: "Rounding",
-                items: &[number_item!(
+                items: &[int_item!(
                     "rounding",
+                    "decoration.rounding",
                     "Rounding",
                     "Rounded corners radius in pixels",
                     0.0,
-                    50.0,
-                    1.0,
-                    |c| c.decoration.rounding as f64,
-                    |m, v| m.decoration.rounding = v as i32
+                    20.0,
+                    1.0
                 )],
             },
             GroupDef {
                 title: "Opacity",
                 items: &[
-                    number_item!(
+                    float_item!(
                         "active-opacity",
+                        "decoration.active_opacity",
                         "Active Opacity",
                         "Opacity of active windows",
                         0.0,
                         1.0,
-                        0.1,
-                        |c| c.decoration.active_opacity,
-                        |m, v| m.decoration.active_opacity = v
+                        0.05
                     ),
-                    number_item!(
+                    float_item!(
                         "inactive-opacity",
+                        "decoration.inactive_opacity",
                         "Inactive Opacity",
                         "Opacity of inactive windows",
                         0.0,
                         1.0,
-                        0.1,
-                        |c| c.decoration.inactive_opacity,
-                        |m, v| m.decoration.inactive_opacity = v
+                        0.05
                     ),
                 ],
             },
@@ -231,30 +245,27 @@ const PAGES: &[PageDef] = &[
                 items: &[
                     switch_item!(
                         "blur-enabled",
+                        "decoration.blur.enabled",
                         "Enable Blur",
-                        "Enable window background blur",
-                        |c| c.decoration.blur.enabled,
-                        |m, v| m.decoration.blur.enabled = v
+                        "Enable window background blur"
                     ),
-                    number_item!(
+                    int_item!(
                         "blur-size",
+                        "decoration.blur.size",
                         "Blur Size",
                         "Blur size/distance",
                         1.0,
-                        20.0,
-                        1.0,
-                        |c| c.decoration.blur.size as f64,
-                        |m, v| m.decoration.blur.size = v as i32
+                        100.0,
+                        1.0
                     ),
-                    number_item!(
+                    int_item!(
                         "blur-passes",
+                        "decoration.blur.passes",
                         "Blur Passes",
                         "Number of blur passes",
                         1.0,
-                        5.0,
-                        1.0,
-                        |c| c.decoration.blur.passes as f64,
-                        |m, v| m.decoration.blur.passes = v as i32
+                        10.0,
+                        1.0
                     ),
                 ],
             },
@@ -269,58 +280,54 @@ const PAGES: &[PageDef] = &[
                 items: &[
                     ItemDef {
                         id: "kb-layout",
+                        path: KEYBOARD_LAYOUT_PATH,
                         label: "Keyboard Layout",
                         description: "Keyboard layout (e.g., us, de, fr)",
                         field: FieldDef::KeyboardLayout,
                     },
-                    number_item!(
+                    int_item!(
                         "repeat-rate",
+                        "input.repeat_rate",
                         "Repeat Rate",
                         "Repeat rate for held-down keys (repeats per second)",
                         1.0,
-                        100.0,
-                        1.0,
-                        |c| c.input.repeat_rate as f64,
-                        |m, v| m.input.repeat_rate = v as i32
+                        200.0,
+                        1.0
                     ),
-                    number_item!(
+                    int_item!(
                         "repeat-delay",
+                        "input.repeat_delay",
                         "Repeat Delay",
                         "Delay before key repeat starts (milliseconds)",
                         100.0,
                         2000.0,
-                        50.0,
-                        |c| c.input.repeat_delay as f64,
-                        |m, v| m.input.repeat_delay = v as i32
+                        25.0
                     ),
                 ],
             },
             GroupDef {
                 title: "Mouse",
                 items: &[
-                    number_item!(
+                    float_item!(
                         "sensitivity",
+                        "input.sensitivity",
                         "Sensitivity",
                         "Mouse sensitivity (-1.0 to 1.0)",
                         -1.0,
                         1.0,
-                        0.1,
-                        |c| c.input.sensitivity,
-                        |m, v| m.input.sensitivity = v
+                        0.05
                     ),
                     switch_item!(
                         "natural-scroll",
+                        "input.natural_scroll",
                         "Natural Scroll",
-                        "Invert scrolling direction",
-                        |c| c.input.natural_scroll,
-                        |m, v| m.input.natural_scroll = v
+                        "Invert scrolling direction"
                     ),
                     switch_item!(
                         "left-handed",
+                        "input.left_handed",
                         "Left Handed",
-                        "Switch left and right mouse buttons",
-                        |c| c.input.left_handed,
-                        |m, v| m.input.left_handed = v
+                        "Switch left and right mouse buttons"
                     ),
                 ],
             },
@@ -329,24 +336,21 @@ const PAGES: &[PageDef] = &[
                 items: &[
                     switch_item!(
                         "disable-while-typing",
+                        "input.touchpad.disable_while_typing",
                         "Disable While Typing",
-                        "Disable touchpad while typing",
-                        |c| c.input.touchpad.disable_while_typing,
-                        |m, v| m.input.touchpad.disable_while_typing = v
+                        "Disable touchpad while typing"
                     ),
                     switch_item!(
                         "tap-to-click",
+                        "input.touchpad.tap_to_click",
                         "Tap to Click",
-                        "Tap on touchpad to click",
-                        |c| c.input.touchpad.tap_to_click,
-                        |m, v| m.input.touchpad.tap_to_click = v
+                        "Tap on touchpad to click"
                     ),
                     switch_item!(
                         "touchpad-natural-scroll",
+                        "input.touchpad.natural_scroll",
                         "Natural Scroll",
-                        "Invert touchpad scrolling direction",
-                        |c| c.input.touchpad.natural_scroll,
-                        |m, v| m.input.touchpad.natural_scroll = v
+                        "Invert touchpad scrolling direction"
                     ),
                 ],
             },
@@ -359,10 +363,9 @@ const PAGES: &[PageDef] = &[
             title: "General",
             items: &[switch_item!(
                 "vfr",
+                "debug.vfr",
                 "VFR",
-                "Variable refresh rate (saves battery)",
-                |c| c.misc.vfr,
-                |m, v| m.misc.vfr = v
+                "Variable frame rate: render only when something changes (saves battery)"
             )],
         }],
     },
@@ -374,6 +377,46 @@ fn format_number(value: f64) -> String {
     } else {
         let text = format!("{value:.3}");
         text.trim_end_matches('0').trim_end_matches('.').to_string()
+    }
+}
+
+fn number_at(manager: &HyprlandConfigManager, path: &str) -> f64 {
+    manager
+        .value(path)
+        .and_then(|v| v.as_f64())
+        .unwrap_or_default()
+}
+
+fn string_at(manager: &HyprlandConfigManager, path: &str) -> String {
+    manager
+        .value(path)
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// The JSON value a number field writes: an integer when Hyprland declares
+/// the option as one, so the Lua file reads `4`, not `4.0`.
+fn number_value(value: f64, integer: bool) -> Value {
+    if integer {
+        Value::from(value.round() as i64)
+    } else {
+        Value::from(value)
+    }
+}
+
+/// A setting's value as the page shows it, for the reset tooltip.
+fn display_value(value: &Value, field: &FieldDef) -> String {
+    match (value, field) {
+        (Value::Bool(true), _) => "on".to_string(),
+        (Value::Bool(false), _) => "off".to_string(),
+        (Value::Number(n), _) => format_number(n.as_f64().unwrap_or_default()),
+        (Value::String(s), FieldDef::Dropdown { options }) => options
+            .iter()
+            .find(|(v, _)| v == s)
+            .map(|(_, label)| label.to_string())
+            .unwrap_or_else(|| s.clone()),
+        (Value::String(s), _) => s.clone(),
+        (other, _) => other.to_string(),
     }
 }
 
@@ -446,7 +489,7 @@ impl ConfigView {
         };
         layout_items.sort_by(|a, b| a.label.cmp(&b.label));
 
-        let current_kb = config_manager.get().input.kb_layout.clone();
+        let current_kb = string_at(&config_manager, KEYBOARD_LAYOUT_PATH);
         let initial_index = layout_items
             .iter()
             .position(|item| item.value.as_ref() == current_kb.as_str())
@@ -461,8 +504,7 @@ impl ConfigView {
             window,
             |this, _select, event: &SelectEvent<SearchableVec<KeyboardLayoutItem>>, _window, cx| {
                 if let SelectEvent::Confirm(Some(value)) = event {
-                    let layout = value.to_string();
-                    this.update_config(cx, |c| c.input.kb_layout = layout);
+                    this.set_value(KEYBOARD_LAYOUT_PATH, Value::String(value.to_string()), cx);
                 }
             },
         )];
@@ -476,34 +518,34 @@ impl ConfigView {
             }),
         );
 
-        let config = config_manager.get().clone();
         let mut number_inputs = HashMap::new();
         for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
             let FieldDef::Number {
                 min,
                 max,
                 step,
-                get,
-                set,
+                integer,
             } = item.field
             else {
                 continue;
             };
+            let path = item.path;
+            let initial = number_at(&config_manager, path);
             let input =
-                cx.new(|cx| InputState::new(window, cx).default_value(format_number(get(&config))));
+                cx.new(|cx| InputState::new(window, cx).default_value(format_number(initial)));
             subscriptions.push(cx.subscribe_in(
                 &input,
                 window,
                 move |this, input, event: &NumberInputEvent, window, cx| {
                     let NumberInputEvent::Step(action) = event;
-                    let current = get(this.config_manager.borrow().get());
+                    let current = number_at(&this.config_manager.borrow(), path);
                     let next = match action {
                         StepAction::Increment => current + step,
                         StepAction::Decrement => current - step,
                     };
                     let next = (next * 1000.0).round() / 1000.0;
                     let next = next.clamp(min, max);
-                    this.update_config(cx, |c| set(c, next));
+                    this.set_value(path, number_value(next, integer), cx);
                     input.update(cx, |input, cx| {
                         input.set_value(format_number(next), window, cx);
                     });
@@ -516,14 +558,14 @@ impl ConfigView {
                     InputEvent::Change => {
                         if let Ok(value) = input.read(cx).value().trim().parse::<f64>() {
                             let value = value.clamp(min, max);
-                            if get(this.config_manager.borrow().get()) != value {
-                                this.update_config(cx, |c| set(c, value));
+                            if number_at(&this.config_manager.borrow(), path) != value {
+                                this.set_value(path, number_value(value, integer), cx);
                             }
                         }
                     }
                     InputEvent::Blur => {
                         // Normalise the text (clamped, trimmed) once editing ends.
-                        let value = get(this.config_manager.borrow().get());
+                        let value = number_at(&this.config_manager.borrow(), path);
                         input.update(cx, |input, cx| {
                             let text = format_number(value);
                             if input.value() != text {
@@ -569,28 +611,40 @@ impl ConfigView {
     }
 
     fn sync_inputs(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let config = self.config_manager.borrow().get().clone();
         for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
-            if let FieldDef::Number { get, .. } = item.field
+            if let FieldDef::Number { .. } = item.field
                 && let Some(input) = self.number_inputs.get(item.id)
             {
+                let value = number_at(&self.config_manager.borrow(), item.path);
                 input.update(cx, |input, cx| {
-                    input.set_value(format_number(get(&config)), window, cx);
+                    input.set_value(format_number(value), window, cx);
                 });
             }
         }
-        let layout: SharedString = config.input.kb_layout.clone().into();
+        let layout: SharedString =
+            string_at(&self.config_manager.borrow(), KEYBOARD_LAYOUT_PATH).into();
         self.keyboard_layout_select.update(cx, |select, cx| {
             select.set_selected_value(&layout, window, cx);
         });
     }
 
-    fn update_config<F>(&mut self, cx: &mut Context<Self>, f: F)
-    where
-        F: FnOnce(&mut HyprlandConfig),
-    {
-        self.config_manager.borrow_mut().update(f);
-        let _ = self.config_manager.borrow().save();
+    fn set_value(&mut self, path: &str, value: Value, cx: &mut Context<Self>) {
+        self.config_manager.borrow_mut().set_value(path, value);
+        self.persist(cx);
+    }
+
+    /// Drops the user's override so the setting follows Omarchy again, and
+    /// shows the value it falls back to.
+    fn reset(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.config_manager.borrow_mut().reset(path);
+        self.persist(cx);
+        self.sync_inputs(window, cx);
+    }
+
+    fn persist(&mut self, cx: &mut Context<Self>) {
+        if let Err(e) = self.config_manager.borrow().save() {
+            eprintln!("Failed to save Hyprland settings: {e}");
+        }
         cx.notify();
     }
 
@@ -663,6 +717,7 @@ impl ConfigView {
 
     fn render_item(&self, item: &'static ItemDef, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let path = item.path;
         let control: AnyElement = match &item.field {
             FieldDef::Number { .. } => match self.number_inputs.get(item.id) {
                 Some(input) => NumberInput::new(input)
@@ -671,26 +726,28 @@ impl ConfigView {
                     .into_any_element(),
                 None => div().into_any_element(),
             },
-            FieldDef::Switch { get, set } => {
-                let checked = get(self.config_manager.borrow().get());
-                let set = *set;
+            FieldDef::Switch => {
+                let checked = self
+                    .config_manager
+                    .borrow()
+                    .value(path)
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
                 FocusableSwitch::new(item.id)
                     .checked(checked)
                     .on_change(cx.listener(move |this, value, _, cx| {
-                        let value = *value;
-                        this.update_config(cx, |c| set(c, value));
+                        this.set_value(path, Value::Bool(*value), cx);
                     }))
                     .into_any_element()
             }
-            FieldDef::Dropdown { options, get, set } => {
-                let current = get(self.config_manager.borrow().get());
+            FieldDef::Dropdown { options } => {
+                let current = string_at(&self.config_manager.borrow(), path);
                 let label = options
                     .iter()
                     .find(|(value, _)| *value == current)
                     .map(|(_, label)| *label)
                     .unwrap_or(current.as_str())
                     .to_string();
-                let set = *set;
                 let view = cx.entity();
                 Button::new(item.id)
                     .label(label)
@@ -705,7 +762,7 @@ impl ConfigView {
                             menu.item(PopupMenuItem::new(*label).checked(checked).on_click(
                                 move |_, _, cx| {
                                     view.update(cx, |this, cx| {
-                                        this.update_config(cx, |c| set(c, value.to_string()));
+                                        this.set_value(path, Value::String(value.to_string()), cx);
                                     });
                                 },
                             ))
@@ -723,6 +780,26 @@ impl ConfigView {
                         .small(),
                 )
                 .into_any_element(),
+        };
+
+        // A changed setting gets a reset button that shows what it goes back to.
+        let reset = {
+            let manager = self.config_manager.borrow();
+            manager.is_overridden(path).then(|| {
+                let fallback = manager
+                    .baseline_value(path)
+                    .map(|v| display_value(&v, &item.field))
+                    .unwrap_or_default();
+                Button::new(ElementId::Name(format!("reset-{}", item.id).into()))
+                    .icon(Icon::new(Icon::empty()).path("icons/rotate-ccw.svg"))
+                    .ghost()
+                    .small()
+                    .cursor_pointer()
+                    .tooltip(format!("Reset to Omarchy's value: {fallback}"))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.reset(path, window, cx);
+                    }))
+            })
         };
 
         h_flex()
@@ -745,7 +822,14 @@ impl ConfigView {
                             .child(selectable("desc", item.description)),
                     ),
             )
-            .child(div().flex_none().child(control))
+            .child(
+                h_flex()
+                    .flex_none()
+                    .gap_2()
+                    .items_center()
+                    .children(reset)
+                    .child(control),
+            )
     }
 
     fn render_group(
@@ -884,7 +968,9 @@ impl Render for ConfigView {
 #[cfg(test)]
 mod tests {
     // `use super::*` would import gpui's `test` attribute macro and shadow `#[test]`.
-    use super::{FieldDef, HyprlandConfig, PAGES, format_number};
+    use super::{FieldDef, KEYBOARD_LAYOUT_PATH, PAGES, format_number};
+    use crate::system::hyprland_config::baseline::get_path;
+    use crate::types::hyprland_config::HyprlandConfig;
     use std::collections::HashSet;
 
     #[test]
@@ -895,32 +981,33 @@ mod tests {
         }
     }
 
+    /// Every item edits a real key of the model, with a control of the
+    /// key's type.
     #[test]
-    fn every_field_round_trips_through_the_config() {
-        let mut config = HyprlandConfig::default();
+    fn every_item_path_exists_in_the_config_with_the_right_type() {
+        let defaults = serde_json::to_value(HyprlandConfig::default()).unwrap();
         for item in PAGES.iter().flat_map(|p| p.groups).flat_map(|g| g.items) {
+            let value = get_path(&defaults, item.path)
+                .unwrap_or_else(|| panic!("{}: no key {} in the model", item.id, item.path));
             match &item.field {
                 FieldDef::Number {
-                    min, max, get, set, ..
+                    integer, min, max, ..
                 } => {
-                    set(&mut config, *max);
-                    assert_eq!(get(&config), *max, "{}", item.id);
-                    set(&mut config, *min);
-                    assert_eq!(get(&config), *min, "{}", item.id);
+                    assert!(
+                        value.is_number(),
+                        "{}: {} is not a number",
+                        item.id,
+                        item.path
+                    );
+                    assert_eq!(value.is_i64(), *integer, "{}: integer flag", item.id);
+                    assert!(min < max, "{}: empty range", item.id);
                 }
-                FieldDef::Switch { get, set } => {
-                    set(&mut config, true);
-                    assert!(get(&config), "{}", item.id);
-                    set(&mut config, false);
-                    assert!(!get(&config), "{}", item.id);
+                FieldDef::Switch => assert!(value.is_boolean(), "{}: not a bool", item.id),
+                FieldDef::Dropdown { options } => {
+                    assert!(value.is_string(), "{}: not a string", item.id);
+                    assert!(!options.is_empty(), "{}: no options", item.id);
                 }
-                FieldDef::Dropdown { options, get, set } => {
-                    for (value, _) in options.iter() {
-                        set(&mut config, value.to_string());
-                        assert_eq!(get(&config), *value, "{}", item.id);
-                    }
-                }
-                FieldDef::KeyboardLayout => {}
+                FieldDef::KeyboardLayout => assert_eq!(item.path, KEYBOARD_LAYOUT_PATH),
             }
         }
     }

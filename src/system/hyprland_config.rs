@@ -1,3 +1,4 @@
+pub mod baseline;
 pub mod hyprctl_reader;
 pub mod keyboard;
 pub mod lua_writer;

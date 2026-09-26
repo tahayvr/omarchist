@@ -82,7 +82,7 @@ fn ensure_omarchist_lua_stub() -> Result<()> {
     if !dir.exists() {
         return Err(Error::UnknownDirectory("Hyprland config"));
     }
-    manager::write_omarchist_lua(&manager::saved_config())
+    manager::write_omarchist_lua(&manager::saved_overrides())
 }
 
 fn get_hypr_config_path() -> Result<PathBuf> {

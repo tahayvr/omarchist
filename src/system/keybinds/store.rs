@@ -43,7 +43,7 @@ pub fn save_overrides(overrides: &KeybindOverrides) -> Result<()> {
         .map_err(|e| Error::json("Failed to serialize keybinds", e))?;
     fs::write(&path, content).map_err(|e| Error::io("Failed to write keybinds.json", e))?;
 
-    manager::write_omarchist_lua(&manager::saved_config())?;
+    manager::write_omarchist_lua(&manager::saved_overrides())?;
     manager::reload_hyprland();
     Ok(())
 }

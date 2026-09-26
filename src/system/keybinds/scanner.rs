@@ -37,6 +37,14 @@ pub enum ScanEvent {
         source: PathBuf,
         keys: String,
     },
+    /// One leaf of an `hl.config` call: the dotted option name and its
+    /// value (see `scan.lua`).
+    Config {
+        seq: u32,
+        source: PathBuf,
+        path: String,
+        value: serde_json::Value,
+    },
     Error {
         seq: u32,
         message: String,
@@ -175,6 +183,12 @@ pub fn parse_scan_line(line: &str) -> Option<ScanEvent> {
             seq: seq(1)?,
             source: PathBuf::from(&fields[2]),
             keys: fields[3].clone(),
+        }),
+        Some("config") if fields.len() == 5 => Some(ScanEvent::Config {
+            seq: seq(1)?,
+            source: PathBuf::from(&fields[2]),
+            path: fields[3].clone(),
+            value: serde_json::from_str(&fields[4]).ok()?,
         }),
         Some("error") if fields.len() == 3 => Some(ScanEvent::Error {
             seq: seq(1)?,
@@ -389,7 +403,11 @@ hl.config({{ general = {{ gaps_in = 5 }} }})
         assert!(binds[3].options.release);
         assert!(binds[4].options.locked);
         assert!(matches!(events[5], ScanEvent::Unbind { ref keys, .. } if keys == "SUPER + K"));
-        assert!(matches!(events.last(), Some(ScanEvent::Done { seq: 6 })));
+        assert!(matches!(
+            &events[6],
+            ScanEvent::Config { path, value, .. } if path == "general.gaps_in" && *value == serde_json::json!(5)
+        ));
+        assert!(matches!(events.last(), Some(ScanEvent::Done { seq: 7 })));
         assert!(!events.iter().any(|e| matches!(e, ScanEvent::Error { .. })));
     }
 }

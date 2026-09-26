@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct HyprlandConfig {
     pub general: GeneralConfig,
     pub decoration: DecorationConfig,
@@ -20,6 +21,7 @@ pub struct HyprlandConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GeneralConfig {
     pub border_size: i32,
     pub gaps_in: i32,
@@ -41,9 +43,9 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            border_size: 2,
+            border_size: 1,
             gaps_in: 5,
-            gaps_out: 10,
+            gaps_out: 20,
             float_gaps: 0,
             gaps_workspaces: 0,
             layout: "dwindle".to_string(),
@@ -61,6 +63,7 @@ impl Default for GeneralConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SnapConfig {
     pub enabled: bool,
     pub window_gap: i32,
@@ -82,6 +85,7 @@ impl Default for SnapConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DecorationConfig {
     pub rounding: i32,
     pub rounding_power: f64,
@@ -121,6 +125,7 @@ impl Default for DecorationConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BlurConfig {
     pub enabled: bool,
     pub size: i32,
@@ -151,7 +156,7 @@ impl Default for BlurConfig {
             xray: false,
             noise: 0.0117,
             contrast: 0.8916,
-            brightness: 0.8172,
+            brightness: 1.0,
             vibrancy: 0.1696,
             vibrancy_darkness: 0.0,
             special: false,
@@ -164,16 +169,16 @@ impl Default for BlurConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ShadowConfig {
     pub enabled: bool,
     pub range: i32,
     pub render_power: i32,
     pub sharp: bool,
-    pub ignore_window: bool,
     pub color: String,
     pub color_inactive: String,
-    pub offset_x: f64,
-    pub offset_y: f64,
+    /// `[x, y]`, Hyprland's `Vec2`.
+    pub offset: [f64; 2],
     pub scale: f64,
 }
 
@@ -184,17 +189,16 @@ impl Default for ShadowConfig {
             range: 4,
             render_power: 3,
             sharp: false,
-            ignore_window: true,
             color: "0xee1a1a1a".to_string(),
             color_inactive: String::new(),
-            offset_x: 0.0,
-            offset_y: 0.0,
+            offset: [0.0, 0.0],
             scale: 1.0,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AnimationsConfig {
     pub enabled: bool,
     pub workspace_wraparound: bool,
@@ -210,6 +214,7 @@ impl Default for AnimationsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct InputConfig {
     pub kb_model: String,
     pub kb_layout: String,
@@ -281,6 +286,7 @@ impl Default for InputConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TouchpadConfig {
     pub disable_while_typing: bool,
     pub natural_scroll: bool,
@@ -316,6 +322,7 @@ impl Default for TouchpadConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GesturesConfig {
     pub workspace_swipe_distance: i32,
     pub workspace_swipe_touch: bool,
@@ -351,6 +358,7 @@ impl Default for GesturesConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GroupConfig {
     pub auto_group: bool,
     pub insert_after_current: bool,
@@ -380,6 +388,7 @@ impl Default for GroupConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GroupbarConfig {
     pub enabled: bool,
     pub font_family: String,
@@ -421,13 +430,13 @@ impl Default for GroupbarConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MiscConfig {
     pub disable_hyprland_logo: bool,
     pub disable_splash_rendering: bool,
     pub disable_scale_notification: bool,
     pub font_family: String,
     pub force_default_wallpaper: i32,
-    pub vfr: bool,
     pub vrr: i32,
     pub mouse_move_enables_dpms: bool,
     pub key_press_enables_dpms: bool,
@@ -456,7 +465,6 @@ impl Default for MiscConfig {
             disable_scale_notification: false,
             font_family: "Sans".to_string(),
             force_default_wallpaper: -1,
-            vfr: true,
             vrr: 0,
             mouse_move_enables_dpms: false,
             key_press_enables_dpms: false,
@@ -480,6 +488,7 @@ impl Default for MiscConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BindsConfig {
     pub pass_mouse_when_bound: bool,
     pub scroll_event_delay: i32,
@@ -505,7 +514,7 @@ impl Default for BindsConfig {
             workspace_back_and_forth: false,
             hide_special_on_workspace_change: false,
             allow_workspace_cycles: false,
-            workspace_center_on: 0,
+            workspace_center_on: 1,
             focus_preferred_method: 0,
             ignore_group_lock: false,
             movefocus_cycles_fullscreen: false,
@@ -519,6 +528,7 @@ impl Default for BindsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct XWaylandConfig {
     pub enabled: bool,
     pub use_nearest_neighbor: bool,
@@ -538,6 +548,7 @@ impl Default for XWaylandConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct OpenGlConfig {
     pub nvidia_anti_flicker: bool,
 }
@@ -551,6 +562,7 @@ impl Default for OpenGlConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RenderConfig {
     pub direct_scanout: i32,
     pub expand_undersized_textures: bool,
@@ -562,7 +574,7 @@ pub struct RenderConfig {
     pub cm_auto_hdr: i32,
     pub new_render_scheduling: bool,
     pub non_shader_cm: i32,
-    pub cm_sdr_eotf: i32,
+    pub cm_sdr_eotf: String,
 }
 
 impl Default for RenderConfig {
@@ -578,12 +590,13 @@ impl Default for RenderConfig {
             cm_auto_hdr: 1,
             new_render_scheduling: false,
             non_shader_cm: 3,
-            cm_sdr_eotf: 0,
+            cm_sdr_eotf: "default".to_string(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct CursorConfig {
     pub invisible: bool,
     pub sync_gsettings_theme: bool,
@@ -617,7 +630,7 @@ impl Default for CursorConfig {
             no_hardware_cursors: 2,
             no_break_fs_vrr: 2,
             min_refresh_rate: 24,
-            hotspot_padding: 1,
+            hotspot_padding: 0,
             inactive_timeout: 0.0,
             no_warps: false,
             persistent_warps: false,
@@ -630,7 +643,7 @@ impl Default for CursorConfig {
             enable_hyprcursor: true,
             hide_on_key_press: false,
             hide_on_touch: true,
-            hide_on_tablet: true,
+            hide_on_tablet: false,
             use_cpu_buffer: 2,
             warp_back_after_non_mouse_input: false,
             zoom_disable_aa: false,
@@ -639,6 +652,7 @@ impl Default for CursorConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EcosystemConfig {
     pub no_update_news: bool,
     pub no_donation_nag: bool,
@@ -646,12 +660,17 @@ pub struct EcosystemConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct QuirksConfig {
     pub prefer_hdr: i32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DebugConfig {
+    /// Variable frame rate: render only when something changed. Lives
+    /// under `debug` in Hyprland 0.56 (`misc:vfr` no longer exists).
+    pub vfr: bool,
     pub overlay: bool,
     pub damage_blink: bool,
     pub gl_debugging: bool,
@@ -673,6 +692,7 @@ pub struct DebugConfig {
 impl Default for DebugConfig {
     fn default() -> Self {
         Self {
+            vfr: true,
             overlay: false,
             damage_blink: false,
             gl_debugging: false,

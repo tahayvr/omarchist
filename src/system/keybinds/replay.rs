@@ -90,6 +90,7 @@ pub fn replay(events: &[ScanEvent], paths: &ScanPaths) -> ScanResult {
                     .warnings
                     .push(format!("{} (unbind {keys}): {e}", source.display())),
             },
+            ScanEvent::Config { .. } => {}
             ScanEvent::Error { message, .. } => {
                 result
                     .warnings

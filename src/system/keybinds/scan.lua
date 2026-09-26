@@ -7,6 +7,7 @@
 --
 --   bind   <seq> <source> <keys> <description> <kind> <arg> <flags>
 --   unbind <seq> <source> <keys>
+--   config <seq> <source> <path> <json>
 --   error  <seq> <message>
 --   done   <seq>
 --
@@ -15,6 +16,12 @@
 -- Lua function). `source` is the Lua file that declared the bind, skipping
 -- Omarchy's helpers.lua wrapper frames. `flags` is a comma-separated list of
 -- the boolean bind options that are set.
+--
+-- A `config` record is one leaf of an hl.config call: `path` is the dotted
+-- option name (`general.gaps_in`, `input.touchpad.scroll_factor`), whether
+-- the call nested tables or used dotted keys, and `json` is its value as
+-- JSON (string, number, boolean, or an array for Vec2-like tables). Later
+-- records override earlier ones for the same path, as in Hyprland.
 
 local config_path = arg and arg[1] or ((os.getenv("HOME") or "") .. "/.config/hypr/hyprland.lua")
 local seq = 0
@@ -115,6 +122,83 @@ local function call_expression(path, ...)
   return path .. "(" .. table.concat(args, ", ") .. ")"
 end
 
+local function json_string(value)
+  local escaped = value:gsub('[%c"\\]', function(char)
+    if char == '"' then
+      return '\\"'
+    elseif char == "\\" then
+      return "\\\\"
+    elseif char == "\n" then
+      return "\\n"
+    elseif char == "\r" then
+      return "\\r"
+    elseif char == "\t" then
+      return "\\t"
+    end
+    return string.format("\\u%04x", char:byte())
+  end)
+  return '"' .. escaped .. '"'
+end
+
+-- Every key is 1..n, so the table is a sequence (a Vec2 or gradient list).
+local function is_sequence(value)
+  local length = #value
+  for key in pairs(value) do
+    if type(key) ~= "number" or key < 1 or key > length or math.floor(key) ~= key then
+      return false
+    end
+  end
+  return true
+end
+
+local function json_value(value)
+  local value_type = type(value)
+  if value_type == "string" then
+    return json_string(value)
+  elseif value_type == "number" then
+    if value ~= value or value == math.huge or value == -math.huge then
+      return "null"
+    elseif math.floor(value) == value and math.abs(value) < 2 ^ 53 then
+      return string.format("%d", value)
+    end
+    return string.format("%.17g", value)
+  elseif value_type == "boolean" then
+    return tostring(value)
+  elseif value_type == "table" then
+    if value.x ~= nil and value.y ~= nil then
+      return "[" .. json_value(value.x) .. "," .. json_value(value.y) .. "]"
+    end
+    local parts = {}
+    for index = 1, #value do
+      parts[index] = json_value(value[index])
+    end
+    return "[" .. table.concat(parts, ",") .. "]"
+  end
+  return "null"
+end
+
+-- Walks an hl.config table and emits one record per leaf. A table with
+-- string keys is a section (or a dotted key's tail); a sequence or an
+-- {x, y} table is a value.
+local function emit_config(prefix, value, source)
+  if type(value) == "table" and not is_sequence(value) and not (value.x ~= nil and value.y ~= nil) then
+    local entries = {}
+    for key, child in pairs(value) do
+      entries[#entries + 1] = { name = tostring(key), child = child }
+    end
+    table.sort(entries, function(left, right)
+      return left.name < right.name
+    end)
+    for _, entry in ipairs(entries) do
+      local path = prefix == "" and entry.name or (prefix .. "." .. entry.name)
+      emit_config(path, entry.child, source)
+    end
+    return
+  end
+  seq = seq + 1
+  emit({ "config", seq, source, prefix, json_value(value) })
+end
+
 local function dispatcher(kind, arg, expr)
   return {
     __omarchist_dispatcher = true,
@@ -199,11 +283,16 @@ hl = setmetatable({
     seq = seq + 1
     emit({ "unbind", seq, caller_source(), keys })
   end,
+  config = function(options)
+    if type(options) == "table" then
+      emit_config("", options, caller_source())
+    end
+  end,
 }, {
   -- Getters (hl.get_config, hl.get_active_monitor, ...) answer nil, as they
   -- do in Hyprland when nothing matches, so config code that inspects the
   -- result takes its "absent" branch instead of comparing a table with a
-  -- number. Everything else (hl.config, hl.on, hl.env, hl.dsp...) is a noop.
+  -- number. Everything else (hl.on, hl.env, hl.monitor...) is a noop.
   __index = function(_, key)
     if type(key) == "string" and key:sub(1, 4) == "get_" then
       return function()
