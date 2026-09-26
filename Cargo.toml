@@ -54,6 +54,18 @@ toml = "1.1.6"
 # Headless UI tests under tests/.
 gpui-kit = { version = "=0.6.1", default-features = false, features = ["component", "test-support"] }
 
+# Day-to-day runs (`just run`): the app crate is built unoptimized and
+# recompiles in seconds, dependencies are built optimized once so gpui
+# renders at a usable speed, and debug info is limited to line tables,
+# which is enough for backtraces and cuts codegen and link time.
+[profile.dev-fast]
+inherits = "dev"
+debug = "line-tables-only"
+
+[profile.dev-fast.package."*"]
+opt-level = 3
+debug = false
+
 [profile.release]
 opt-level = 'z'     # Optimize for size
 lto = true          # Enable Link-Time Optimization

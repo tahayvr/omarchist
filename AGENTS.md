@@ -7,6 +7,7 @@
 cargo build
 cargo check
 cargo run
+cargo run --profile dev-fast   # what `just run` does: fast rebuilds, optimized deps
 
 # Testing
 cargo test                 # Run all tests (unit + headless UI tests)

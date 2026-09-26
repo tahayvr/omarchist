@@ -8,9 +8,9 @@ alias r := run
 alias d := docs
 alias rel := release
 
-# Run app
+# Run app with the fast-compiling dev-fast profile (see Cargo.toml)
 run:
-    cargo run --release
+    cargo run --profile dev-fast
 
 # Run the Checker, Clippy, and Formatter
 check:
