@@ -8,5 +8,6 @@ pub mod keybinds;
 pub mod notify;
 pub mod omarchy;
 pub mod omarchy_paths;
+pub mod omarchy_settings;
 pub mod themes;
 pub mod ui_theme_watcher;
