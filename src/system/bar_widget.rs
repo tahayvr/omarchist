@@ -10,9 +10,8 @@ use std::process::Command;
 
 use serde_json::Value;
 
-use crate::assets::{OmarchistAssets, extract_default_dir, read_default_str};
+use crate::assets::{extract_default_dir, read_default_str};
 use crate::error::{Error, Result};
-use crate::system::flows::ICONS;
 use crate::system::omarchy_paths::{shell_json_path, user_plugins_dir};
 
 pub const PLUGIN_ID: &str = "tahayvr.omarchist";
@@ -65,9 +64,8 @@ fn layout_entry() -> Option<Value> {
         .cloned()
 }
 
-/// Writes the widget's files: the manifest, the QML, the path of this
-/// binary, and the flow icons (Lucide SVGs with their `currentColor` made
-/// black so the shell can tint them).
+/// Writes the widget's files: the manifest, the QML, and the path of this
+/// binary.
 pub fn install() -> Result<PathBuf> {
     let dir = plugin_dir().ok_or(Error::UnknownDirectory("home"))?;
     install_into(&dir)?;
@@ -75,20 +73,15 @@ pub fn install() -> Result<PathBuf> {
 }
 
 fn install_into(dir: &Path) -> Result<()> {
+    // Version 1.0 drew flow icons from SVG files; every icon is a glyph now.
+    let stale_icons = dir.join("icons");
+    if stale_icons.is_dir() {
+        fs::remove_dir_all(&stale_icons)
+            .map_err(|e| Error::io("Failed to remove the old widget icons", e))?;
+    }
     extract_default_dir(EMBEDDED_DIR, dir)?;
     fs::write(dir.join(COMMAND_FILE), format!("{}\n", current_command()?))
         .map_err(|e| Error::io("Failed to write the widget's command file", e))?;
-    let icons = dir.join("icons");
-    fs::create_dir_all(&icons).map_err(|e| Error::io("Failed to create the icons folder", e))?;
-    for icon in ICONS {
-        let path = format!("icons/{icon}.svg");
-        let Some(file) = OmarchistAssets::get(&path) else {
-            continue;
-        };
-        let svg = String::from_utf8_lossy(&file.data).replace("currentColor", "#000000");
-        fs::write(icons.join(format!("{icon}.svg")), svg)
-            .map_err(|e| Error::io("Failed to write a widget icon", e))?;
-    }
     Ok(())
 }
 
@@ -191,26 +184,14 @@ mod tests {
     }
 
     #[test]
-    fn install_writes_the_command_file_and_tinted_icons() {
+    fn install_writes_the_command_file() {
         let dir =
             std::env::temp_dir().join(format!("omarchist-widget-install-{}", std::process::id()));
         install_into(&dir).unwrap();
         let command = fs::read_to_string(dir.join(COMMAND_FILE)).unwrap();
         assert_eq!(command.trim(), current_command().unwrap());
-        let coffee = fs::read_to_string(dir.join("icons/coffee.svg")).unwrap();
-        assert!(!coffee.contains("currentColor"));
         assert!(dir.join("BarWidget.qml").is_file());
         fs::remove_dir_all(&dir).ok();
-    }
-
-    #[test]
-    fn every_flow_icon_is_embedded() {
-        for icon in ICONS {
-            assert!(
-                OmarchistAssets::get(&format!("icons/{icon}.svg")).is_some(),
-                "{icon}"
-            );
-        }
     }
 
     /// Omarchy's own validator accepts what `install` writes.

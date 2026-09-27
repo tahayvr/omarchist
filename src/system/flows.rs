@@ -433,6 +433,60 @@ pub const ICONS: &[&str] = &[
     "target",
 ];
 
+/// The Material Design Nerd Font glyph for each of [`ICONS`], for places
+/// that draw with the bar's font (the bar widget) so the theme colors them.
+const ICON_GLYPHS: &[(&str, char)] = &[
+    ("workflow", '\u{f04aa}'),
+    ("zap", '\u{f140b}'),
+    ("rocket", '\u{f14de}'),
+    ("sparkles", '\u{f0674}'),
+    ("play", '\u{f040a}'),
+    ("sun", '\u{f0599}'),
+    ("moon", '\u{f0594}'),
+    ("coffee", '\u{f0176}'),
+    ("briefcase", '\u{f00d6}'),
+    ("code", '\u{f0174}'),
+    ("terminal", '\u{f018d}'),
+    ("globe", '\u{f059f}'),
+    ("monitor", '\u{f0379}'),
+    ("music", '\u{f075a}'),
+    ("headphones", '\u{f02cb}'),
+    ("camera", '\u{f0100}'),
+    ("video", '\u{f0567}'),
+    ("message-square", '\u{f0361}'),
+    ("mail", '\u{f01ee}'),
+    ("bell", '\u{f009a}'),
+    ("clock", '\u{f0150}'),
+    ("calendar", '\u{f00ed}'),
+    ("book", '\u{f14f7}'),
+    ("pen-tool", '\u{f0d13}'),
+    ("palette", '\u{f03d8}'),
+    ("gamepad-2", '\u{f0297}'),
+    ("heart", '\u{f02d1}'),
+    ("star", '\u{f04ce}'),
+    ("flame", '\u{f0238}'),
+    ("leaf", '\u{f032a}'),
+    ("house", '\u{f02dc}'),
+    ("lock", '\u{f033e}'),
+    ("power", '\u{f0425}'),
+    ("wrench", '\u{f05b7}'),
+    ("shield", '\u{f0498}'),
+    ("target", '\u{f04fe}'),
+];
+
+/// The Nerd Font glyph for a flow icon, the default icon's for an unknown one.
+pub fn icon_glyph(icon: &str) -> char {
+    let find = |name: &str| {
+        ICON_GLYPHS
+            .iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, g)| *g)
+    };
+    find(icon)
+        .or_else(|| find(DEFAULT_ICON))
+        .unwrap_or('\u{f04aa}')
+}
+
 pub fn icon_path(icon: &str) -> String {
     let icon = if ICONS.contains(&icon) {
         icon
@@ -444,6 +498,27 @@ pub fn icon_path(icon: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn every_icon_is_embedded() {
+        for icon in super::ICONS {
+            assert!(
+                crate::assets::OmarchistAssets::get(&format!("icons/{icon}.svg")).is_some(),
+                "{icon}"
+            );
+        }
+    }
+
+    #[test]
+    fn every_icon_has_a_glyph() {
+        for icon in super::ICONS {
+            assert!(
+                super::ICON_GLYPHS.iter().any(|(name, _)| name == icon),
+                "{icon} has no Nerd Font glyph"
+            );
+        }
+    }
+
     use super::*;
 
     #[test]

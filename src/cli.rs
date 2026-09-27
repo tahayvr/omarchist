@@ -141,6 +141,7 @@ pub fn run_command(command: &Command) -> ExitCode {
                             "id": flow.id,
                             "name": flow.name,
                             "icon": flow.icon,
+                            "glyph": crate::system::flows::icon_glyph(&flow.icon).to_string(),
                             "steps": flow.enabled_steps(),
                         })
                     })
