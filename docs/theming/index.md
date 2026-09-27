@@ -11,7 +11,7 @@ The **Themes** page (<kbd>Ctrl</kbd> + <kbd>1</kbd>) shows every theme on your s
 
 ## Create a theme
 
-Choose **Create New Theme** from the **Themes** menu in the title bar, or press <kbd>Ctrl</kbd> + <kbd>N</kbd>.
+Click **New theme** at the top right of the **Themes** page, choose **Create New Theme** from the **Themes** menu in the title bar, or press <kbd>Ctrl</kbd> + <kbd>N</kbd>.
 
 <img src="/images/create-theme-light.webp" alt="Create New Theme dialog" class="screenshot light-only">
 <img src="/images/create-theme-dark.webp" alt="Create New Theme dialog" class="screenshot dark-only">

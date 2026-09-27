@@ -1,10 +1,15 @@
 use crate::system::themes::custom_themes::get_user_themes;
 use crate::system::themes::system_themes::get_system_themes;
 use crate::types::themes::ThemeOrigin;
+use crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog;
 use crate::ui::focus::{self, tab_strip_container};
+use crate::ui::menu::app_menu::NewTheme;
 use crate::ui::themes_page::theme_grid::{self, ThemeFilter, ThemeGrid};
 use gpui::*;
 use gpui_component::{
+    Icon, Sizable as _,
+    button::{Button, ButtonVariants as _},
+    h_flex,
     tab::{Tab, TabBar},
     v_flex,
 };
@@ -113,33 +118,57 @@ impl Render for ThemesPage {
                 this.tabs_focus.focus(window, cx);
             }))
             .child(
-                tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)
-                    .on_action(cx.listener(|this, _: &focus::tab_strip::Prev, _, cx| {
-                        this.set_tab(this.active_tab.saturating_sub(1), cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &focus::tab_strip::Next, _, cx| {
-                        this.set_tab(this.active_tab + 1, cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &focus::tab_strip::First, _, cx| {
-                        this.set_tab(0, cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &focus::tab_strip::Last, _, cx| {
-                        this.set_tab(TAB_COUNT - 1, cx);
-                    }))
-                    .on_action(
-                        cx.listener(|this, _: &focus::tab_strip::Activate, window, cx| {
-                            this.focus_grid(window, cx);
-                        }),
+                h_flex()
+                    .gap_3()
+                    .child(
+                        div().flex_1().min_w_0().child(
+                            tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)
+                                .on_action(cx.listener(
+                                    |this, _: &focus::tab_strip::Prev, _, cx| {
+                                        this.set_tab(this.active_tab.saturating_sub(1), cx);
+                                    },
+                                ))
+                                .on_action(cx.listener(
+                                    |this, _: &focus::tab_strip::Next, _, cx| {
+                                        this.set_tab(this.active_tab + 1, cx);
+                                    },
+                                ))
+                                .on_action(cx.listener(
+                                    |this, _: &focus::tab_strip::First, _, cx| {
+                                        this.set_tab(0, cx);
+                                    },
+                                ))
+                                .on_action(cx.listener(
+                                    |this, _: &focus::tab_strip::Last, _, cx| {
+                                        this.set_tab(TAB_COUNT - 1, cx);
+                                    },
+                                ))
+                                .on_action(cx.listener(
+                                    |this, _: &focus::tab_strip::Activate, window, cx| {
+                                        this.focus_grid(window, cx);
+                                    },
+                                ))
+                                .child(
+                                    TabBar::new("theme-tabs")
+                                        .cursor_pointer()
+                                        .selected_index(self.active_tab)
+                                        .on_click(cx.listener(|view, index, _, cx| {
+                                            view.set_tab(*index, cx);
+                                        }))
+                                        .child(Tab::new().label("All Themes"))
+                                        .child(Tab::new().label("Omarchist Themes")),
+                                ),
+                        ),
                     )
                     .child(
-                        TabBar::new("theme-tabs")
+                        Button::new("new-theme")
+                            .primary()
+                            .small()
+                            .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                            .label("New theme")
+                            .tooltip_with_action("Create a theme", &NewTheme, None)
                             .cursor_pointer()
-                            .selected_index(self.active_tab)
-                            .on_click(cx.listener(|view, index, _, cx| {
-                                view.set_tab(*index, cx);
-                            }))
-                            .child(Tab::new().label("All Themes"))
-                            .child(Tab::new().label("Omarchist Themes")),
+                            .on_click(|_, window, cx| open_create_theme_dialog(window, cx)),
                     ),
             )
             .child(
