@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tahayvr.omarchist",
   "name": "Omarchist",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "author": "tahayvr",
   "license": "MIT",
   "description": "Run your Omarchist flows and open Omarchist from the bar.",
@@ -13,7 +13,7 @@
     "category": "Apps",
     "allowMultiple": false,
     "defaultSection": "right",
-    "defaults": { "icon": "󰏘" },
+    "defaults": { "icon": "\udb82\udc43" },
     "schema": [
       { "key": "icon", "type": "string", "label": "Bar icon" }
     ]

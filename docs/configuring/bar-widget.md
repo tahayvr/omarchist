@@ -23,6 +23,7 @@ Switch the setting off to take the widget off the bar. The files stay, so switch
 - **Click** the widget to open its panel.
 - The row of icons opens Omarchist on a page: Themes, Configuration, Keybinds, Flows, Omarchy, and Settings. Hover an icon to see its name. If Omarchist is already running, its window comes forward on that page instead of a second window opening.
 - Below the icons, **Flows** lists your flows with their icons and step counts. Click one to run it.
+- The bottom line shows the installed Omarchist version.
 - **Right-click** the widget to open Omarchist.
 
 The panel works from the keyboard too. Use the arrow keys to move between the icons and the flows, <kbd>Enter</kbd> to open or run, and <kbd>Esc</kbd> to close.
@@ -31,7 +32,7 @@ The list updates as you add, rename, or delete flows in Omarchist.
 
 ## Change the icon
 
-The widget shows a Nerd Font glyph. Change it with the bar's settings for the widget:
+The widget shows a Nerd Font glyph, a dashboard by default. Change it with the bar's settings for the widget:
 
 ```bash
 omarchy bar set tahayvr.omarchist icon "󰐊"

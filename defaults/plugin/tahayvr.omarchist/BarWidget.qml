@@ -1,5 +1,5 @@
 // Omarchist's bar widget: a row of buttons that open Omarchist on a page,
-// and the user's flows to run. Installed and kept up to date by Omarchist
+// the user's flows to run, and the installed version. Installed and kept up to date by Omarchist
 // itself (Settings > Bar), which writes the path of its binary into the
 // `command` file next to this one.
 //
@@ -17,7 +17,7 @@ Panel {
     moduleName: "tahayvr.omarchist"
     ipcTarget: "tahayvr.omarchist"
 
-    readonly property string icon: root.setting("icon", "\u{f03d8}")
+    readonly property string icon: root.setting("icon", "\u{f0843}")
     readonly property string pluginDir: Quickshell.env("HOME") + "/.config/omarchy/plugins/tahayvr.omarchist"
     readonly property string flowsDir: Quickshell.env("HOME") + "/.config/omarchist/flows"
     // The binary Omarchist was started from; `omarchist` until the file loads.
@@ -32,7 +32,7 @@ Panel {
     // [{ id, name, icon, glyph, steps }] from `omarchist flow list --json`
     property var flows: []
     readonly property var views: [
-        { label: "Themes", view: "themes", glyph: "\u{f056e}", font: "" },
+        { label: "Themes", view: "themes", glyph: "\u{f03d8}", font: "" },
         { label: "Configuration", view: "config", glyph: "\u{f0493}", font: "" },
         { label: "Keybinds", view: "keybinds", glyph: "\u{f030c}", font: "" },
         { label: "Flows", view: "flows", glyph: "\u{f04aa}", font: "" },
@@ -154,7 +154,7 @@ Panel {
             waitForEnd: true
             onStreamFinished: {
                 var words = text.trim().split(/\s+/)
-                root.version = words.length > 1 ? "Version " + words[words.length - 1] : ""
+                root.version = words.length > 1 ? "Omarchist " + words[words.length - 1] : ""
             }
         }
     }
@@ -213,23 +213,6 @@ Panel {
                     id: column
                     width: flick.width
                     spacing: Style.space(14)
-
-                    PanelHero {
-                        width: parent.width
-                        title: "Omarchist"
-                        meta: root.version
-                        foreground: root.fg
-                        fontFamily: root.face
-                        iconComponent: Component {
-                            Text {
-                                textFormat: Text.PlainText
-                                text: root.icon
-                                color: root.fg
-                                font.family: root.face
-                                font.pixelSize: Style.font.display
-                            }
-                        }
-                    }
 
                     // ---------- Open a page ----------
                     Row {
@@ -399,6 +382,23 @@ Panel {
                                 }
                             }
                         }
+                    }
+
+                    PanelSeparator {
+                        visible: root.version !== ""
+                        foreground: root.fg
+                    }
+
+                    Text {
+                        visible: root.version !== ""
+                        width: parent.width
+                        textFormat: Text.PlainText
+                        text: root.version.toUpperCase()
+                        color: root.dim
+                        font.family: root.face
+                        font.pixelSize: Style.font.caption
+                        font.bold: true
+                        font.letterSpacing: 1.2
                     }
                 }
             }
