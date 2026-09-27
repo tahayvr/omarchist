@@ -956,7 +956,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Size of a new window relative to its sibling",
                         0.1,
                         1.9,
-                        0.05
+                        0.1
                     ),
                     choice_item!(
                         "dwindle-split-bias",
@@ -1216,7 +1216,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Repeats per second while a key is held",
                         0.0,
                         200.0,
-                        1.0
+                        5.0
                     ),
                     int_item!(
                         "repeat-delay",
@@ -1225,7 +1225,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Milliseconds before a held key repeats",
                         0.0,
                         2000.0,
-                        25.0
+                        50.0
                     ),
                 ],
             },
@@ -1247,7 +1247,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Pointer speed, from -1 to 1",
                         -1.0,
                         1.0,
-                        0.05
+                        0.1
                     ),
                     dropdown_item!(
                         "accel-profile",
@@ -1292,7 +1292,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Multiplier for wheel scrolling",
                         0.0,
                         2.0,
-                        0.05
+                        0.1
                     ),
                     dropdown_item!(
                         "scroll-method",
@@ -1488,7 +1488,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Multiplier for touchpad scrolling",
                         0.0,
                         2.0,
-                        0.05
+                        0.1
                     ),
                     switch_item!(
                         "disable-while-typing",
@@ -1929,8 +1929,8 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Launch Tracking Timeout",
                         "Seconds a launched app has to open on its workspace",
                         1.0,
-                        3600.0,
-                        1.0
+                        600.0,
+                        5.0
                     ),
                     switch_item!(
                         "workspace-back-and-forth",
@@ -2032,7 +2032,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
                         "Milliseconds between scroll events a bind accepts",
                         0.0,
                         2000.0,
-                        10.0
+                        50.0
                     ),
                     switch_item!(
                         "disable-keybind-grabbing",

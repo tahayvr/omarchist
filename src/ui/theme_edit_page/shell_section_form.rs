@@ -6,7 +6,7 @@ use gpui_component::{
     ActiveTheme, Colorize, Sizable,
     button::Button,
     color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
-    input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
+    input::{Input, InputEvent, InputState, NumberInput},
     menu::{DropdownMenu, PopupMenuItem},
     v_flex,
 };
@@ -49,21 +49,6 @@ fn number_range(kind: KeyKind) -> (f64, f64, f64) {
         KeyKind::Alpha => (0.05, 0.0, 1.0),
         KeyKind::Float => (0.1, 0.0, 100.0),
         _ => (1.0, 0.0, 999.0),
-    }
-}
-
-fn format_number(kind: KeyKind, value: f64) -> String {
-    match kind {
-        KeyKind::Integer => format!("{}", value.round() as i64),
-        _ => {
-            let text = format!("{value:.2}");
-            let text = text.trim_end_matches('0');
-            if text.ends_with('.') {
-                format!("{text}0")
-            } else {
-                text.to_string()
-            }
-        }
     }
 }
 
@@ -179,10 +164,16 @@ impl ShellSectionForm {
                 } else {
                     String::new()
                 };
+                let (step, min, max) = number_range(key.kind);
                 let input = cx.new(|cx| {
-                    InputState::new(window, cx)
+                    let input = InputState::new(window, cx)
                         .placeholder(placeholder)
-                        .default_value(text(&current))
+                        .default_value(text(&current));
+                    if key.kind == KeyKind::Text {
+                        input
+                    } else {
+                        input.step(step).min(min).max(max)
+                    }
                 });
                 let name = key.key.clone();
                 let (kind, optional) = (key.kind, key.optional);
@@ -198,33 +189,6 @@ impl ShellSectionForm {
                 if kind == KeyKind::Text {
                     return Field::Input(input);
                 }
-                let name = key.key.clone();
-                let fallback = match &key.default {
-                    toml::Value::Integer(n) => *n as f64,
-                    toml::Value::Float(n) => *n,
-                    _ => 0.0,
-                };
-                self._subscriptions.push(cx.subscribe_in(
-                    &input,
-                    window,
-                    move |this: &mut Self, input, event: &NumberInputEvent, window, cx| {
-                        let NumberInputEvent::Step(action) = event;
-                        let (step, min, max) = number_range(kind);
-                        let current = input
-                            .read(cx)
-                            .value()
-                            .trim()
-                            .parse::<f64>()
-                            .unwrap_or(fallback);
-                        let next = match action {
-                            StepAction::Increment => current + step,
-                            StepAction::Decrement => current - step,
-                        };
-                        let text = format_number(kind, next.clamp(min, max));
-                        input.update(cx, |input, cx| input.set_value(text.clone(), window, cx));
-                        this.set_text(&name, kind, optional, &text, cx);
-                    },
-                ));
                 Field::Number(input)
             }
         }

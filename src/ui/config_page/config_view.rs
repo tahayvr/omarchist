@@ -9,7 +9,7 @@
 // Omarchy items go through `omarchy_settings` backings, which run
 // Omarchy's scripts, so their values are read in the background when a
 // page opens and written in the background when a control changes.
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
@@ -19,7 +19,7 @@ use gpui_component::{
     button::{Button, ButtonVariants as _},
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
-    input::{Input, InputEvent, InputState, NumberInput, NumberInputEvent, StepAction},
+    input::{Input, InputEvent, InputState, NumberInput},
     menu::{DropdownMenu, PopupMenuItem},
     scroll::ScrollableElement as _,
     select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
@@ -343,51 +343,49 @@ impl ConfigView {
                 _ => continue,
             };
             let initial = this.number_at(item);
-            let input =
-                cx.new(|cx| InputState::new(window, cx).default_value(format_number(initial)));
-            this._subscriptions.push(cx.subscribe_in(
-                &input,
-                window,
-                move |this, input, event: &NumberInputEvent, window, cx| {
-                    let NumberInputEvent::Step(action) = event;
-                    let current = this.number_at(item);
-                    let next = match action {
-                        StepAction::Increment => current + step,
-                        StepAction::Decrement => current - step,
-                    };
-                    let next = (next * 1000.0).round() / 1000.0;
-                    let next = next.clamp(min, max);
-                    let value = this.number_value_for(item, next);
-                    this.write_item(item, value, cx);
-                    input.update(cx, |input, cx| {
-                        input.set_value(format_number(next), window, cx);
-                    });
-                },
-            ));
+            // Set by the step hook right before the state changes its text,
+            // so the change handler can tell a step from typing: a step is
+            // committed at once, typed text on Enter or blur, so a half-typed
+            // "0." never reaches the compositor.
+            let stepped = Rc::new(Cell::new(false));
+            let input = cx.new(|cx| {
+                let stepped = stepped.clone();
+                InputState::new(window, cx)
+                    .default_value(format_number(initial))
+                    .step_by(move |_, _, _| {
+                        stepped.set(true);
+                        step
+                    })
+                    .min(min)
+                    .max(max)
+            });
             this._subscriptions.push(cx.subscribe_in(
                 &input,
                 window,
                 move |this, input, event: &InputEvent, window, cx| match event {
                     InputEvent::Change => {
-                        if let Ok(value) = input.read(cx).value().trim().parse::<f64>() {
-                            let value = value.clamp(min, max);
-                            if this.number_at(item) != value {
-                                let value = this.number_value_for(item, value);
-                                this.write_item(item, value, cx);
-                            }
+                        if stepped.take() {
+                            this.commit_number(item, input, cx);
                         }
                     }
+                    InputEvent::PressEnter { .. } => this.commit_number(item, input, cx),
+                    // The window loses keyboard focus for a moment on every
+                    // `hyprctl reload` a save triggers, which blurs the field
+                    // while it stays the focused element; only a blur that
+                    // moved focus elsewhere commits.
                     InputEvent::Blur => {
-                        // Normalise the text (clamped, trimmed) once editing ends.
-                        let value = this.number_at(item);
+                        if input.read(cx).focus_handle(cx).is_focused(window) {
+                            return;
+                        }
+                        this.commit_number(item, input, cx);
+                        let text = format_number(this.number_at(item));
                         input.update(cx, |input, cx| {
-                            let text = format_number(value);
                             if input.value() != text {
                                 input.set_value(text, window, cx);
                             }
                         });
                     }
-                    _ => {}
+                    InputEvent::Focus => {}
                 },
             ));
             this.number_inputs.insert(item.id, input);
@@ -454,6 +452,28 @@ impl ConfigView {
             }
             _ => Value::from(next),
         }
+    }
+
+    /// Writes the number typed or stepped into `input`, clamped to the
+    /// item's range, when it differs from the value in effect.
+    fn commit_number(
+        &mut self,
+        item: &'static ItemDef,
+        input: &Entity<InputState>,
+        cx: &mut Context<Self>,
+    ) {
+        let (min, max) = match item.field {
+            FieldDef::Number { min, max, .. } | FieldDef::Pair { min, max, .. } => (min, max),
+            _ => return,
+        };
+        let Ok(typed) = input.read(cx).value().trim().parse::<f64>() else {
+            return;
+        };
+        if typed == self.number_at(item) {
+            return;
+        }
+        let value = self.number_value_for(item, typed.clamp(min, max));
+        self.write_item(item, value, cx);
     }
 
     fn string_at(&self, item: &ItemDef) -> String {
@@ -1058,6 +1078,11 @@ impl ConfigView {
                     .tooltip(format!("Reset to Omarchy's value: {fallback}"))
                     .on_click(cx.listener(move |this, _, window, cx| {
                         this.reset(path, window, cx);
+                        // The button disappears with the override; keep the
+                        // keyboard on the row's control.
+                        if let Some(input) = this.number_inputs.get(item.id) {
+                            input.read(cx).focus_handle(cx).focus(window, cx);
+                        }
                     }))
             })
         });
@@ -1423,6 +1448,33 @@ mod tests {
         for item in items() {
             assert!(seen.insert(item.id), "duplicate item id {}", item.id);
         }
+    }
+
+    /// A step moves the value by a useful amount: whole numbers for integer
+    /// options, and between three and four hundred clicks across the range.
+    #[test]
+    fn steps_fit_their_ranges() {
+        let mut problems = Vec::new();
+        for item in items() {
+            let (min, max, step, integer) = match item.field {
+                FieldDef::Number {
+                    min,
+                    max,
+                    step,
+                    integer,
+                } => (min, max, step, integer),
+                FieldDef::Pair { min, max, step, .. } => (min, max, step, true),
+                _ => continue,
+            };
+            let clicks = (max - min) / step;
+            if step <= 0.0 || !(3.0..=400.0).contains(&clicks) {
+                problems.push(format!("{}: step {step} for {min}..{max}", item.id));
+            }
+            if integer && step.fract() != 0.0 {
+                problems.push(format!("{}: fractional step {step} on an integer", item.id));
+            }
+        }
+        assert!(problems.is_empty(), "{}", problems.join("\n"));
     }
 
     /// Every Hyprland item edits a real key of the model, with a control of

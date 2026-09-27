@@ -283,6 +283,39 @@ mod tests {
 
     use super::*;
 
+    /// Every saved override is the value the running compositor reports,
+    /// so what the page shows is what is in effect. Skipped without a
+    /// compositor or a state file.
+    #[test]
+    fn saved_overrides_are_what_the_compositor_runs() {
+        if std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE").is_none() {
+            eprintln!("skipping: no compositor");
+            return;
+        }
+        let Some(content) = get_state_path()
+            .ok()
+            .and_then(|path| fs::read_to_string(path).ok())
+        else {
+            eprintln!("skipping: no state file");
+            return;
+        };
+        let state: Value = serde_json::from_str(&content).unwrap();
+        if state["version"] != 2 {
+            eprintln!("skipping: legacy state file");
+            return;
+        }
+        let live = to_object(&super::super::hyprctl_reader::read_from_hyprctl());
+        let mut problems = Vec::new();
+        for (path, value) in baseline::flatten(&state["overrides"]) {
+            match baseline::get_path(&live, &path) {
+                Some(running) if baseline::values_equal(running, &value) => {}
+                Some(running) => problems.push(format!("{path}: saved {value}, running {running}")),
+                None => problems.push(format!("{path}: not read from the compositor")),
+            }
+        }
+        assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
     fn manager() -> HyprlandConfigManager {
         HyprlandConfigManager::from_parts(
             PathBuf::from("/nonexistent/state.json"),
