@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - dev
+  pull_request:
+    branches:
+      - dev
+
+# A newer push to the same branch or PR replaces the run it supersedes; only
+# the newest commit is still worth checking.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Format, Clippy, Test
+    # The same image as Release Build, so the package list below is the set
+    # that is known to satisfy gpui's native dependencies.
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      # Must stay in step with the channel pinned in rust-toolchain.toml, which
+      # is also what rustup installs for the cargo commands below.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@1.98.1
+        with:
+          components: rustfmt, clippy
+
+      - name: Install nextest
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-ci-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-ci-
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev \
+            libvulkan-dev \
+            libx11-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libssl-dev \
+            libfontconfig1-dev \
+            libasound2-dev \
+            pkg-config
+
+      - name: Check formatting
+        run: cargo fmt --all --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      # `tests/keyboard_nav.rs` and gpui-kit's test support render into GPUI's
+      # headless test platform (TestPlatform with NoopTextSystem), so the suite
+      # is portable: it opens no real window and needs no display, GPU,
+      # compositor or Xvfb. Tests that would need one (hyprctl, luac, lua)
+      # report themselves as skipped instead.
+      - name: Run tests
+        run: cargo nextest run --locked --show-progress only
