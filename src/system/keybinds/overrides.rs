@@ -142,18 +142,41 @@ impl KeybindOverrides {
     /// call (a hand-edited json must not be able to inject arbitrary code
     /// into the compositor).
     pub fn validate(&self) -> Result<()> {
-        for override_ in &self.overrides {
-            if let Some(target) = override_.target() {
-                Chord::parse(&target.keys)?;
-            }
-            let specs = override_.bind().into_iter().chain(override_.restore());
-            for spec in specs {
-                Chord::parse(&spec.keys)?;
-                validate_dispatcher(&spec.dispatcher)?;
-            }
-        }
-        Ok(())
+        self.overrides.iter().try_for_each(validate_override)
     }
+
+    /// The overrides that pass [`Self::validate`]. `omarchist.lua` is
+    /// rendered from these, so a hand-edited `keybinds.json` can never put
+    /// arbitrary Lua into the compositor's config.
+    pub fn valid_only(&self) -> Self {
+        Self {
+            version: self.version,
+            overrides: self
+                .overrides
+                .iter()
+                .filter(|o| match validate_override(o) {
+                    Ok(()) => true,
+                    Err(e) => {
+                        eprintln!("Skipping an invalid keybind override: {e}");
+                        false
+                    }
+                })
+                .cloned()
+                .collect(),
+        }
+    }
+}
+
+fn validate_override(override_: &Override) -> Result<()> {
+    if let Some(target) = override_.target() {
+        Chord::parse(&target.keys)?;
+    }
+    let specs = override_.bind().into_iter().chain(override_.restore());
+    for spec in specs {
+        Chord::parse(&spec.keys)?;
+        validate_dispatcher(&spec.dispatcher)?;
+    }
+    Ok(())
 }
 
 fn validate_dispatcher(dispatcher: &Dispatcher) -> Result<()> {
@@ -172,8 +195,10 @@ fn validate_dispatcher(dispatcher: &Dispatcher) -> Result<()> {
     }
 }
 
-/// `hl.dsp.<path>(<args>)` on one line, with balanced parentheses and no
-/// statement separators, i.e. exactly the shape the scanner reconstructs.
+/// `hl.dsp.<path>(<args>)` on one line: the parenthesis opened after the
+/// path closes at the last character, so nothing can be chained after the
+/// call (`hl.dsp.a() or os.execute(..) or hl.dsp.b()`), and there are no
+/// statement separators. This is exactly the shape the scanner reconstructs.
 pub(crate) fn is_dsp_call(expr: &str) -> bool {
     let Some(rest) = expr.strip_prefix("hl.dsp.") else {
         return false;
@@ -191,14 +216,16 @@ pub(crate) fn is_dsp_call(expr: &str) -> bool {
         && !path.ends_with('.')
         && args.ends_with(')')
         && !args.contains(['\n', '\r', ';'])
-        && parens_balanced(args)
+        && closes_at_end(args)
 }
 
-fn parens_balanced(text: &str) -> bool {
+/// Whether `text`, which starts with `(`, is one parenthesised group: the
+/// first parenthesis closes at the last character and quotes are closed.
+fn closes_at_end(text: &str) -> bool {
     let mut depth = 0i32;
     let mut in_string: Option<char> = None;
     let mut escaped = false;
-    for c in text.chars() {
+    for (i, c) in text.char_indices() {
         if let Some(quote) = in_string {
             if escaped {
                 escaped = false;
@@ -215,6 +242,9 @@ fn parens_balanced(text: &str) -> bool {
             ')' => {
                 depth -= 1;
                 if depth < 0 {
+                    return false;
+                }
+                if depth == 0 && i + c.len_utf8() != text.len() {
                     return false;
                 }
             }
@@ -454,6 +484,62 @@ hl.bind(\"SUPER + SHIFT + R\", hl.dsp.exec_cmd(\"alacritty -e ssh \\\"box\\\"\")
 ";
         assert_eq!(lua, expected);
         assert_eq!(emit_keybinds_lua(&KeybindOverrides::default()), "");
+    }
+
+    #[test]
+    fn dsp_calls_cannot_chain_other_code() {
+        assert!(is_dsp_call("hl.dsp.window.close()"));
+        assert!(is_dsp_call(r#"hl.dsp.exec_cmd("echo (hi)")"#));
+        assert!(is_dsp_call("hl.dsp.focus({ direction = \"l\" })"));
+        assert!(!is_dsp_call(
+            r#"hl.dsp.window.close() or os.execute("x") or hl.dsp.window.close()"#
+        ));
+        assert!(!is_dsp_call("hl.dsp.window.close()()"));
+        assert!(!is_dsp_call("hl.dsp.a() .. hl.dsp.b()"));
+        assert!(!is_dsp_call("hl.dsp.a(); os.exit()"));
+    }
+
+    /// Every Lua bind in the installed Omarchy config passes the guard, so
+    /// rebinding or disabling one can always re-emit its siblings.
+    #[test]
+    fn omarchys_lua_binds_pass_the_guard() {
+        let Some(home) = dirs::home_dir() else {
+            return;
+        };
+        let config = home.join(".config/hypr/hyprland.lua");
+        let Ok(events) = crate::system::keybinds::scanner::run_scan(&config) else {
+            eprintln!("skipping: no Omarchy config to scan");
+            return;
+        };
+        let rejected: Vec<String> = events
+            .iter()
+            .filter_map(|event| match event {
+                crate::system::keybinds::scanner::ScanEvent::Bind(bind) => match &bind.dispatcher {
+                    Dispatcher::Lua(expr) if !is_dsp_call(expr) => Some(expr.clone()),
+                    _ => None,
+                },
+                _ => None,
+            })
+            .collect();
+        assert!(rejected.is_empty(), "{rejected:#?}");
+    }
+
+    #[test]
+    fn invalid_overrides_are_left_out_of_the_lua() {
+        let bad = KeybindOverrides {
+            version: 1,
+            overrides: vec![Override::Add {
+                bind: BindSpec {
+                    keys: "SUPER + X".into(),
+                    description: "Bad".into(),
+                    dispatcher: Dispatcher::Lua(r#"os.execute("x")"#.into()),
+                    options: Default::default(),
+                },
+            }],
+        };
+        assert!(bad.validate().is_err());
+        assert!(bad.valid_only().overrides.is_empty());
+        assert!(!emit_keybinds_lua(&bad.valid_only()).contains("os.execute"));
     }
 
     #[test]

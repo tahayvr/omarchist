@@ -191,10 +191,24 @@ where
     save_theme_data(theme_name, &theme)
 }
 
-pub fn rename_theme(old_name: &str, new_name: &str) -> Result<()> {
+/// Renames an Omarchist theme to the folder name `new_name` slugs to (see
+/// [`slugify_theme_name`]), so the result is always one folder directly
+/// under the themes directory that `omarchy-theme-set` can apply. Returns
+/// that folder name.
+pub fn rename_theme(old_name: &str, new_name: &str) -> Result<String> {
+    if !new_name.chars().any(|c| c.is_ascii_alphanumeric()) {
+        return Err(Error::Invalid(
+            "A theme name needs at least one letter or digit".into(),
+        ));
+    }
+    let new_name = slugify_theme_name(new_name);
+    let new_name = new_name.as_str();
     let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let old_path = omarchist_theme_dir(old_name)?;
+    if new_name == old_name {
+        return Ok(new_name.to_string());
+    }
     let new_path = themes_dir.join(new_name);
 
     if new_path.exists() {
@@ -218,7 +232,7 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<()> {
             .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
     }
 
-    Ok(())
+    Ok(new_name.to_string())
 }
 
 // Pre-Quattro Omarchist marked light themes with an empty `light.mode` file.
@@ -249,6 +263,12 @@ mod tests {
         assert_eq!(slugify_theme_name("IMG_2024  final"), "img-2024-final");
         assert_eq!(slugify_theme_name("--Tokyo Night--"), "tokyo-night");
         assert_eq!(slugify_theme_name("café ☕"), "caf");
+    }
+
+    #[test]
+    fn rename_refuses_a_name_with_nothing_to_keep() {
+        assert!(super::rename_theme("any", "../..").is_err());
+        assert!(super::rename_theme("any", "   ").is_err());
     }
 
     #[test]

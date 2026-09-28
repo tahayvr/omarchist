@@ -397,20 +397,37 @@ fn load_shell_json_from(user: &Path, defaults: &Path) -> Option<Value> {
     serde_json::from_str(&fs::read_to_string(path).ok()?).ok()
 }
 
-/// Sets one key of `shell.json`, writing the whole file atomically.
+/// Sets one key of `shell.json`, writing the whole file atomically. A file
+/// that exists but does not parse is left alone and reported, never
+/// replaced by one holding only this key.
 pub fn shell_json_set(file: &Path, path: &str, value: Value) -> Result<()> {
     let defaults = omarchy_install_dir().join("config/omarchy/shell.json");
-    let mut shell =
-        load_shell_json_from(file, &defaults).unwrap_or_else(|| Value::Object(Map::new()));
+    let mut shell = if fs::metadata(file).is_ok_and(|m| m.len() > 0) {
+        let content =
+            fs::read_to_string(file).map_err(|e| Error::io("Failed to read shell.json", e))?;
+        serde_json::from_str(&content).map_err(|e| {
+            Error::Invalid(format!(
+                "{} is not valid JSON ({e}); fix it before changing settings here",
+                file.display()
+            ))
+        })?
+    } else {
+        load_shell_json_from(file, &defaults).unwrap_or_else(|| Value::Object(Map::new()))
+    };
     set_path(&mut shell, path, value);
     let content = serde_json::to_string_pretty(&shell)
         .map_err(|e| Error::json("Failed to serialize shell.json", e))?;
-    if let Some(dir) = file.parent() {
+    // Write through a symlink to its target, and keep the file's mode.
+    let target = fs::canonicalize(file).unwrap_or_else(|_| file.to_path_buf());
+    if let Some(dir) = target.parent() {
         fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create the config folder", e))?;
     }
-    let tmp: PathBuf = file.with_extension("json.tmp");
+    let tmp: PathBuf = target.with_extension("json.tmp");
     fs::write(&tmp, content).map_err(|e| Error::io("Failed to write shell.json", e))?;
-    fs::rename(&tmp, file).map_err(|e| Error::io("Failed to replace shell.json", e))
+    if let Ok(metadata) = fs::metadata(&target) {
+        let _ = fs::set_permissions(&tmp, metadata.permissions());
+    }
+    fs::rename(&tmp, &target).map_err(|e| Error::io("Failed to replace shell.json", e))
 }
 
 fn get_path<'a>(root: &'a Value, path: &str) -> Option<&'a Value> {
@@ -437,6 +454,27 @@ fn set_path(root: &mut Value, path: &str, value: Value) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn an_unparseable_shell_json_is_never_replaced() {
+        let dir = std::env::temp_dir().join(format!("omarchist-shelljson-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let file = dir.join("shell.json");
+        std::fs::write(&file, "{ \"bar\": { \"layout\": {} }, }").unwrap();
+        assert!(super::shell_json_set(&file, "idle.lock", serde_json::json!(true)).is_err());
+        assert_eq!(
+            std::fs::read_to_string(&file).unwrap(),
+            "{ \"bar\": { \"layout\": {} }, }"
+        );
+        std::fs::write(&file, "{ \"bar\": { \"position\": \"top\" } }").unwrap();
+        super::shell_json_set(&file, "idle.lock", serde_json::json!(true)).unwrap();
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&file).unwrap()).unwrap();
+        assert_eq!(written["bar"]["position"], "top");
+        assert_eq!(written["idle"]["lock"], true);
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
     use serde_json::json;
 
     use super::*;
