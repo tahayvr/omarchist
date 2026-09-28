@@ -21,7 +21,7 @@ yay -S omarchist-bin
 > [!NOTE]
 > Omarchist only works on Omarchy Linux. Version 2.x targets Omarchy Quattro (v4); for Omarchy 3.x use an Omarchist 1.x release.
 
-Docs: [omarchist.com/docs](https://omarchist.com/docs/)
+Docs: [omarchist.com](https://omarchist.com/)
 
 ## Features
 
