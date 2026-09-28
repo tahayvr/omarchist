@@ -3,8 +3,9 @@ use crate::system::flows::share::Imported;
 use crate::system::flows::store::load_flow;
 use crate::system::themes::theme_file_ops::is_omarchist_theme;
 use crate::ui::about_page::about_view::AboutView;
-use crate::ui::app_events::{AppEvent, AppEvents};
+use crate::ui::app_events::{AppEvent, AppEvents, emit};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::share_ui::import_flow_from_dialog;
 use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
 use crate::ui::focus;
@@ -99,7 +100,6 @@ pub struct MainWindowView {
     // ThemeEdit is created on first navigation to a given theme
     theme_edit_root: Option<AnyView>,
     theme_edit_view: Option<Entity<ThemeEditPage>>,
-    theme_edit_name: Option<String>,
     // All other pages are created lazily on first navigation
     config_root: Option<AnyView>,
     config_view: Option<Entity<ConfigView>>,
@@ -149,7 +149,6 @@ impl MainWindowView {
             themes_view,
             theme_edit_root: None,
             theme_edit_view: None,
-            theme_edit_name: None,
             config_root: None,
             config_view: None,
             keybinds_root: None,
@@ -215,17 +214,17 @@ impl MainWindowView {
         cx: &mut Context<Self>,
     ) {
         match page {
+            // Built fresh from disk on every visit: a theme deleted and
+            // recreated under the same name must not get the old editor,
+            // whose tabs hold the deleted theme's snapshot.
             ActivePage::ThemeEdit(theme_name) => {
-                if self.theme_edit_name.as_deref() != Some(theme_name.as_str()) {
-                    let theme_edit_view =
-                        cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
-                    self.theme_edit_root = Some(
-                        cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
-                            .into(),
-                    );
-                    self.theme_edit_view = Some(theme_edit_view);
-                    self.theme_edit_name = Some(theme_name.clone());
-                }
+                let theme_edit_view =
+                    cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
+                self.theme_edit_root = Some(
+                    cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
+                        .into(),
+                );
+                self.theme_edit_view = Some(theme_edit_view);
             }
             ActivePage::Configuration => {
                 if self.config_root.is_none() {
@@ -342,6 +341,33 @@ impl MainWindowView {
             page => page,
         };
         if self.active_page == page {
+            return;
+        }
+
+        // Leaving the flow editor with unsaved changes asks first, whichever
+        // way the user leaves (sidebar, shortcut, palette, `--view`).
+        let editing_flow = matches!(
+            self.active_page,
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_)
+        );
+        if editing_flow
+            && let Some(editor) = self.flow_edit_view.clone()
+            && editor.read(cx).is_dirty(cx)
+        {
+            open_confirm_dialog(
+                ConfirmDialog {
+                    title: "Discard changes?",
+                    message: "This flow has changes that are not saved.".to_string(),
+                    confirm_label: "Discard",
+                    danger: true,
+                },
+                move |_, cx| {
+                    editor.update(cx, |editor, _| editor.discard());
+                    emit(cx, AppEvent::Navigate(page.clone()));
+                },
+                window,
+                cx,
+            );
             return;
         }
 
