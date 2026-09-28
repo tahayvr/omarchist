@@ -33,6 +33,8 @@ pub struct HyprlandConfigManager {
     state_path: PathBuf,
     overrides: Value,
     baseline: Value,
+    /// Set by [`Self::unavailable`]: nothing is saved.
+    unavailable: bool,
 }
 
 impl HyprlandConfigManager {
@@ -49,6 +51,7 @@ impl HyprlandConfigManager {
             state_path,
             overrides,
             baseline,
+            unavailable: false,
         })
     }
 
@@ -58,6 +61,19 @@ impl HyprlandConfigManager {
             state_path,
             overrides,
             baseline,
+            unavailable: false,
+        }
+    }
+
+    /// Stands in when [`Self::load`] fails: Hyprland's defaults, no
+    /// overrides, and a `save` that refuses, so a state file that could not
+    /// be read is never overwritten.
+    pub fn unavailable() -> Self {
+        Self {
+            state_path: PathBuf::new(),
+            overrides: Value::Object(Map::new()),
+            baseline: defaults(),
+            unavailable: true,
         }
     }
 
@@ -109,6 +125,11 @@ impl HyprlandConfigManager {
     }
 
     pub fn save(&self) -> Result<()> {
+        if self.unavailable {
+            return Err(Error::Invalid(
+                "Hyprland settings could not be loaded, so they are not saved".into(),
+            ));
+        }
         write_state(&self.state_path, &self.overrides)?;
         write_omarchist_lua(&self.overrides)?;
         reload_hyprland();
@@ -126,6 +147,7 @@ impl Clone for HyprlandConfigManager {
             state_path: self.state_path.clone(),
             overrides: self.overrides.clone(),
             baseline: self.baseline.clone(),
+            unavailable: self.unavailable,
         }
     }
 }
@@ -234,7 +256,9 @@ pub fn saved_overrides() -> Value {
 /// saved keybind overrides. Both the Configuration page and the Keybinds
 /// page go through here so neither can drop the other's section.
 pub fn write_omarchist_lua(overrides: &Value) -> Result<()> {
-    let keybinds = crate::system::keybinds::store::load_overrides().unwrap_or_default();
+    let keybinds = crate::system::keybinds::store::load_overrides()
+        .unwrap_or_default()
+        .valid_only();
     let keybinds_lua = crate::system::keybinds::overrides::emit_keybinds_lua(&keybinds);
     let lua_content = super::lua_writer::render_omarchist_lua(overrides, &keybinds_lua);
     let lua_path = get_lua_path()?;
@@ -314,6 +338,13 @@ mod tests {
             }
         }
         assert!(problems.is_empty(), "{}", problems.join("\n"));
+    }
+
+    #[test]
+    fn an_unavailable_manager_never_saves() {
+        let manager = HyprlandConfigManager::unavailable();
+        assert!(manager.save().is_err());
+        assert_eq!(manager.value("general.gaps_in"), Some(json!(5)));
     }
 
     fn manager() -> HyprlandConfigManager {

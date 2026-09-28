@@ -21,7 +21,7 @@ yay -S omarchist-bin
 > [!NOTE]
 > Omarchist only works on Omarchy Linux. Version 2.x targets Omarchy Quattro (v4); for Omarchy 3.x use an Omarchist 1.x release.
 
-Docs: [omarchist.com/docs](https://omarchist.com/docs/)
+Docs: [omarchist.com](https://omarchist.com/)
 
 ## Features
 
@@ -36,7 +36,7 @@ Create a theme from scratch or from an image. Omarchist writes `colors.toml`; Om
 
 ### Configuration
 
-Gaps, borders, blur, keyboard, mouse, and touchpad, applied as you change them. Omarchist writes its values to `~/.config/hypr/omarchist.lua`, so your `hyprland.lua` stays yours.
+Gaps, borders, blur, keyboard, mouse, and touchpad, applied as you change them. Omarchist writes its values to `~/.config/hypr/omarchist.lua` and only adds the one line to your `hyprland.lua` that loads it.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/config-dark.webp">

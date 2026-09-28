@@ -30,7 +30,6 @@ use crate::system::keybinds::store::{load_overrides, save_overrides};
 use crate::system::keybinds::{BindStatus, Dispatcher, Keybind, Origin};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
-use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
@@ -101,6 +100,8 @@ pub struct FlowEditPage {
     flow: Flow,
     /// The flow as last saved; `None` until a new flow is saved.
     saved: Option<Flow>,
+    /// The user chose to leave without saving; nothing counts as unsaved.
+    discarded: bool,
     name: Entity<InputState>,
     description: Entity<InputState>,
     icon_focus: FocusHandle,
@@ -178,6 +179,7 @@ impl FlowEditPage {
             step_states: vec![StepState::Idle; flow.steps.len()],
             flow,
             saved,
+            discarded: false,
             name,
             description,
             icon_focus: focus::tab_stop(cx),
@@ -243,7 +245,11 @@ impl FlowEditPage {
         flow
     }
 
-    fn is_dirty(&self, cx: &App) -> bool {
+    /// Whether the editor holds changes that are not saved.
+    pub fn is_dirty(&self, cx: &App) -> bool {
+        if self.discarded {
+            return false;
+        }
         match &self.saved {
             Some(saved) => self.current(cx) != *saved,
             None => {
@@ -343,22 +349,15 @@ impl FlowEditPage {
         cx.notify();
     }
 
-    fn navigate_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.is_dirty(cx) {
-            emit(cx, AppEvent::Navigate(ActivePage::Flows));
-            return;
-        }
-        open_confirm_dialog(
-            ConfirmDialog {
-                title: "Discard changes?",
-                message: "This flow has changes that are not saved.".to_string(),
-                confirm_label: "Discard",
-                danger: true,
-            },
-            |_, cx| emit(cx, AppEvent::Navigate(ActivePage::Flows)),
-            window,
-            cx,
-        );
+    /// Lets the next navigation leave without asking again.
+    pub fn discard(&mut self) {
+        self.discarded = true;
+    }
+
+    /// The app asks before discarding unsaved changes on any navigation
+    /// away from the editor (`MainWindowView::navigate_to`).
+    fn navigate_back(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        emit(cx, AppEvent::Navigate(ActivePage::Flows));
     }
 
     // MARK: Sharing

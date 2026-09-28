@@ -150,7 +150,7 @@ impl GeneralTab {
         self.save(window, cx);
     }
 
-    fn rename_theme(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn rename_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let new_name = self.theme_data.name.clone();
         let old_name = self.original_theme_name.clone();
 
@@ -163,10 +163,15 @@ impl GeneralTab {
         cx.notify();
 
         match rename_theme(&old_name, &new_name) {
-            Ok(()) => {
+            Ok(folder) => {
                 self.is_saving = false;
-                self.original_theme_name = new_name.clone();
-                cx.emit(GeneralTabEvent::Renamed(new_name));
+                self.original_theme_name = folder.clone();
+                self.theme_data.name = folder.clone();
+                self.name_input
+                    .update(cx, |input, cx| input.set_value(folder.clone(), window, cx));
+                if folder != old_name {
+                    cx.emit(GeneralTabEvent::Renamed(folder));
+                }
             }
             Err(e) => {
                 self.is_saving = false;

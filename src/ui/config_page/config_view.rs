@@ -246,17 +246,19 @@ pub struct ConfigView {
     content_focus: FocusHandle,
     scroll: ScrollHandle,
     nav_scroll: ScrollHandle,
+    /// Loading or saving the Hyprland settings failed; shown above the page.
+    error: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl ConfigView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let config_manager = match HyprlandConfigManager::load() {
-            Ok(manager) => manager,
-            Err(e) => {
-                eprintln!("Failed to load Hyprland config: {}", e);
-                HyprlandConfigManager::load().expect("Failed to create default config")
-            }
+        let (config_manager, error) = match HyprlandConfigManager::load() {
+            Ok(manager) => (manager, None),
+            Err(e) => (
+                HyprlandConfigManager::unavailable(),
+                Some(format!("Hyprland settings could not be loaded: {e}")),
+            ),
         };
 
         let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
@@ -332,6 +334,7 @@ impl ConfigView {
             content_focus: cx.focus_handle(),
             scroll: ScrollHandle::new(),
             nav_scroll: ScrollHandle::new(),
+            error,
             _subscriptions: subscriptions,
         };
 
@@ -405,10 +408,14 @@ impl ConfigView {
         match HyprlandConfigManager::load() {
             Ok(manager) => {
                 *self.config_manager.borrow_mut() = manager;
+                self.error = None;
                 self.sync_inputs(window, cx);
                 cx.notify();
             }
-            Err(e) => eprintln!("Failed to reload Hyprland config: {}", e),
+            Err(e) => {
+                self.error = Some(format!("Hyprland settings could not be loaded: {e}"));
+                cx.notify();
+            }
         }
         self.omarchy.loaded.clear();
         self.software.loaded = false;
@@ -540,8 +547,22 @@ impl ConfigView {
     }
 
     fn persist(&mut self, cx: &mut Context<Self>) {
-        if let Err(e) = self.config_manager.borrow().save() {
-            eprintln!("Failed to save Hyprland settings: {e}");
+        let saved = self.config_manager.borrow().save();
+        match saved {
+            Ok(()) => {
+                if self
+                    .error
+                    .as_deref()
+                    .is_some_and(|e| e.starts_with("Saving"))
+                {
+                    self.error = None;
+                }
+            }
+            Err(e) => {
+                if self.error.is_none() {
+                    self.error = Some(format!("Saving the Hyprland settings failed: {e}"));
+                }
+            }
         }
         cx.notify();
     }
@@ -1329,6 +1350,15 @@ impl ConfigView {
         };
 
         let mut sections: Vec<AnyElement> = Vec::new();
+        if let Some(error) = &self.error {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().danger)
+                    .child(selectable("config-error", error.clone()))
+                    .into_any_element(),
+            );
+        }
         for (page_ix, page) in shown {
             let dynamic = page.dynamic.is_some();
             let loading = !dynamic
