@@ -37,7 +37,7 @@ Below the Hyprland pages, the list continues with Omarchy's own settings. These 
 | **Displays** | The focused monitor's scale, night light and its temperature, and the laptop display. |
 | **Devices** | Touchpad, touchscreen, and Bluetooth. |
 | **Network** | The DNS provider and the Wi-Fi band. |
-| **Security** | Fingerprint, FIDO2 key, SSH server, sudoless Docker, and passwordless sudo. Each shows whether it is set up and opens Omarchy's terminal to set it up or remove it. |
+| **Security** | Fingerprint, FIDO2 key, SSH server, and sudoless Docker each show whether they are set up and open Omarchy's terminal to set them up or remove them. **Passwordless Sudo** opens Omarchy's terminal, where you turn it on or off. |
 | **Software** | Everything Omarchy's menu can install or remove, grouped as the menu groups it: browsers, editors, terminals, services, AI tools, games, and development environments. Each row says whether it is installed and opens Omarchy's terminal to install or remove it. |
 | **Updates & Resets** | The package channel, firmware updates, timezone, clock sync, and resets of the Hyprland, shell, tmux, and boot screen configs. |
 
@@ -55,7 +55,7 @@ The page leaves out Hyprland options that do nothing on Omarchy (the default wal
 
 ## How it works
 
-Omarchist keeps only the settings you changed, in `~/.config/omarchist/hyprland/state.json`, and writes them as `hl.config` calls into `~/.config/hypr/omarchist.lua`, which your `hyprland.lua` loads after Omarchy's defaults and your own files. Nothing else is written, and your own config files are never edited.
+Omarchist keeps only the settings you changed, in `~/.config/omarchist/hyprland/state.json`, and writes them as `hl.config` calls into `~/.config/hypr/omarchist.lua`, which your `hyprland.lua` loads after Omarchy's defaults and your own files. The first time Omarchist runs, it adds one line, `require("hypr.omarchist")`, to your `hyprland.lua` after the line that loads Omarchy's autostart, so Hyprland loads that file. It never changes anything else in your own config files.
 
 To know what a setting goes back to, Omarchist evaluates your `hyprland.lua` with a stub of Hyprland's `hl` API and records every `hl.config` call except its own file, the same way the Keybinds page reads your keybinds. This needs the `lua` interpreter, which Omarchy installs.
 

@@ -9,7 +9,16 @@ The **Keybinds** page (<kbd>Ctrl</kbd> + <kbd>3</kbd>) lists every keyboard shor
 <img src="/images/keybinds-light.webp" alt="Keybinds page" class="screenshot light-only">
 <img src="/images/keybinds-dark.webp" alt="Keybinds page" class="screenshot dark-only">
 
-Each row shows the bind's description, its keys, the command or dispatcher it runs, and where it comes from: **Default** binds ship with Omarchy, **User** binds are from your `~/.config/hypr/bindings.lua`, and **Omarchist** binds are the ones you changed here, tagged **Modified**, **Custom**, **Disabled**, or **Unbound**. A warning icon marks keys shared by more than one bind; Hyprland runs all of them.
+Each row shows the bind's description, its keys, the command or dispatcher it runs, and where it comes from: **Default** binds ship with Omarchy, **User** binds come from your own config files (usually `~/.config/hypr/bindings.lua`), and **Omarchist** binds are the ones you added here. A second tag says what happened to a bind:
+
+| Tag | Meaning |
+| --- | --- |
+| **Modified** | You gave it new keys here. |
+| **Custom** | You added it here. |
+| **Disabled** | You turned it off here. **Reset to default** in the row menu brings it back. |
+| **Unbound** | One of your own config files removes it with `hl.unbind`. Change that file to bring it back. |
+
+A warning icon marks keys shared by more than one bind; Hyprland runs all of them.
 
 ## Searching
 
@@ -17,7 +26,7 @@ Type to match descriptions, commands, or keys (`super k`, `screenshot`). Press t
 
 ## Changing a keybind
 
-Double-click a row or press <kbd>Enter</kbd> on it. <kbd>Delete</kbd> disables the selected bind; the row menu also resets or disables it.
+Double-click a row or press <kbd>Enter</kbd> on it. <kbd>Delete</kbd> disables the selected bind. The row menu edits, resets, or disables it, and copies its command.
 
 <img src="/images/keybind-dialog-light.webp" alt="Edit keybind dialog" class="screenshot light-only">
 <img src="/images/keybind-dialog-dark.webp" alt="Edit keybind dialog" class="screenshot dark-only">
