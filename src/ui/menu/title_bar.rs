@@ -62,17 +62,37 @@ impl Render for MainTitleBar {
                             .ghost()
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window, _cx| {
-                                // Pages and page actions live in the sidebar and
-                                // the palette; this menu holds what has no page.
                                 menu.menu("Command palette", Box::new(crate::ui::focus::ShowCommands))
                                     .menu("Keyboard shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
-                                    .separator()
-                                    .menu("Re-apply theme", Box::new(super::app_menu::RefreshTheme))
                                     .separator()
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
                                     .menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
+                            }),
+                    )
+                    .child(
+                        Button::new("themes-menu")
+                            .label("Themes")
+                            .small()
+                            .compact()
+                            .ghost()
+                            .cursor_pointer()
+                            .dropdown_menu(|menu: PopupMenu, _, _| {
+                                menu.menu("New theme", Box::new(app_menu::NewTheme))
+                                    .separator()
+                                    .menu("Re-apply theme", Box::new(super::app_menu::RefreshTheme))
+                            }),
+                    )
+                    .child(
+                        Button::new("keybinds-menu")
+                            .label("Keybinds")
+                            .small()
+                            .compact()
+                            .ghost()
+                            .cursor_pointer()
+                            .dropdown_menu(|menu: PopupMenu, _, _| {
+                                menu.menu("Add keybind…", Box::new(app_menu::NewKeybind))
                             }),
                     )
                     .child(
