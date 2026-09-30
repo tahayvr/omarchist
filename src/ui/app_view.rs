@@ -8,7 +8,6 @@ use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::share_ui::import_flow_from_dialog;
 use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
 use crate::ui::focus;
-use crate::ui::home_page::home_view::HomeView;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
@@ -34,17 +33,15 @@ const KEY_CONTEXT: &str = "MainWindow";
 const SIDEBAR_CONTEXT: &str = "Sidebar";
 
 /// Sidebar entries in display order: label, icon, page.
-const SIDEBAR_ITEMS: [(&str, &str); 5] = [
-    ("Home", "ctrl-1"),
-    ("Themes", "ctrl-2"),
-    ("Configuration", "ctrl-3"),
-    ("Keybinds", "ctrl-4"),
-    ("Flows", "ctrl-5"),
+const SIDEBAR_ITEMS: [(&str, &str); 4] = [
+    ("Themes", "ctrl-1"),
+    ("Configuration", "ctrl-2"),
+    ("Keybinds", "ctrl-3"),
+    ("Flows", "ctrl-4"),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
-    Home,
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
     Configuration,
@@ -68,7 +65,6 @@ impl ActivePage {
     /// `settings.json`; the editors count as their list page.
     pub fn view_name(&self) -> &'static str {
         match self {
-            ActivePage::Home => "home",
             ActivePage::Themes | ActivePage::ThemeEdit(_) => "themes",
             ActivePage::Configuration => "config",
             ActivePage::Keybinds => "keybinds",
@@ -85,7 +81,6 @@ impl ActivePage {
 
     pub fn from_view_name(name: &str) -> Option<Self> {
         Some(match name {
-            "home" => ActivePage::Home,
             "themes" => ActivePage::Themes,
             "config" => ActivePage::Configuration,
             "keybinds" => ActivePage::Keybinds,
@@ -123,8 +118,6 @@ pub struct MainWindowView {
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
     about_view: Option<Entity<AboutView>>,
-    home_root: Option<AnyView>,
-    home_view: Option<Entity<HomeView>>,
     omarchy_root: Option<AnyView>,
     omarchy_view: Option<Entity<OmarchyView>>,
     /// The user's own choice from the toggle; `None` follows the width.
@@ -179,8 +172,6 @@ impl MainWindowView {
             settings_view: None,
             about_root: None,
             about_view: None,
-            home_root: None,
-            home_view: None,
             omarchy_root: None,
             omarchy_view: None,
             sidebar_expanded: None,
@@ -285,15 +276,14 @@ impl MainWindowView {
 
     fn sidebar_index_for(page: &ActivePage) -> Option<usize> {
         match page {
-            ActivePage::Home => Some(0),
-            ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(1),
-            ActivePage::Configuration => Some(2),
-            ActivePage::Keybinds => Some(3),
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(0),
+            ActivePage::Configuration => Some(1),
+            ActivePage::Keybinds => Some(2),
             ActivePage::Flows
             | ActivePage::FlowEdit(_)
             | ActivePage::FlowNew(_)
             | ActivePage::FlowImport(_)
-            | ActivePage::FlowTemplates => Some(4),
+            | ActivePage::FlowTemplates => Some(3),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -392,19 +382,6 @@ impl MainWindowView {
                     self.settings_view = Some(settings_view);
                 }
             },
-            ActivePage::Home => {
-                let updates = self.title_bar.read(cx).updates().clone();
-                updates.update(cx, |updates, cx| updates.refresh_if_stale(cx));
-                match &self.home_view {
-                    Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
-                    None => {
-                        let home_view = cx.new(|cx| HomeView::new(updates, cx));
-                        self.home_root =
-                            Some(cx.new(|cx| Root::new(home_view.clone(), window, cx)).into());
-                        self.home_view = Some(home_view);
-                    }
-                }
-            }
             ActivePage::About => {
                 if self.about_root.is_none() {
                     let about_view = cx.new(AboutView::new);
@@ -528,11 +505,6 @@ impl MainWindowView {
     /// Focuses the active page's entry control (search box, tab strip, …).
     fn focus_page_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.active_page {
-            ActivePage::Home => {
-                if let Some(view) = &self.home_view {
-                    view.update(cx, |v, cx| v.focus_entry(window, cx));
-                }
-            }
             ActivePage::Themes => self
                 .themes_view
                 .update(cx, |v, cx| v.focus_entry(window, cx)),
@@ -597,11 +569,6 @@ impl MainWindowView {
     /// Ctrl+R: reload whatever the active page shows.
     fn reload_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.active_page {
-            ActivePage::Home => {
-                if let Some(view) = &self.home_view {
-                    view.update(cx, |view, cx| view.refresh(cx));
-                }
-            }
             ActivePage::Themes | ActivePage::ThemeEdit(_) => {
                 self.themes_view
                     .update(cx, |page, cx| page.refresh_themes(window, cx));
@@ -691,10 +658,6 @@ impl MainWindowView {
 
     fn current_page_view(&self) -> AnyView {
         match &self.active_page {
-            ActivePage::Home => self
-                .home_root
-                .clone()
-                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Themes => self.themes_root.clone(),
             ActivePage::ThemeEdit(_) => self
                 .theme_edit_root
@@ -737,7 +700,6 @@ impl MainWindowView {
 
     fn is_page_active(&self, page: ActivePage) -> bool {
         match (&self.active_page, &page) {
-            (ActivePage::Home, ActivePage::Home) => true,
             (ActivePage::Themes, ActivePage::Themes) => true,
             (ActivePage::ThemeEdit(_), ActivePage::Themes) => true, // ThemeEdit is under Themes in sidebar
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
@@ -758,12 +720,11 @@ impl MainWindowView {
 
     fn page_from_sidebar_index(&self, index: usize) -> ActivePage {
         match index {
-            0 => ActivePage::Home,
-            1 => ActivePage::Themes,
-            2 => ActivePage::Configuration,
-            3 => ActivePage::Keybinds,
-            4 => ActivePage::Flows,
-            _ => ActivePage::Home,
+            0 => ActivePage::Themes,
+            1 => ActivePage::Configuration,
+            2 => ActivePage::Keybinds,
+            3 => ActivePage::Flows,
+            _ => ActivePage::Themes,
         }
     }
 
@@ -786,10 +747,9 @@ impl MainWindowView {
         let (label, keys) = SIDEBAR_ITEMS[ix];
         let page = self.page_from_sidebar_index(ix);
         let icon = match ix {
-            0 => Icon::new(Icon::empty()).path("icons/house.svg"),
-            1 => Icon::new(IconName::LayoutDashboard),
-            2 => Icon::new(IconName::Settings),
-            3 => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
+            0 => Icon::new(IconName::LayoutDashboard),
+            1 => Icon::new(IconName::Settings),
+            2 => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
             _ => Icon::new(Icon::empty()).path("icons/workflow.svg"),
         };
         let focused = self.sidebar_focus.is_focused(window) && self.sidebar_index == ix;
@@ -945,11 +905,6 @@ impl Render for MainWindowView {
                 }),
             )
             // Global page shortcuts
-            .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NavigateToHome, window, cx| {
-                    this.navigate_to(ActivePage::Home, window, cx);
-                },
-            ))
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToThemes, window, cx| {
                     this.navigate_to(ActivePage::Themes, window, cx);

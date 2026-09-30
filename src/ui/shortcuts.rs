@@ -7,7 +7,6 @@ use crate::ui::config_page::config_view::config_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
-use crate::ui::home_page::home_view::home_nav;
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::keybinds_page::keystroke_input;
 use crate::ui::menu::app_menu;
@@ -57,40 +56,32 @@ pub const DIALOGS: &str = "Dialogs";
 pub const CONFIG: &str = "Configuration";
 pub const KEYBINDS: &str = "Keybinds";
 pub const FLOWS: &str = "Flows";
-pub const HOME: &str = "Home";
 
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
     shortcut!(
         "ctrl-1",
-        app_menu::NavigateToHome,
-        None,
-        GLOBAL,
-        "Home page"
-    ),
-    shortcut!(
-        "ctrl-2",
         app_menu::NavigateToThemes,
         None,
         GLOBAL,
         "Themes page"
     ),
     shortcut!(
-        "ctrl-3",
+        "ctrl-2",
         app_menu::NavigateToConfig,
         None,
         GLOBAL,
         "Configuration page"
     ),
     shortcut!(
-        "ctrl-4",
+        "ctrl-3",
         app_menu::NavigateToKeybinds,
         None,
         GLOBAL,
         "Keybinds page"
     ),
     shortcut!(
-        "ctrl-5",
+        "ctrl-4",
         app_menu::NavigateToFlows,
         None,
         GLOBAL,
@@ -897,65 +888,6 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowsGrid"),
         FLOWS,
         "Delete the selected flow"
-    ),
-    // Home
-    shortcut!(
-        "left",
-        home_nav::Prev,
-        Some("HomeGrid"),
-        HOME,
-        "Previous card"
-    ),
-    shortcut!("right", home_nav::Next, Some("HomeGrid"), HOME, "Next card"),
-    shortcut!(
-        "up",
-        home_nav::PrevSection,
-        Some("HomeGrid"),
-        HOME,
-        "Previous section"
-    ),
-    shortcut!(
-        "down",
-        home_nav::NextSection,
-        Some("HomeGrid"),
-        HOME,
-        "Next section"
-    ),
-    shortcut!(
-        "home",
-        home_nav::First,
-        Some("HomeGrid"),
-        HOME,
-        "First card"
-    ),
-    shortcut!("end", home_nav::Last, Some("HomeGrid"), HOME, "Last card"),
-    shortcut!(
-        "enter",
-        home_nav::Open,
-        Some("HomeGrid"),
-        HOME,
-        "Open the card (a theme in the Designer, a flow runs)"
-    ),
-    shortcut!(
-        "ctrl-enter",
-        home_nav::Act,
-        Some("HomeGrid"),
-        HOME,
-        "Apply the theme or edit the flow"
-    ),
-    shortcut!(
-        "?",
-        focus::ShowShortcuts,
-        Some("HomeGrid"),
-        GLOBAL,
-        "Show keyboard shortcuts"
-    ),
-    shortcut!(
-        "shift-?",
-        focus::ShowShortcuts,
-        Some("HomeGrid"),
-        GLOBAL,
-        "Show keyboard shortcuts"
     ),
     // Flow editor
     shortcut!(

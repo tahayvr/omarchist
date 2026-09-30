@@ -6,7 +6,6 @@ pub mod config_page;
 pub mod dialogs;
 pub mod flows_page;
 pub mod focus;
-pub mod home_page;
 pub mod keybinds_page;
 pub mod menu;
 pub mod omarchy_page;

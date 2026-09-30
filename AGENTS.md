@@ -231,7 +231,6 @@ Centralized in `MainWindowView`:
 
 ```rust
 pub enum ActivePage {
-    Home,                  // the launch page: greeting, running theme ribbon, counters, theme and flow cards
     Themes,
     ThemeEdit(String),
     Configuration,
@@ -362,13 +361,8 @@ A flow (`src/system/flows.rs`) is a named list of steps run in order. Steps reus
 - **The bar widget** is a Quattro shell plugin in `defaults/plugin/tahayvr.omarchist/` (manifest + `BarWidget.qml`, embedded through `DefaultAssets`). `src/system/bar_widget.rs` installs it into `~/.config/omarchy/plugins/tahayvr.omarchist/` (plus a `command` file holding `current_exe()`), enables it with `omarchy plugin enable`, and refreshes the files at startup when the embedded version or the binary path changed (`ensure_current`, run from `main.rs` when `settings.bar_widget` is on). Enabled state is read from `shell.json`'s `bar.layout`, never stored twice. The shell keeps a widget instance until it restarts (plugin file changes and `reloadConfig` do not recreate it), which is why the binary path goes through a watched file and not a layout setting. The widget is a `Panel` + `KeyboardPanel` like Omarchy's first-party panels, and draws every icon as a font glyph so theme colors apply: Material Design Nerd Font glyphs, and `\ue900` in the `omarchy` font for the Omarchy logo. Flow icons map to glyphs through `flows::icon_glyph` (a test covers every `ICONS` entry), which `omarchist flow list --json` emits as `glyph`; the widget opens pages with `omarchist --view`. Bump the manifest version when the QML changes so `ensure_current` refreshes installed copies.
 - **Single instance** (`src/system/instance.rs`): `main.rs` forwards `--view`/`--theme` as one JSON line over `$XDG_RUNTIME_DIR/omarchist.sock` to a running instance (which answers `ok`, navigates through `AppEvent::Navigate`, and activates its window) and exits; otherwise it binds the socket *before* the GPUI app starts (a launch that loses the bind forwards instead of opening a second window) and serves it from a background task. `accept` answers `Rejected` for a peer that sends nothing usable (the line is capped at 4 KB) so the loop keeps serving; only a listener error ends it. The socket is removed on quit only by the process that bound it; a stale one nobody answers is replaced.
 
-### Home Page
-
-`src/ui/home_page/home_view.rs` is the launch page (`startup_page` defaults to `home`, `--view home`, Ctrl+1; the page shortcuts are Home, Themes, Configuration, Keybinds, Flows = Ctrl+1…5). It reads a `Snapshot` off the UI thread on every visit and on Ctrl+R: the running theme (`current/theme.name` plus its `colors.toml`, drawn as a weighted ribbon), the themes made here (`get_user_themes`, small cards with a swatch strip and Apply through `ui::theme_apply`), the flows (`load_flows`, Run through `runner::run_in_thread`), and the counts of keybind and Hyprland overrides for the four tiles. Omarchy's version and update state come from the `OmarchyUpdates` entity the title bar owns. The tiles and cards are one tab stop (`HomeGrid`, `home_nav` actions: Left/Right move, Up/Down jump sections and scroll them into view, Enter opens, Ctrl+Enter is the secondary action); a headless test presses Enter on the first tile.
-
 ## Key File Locations
 
-- **Home:** `src/ui/home_page/home_view.rs`
 - **Navigation:** `src/ui/app_view.rs`
 - **Atomic writes:** `src/system/fs.rs` (`write_atomic`, used for every state file Omarchist owns: `settings.json`, `state.json`, `keybinds.json`, `omarchist.lua`, `hyprland.lua`, flow TOML, `omarchist.json`, `colors.toml`, `icons.theme`)
 - **Selectable text:** `src/ui/text.rs`
@@ -394,7 +388,7 @@ The app supports command-line arguments via `clap`. CLI args are parsed at start
 #[derive(Parser)]
 pub struct CliArgs {
     #[arg(short, long)]
-    pub view: Option<ViewOption>,  // home, themes, config, keybinds, flows, settings, about, omarchy
+    pub view: Option<ViewOption>,  // themes, config, keybinds, flows, settings, about, omarchy
     
     #[arg(short, long, requires = "view")]
     pub theme: Option<String>,     // For editing specific theme

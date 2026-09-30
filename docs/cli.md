@@ -13,7 +13,7 @@ omarchist uninstall [--yes]
 
 ## Open a page
 
-`--view` (`-v`) opens Omarchist on a page: `home`, `themes`, `config`, `keybinds`, `flows`, `settings`, `about`, or `omarchy`. `--theme` (`-t`) with `--view themes` opens that theme in the Theme Designer.
+`--view` (`-v`) opens Omarchist on a page: `themes`, `config`, `keybinds`, `flows`, `settings`, `about`, or `omarchy`. `--theme` (`-t`) with `--view themes` opens that theme in the Theme Designer.
 
 Omarchist runs one window at a time. If it is already running, a new `omarchist --view <page>` brings that window forward on the page and exits, so a keybind or the [bar widget](/configuring/bar-widget) never opens a second window. Without `--view`, Omarchist opens on the page chosen in Settings.
 

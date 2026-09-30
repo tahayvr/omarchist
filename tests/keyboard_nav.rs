@@ -41,42 +41,15 @@ fn assert_page(cx: &mut TestAppContext, view: &Entity<MainWindowView>, page: Act
 fn ctrl_number_switches_pages(cx: &mut TestAppContext) {
     let (handle, view) = open(cx, ActivePage::Themes);
 
-    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-3", cx))
+    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-2", cx))
         .unwrap();
     cx.run_until_parked();
     assert_page(cx, &view, ActivePage::Configuration);
 
-    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-4", cx))
+    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-3", cx))
         .unwrap();
     cx.run_until_parked();
     assert_page(cx, &view, ActivePage::Keybinds);
-
-    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-1", cx))
-        .unwrap();
-    cx.run_until_parked();
-    assert_page(cx, &view, ActivePage::Home);
-}
-
-/// The Home page's cards are one tab stop: Enter on the first tile opens
-/// the Themes page, and Down moves to the next section.
-#[gpui_kit::test]
-fn home_tiles_open_their_pages(cx: &mut TestAppContext) {
-    let (handle, view) = open(cx, ActivePage::Home);
-    cx.run_until_parked();
-
-    cx.update_window(handle.into(), |_, window, cx| {
-        window.render_frame(cx);
-        let grid = window.find("home-grid");
-        assert!(grid.visible());
-        // Enter from the sidebar lands on the tiles.
-        window.press("enter", cx);
-        window.render_frame(cx);
-        assert_eq!(window.find("home-grid").focused(), Some(true));
-        window.press("enter", cx);
-    })
-    .unwrap();
-    cx.run_until_parked();
-    assert_page(cx, &view, ActivePage::Themes);
 }
 
 #[gpui_kit::test]
@@ -95,7 +68,7 @@ fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
         window.press("down", cx);
     })
     .unwrap();
-    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 2));
+    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 1));
 
     cx.update_window(handle.into(), |_, window, cx| window.press("enter", cx))
         .unwrap();
@@ -115,7 +88,7 @@ fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
         window.press("end", cx);
     })
     .unwrap();
-    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 4));
+    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 3));
 }
 
 #[gpui_kit::test]

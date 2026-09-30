@@ -4,7 +4,7 @@
 		"font_size": "small",
 		"auto_apply_theme": false,
 		"theme_mode": "omarchy",
-		"startup_page": "home",
+		"startup_page": "themes",
 		"check_updates": true,
 		"update_check_hours": 6,
 		"notify_updates": false,
