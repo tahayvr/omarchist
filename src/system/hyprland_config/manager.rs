@@ -233,6 +233,27 @@ pub fn reload_hyprland() {
     });
 }
 
+/// Reloads Hyprland and waits for it, then asks what it rejected. Blocking:
+/// run it off the UI thread. `Ok(Some(text))` is Hyprland's own error list;
+/// `Ok(None)` means the config loaded clean.
+pub fn reload_hyprland_checked() -> Result<Option<String>> {
+    Command::new("hyprctl")
+        .arg("reload")
+        .output()
+        .map_err(|e| Error::io("Failed to run hyprctl reload", e))?;
+    let output = Command::new("hyprctl")
+        .args(["-j", "configerrors"])
+        .output()
+        .map_err(|e| Error::io("Failed to run hyprctl configerrors", e))?;
+    let errors: Vec<String> = serde_json::from_slice(&output.stdout).unwrap_or_default();
+    let errors: Vec<String> = errors
+        .into_iter()
+        .map(|e| e.trim().to_string())
+        .filter(|e| !e.is_empty())
+        .collect();
+    Ok((!errors.is_empty()).then(|| errors.join("\n")))
+}
+
 /// The overrides last saved by the Configuration page, without touching
 /// hyprctl. Used when only the keybinds block changed.
 pub fn saved_overrides() -> Value {
@@ -266,8 +287,10 @@ pub fn saved_overrides() -> Value {
 /// after which every save here would be inert. `Ok(true)` when the line had
 /// to be put back, so the caller can say so.
 pub fn write_omarchist_lua(overrides: &Value) -> Result<bool> {
+    // A keybinds.json that cannot be read must not become "no keybinds":
+    // the file (and the user's binds) is still there to be repaired.
     let keybinds = crate::system::keybinds::store::load_overrides()
-        .unwrap_or_default()
+        .map_err(|e| Error::Invalid(format!("keybinds.json could not be read: {e}")))?
         .valid_only();
     let keybinds_lua = crate::system::keybinds::overrides::emit_keybinds_lua(&keybinds);
     let lua_content = super::lua_writer::render_omarchist_lua(overrides, &keybinds_lua);

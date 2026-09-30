@@ -236,8 +236,11 @@ impl MainWindowView {
                     self.config_view = Some(config_view);
                 }
             }
-            ActivePage::Keybinds => {
-                if self.keybinds_root.is_none() {
+            ActivePage::Keybinds => match &self.keybinds_view {
+                // The Flows page saves keybinds too, and bindings.lua may
+                // have been edited: every visit rescans.
+                Some(view) => view.update(cx, |view, cx| view.refresh(window, cx)),
+                None => {
                     let keybinds_view = cx.new(|cx| KeybindsView::new(window, cx));
                     self.keybinds_root = Some(
                         cx.new(|cx| Root::new(keybinds_view.clone(), window, cx))
@@ -245,7 +248,7 @@ impl MainWindowView {
                     );
                     self.keybinds_view = Some(keybinds_view);
                 }
-            }
+            },
             ActivePage::FlowTemplates => match &self.flow_templates_view {
                 // A template file can be copied in while the app runs, so
                 // the page reloads on every visit.

@@ -136,10 +136,19 @@ impl KeystrokeInput {
         cx.notify();
     }
 
+    /// Clear goes back to the current binding (the placeholder), not to
+    /// nothing: a keyboard user who recorded the wrong chord must not lose
+    /// the original.
     pub fn clear(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.stop_recording(window, cx);
-        if self.chord.take().is_some() {
-            cx.emit(KeystrokeInputEvent::Changed(None));
+        let fallback = if self.search_mode {
+            None
+        } else {
+            self.placeholder.clone()
+        };
+        if self.chord != fallback {
+            self.chord = fallback.clone();
+            cx.emit(KeystrokeInputEvent::Changed(fallback));
         }
         cx.notify();
     }
@@ -182,6 +191,14 @@ impl KeystrokeInput {
         cx: &mut Context<Self>,
     ) {
         cx.stop_propagation();
+        // A bare Escape cancels the recording instead of being recorded: it
+        // is the one way out from the keyboard, and nobody binds Escape on
+        // its own (it would hijack the key everywhere).
+        if keystroke.key == "escape" && keystroke.modifiers == Modifiers::default() {
+            self.pending = None;
+            self.stop_recording(window, cx);
+            return;
+        }
         if let Some(chord) = keystroke_to_chord(keystroke) {
             self.chord = Some(chord.clone());
             self.pending = None;

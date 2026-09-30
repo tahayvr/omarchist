@@ -159,6 +159,7 @@ fn remove_keybinds_running(id: &str) -> Result<()> {
         .retain(|o| o.bind().is_none_or(|bind| !runs_flow(&bind.dispatcher, id)));
     if overrides.overrides.len() != before {
         save_overrides(&overrides)?;
+        crate::system::hyprland_config::manager::reload_hyprland();
     }
     Ok(())
 }

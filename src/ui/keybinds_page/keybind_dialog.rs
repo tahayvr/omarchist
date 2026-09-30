@@ -23,12 +23,14 @@ use gpui_component::{
 
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::conflicts::binds_on_chord;
+use crate::system::keybinds::keymap::is_bindable_key;
 use crate::system::keybinds::overrides::{
     BindSpec, Override, restore_specs, unrestorable_siblings,
 };
-use crate::system::keybinds::{Dispatcher, Keybind, Origin};
+use crate::system::keybinds::{BindIdentity, Dispatcher, Keybind, Origin};
 use crate::ui::focus;
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
+use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybinds_table::{KeybindRow, RowKind};
 use crate::ui::keybinds_page::keystroke_input::{KeystrokeInput, KeystrokeInputEvent};
 use crate::ui::text::selectable;
@@ -49,9 +51,16 @@ pub enum DialogMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeybindDialogEvent {
-    Save(Override),
-    Disable,
-    Reset,
+    /// The override to save, with the index of the override it replaces
+    /// when the edited row already had one.
+    Save {
+        override_: Override,
+        replaces: Option<usize>,
+    },
+    /// Disable the edited row (its identity, to find it again).
+    Disable(BindIdentity),
+    /// Remove the edited row's override.
+    Reset(usize),
     Cancel,
 }
 
@@ -250,6 +259,15 @@ impl KeybindDialog {
             self.chord_error = None;
         } else {
             match Chord::parse(text) {
+                Ok(chord) if !is_bindable_key(&chord.key) => {
+                    // Hyprland would accept the file and never fire the bind.
+                    self.chord = None;
+                    self.chord_error = Some(format!(
+                        "'{}' is not a key name Hyprland knows; try RETURN, comma, F9, \
+                         XF86AudioMute, mouse:272 or code:10",
+                        chord.key
+                    ));
+                }
                 Ok(chord) => {
                     self.chord = Some(chord);
                     self.chord_error = None;
@@ -324,19 +342,28 @@ impl KeybindDialog {
         let override_ = match &self.mode {
             DialogMode::Add | DialogMode::AddPreset { .. } => Override::Add { bind },
             DialogMode::Edit { existing, row } => match existing {
+                // A bind that is already overridden keeps the sibling list
+                // captured when it was; a Disabled bind's siblings are
+                // unbound now, so recomputing it would find none.
                 Some(Override::Rebind {
                     target, restore, ..
-                }) => Override::Rebind {
+                })
+                | Some(Override::Disable { target, restore }) => Override::Rebind {
                     target: target.clone(),
                     bind,
                     restore: restore.clone(),
                 },
                 Some(Override::Add { .. }) => Override::Add { bind },
-                _ => Override::Rebind {
-                    target: row.bind.identity(),
-                    bind,
-                    restore: restore_specs(&row.bind, &self.binds),
-                },
+                None => {
+                    if bind == BindSpec::from_keybind(&row.bind) {
+                        return Err("Nothing changed".into());
+                    }
+                    Override::Rebind {
+                        target: row.bind.identity(),
+                        bind,
+                        restore: restore_specs(&row.bind, &self.binds),
+                    }
+                }
             },
         };
         Ok(override_)
@@ -354,7 +381,11 @@ impl KeybindDialog {
                     cx.notify();
                     return;
                 }
-                cx.emit(KeybindDialogEvent::Save(override_));
+                let replaces = self.row().and_then(|row| row.override_ix);
+                cx.emit(KeybindDialogEvent::Save {
+                    override_,
+                    replaces,
+                });
             }
         }
     }
@@ -468,8 +499,10 @@ impl KeybindDialog {
                                 .icon(Icon::new(Icon::empty()).path("icons/rotate-ccw.svg"))
                                 .label("Reset to default")
                                 .cursor_pointer()
-                                .on_click(cx.listener(|_, _, _, cx| {
-                                    cx.emit(KeybindDialogEvent::Reset);
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    if let Some(ix) = this.row().and_then(|row| row.override_ix) {
+                                        cx.emit(KeybindDialogEvent::Reset(ix));
+                                    }
                                 })),
                         )
                     })
@@ -481,8 +514,10 @@ impl KeybindDialog {
                                 .icon(Icon::new(Icon::empty()).path("icons/ban.svg"))
                                 .label("Disable")
                                 .cursor_pointer()
-                                .on_click(cx.listener(|_, _, _, cx| {
-                                    cx.emit(KeybindDialogEvent::Disable);
+                                .on_click(cx.listener(|this, _, _, cx| {
+                                    if let Some(row) = this.row() {
+                                        cx.emit(KeybindDialogEvent::Disable(row.bind.identity()));
+                                    }
                                 })),
                         )
                     }),
@@ -545,12 +580,13 @@ impl Render for KeybindDialog {
                 ))
             })
             .when(!rebindable, |this| {
-                this.child(self.render_field(
-                    "Keys",
-                    None,
-                    self.recorder.clone().into_any_element(),
-                    cx,
-                ))
+                // A Lua-function bind cannot be re-emitted, so its keys are
+                // shown, not recorded.
+                let chips = match self.chord.as_ref().or(self.original().map(|b| &b.chord)) {
+                    Some(chord) => chord_chips(chord, true, cx),
+                    None => div().into_any_element(),
+                };
+                this.child(self.render_field("Keys", None, chips, cx))
             })
             .when_some(self.chord_error.clone(), |this, error| {
                 this.child(

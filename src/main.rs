@@ -1,4 +1,4 @@
-use gpui::{App, AppContext, KeyBinding, WindowOptions};
+use gpui::{App, AppContext, WindowOptions};
 use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
@@ -7,7 +7,6 @@ use omarchist::system::instance;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
-use omarchist::ui::keybinds_page::keystroke_input;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
@@ -258,31 +257,6 @@ fn main() -> ExitCode {
 
         // Every app shortcut comes from the shortcuts table.
         cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
-        cx.bind_keys([
-            // Editing keys that gpui-component does not bind on Linux.
-            KeyBinding::new("ctrl-shift-z", gpui_component::input::Redo, None),
-            // Keystroke recorder (only while it is focused but not recording)
-            KeyBinding::new(
-                "enter",
-                keystroke_input::StartRecording,
-                Some("KeystrokeInput"),
-            ),
-            KeyBinding::new(
-                "space",
-                keystroke_input::StartRecording,
-                Some("KeystrokeInput"),
-            ),
-            KeyBinding::new(
-                "backspace",
-                keystroke_input::ClearKeystrokes,
-                Some("KeystrokeInput"),
-            ),
-            KeyBinding::new(
-                "delete",
-                keystroke_input::ClearKeystrokes,
-                Some("KeystrokeInput"),
-            ),
-        ]);
 
         cx.spawn(async move |cx| {
             let window_options = WindowOptions {

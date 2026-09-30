@@ -509,7 +509,7 @@ impl FlowEditPage {
             window,
             |this, _, event: &KeybindDialogEvent, window, cx| {
                 this.keybind_dialog = None;
-                if let KeybindDialogEvent::Save(override_) = event {
+                if let KeybindDialogEvent::Save { override_, .. } = event {
                     this.commit_keybind(Some(override_.clone()), window, cx);
                     window.close_dialog(cx);
                 }
@@ -530,6 +530,7 @@ impl FlowEditPage {
         cx: &mut Context<Self>,
     ) {
         let id = self.flow.id.clone();
+        let removing = override_.is_none();
         let result = load_overrides().and_then(|mut overrides| {
             overrides
                 .overrides
@@ -541,7 +542,15 @@ impl FlowEditPage {
         });
         match result {
             Ok(hook_restored) => {
-                window.push_notification("Keybind saved", cx);
+                crate::system::hyprland_config::manager::reload_hyprland();
+                window.push_notification(
+                    if removing {
+                        "Keybind removed"
+                    } else {
+                        "Keybind saved"
+                    },
+                    cx,
+                );
                 if hook_restored {
                     window.push_notification(HOOK_RESTORED_MESSAGE, cx);
                 }

@@ -22,7 +22,11 @@ use crate::system::keybinds::action::{
     WindowParam, WorkspaceTarget, omarchy_entry, program_name,
 };
 use crate::ui::focus::{self, FocusableSwitch};
-use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
+use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
+
+/// The kind and direction strips: only the arrow keys, so `?` and `/`
+/// (bound in the page's filter strip) do nothing inside a dialog.
+const STRIP_CONTEXT: &str = "ActionStrip";
 use crate::ui::text::selectable;
 
 pub enum ActionBuilderEvent {
@@ -740,7 +744,7 @@ impl ActionBuilder {
         let ring = focus::focus_border(focused, cx.theme().transparent, cx);
         h_flex()
             .id("action-kinds")
-            .key_context(FILTERS_CONTEXT)
+            .key_context(STRIP_CONTEXT)
             .track_focus(&self.kind_focus)
             .on_action(
                 cx.listener(|this, _: &keybinds_nav::FilterPrev, _, cx| this.cycle_kind(-1, cx)),
@@ -777,7 +781,7 @@ impl ActionBuilder {
         let current = self.window.as_ref().map(|a| a.direction);
         h_flex()
             .id("action-directions")
-            .key_context(FILTERS_CONTEXT)
+            .key_context(STRIP_CONTEXT)
             .track_focus(&self.direction_focus)
             .on_action(
                 cx.listener(|this, _: &keybinds_nav::FilterPrev, _, cx| {

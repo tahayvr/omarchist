@@ -87,10 +87,17 @@ impl Override {
         }
     }
 
-    fn restore(&self) -> &[BindSpec] {
+    pub fn restore(&self) -> &[BindSpec] {
         match self {
             Override::Rebind { restore, .. } | Override::Disable { restore, .. } => restore,
             Override::Add { .. } => &[],
+        }
+    }
+
+    fn restore_mut(&mut self) -> Option<&mut Vec<BindSpec>> {
+        match self {
+            Override::Rebind { restore, .. } | Override::Disable { restore, .. } => Some(restore),
+            Override::Add { .. } => None,
         }
     }
 }
@@ -123,14 +130,49 @@ impl KeybindOverrides {
     }
 
     /// Adds `override_`, replacing any existing override on the same target.
+    /// A bind that another override re-registers as a sibling (`restore`)
+    /// and that is now targeted itself is dropped from that list, or the
+    /// restore would bring back what the new override removes.
     pub fn upsert(&mut self, override_: Override) {
-        if let Some(target) = override_.target()
-            && let Some(ix) = self.find_for_target(target)
-        {
-            self.overrides[ix] = override_;
-            return;
+        if let Some(target) = override_.target().cloned() {
+            for other in &mut self.overrides {
+                if other.target() != Some(&target)
+                    && let Some(restore) = other.restore_mut()
+                {
+                    restore.retain(|spec| spec.identity() != target);
+                }
+            }
+            if let Some(ix) = self.find_for_target(&target) {
+                self.overrides[ix] = override_;
+                return;
+            }
         }
         self.overrides.push(override_);
+    }
+
+    /// The override whose `restore` list re-registers `identity`: the bind
+    /// is still in effect through Omarchist's copy of it.
+    pub fn restored_by(&self, identity: &BindIdentity) -> Option<usize> {
+        self.overrides
+            .iter()
+            .position(|o| o.restore().iter().any(|spec| spec.identity() == *identity))
+    }
+
+    /// Overrides whose target no longer exists in the scanned config: the
+    /// bind's description or command changed with an Omarchy update, so
+    /// the override matches nothing but its `hl.unbind` still fires.
+    pub fn stale(&self, binds: &[Keybind]) -> Vec<usize> {
+        self.overrides
+            .iter()
+            .enumerate()
+            .filter_map(|(ix, o)| {
+                let target = o.target()?;
+                let exists = binds
+                    .iter()
+                    .any(|bind| bind.origin != Origin::Omarchist && bind.identity() == *target);
+                (!exists).then_some(ix)
+            })
+            .collect()
     }
 
     pub fn remove(&mut self, ix: usize) -> Option<Override> {
@@ -768,6 +810,78 @@ hl.bind(\"SUPER + SHIFT + R\", hl.dsp.exec_cmd(\"alacritty -e ssh \\\"box\\\"\")
             }],
         };
         assert!(bad_keys.validate().is_err());
+    }
+
+    #[test]
+    fn disabling_a_restored_sibling_drops_it_from_the_other_override() {
+        let cycle = keybind(
+            1,
+            "ALT + TAB",
+            "Cycle",
+            Dispatcher::Lua("hl.dsp.window.cycle_next()".into()),
+            Origin::Default,
+        );
+        let raise = keybind(
+            2,
+            "ALT + TAB",
+            "Raise",
+            Dispatcher::Lua("hl.dsp.window.bring_to_top()".into()),
+            Origin::Default,
+        );
+        let mut overrides = KeybindOverrides::default();
+        // Disabling Cycle re-registers Raise, so Raise is restored by it.
+        overrides.upsert(Override::Disable {
+            target: cycle.identity(),
+            restore: vec![BindSpec::from_keybind(&raise)],
+        });
+        assert_eq!(overrides.restored_by(&raise.identity()), Some(0));
+        assert_eq!(overrides.restored_by(&cycle.identity()), None);
+
+        // Now disabling Raise too must not leave it in Cycle's restore
+        // list, or the Lua would unbind it and register it again.
+        overrides.upsert(Override::Disable {
+            target: raise.identity(),
+            restore: vec![],
+        });
+        assert_eq!(overrides.overrides.len(), 2);
+        assert!(overrides.overrides[0].restore().is_empty());
+        assert_eq!(overrides.restored_by(&raise.identity()), None);
+    }
+
+    #[test]
+    fn overrides_whose_target_is_gone_are_stale() {
+        let bind = keybind(
+            1,
+            "SUPER + K",
+            "Keybindings",
+            Dispatcher::Exec("x".into()),
+            Origin::Default,
+        );
+        let renamed = keybind(
+            1,
+            "SUPER + K",
+            "Keybinding menu",
+            Dispatcher::Exec("x".into()),
+            Origin::Default,
+        );
+        let overrides = KeybindOverrides {
+            version: 1,
+            overrides: vec![
+                Override::Disable {
+                    target: bind.identity(),
+                    restore: vec![],
+                },
+                Override::Add {
+                    bind: BindSpec::from_keybind(&renamed),
+                },
+            ],
+        };
+        assert!(overrides.stale(&[bind.clone()]).is_empty());
+        assert_eq!(
+            overrides.stale(&[renamed]),
+            vec![0],
+            "an Add is never stale"
+        );
     }
 
     #[test]

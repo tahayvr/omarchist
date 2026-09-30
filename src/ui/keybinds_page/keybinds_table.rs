@@ -29,6 +29,9 @@ pub enum RowKind {
     Disabled,
     /// A default removed by `hl.unbind` in the user's own `bindings.lua`.
     UnboundByUser,
+    /// An override whose target no longer exists (an Omarchy update changed
+    /// the bind's description or command); only Reset applies.
+    Stale,
 }
 
 #[derive(Debug, Clone)]
@@ -45,7 +48,10 @@ pub struct KeybindRow {
 
 impl KeybindRow {
     pub fn is_greyed(&self) -> bool {
-        matches!(self.kind, RowKind::Disabled | RowKind::UnboundByUser)
+        matches!(
+            self.kind,
+            RowKind::Disabled | RowKind::UnboundByUser | RowKind::Stale
+        )
     }
 }
 
@@ -215,6 +221,7 @@ impl KeybindsTableDelegate {
             RowKind::Custom => Some(Tag::success().rounded(px(0.)).child("Custom")),
             RowKind::Disabled => Some(Tag::danger().rounded(px(0.)).child("Disabled")),
             RowKind::UnboundByUser => Some(Tag::warning().rounded(px(0.)).child("Unbound")),
+            RowKind::Stale => Some(Tag::warning().rounded(px(0.)).child("Stale")),
         };
 
         let note = match &row.kind {
@@ -223,6 +230,10 @@ impl KeybindsTableDelegate {
             RowKind::UnboundByUser => {
                 Some("Removed by hl.unbind in your ~/.config/hypr/bindings.lua".to_string())
             }
+            RowKind::Stale => Some(
+                "This change targets a keybind Omarchy no longer ships. Reset to remove it."
+                    .to_string(),
+            ),
             _ => None,
         };
 
@@ -287,18 +298,22 @@ impl TableDelegate for KeybindsTableDelegate {
         let Some(row) = self.rows.get(row_ix) else {
             return menu;
         };
-        let editable = row.kind != RowKind::UnboundByUser;
+        let editable = !matches!(row.kind, RowKind::UnboundByUser | RowKind::Stale);
         let can_disable = row.bind.origin != Origin::Omarchist && row.kind == RowKind::Plain;
+        // A bind the user added is deleted, not reset: there is no default.
+        let (reset_label, reset_action): (&str, Box<dyn Action>) = if row.kind == RowKind::Custom {
+            ("Delete keybind", Box::new(DisableRow(row_ix)))
+        } else {
+            ("Reset to default", Box::new(ResetRow(row_ix)))
+        };
         menu.action_context(self.page_focus.clone())
             .menu_with_disabled("Edit", Box::new(EditRow(row_ix)), !editable)
             .menu("Copy command", Box::new(CopyCommand(row_ix)))
             .separator()
-            .menu_with_disabled("Disable", Box::new(DisableRow(row_ix)), !can_disable)
-            .menu_with_disabled(
-                "Reset to default",
-                Box::new(ResetRow(row_ix)),
-                row.override_ix.is_none(),
-            )
+            .when(row.kind != RowKind::Custom, |menu| {
+                menu.menu_with_disabled("Disable", Box::new(DisableRow(row_ix)), !can_disable)
+            })
+            .menu_with_disabled(reset_label, reset_action, row.override_ix.is_none())
     }
 
     fn render_td(

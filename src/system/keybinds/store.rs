@@ -29,9 +29,10 @@ pub fn load_overrides() -> Result<KeybindOverrides> {
     serde_json::from_str(&content).map_err(|e| Error::json("Failed to parse keybinds.json", e))
 }
 
-/// Validates, writes the json, regenerates `omarchist.lua` (settings and
-/// keybinds together) and asks Hyprland to reload. `Ok(true)` when the
-/// `require` line in `hyprland.lua` had to be restored on the way.
+/// Validates, writes the json and regenerates `omarchist.lua` (settings and
+/// keybinds together). The caller reloads Hyprland (`manager::reload_hyprland`
+/// or the checked form) so it can decide whether to wait for the verdict.
+/// `Ok(true)` when the `require` line in `hyprland.lua` had to be restored.
 pub fn save_overrides(overrides: &KeybindOverrides) -> Result<bool> {
     overrides.validate()?;
 
@@ -45,7 +46,5 @@ pub fn save_overrides(overrides: &KeybindOverrides) -> Result<bool> {
         .map_err(|e| Error::json("Failed to serialize keybinds", e))?;
     write_atomic(&path, content, "keybinds.json")?;
 
-    let hook_restored = manager::write_omarchist_lua(&manager::saved_overrides())?;
-    manager::reload_hyprland();
-    Ok(hook_restored)
+    manager::write_omarchist_lua(&manager::saved_overrides())
 }

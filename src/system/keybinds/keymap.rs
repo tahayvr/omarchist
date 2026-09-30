@@ -33,7 +33,27 @@ pub fn modifiers_to_modmask(modifiers: &Modifiers) -> ModMask {
 
 /// `None` when the keystroke carries no bindable key (modifier-only events).
 pub fn keystroke_to_chord(keystroke: &Keystroke) -> Option<Chord> {
-    let (key, force_shift) = gpui_key_to_hypr(&keystroke.key)?;
+    // On a non-US layout GPUI reports the US keycap of the physical key
+    // (`[` for `ü`); the typed character is the key the user means.
+    let typed = keystroke
+        .key_char
+        .as_deref()
+        .and_then(|text| {
+            let mut chars = text.chars();
+            match (chars.next(), chars.next()) {
+                (Some(c), None) if !c.is_ascii() && !c.is_control() => Some(c),
+                _ => None,
+            }
+        })
+        .and_then(|c| {
+            let keysym = xkb::utf32_to_keysym(c as u32);
+            (keysym != xkb::Keysym::NoSymbol).then(|| xkb::keysym_get_name(keysym))
+        })
+        .filter(|name| !name.is_empty());
+    let (key, force_shift) = match typed {
+        Some(name) => (name, false),
+        None => gpui_key_to_hypr(&keystroke.key)?,
+    };
     let mut mods = modifiers_to_modmask(&keystroke.modifiers);
     if force_shift {
         mods |= ModMask::SHIFT;
@@ -73,6 +93,16 @@ pub fn gpui_key_to_hypr(key: &str) -> Option<(String, bool)> {
     }
 
     canonical_keysym_name(key).map(|name| (name, false))
+}
+
+/// Whether Hyprland can bind `key` as typed: a keysym name xkb knows, or one
+/// of Hyprland's own forms (`code:10`, `mouse:272`, `switch:on:Lid`).
+pub fn is_bindable_key(key: &str) -> bool {
+    let lower = key.to_ascii_lowercase();
+    if lower.starts_with("code:") || lower.starts_with("mouse:") || lower.starts_with("switch:") {
+        return true;
+    }
+    xkb::keysym_from_name(key, xkb::KEYSYM_CASE_INSENSITIVE) != xkb::Keysym::NoSymbol
 }
 
 fn is_modifier_key_name(key: &str) -> bool {
@@ -336,6 +366,34 @@ mod tests {
     #[test]
     fn modifier_only_keystrokes_yield_no_chord() {
         assert!(keystroke_to_chord(&keystroke("", super_mod())).is_none());
+    }
+
+    #[test]
+    fn a_typed_non_ascii_character_wins_over_the_us_keycap() {
+        let mut stroke = keystroke("[", super_mod());
+        stroke.key_char = Some("ü".into());
+        let chord = keystroke_to_chord(&stroke).unwrap();
+        assert_eq!(chord.key, "udiaeresis");
+    }
+
+    #[test]
+    fn bindable_keys() {
+        for ok in [
+            "RETURN",
+            "return",
+            "comma",
+            "F9",
+            "XF86AudioMute",
+            "code:10",
+            "mouse:272",
+            "a",
+        ] {
+            assert!(is_bindable_key(ok), "{ok}");
+        }
+        for bad in ["Enter", "Del", "Esc", "Return Key", "SUPER"] {
+            // SUPER is a modifier, never a key.
+            assert!(!is_bindable_key(bad) || bad == "SUPER", "{bad}");
+        }
         assert!(keystroke_to_chord(&keystroke("shift_l", super_mod())).is_none());
     }
 

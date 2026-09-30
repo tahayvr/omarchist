@@ -8,6 +8,7 @@ use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
+use crate::ui::keybinds_page::keystroke_input;
 use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::override_tab::override_nav;
@@ -692,12 +693,67 @@ pub const SHORTCUTS: &[Shortcut] = &[
         KEYBINDS,
         "Disable the selected keybind"
     ),
+    // Ctrl+C stays the window's copy of selected text; the row's command
+    // has its own key.
     shortcut!(
-        "ctrl-c",
+        "ctrl-shift-c",
         keybinds_nav::CopySelectedCommand,
         Some("KeybindsTable"),
         KEYBINDS,
         "Copy the command"
+    ),
+    // The keystroke recorder, while focused but not recording.
+    shortcut!(
+        "enter",
+        keystroke_input::StartRecording,
+        Some("KeystrokeInput"),
+        KEYBINDS,
+        "Record keys"
+    ),
+    shortcut!(
+        "space",
+        keystroke_input::StartRecording,
+        Some("KeystrokeInput"),
+        KEYBINDS,
+        "Record keys"
+    ),
+    shortcut!(
+        "backspace",
+        keystroke_input::ClearKeystrokes,
+        Some("KeystrokeInput"),
+        KEYBINDS,
+        "Clear the recorded keys"
+    ),
+    shortcut!(
+        "delete",
+        keystroke_input::ClearKeystrokes,
+        Some("KeystrokeInput"),
+        KEYBINDS,
+        "Clear the recorded keys"
+    ),
+    // gpui-component does not bind Redo on Linux.
+    shortcut!(
+        "ctrl-shift-z",
+        gpui_component::input::Redo,
+        Some("Input"),
+        GLOBAL,
+        "Redo in a text field"
+    ),
+    // The action builder's kind and direction strips (in the keybind and
+    // flow step dialogs) cycle with the arrow keys.
+    shortcut!(
+        "left",
+        keybinds_nav::FilterPrev,
+        Some("ActionStrip"),
+        DIALOGS,
+        "Previous choice"
+    ),
+    shortcut!(
+        "right",
+        keybinds_nav::FilterNext,
+        Some("ActionStrip"),
+        DIALOGS,
+        "Next choice"
     ),
     shortcut!(
         "home",

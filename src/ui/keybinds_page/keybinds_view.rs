@@ -21,13 +21,14 @@ use gpui_component::{
 };
 
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
+use crate::system::hyprland_config::manager;
 use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::conflicts::find_conflicts;
 use crate::system::keybinds::overrides::{KeybindOverrides, Override, restore_specs};
 use crate::system::keybinds::replay::{ScanResult, scan_keybinds};
 use crate::system::keybinds::search::score;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
-use crate::system::keybinds::{BindIdentity, BindStatus, Keybind, Origin};
+use crate::system::keybinds::{BindIdentity, BindStatus, Dispatcher, Keybind, Origin};
 use crate::ui::focus;
 use crate::ui::keybinds_page::keybind_dialog::{
     DialogMode, KeybindDialog, KeybindDialogEvent, open_keybind_dialog,
@@ -126,7 +127,7 @@ impl KeybindFilter {
             KeybindFilter::All => true,
             KeybindFilter::Modified => matches!(
                 row.kind,
-                RowKind::Modified { .. } | RowKind::Custom | RowKind::Disabled
+                RowKind::Modified { .. } | RowKind::Custom | RowKind::Disabled | RowKind::Stale
             ),
             KeybindFilter::Conflicts => row.conflict,
             KeybindFilter::Default => row.bind.origin == Origin::Default,
@@ -157,6 +158,10 @@ pub struct KeybindsView {
     filters_focus: FocusHandle,
     loading: bool,
     error: Option<String>,
+    /// The overrides file failed to parse: nothing may be saved over it.
+    overrides_broken: bool,
+    /// A refresh asked for while one was running.
+    refresh_pending: bool,
     counts: Counts,
     dialog: Option<(Entity<KeybindDialog>, Subscription)>,
     /// Row to select once the rescan after a save completes.
@@ -237,6 +242,8 @@ impl KeybindsView {
             filters_focus: focus::tab_stop(cx),
             loading: false,
             error: None,
+            overrides_broken: false,
+            refresh_pending: false,
             counts: Counts::default(),
             dialog: None,
             pending_reselect: None,
@@ -255,6 +262,8 @@ impl KeybindsView {
     /// Rescans the Hyprland config and reloads the overrides file.
     pub fn refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.loading {
+            // A save landed during the scan; scan again when it is done.
+            self.refresh_pending = true;
             return;
         }
         self.loading = true;
@@ -296,10 +305,18 @@ impl KeybindsView {
             }
         }
         match overrides {
-            Ok(overrides) => self.overrides = overrides,
+            Ok(overrides) => {
+                self.overrides = overrides;
+                self.overrides_broken = false;
+            }
             Err(e) => {
-                self.error
-                    .get_or_insert_with(|| format!("Keybind overrides could not be read: {e}"));
+                self.overrides_broken = true;
+                self.error.get_or_insert_with(|| {
+                    format!(
+                        "keybinds.json could not be read, so changes are not saved until it is \
+                         fixed or removed: {e}"
+                    )
+                });
             }
         }
         self.table.update(cx, |table, cx| {
@@ -310,6 +327,9 @@ impl KeybindsView {
         self.rebuild_rows(cx);
         if std::mem::take(&mut self.add_when_loaded) {
             self.open_add(window, cx);
+        }
+        if std::mem::take(&mut self.refresh_pending) {
+            self.refresh(window, cx);
         }
     }
 
@@ -493,20 +513,20 @@ impl KeybindsView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let row_ix = self.table.read(cx).selected_row();
-        let row = row_ix.and_then(|ix| self.row(ix, cx));
+        // Every event names the row the dialog was opened for; the table's
+        // selection may be a different row (a right-click does not select).
         match event {
             // The dialog closes itself on Cancel, whether through its button,
             // its close button, or Escape.
             KeybindDialogEvent::Cancel => {
                 self.dialog = None;
             }
-            KeybindDialogEvent::Save(override_) => {
+            KeybindDialogEvent::Save {
+                override_,
+                replaces,
+            } => {
                 let reselect = override_.bind().map(|spec| spec.identity());
-                let replace_ix = row
-                    .as_ref()
-                    .filter(|_| matches!(override_, Override::Add { .. }))
-                    .and_then(|r| r.override_ix);
+                let replace_ix = replaces.filter(|_| matches!(override_, Override::Add { .. }));
                 self.commit(
                     |overrides| match replace_ix {
                         Some(ix) if ix < overrides.overrides.len() => {
@@ -520,24 +540,50 @@ impl KeybindsView {
                     cx,
                 );
             }
-            KeybindDialogEvent::Disable => {
-                if let Some(ix) = row_ix {
+            KeybindDialogEvent::Disable(identity) => {
+                if let Some(ix) = self.row_index_of(&identity, cx) {
                     self.disable_row(ix, window, cx);
                 }
             }
-            KeybindDialogEvent::Reset => {
-                if let Some(ix) = row_ix {
-                    self.reset_row(ix, window, cx);
-                }
+            KeybindDialogEvent::Reset(override_ix) => {
+                self.remove_override(override_ix, "Keybind reset to default", window, cx);
             }
         }
+    }
+
+    /// The table row showing the bind with this identity, if any.
+    fn row_index_of(&self, identity: &BindIdentity, cx: &App) -> Option<usize> {
+        self.table
+            .read(cx)
+            .delegate()
+            .rows()
+            .iter()
+            .position(|row| row.bind.identity() == *identity)
     }
 
     fn disable_row(&mut self, row_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = self.row(row_ix, cx) else {
             return;
         };
+        // A bind the user added has no default to fall back to: Disable
+        // (and the Delete key) delete it.
+        if row.kind == RowKind::Custom {
+            if let Some(ix) = row.override_ix {
+                self.remove_override(ix, "Keybind deleted", window, cx);
+            }
+            return;
+        }
         if row.bind.origin == Origin::Omarchist || row.kind != RowKind::Plain {
+            window.push_notification(
+                match row.kind {
+                    RowKind::Disabled => "This keybind is already disabled",
+                    RowKind::UnboundByUser => {
+                        "This keybind was removed in your bindings.lua; edit it there"
+                    }
+                    _ => "Reset this keybind to change it again",
+                },
+                cx,
+            );
             return;
         }
         let binds = self.snapshot();
@@ -562,6 +608,22 @@ impl KeybindsView {
         let Some(ix) = row.override_ix else {
             return;
         };
+        let message = if row.kind == RowKind::Custom {
+            "Keybind deleted"
+        } else {
+            "Keybind reset to default"
+        };
+        self.remove_override(ix, message, window, cx);
+    }
+
+    /// Drops one override by index.
+    fn remove_override(
+        &mut self,
+        ix: usize,
+        success: &'static str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let reselect = self
             .overrides
             .overrides
@@ -571,7 +633,7 @@ impl KeybindsView {
             |overrides| {
                 overrides.remove(ix);
             },
-            "Keybind reset to default",
+            success,
             reselect,
             window,
             cx,
@@ -598,7 +660,22 @@ impl KeybindsView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let mut overrides = self.overrides.clone();
+        if self.overrides_broken {
+            window.push_notification(
+                "keybinds.json could not be read; fix or remove it before changing keybinds",
+                cx,
+            );
+            return;
+        }
+        // Start from the file, not this page's copy: the Flows page saves
+        // keybinds too, and a deleted flow removes its own.
+        let mut overrides = match load_overrides() {
+            Ok(overrides) => overrides,
+            Err(e) => {
+                window.push_notification(format!("Could not read keybinds.json: {e}"), cx);
+                return;
+            }
+        };
         mutate(&mut overrides);
         match save_overrides(&overrides) {
             Ok(hook_restored) => {
@@ -609,7 +686,26 @@ impl KeybindsView {
                     window.push_notification(HOOK_RESTORED_MESSAGE, cx);
                 }
                 self.pending_reselect = reselect;
-                self.refresh(window, cx);
+                // Reload, then ask Hyprland what it rejected: a bind it
+                // dropped must not sit in the table looking active.
+                cx.spawn_in(window, async move |this, cx| {
+                    let verdict = cx
+                        .background_spawn(async { manager::reload_hyprland_checked() })
+                        .await;
+                    this.update_in(cx, |this, window, cx| {
+                        match verdict {
+                            Ok(Some(errors)) => window.push_notification(
+                                format!("Hyprland rejected part of omarchist.lua: {errors}"),
+                                cx,
+                            ),
+                            Ok(None) => {}
+                            Err(e) => window.push_notification(e.to_string(), cx),
+                        }
+                        this.refresh(window, cx);
+                    })
+                    .ok();
+                })
+                .detach();
             }
             Err(e) => {
                 window.push_notification(format!("Could not save keybind: {e}"), cx);
@@ -651,7 +747,7 @@ impl KeybindsView {
             }
         }
 
-        binds
+        let mut rows: Vec<KeybindRow> = binds
             .iter()
             .enumerate()
             .filter_map(|(ix, bind)| {
@@ -668,14 +764,16 @@ impl KeybindsView {
                     override_ix,
                 })
             })
-            .collect()
+            .collect();
+        rows.extend(self.stale_rows(binds));
+        rows
     }
 
     /// Decides how a scanned bind shows up, or `None` to hide it (a default
     /// that an Omarchist rebind replaced is represented by the new row).
     fn classify(&self, bind: &Keybind) -> Option<(RowKind, Option<usize>)> {
+        let identity = bind.identity();
         if bind.origin == Origin::Omarchist {
-            let identity = bind.identity();
             let produced_by = self
                 .overrides
                 .overrides
@@ -686,12 +784,15 @@ impl KeybindsView {
                     original_keys: target.keys.clone(),
                 },
                 Some(Override::Add { .. }) => RowKind::Custom,
+                // A sibling re-registered by an override's `restore` list:
+                // the original row stands in for it.
+                _ if self.overrides.restored_by(&identity).is_some() => return None,
                 _ => RowKind::Custom,
             };
             return Some((kind, produced_by));
         }
 
-        let override_ix = self.overrides.find_for_target(&bind.identity());
+        let override_ix = self.overrides.find_for_target(&identity);
         let override_ = override_ix.map(|ix| &self.overrides.overrides[ix]);
         let kind = match (bind.status, override_) {
             (BindStatus::Active, _) => RowKind::Plain,
@@ -708,10 +809,53 @@ impl KeybindsView {
                     ..
                 },
                 _,
-            ) => RowKind::Disabled,
+            ) => {
+                // Unbound only because it shares a chord with a changed
+                // bind, and re-registered by that override: still in effect.
+                if self.overrides.restored_by(&identity).is_some() {
+                    RowKind::Plain
+                } else {
+                    RowKind::Disabled
+                }
+            }
             (BindStatus::Unbound { .. }, _) => RowKind::UnboundByUser,
         };
         Some((kind, override_ix))
+    }
+
+    /// Rows for overrides whose target Omarchy no longer ships, so they can
+    /// be reset from the page.
+    fn stale_rows(&self, binds: &[Keybind]) -> Vec<KeybindRow> {
+        self.overrides
+            .stale(binds)
+            .into_iter()
+            .filter_map(|ix| {
+                let target = self.overrides.overrides[ix].target()?;
+                let chord = Chord::parse(&target.keys).ok()?;
+                let dispatcher = match target.dispatcher.split_once(':') {
+                    Some(("exec", cmd)) => Dispatcher::Exec(cmd.to_string()),
+                    Some(("lua", expr)) => Dispatcher::Lua(expr.to_string()),
+                    _ => Dispatcher::Function,
+                };
+                Some(KeybindRow {
+                    bind: Keybind {
+                        seq: u32::MAX,
+                        chord,
+                        keys_raw: target.keys.clone(),
+                        description: target.description.clone(),
+                        dispatcher,
+                        options: Default::default(),
+                        origin: Origin::Omarchist,
+                        source: std::path::PathBuf::new(),
+                        status: BindStatus::Active,
+                    },
+                    kind: RowKind::Stale,
+                    override_ix: Some(ix),
+                    conflict: false,
+                    conflicts_with: Vec::new(),
+                })
+            })
+            .collect()
     }
 
     fn rebuild_rows(&mut self, cx: &mut Context<Self>) {
@@ -1016,7 +1160,7 @@ impl Render for KeybindsView {
                         Button::new("kb-refresh")
                             .ghost()
                             .small()
-                            .icon(IconName::Undo2)
+                            .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
                             .tooltip_with_action(
                                 "Rescan your Hyprland config",
                                 &focus::ReloadPage,

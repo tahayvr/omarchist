@@ -17,6 +17,7 @@ Each row shows the bind's description, its keys, the command or dispatcher it ru
 | **Custom** | You added it here. |
 | **Disabled** | You turned it off here. **Reset to default** in the row menu brings it back. |
 | **Unbound** | One of your own config files removes it with `hl.unbind`. Change that file to bring it back. |
+| **Stale** | A change you made targets a bind Omarchy no longer ships (an update renamed it). **Reset to default** removes the change. |
 
 A warning icon marks keys shared by more than one bind; Hyprland runs all of them.
 
@@ -31,7 +32,7 @@ Double-click a row or press <kbd>Enter</kbd> on it. <kbd>Delete</kbd> disables t
 <img src="/images/keybind-dialog-light.webp" alt="Edit keybind dialog" class="screenshot light-only">
 <img src="/images/keybind-dialog-dark.webp" alt="Edit keybind dialog" class="screenshot dark-only">
 
-The **Keys** box records a combination: click it or press <kbd>Enter</kbd>, then press the keys. Recording stops at the first complete combination, so <kbd>Escape</kbd> can be recorded too. Keys that never reach an app, such as mouse buttons, media keys, or Omarchy's `code:` workspace keys, go in the text field in Omarchy's syntax:
+The **Keys** box records a combination: click it or press <kbd>Enter</kbd>, then press the keys. Recording stops at the first complete combination; a bare <kbd>Escape</kbd> stops it without recording (<kbd>Super</kbd> + <kbd>Escape</kbd> and other combinations record as usual). Keys the recorder cannot tell apart, such as mouse buttons, the numeric keypad, or Omarchy's `code:` workspace keys, go in the text field in Omarchy's syntax; Omarchist checks that the key name is one Hyprland knows:
 
 ```
 SUPER + SHIFT + K
@@ -60,7 +61,7 @@ The **Action** section builds the command for you; the line under it shows exact
 
 ## Disabling and resetting
 
-**Disable** turns a default bind off; **Reset to default** brings it back. Resetting a bind you added removes it.
+**Disable** turns a default bind off; **Reset to default** brings it back. A bind you added has no default, so its menu offers **Delete keybind** instead (the <kbd>Delete</kbd> key does the same).
 
 ## How it works
 

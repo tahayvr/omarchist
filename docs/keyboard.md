@@ -56,7 +56,7 @@ In the Theme Designer, <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd> or <k
 | <kbd>Escape</kbd> in the search box | Clear the search, then go to the table |
 | <kbd>←</kbd> / <kbd>→</kbd> on the filters | Previous or next filter |
 
-In the table: arrows, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, and <kbd>PgDn</kbd> move the selection, <kbd>Enter</kbd> edits, <kbd>Delete</kbd> disables, <kbd>Ctrl</kbd> + <kbd>C</kbd> copies the command, and <kbd>Escape</kbd> returns to the search box.
+In the table: arrows, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, and <kbd>PgDn</kbd> move the selection, <kbd>Enter</kbd> edits, <kbd>Delete</kbd> disables (or deletes a keybind you added), <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd> copies the command (<kbd>Ctrl</kbd> + <kbd>C</kbd> copies selected text, as everywhere), and <kbd>Escape</kbd> returns to the search box.
 
 ## Flows
 
@@ -73,4 +73,4 @@ In the editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Ente
 
 ## Dialogs
 
-Dialogs open on their first control and keep <kbd>Tab</kbd> inside. <kbd>Escape</kbd> cancels; <kbd>Ctrl</kbd> + <kbd>Enter</kbd> confirms, even from a text field. In the keybind editor, <kbd>Enter</kbd> or <kbd>Space</kbd> on the recorder starts recording, and <kbd>Backspace</kbd> or <kbd>Delete</kbd> clears it.
+Dialogs open on their first control and keep <kbd>Tab</kbd> inside. <kbd>Escape</kbd> cancels; <kbd>Ctrl</kbd> + <kbd>Enter</kbd> confirms, even from a text field. In the keybind editor, <kbd>Enter</kbd> or <kbd>Space</kbd> on the recorder starts recording, a bare <kbd>Escape</kbd> stops it without recording anything, and <kbd>Backspace</kbd> or <kbd>Delete</kbd> puts the current keys back.
