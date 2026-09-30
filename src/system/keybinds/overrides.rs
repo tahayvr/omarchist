@@ -876,7 +876,7 @@ hl.bind(\"SUPER + SHIFT + R\", hl.dsp.exec_cmd(\"alacritty -e ssh \\\"box\\\"\")
                 },
             ],
         };
-        assert!(overrides.stale(&[bind.clone()]).is_empty());
+        assert!(overrides.stale(std::slice::from_ref(&bind)).is_empty());
         assert_eq!(
             overrides.stale(&[renamed]),
             vec![0],

@@ -191,6 +191,15 @@ fn main() -> ExitCode {
                 }
             });
         }
+        // Launcher entries and startup hooks name the binary; keep them
+        // pointing at this one.
+        std::thread::spawn(|| {
+            if let Ok(flows) = omarchist::system::flows::store::load_flows()
+                && let Err(e) = omarchist::system::flows::launcher::refresh_all(&flows)
+            {
+                eprintln!("Failed to refresh the flow launcher entries: {e}");
+            }
+        });
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);

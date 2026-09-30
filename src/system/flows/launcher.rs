@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use crate::OmarchistAssets;
 use crate::error::{Error, Result};
 use crate::system::apps::data_home;
+use crate::system::binary::{desktop_exec_quote, omarchist_binary, shell_quote};
 
 use super::{Flow, icon_path};
 
@@ -45,14 +46,20 @@ pub fn startup_hook_path(id: &str) -> Result<PathBuf> {
 }
 
 /// The desktop entry text. Field codes only apply to `Exec`, which is fixed
-/// here, so the name and comment need only be kept to one line.
+/// here, so the name and comment need only be kept to one line (and their
+/// backslashes doubled: the spec reads `\n` and `\\` as escapes).
 pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
-    let escape = |s: &str| s.replace(['\n', '\r'], " ");
+    let escape = |s: &str| s.replace('\\', "\\\\").replace(['\n', '\r'], " ");
     let comment = if flow.description.trim().is_empty() {
         "Omarchist flow".to_string()
     } else {
         escape(flow.description.trim())
     };
+    let exec = format!(
+        "{} flow run {}",
+        desktop_exec_quote(&omarchist_binary()),
+        flow.id
+    );
     format!(
         "[Desktop Entry]\n\
          Type=Application\n\
@@ -65,7 +72,6 @@ pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
          Keywords=flow;omarchist;\n\
          X-Omarchist-Flow={id}\n",
         name = escape(flow.name.trim()),
-        exec = flow.command(),
         id = flow.id,
     )
 }
@@ -74,10 +80,43 @@ pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
 /// started in the background rather than holding up the hooks after it.
 pub fn startup_hook(flow: &Flow) -> String {
     format!(
-        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\nsetsid -f {} >/dev/null 2>&1\n",
+        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\nsetsid -f {} flow run {} >/dev/null 2>&1\n",
         flow.id,
-        flow.command()
+        shell_quote(&omarchist_binary()),
+        flow.id
     )
+}
+
+/// Rewrites every flow's launcher entry and startup hook whose text is out
+/// of date: the binary moved (a package upgrade, a build from `target/`) or
+/// an older Omarchist wrote a bare `omarchist` that is not on the
+/// compositor's PATH. Run at startup, off the UI thread.
+pub fn refresh_all(flows: &[Flow]) -> Result<()> {
+    for flow in flows {
+        if flow.triggers.launcher {
+            let entry = desktop_entry_path(&flow.id)?;
+            let icon = icon_file_path(&flow.id)?;
+            let icon = if icon.exists() {
+                icon.to_string_lossy().to_string()
+            } else {
+                "omarchist".to_string()
+            };
+            let wanted = desktop_entry(flow, &icon);
+            if fs::read_to_string(&entry).ok().as_deref() != Some(wanted.as_str()) {
+                write(&entry, &wanted, "launcher entry")?;
+            }
+        }
+        if flow.triggers.startup {
+            let hook = startup_hook_path(&flow.id)?;
+            let wanted = startup_hook(flow);
+            if fs::read_to_string(&hook).ok().as_deref() != Some(wanted.as_str()) {
+                write(&hook, &wanted, "startup hook")?;
+                fs::set_permissions(&hook, fs::Permissions::from_mode(0o755))
+                    .map_err(|e| Error::io("Failed to make the startup hook executable", e))?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn icon_svg(icon: &str) -> Option<String> {
@@ -151,13 +190,23 @@ mod tests {
         let entry = desktop_entry(&flow, "/tmp/morning.svg");
         assert!(entry.contains("Name=Morning 100%\n"));
         assert!(entry.contains("Comment=Opens everything\n"));
-        assert!(entry.contains("Exec=omarchist flow run morning\n"));
+        let binary = omarchist_binary();
+        assert!(
+            entry.contains(&format!(
+                "Exec={} flow run morning\n",
+                desktop_exec_quote(&binary)
+            )),
+            "{entry}"
+        );
         assert!(entry.contains("Icon=/tmp/morning.svg\n"));
         assert!(entry.contains("X-Omarchist-Flow=morning\n"));
 
         let hook = startup_hook(&flow);
         assert!(hook.starts_with("#!/bin/bash\n"));
-        assert!(hook.ends_with("setsid -f omarchist flow run morning >/dev/null 2>&1\n"));
+        assert!(hook.ends_with(&format!(
+            "setsid -f {} flow run morning >/dev/null 2>&1\n",
+            shell_quote(&binary)
+        )));
         assert!(
             !hook.contains("Morning 100%"),
             "the hook names the id, never the free-text name"

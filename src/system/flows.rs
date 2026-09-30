@@ -333,7 +333,12 @@ pub fn run_command(id: &str) -> String {
 /// The flow id a command line runs, if it is a `run_command`.
 pub fn run_command_id(command: &str) -> Option<String> {
     let words = crate::system::keybinds::action::shell_split(command);
-    match words.as_slice() {
+    let words = match words.as_slice() {
+        // The launcher's form of the same command.
+        [uwsm, dashes, rest @ ..] if uwsm == "uwsm-app" && dashes == "--" => rest,
+        rest => rest,
+    };
+    match words {
         [omarchist, flow, run, id]
             if omarchist == "omarchist" && flow == "flow" && run == "run" =>
         {
@@ -581,6 +586,11 @@ mod tests {
         );
         assert_eq!(run_command_id("omarchist flow list"), None);
         assert_eq!(run_command_id("omarchy-launch-terminal"), None);
+        // The launcher entry's Exec line, as the App picker would hand it in.
+        assert_eq!(
+            run_command_id("uwsm-app -- omarchist flow run morning").as_deref(),
+            Some("morning")
+        );
     }
 
     #[test]

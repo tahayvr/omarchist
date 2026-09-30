@@ -14,8 +14,10 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
-use crate::system::flows::runner::Runner;
-use crate::system::flows::store::{delete_flow, existing_ids, load_flows, save_flow};
+use crate::system::flows::runner::run_in_thread;
+use crate::system::flows::store::{
+    BrokenFlow, delete_flow, existing_ids, load_flows_with_broken, save_new_flow,
+};
 use crate::system::flows::templates::{Template, templates};
 use crate::system::flows::{Flow, run_command_id, unique_id};
 use crate::system::keybinds::chord::Chord;
@@ -111,6 +113,10 @@ pub struct FlowsView {
     apps: Vec<DesktopApp>,
     /// For the empty state's cards; reloaded with the flows.
     templates: Vec<Template>,
+    /// Files in the flows folder that could not be read.
+    broken: Vec<BrokenFlow>,
+    /// The folder itself could not be read.
+    load_error: Option<String>,
     loaded: bool,
     /// The cards are one tab stop; `focused` is the card with the keyboard.
     grid_focus: FocusHandle,
@@ -142,6 +148,8 @@ impl FlowsView {
             chords: HashMap::new(),
             apps: Vec::new(),
             templates: Vec::new(),
+            broken: Vec::new(),
+            load_error: None,
             loaded: false,
             grid_focus: focus::tab_stop(cx),
             focused: None,
@@ -164,15 +172,24 @@ impl FlowsView {
         cx.spawn(async move |this, cx| {
             let loaded = cx
                 .background_spawn(async {
-                    (load_flows(), scan_keybinds(), installed_apps(), templates())
+                    (
+                        load_flows_with_broken(),
+                        scan_keybinds(),
+                        installed_apps(),
+                        templates(),
+                    )
                 })
                 .await;
             this.update(cx, |this, cx| {
                 let (flows, scan, apps, templates) = loaded;
                 this.templates = templates;
                 match flows {
-                    Ok(flows) => this.flows = flows,
-                    Err(e) => eprintln!("Failed to load flows: {e}"),
+                    Ok((flows, broken)) => {
+                        this.flows = flows;
+                        this.broken = broken;
+                        this.load_error = None;
+                    }
+                    Err(e) => this.load_error = Some(e.to_string()),
                 }
                 this.chords = flow_chords(scan);
                 this.apps = apps;
@@ -293,16 +310,13 @@ impl FlowsView {
         self.running = Some(flow.id.clone());
         cx.notify();
         cx.spawn_in(window, async move |this, cx| {
-            let outcome = cx
-                .background_spawn(async move {
-                    let outcome = Runner::new(true).run(&flow, &mut |_| {});
-                    (flow, outcome)
-                })
-                .await;
+            let outcome = run_in_thread(flow.clone()).await;
             this.update_in(cx, |this, window, cx| {
-                let (flow, outcome) = outcome;
                 this.running = None;
-                window.push_notification(outcome.summary(&flow), cx);
+                match outcome {
+                    Ok(outcome) => window.push_notification(outcome.summary(&flow), cx),
+                    Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
+                }
                 cx.notify();
             })
             .ok();
@@ -322,7 +336,7 @@ impl FlowsView {
         };
         // Triggers point at one flow each; the copy starts with none.
         copy.triggers = Default::default();
-        match save_flow(&copy) {
+        match save_new_flow(&copy) {
             Ok(()) => {
                 window.push_notification(format!("Created '{}'", copy.name), cx);
                 self.refresh(cx);
@@ -572,6 +586,38 @@ impl FlowsView {
         v_flex().gap_4().children(rows)
     }
 
+    /// Files that could not be read, named above the grid so a typo in a
+    /// hand-edited flow is not a flow that silently vanished.
+    fn render_problems(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let theme = cx.theme();
+        if self.load_error.is_none() && self.broken.is_empty() {
+            return None;
+        }
+        Some(
+            v_flex()
+                .gap_1()
+                .text_sm()
+                .text_color(theme.warning)
+                .children(self.load_error.as_ref().map(|e| {
+                    selectable(
+                        "flows-load-error",
+                        format!("Could not read the flows folder: {e}"),
+                    )
+                }))
+                .children(self.broken.iter().enumerate().map(|(ix, broken)| {
+                    let name = broken
+                        .path
+                        .file_name()
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    selectable(
+                        ("flows-broken", ix),
+                        format!("Could not read {name}: {}", broken.error),
+                    )
+                })),
+        )
+    }
+
     fn render_empty(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         if !self.query.trim().is_empty() {
@@ -750,6 +796,7 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &GridFirst, _, cx| this.set_focused(0, cx)))
             .on_action(cx.listener(|this, _: &GridLast, _, cx| this.set_focused(usize::MAX, cx)))
             .child(self.render_toolbar(cx))
+            .children(self.render_problems(cx))
             .map(|this| {
                 let scroll = div()
                     .id("flows-grid")

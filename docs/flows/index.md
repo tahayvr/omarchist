@@ -27,14 +27,14 @@ Give the flow a name, a description, and an icon, then press **Add step** (<kbd>
 | **Window** | A Hyprland action, such as switching to a workspace. |
 | **Flow** | Another flow, run to completion first. A flow cannot run itself. |
 | **Command** | Any shell command. |
-| **Wait** | Pauses for a number of milliseconds, for example to let a window appear. |
+| **Wait** | Pauses for a number of milliseconds (up to ten minutes), for example to let a window appear. |
 | **Notify** | Shows a desktop notification. |
 
-A command step starts its program and moves on, which is what opening an app needs. Turn on **Wait until it finishes** when the next step depends on it having completed. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
+A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
 
 A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install.
 
-**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first.
+**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
 
 ## Triggers
 
@@ -66,7 +66,7 @@ An imported flow opens in the editor with a note showing where it came from. Not
 
 ## Flow files
 
-Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so it can be copied, shared, or edited by hand. Omarchist reloads the folder whenever the Flows page opens or you press <kbd>Ctrl</kbd> + <kbd>R</kbd>.
+Each flow is one TOML file in `~/.config/omarchist/flows/`, named after its id, so it can be copied, shared, or edited by hand. Omarchist reloads the folder whenever the Flows page opens or you press <kbd>Ctrl</kbd> + <kbd>R</kbd>. A file it cannot read is named above the cards with the reason, and a new flow never takes its name.
 
 ```toml
 format = 1

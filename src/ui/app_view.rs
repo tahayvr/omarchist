@@ -1,4 +1,3 @@
-use crate::system::flows::runner::Runner;
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::load_flow;
 use crate::system::themes::theme_file_ops::is_omarchist_theme;
@@ -180,6 +179,14 @@ impl MainWindowView {
         })
         .detach();
 
+        // Closing the window (the title bar, SUPER+W) goes through the same
+        // unsaved-changes check as Ctrl+Q.
+        let this = cx.entity().downgrade();
+        window.on_window_should_close(cx, move |window, cx| {
+            this.update(cx, |this, cx| this.request_quit(window, cx))
+                .unwrap_or(true)
+        });
+
         // A page requested on the command line gets focus; otherwise the
         // sidebar does.
         if initial_page != ActivePage::Themes {
@@ -189,6 +196,43 @@ impl MainWindowView {
         }
 
         view
+    }
+
+    /// Quits unless the flow editor holds unsaved changes, in which case it
+    /// asks first. Pending Designer saves are written either way. Returns
+    /// whether the window may close now.
+    fn request_quit(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if let Some(editor) = &self.theme_edit_view {
+            editor.update(cx, |editor, cx| editor.flush_pending_saves(cx));
+        }
+        let dirty = matches!(
+            self.active_page,
+            ActivePage::FlowEdit(_) | ActivePage::FlowNew(_) | ActivePage::FlowImport(_)
+        ) && self
+            .flow_edit_view
+            .as_ref()
+            .is_some_and(|editor| editor.read(cx).is_dirty(cx));
+        if !dirty {
+            return true;
+        }
+        let editor = self.flow_edit_view.clone();
+        open_confirm_dialog(
+            ConfirmDialog {
+                title: "Discard changes and quit?",
+                message: "This flow has changes that are not saved.".to_string(),
+                confirm_label: "Discard and quit",
+                danger: true,
+            },
+            move |_, cx| {
+                if let Some(editor) = &editor {
+                    editor.update(cx, |editor, _| editor.discard());
+                }
+                cx.quit();
+            },
+            window,
+            cx,
+        );
+        false
     }
 
     fn sidebar_index_for(page: &ActivePage) -> Option<usize> {
@@ -511,13 +555,12 @@ impl MainWindowView {
     /// notification, the same way the Flows page does.
     fn run_flow(&self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         cx.spawn_in(window, async move |this, cx| {
-            let result = cx
-                .background_spawn(async move {
-                    let flow = load_flow(&id)?;
-                    let outcome = Runner::new(true).run(&flow, &mut |_| {});
-                    Ok::<_, crate::error::Error>((flow, outcome))
-                })
-                .await;
+            let result = match load_flow(&id) {
+                Ok(flow) => crate::system::flows::runner::run_in_thread(flow.clone())
+                    .await
+                    .map(|outcome| (flow, outcome)),
+                Err(e) => Err(e),
+            };
             this.update_in(cx, |_, window, cx| match result {
                 Ok((flow, outcome)) => window.push_notification(outcome.summary(&flow), cx),
                 Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
@@ -745,6 +788,13 @@ impl Render for MainWindowView {
                     this.navigate_to(ActivePage::About, window, cx);
                 },
             ))
+            .on_action(
+                cx.listener(|this, _: &crate::ui::menu::app_menu::Quit, window, cx| {
+                    if this.request_quit(window, cx) {
+                        cx.quit();
+                    }
+                }),
+            )
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToOmarchy, window, cx| {
                     this.navigate_to(ActivePage::Omarchy, window, cx);

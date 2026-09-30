@@ -26,28 +26,59 @@ pub fn flow_path(id: &str) -> Result<PathBuf> {
     Ok(flows_dir()?.join(format!("{id}.toml")))
 }
 
+/// A flow file that could not be read, so the page can say so instead of
+/// silently showing one flow fewer.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BrokenFlow {
+    pub path: PathBuf,
+    pub id: String,
+    pub error: String,
+}
+
 /// Every flow on disk, sorted by name. A file that does not parse is
-/// reported on stderr and skipped, so one broken flow does not hide the
-/// rest; it is never overwritten because saves go by id.
+/// skipped here (see [`load_flows_with_broken`] for the list of those), so
+/// one broken flow does not hide the rest.
 pub fn load_flows() -> Result<Vec<Flow>> {
+    load_flows_with_broken().map(|(flows, _)| flows)
+}
+
+/// Every flow on disk plus the files that failed to read. A `.flow.toml`
+/// whose `.toml` twin exists is skipped: the save that wrote the twin
+/// superseded it.
+pub fn load_flows_with_broken() -> Result<(Vec<Flow>, Vec<BrokenFlow>)> {
     let dir = flows_dir()?;
     if !dir.exists() {
-        return Ok(Vec::new());
+        return Ok((Vec::new(), Vec::new()));
     }
     let entries = fs::read_dir(&dir).map_err(|e| Error::io("Failed to read flows directory", e))?;
     let mut flows = Vec::new();
+    let mut broken = Vec::new();
     for entry in entries.flatten() {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("toml") {
             continue;
         }
+        let id = id_of_file(&path).to_string();
+        if is_shared_file(&path) && dir.join(format!("{id}.toml")).exists() {
+            continue;
+        }
         match read_flow(&path) {
             Ok(flow) => flows.push(flow),
-            Err(e) => eprintln!("Skipping flow {}: {e}", path.display()),
+            Err(e) => broken.push(BrokenFlow {
+                error: e.to_string(),
+                path,
+                id,
+            }),
         }
     }
     flows.sort_by_key(|f| f.name.to_lowercase());
-    Ok(flows)
+    Ok((flows, broken))
+}
+
+fn is_shared_file(path: &Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .is_some_and(|name| name.ends_with(SHARED_SUFFIX))
 }
 
 /// The id a file name stands for: `<id>.toml`, or `<id>.flow.toml` for a
@@ -85,12 +116,18 @@ fn read_flow(path: &PathBuf) -> Result<Flow> {
     Ok(flow)
 }
 
+/// The flow saved as `<id>.toml`, or a shared file copied in as
+/// `<id>.flow.toml` (the page lists both, so both must open).
 pub fn load_flow(id: &str) -> Result<Flow> {
     let path = flow_path(id)?;
-    if !path.exists() {
-        return Err(Error::Invalid(format!("No flow with id '{id}'")));
+    if path.exists() {
+        return read_flow(&path);
     }
-    read_flow(&path)
+    let shared = shared_path(id)?;
+    if shared.exists() {
+        return read_flow(&shared);
+    }
+    Err(Error::Invalid(format!("No flow with id '{id}'")))
 }
 
 /// Whether a keybind dispatcher runs the flow with this id, however the
@@ -114,17 +151,45 @@ pub fn find_flow(name_or_id: &str) -> Result<Flow> {
         .ok_or_else(|| Error::Invalid(format!("No flow named '{name_or_id}'")))
 }
 
+/// Every id a file in the flows folder stands for, readable or not, so a
+/// new flow never takes the id of a file that failed to parse and
+/// overwrites it.
 pub fn existing_ids() -> Vec<String> {
-    load_flows()
-        .map(|flows| flows.into_iter().map(|f| f.id).collect())
-        .unwrap_or_default()
+    let Ok(dir) = flows_dir() else {
+        return Vec::new();
+    };
+    let Ok(entries) = fs::read_dir(&dir) else {
+        return Vec::new();
+    };
+    entries
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| path.extension().and_then(|e| e.to_str()) == Some("toml"))
+        .map(|path| id_of_file(&path).to_string())
+        .collect()
 }
 
 /// Validates, writes the TOML, and creates or removes the launcher entry and
-/// startup hook to match the flow's triggers.
+/// startup hook to match the flow's triggers. `new` refuses to replace a
+/// file that already exists (the id was meant to be fresh).
 pub fn save_flow(flow: &Flow) -> Result<()> {
+    save_flow_inner(flow, false)
+}
+
+/// Saves a flow that was just given its id.
+pub fn save_new_flow(flow: &Flow) -> Result<()> {
+    save_flow_inner(flow, true)
+}
+
+fn save_flow_inner(flow: &Flow, new: bool) -> Result<()> {
     flow.validate()?;
     let path = flow_path(&flow.id)?;
+    if new && (path.exists() || shared_path(&flow.id)?.exists()) {
+        return Err(Error::Invalid(format!(
+            "A file for the id '{}' already exists in the flows folder",
+            flow.id
+        )));
+    }
     if let Some(dir) = path.parent()
         && !dir.exists()
     {

@@ -6,7 +6,7 @@ use gpui_component::{
     ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{Input, InputEvent, InputState, NumberInput},
     v_flex,
 };
 
@@ -57,6 +57,9 @@ impl StepChoice {
         }
     }
 }
+
+/// Ten minutes: long enough for anything a flow waits for.
+const MAX_WAIT_MS: u64 = 600_000;
 
 const WAIT_PRESETS: [u64; 4] = [500, 1000, 2000, 5000];
 
@@ -110,7 +113,16 @@ impl StepBuilder {
                     .default_value(value.to_string())
             })
         };
-        let wait_ms = text(window, cx, "Milliseconds", &wait_value);
+        // A number field with a ceiling: a stray digit must not become a
+        // pause of centuries.
+        let wait_ms = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder("Milliseconds")
+                .default_value(wait_value.clone())
+                .step(100.)
+                .min(1.)
+                .max(MAX_WAIT_MS as f64)
+        });
         let notify_title = text(window, cx, "Title", &title_value);
         let notify_body = text(window, cx, "Message (optional)", &body_value);
 
@@ -173,6 +185,10 @@ impl StepBuilder {
     fn wait_value(&self, cx: &App) -> Result<u64, String> {
         let text = self.wait_ms.read(cx).value().trim().to_string();
         match text.parse::<u64>() {
+            Ok(ms) if ms > MAX_WAIT_MS => Err(format!(
+                "A wait can be at most {} (use several steps for longer)",
+                format_duration(MAX_WAIT_MS)
+            )),
             Ok(ms) if ms > 0 => Ok(ms),
             _ => Err("Enter how long to wait, in milliseconds".to_string()),
         }
@@ -308,7 +324,7 @@ impl StepBuilder {
                             .gap_2()
                             .items_center()
                             .flex_wrap()
-                            .child(div().w_32().child(Input::new(&self.wait_ms).small()))
+                            .child(div().w_40().child(NumberInput::new(&self.wait_ms).small()))
                             .child(
                                 div()
                                     .text_xs()

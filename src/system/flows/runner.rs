@@ -1,6 +1,9 @@
 //! Runs a flow's steps in order and reports what happened to each one.
+use std::io::Read;
 use std::process::{Command, Stdio};
-use std::time::Duration;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::time::{Duration, Instant};
 
 use crate::error::{Error, Result};
 
@@ -52,10 +55,44 @@ impl Outcome {
 
 pub type Loader<'a> = &'a dyn Fn(&str) -> Result<Flow>;
 
+/// A way to stop a run from another thread: the UI's Stop button sets the
+/// flag and the runner ends after the current step, killing a command it
+/// is waiting for.
+#[derive(Debug, Clone, Default)]
+pub struct Cancel {
+    stop: Arc<AtomicBool>,
+    /// Pid of the child the runner is waiting on, 0 when none.
+    child: Arc<AtomicU32>,
+}
+
+impl Cancel {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Asks the runner to stop and kills the command it is waiting for.
+    pub fn cancel(&self) {
+        self.stop.store(true, Ordering::SeqCst);
+        let pid = self.child.load(Ordering::SeqCst);
+        if pid != 0 {
+            let _ = Command::new("kill").arg(pid.to_string()).status();
+        }
+    }
+
+    pub fn is_cancelled(&self) -> bool {
+        self.stop.load(Ordering::SeqCst)
+    }
+}
+
+/// How long a command that is not waited for gets to fail before it counts
+/// as started: enough for `sh` to report a missing program.
+const START_GRACE: Duration = Duration::from_millis(300);
+
 pub struct Runner<'a> {
     load: Loader<'a>,
     /// Discard step output rather than inheriting the caller's stdio.
     quiet: bool,
+    cancel: Cancel,
 }
 
 impl<'a> Runner<'a> {
@@ -64,11 +101,22 @@ impl<'a> Runner<'a> {
         Runner {
             load: &load_from_disk,
             quiet,
+            cancel: Cancel::new(),
         }
     }
 
     pub fn with_loader(load: Loader<'a>, quiet: bool) -> Self {
-        Self { load, quiet }
+        Self {
+            load,
+            quiet,
+            cancel: Cancel::new(),
+        }
+    }
+
+    /// Lets another thread stop the run through `cancel`.
+    pub fn cancellable(mut self, cancel: Cancel) -> Self {
+        self.cancel = cancel;
+        self
     }
 
     pub fn run(&self, flow: &Flow, on_event: &mut dyn FnMut(RunEvent)) -> Outcome {
@@ -86,6 +134,10 @@ impl<'a> Runner<'a> {
         for (index, step) in flow.steps.iter().enumerate() {
             if !step.enabled {
                 continue;
+            }
+            if self.cancel.is_cancelled() {
+                outcome.stopped_at = Some(index);
+                break;
             }
             on_event(RunEvent::Started { index });
             let result = self.run_step(&step.kind, stack).map_err(|e| e.to_string());
@@ -109,20 +161,36 @@ impl<'a> Runner<'a> {
         match kind {
             StepKind::Exec { command, wait } => self.exec(command, *wait),
             StepKind::Lua { expr } => dispatch(expr),
-            StepKind::Wait { ms } => {
-                std::thread::sleep(Duration::from_millis(*ms));
-                Ok(())
-            }
+            StepKind::Wait { ms } => self.wait(Duration::from_millis(*ms)),
             StepKind::Notify { title, body } => notify(title, body),
             StepKind::Flow { id } => self.run_flow_step(id, stack),
         }
     }
 
-    /// Omarchy's launch scripts end in `exec setsid ...`, and `setsid` only
-    /// forks when the caller already leads a process group, which a child of
-    /// `sh -c` does not; waiting would therefore last until the launched
-    /// window closes. `setsid -f` forks the command into its own session and
-    /// returns at once, leaving nothing to reap.
+    /// Sleeps in slices so a Stop does not wait out a long pause.
+    fn wait(&self, total: Duration) -> Result<()> {
+        let slice = Duration::from_millis(100);
+        let deadline = Instant::now() + total;
+        while Instant::now() < deadline {
+            if self.cancel.is_cancelled() {
+                return Err(Error::Invalid("Stopped".to_string()));
+            }
+            std::thread::sleep(slice.min(deadline.saturating_duration_since(Instant::now())));
+        }
+        Ok(())
+    }
+
+    /// A waited step runs `sh -c command` as a plain child: Omarchy's launch
+    /// scripts end in `exec setsid ...`, and `setsid` only forks when the
+    /// caller already leads a process group, which this child does not, so
+    /// the wait lasts until the launched window closes, which is what
+    /// "wait until it finishes" means. It reports the exit status and the
+    /// last lines of stderr.
+    ///
+    /// A step that is not waited for runs under `setsid` (no `-f`: it execs
+    /// in place) so it outlives the flow and Omarchist, but still gets a
+    /// moment to fail: `sh` reporting a missing program exits at once, and
+    /// that must not show as a green tick.
     fn exec(&self, command: &str, wait: bool) -> Result<()> {
         let mut cmd = if wait {
             let mut cmd = Command::new("sh");
@@ -130,24 +198,63 @@ impl<'a> Runner<'a> {
             cmd
         } else {
             let mut cmd = Command::new("setsid");
-            cmd.args(["-f", "sh", "-c", command]);
+            cmd.args(["sh", "-c", command]);
             cmd
         };
         cmd.stdin(Stdio::null());
-        if self.quiet || !wait {
-            cmd.stdout(Stdio::null()).stderr(Stdio::null());
-        }
-        let status = cmd
-            .status()
-            .map_err(|e| Error::io("Could not start the command", e))?;
-        if status.success() {
-            Ok(())
+        cmd.stdout(if self.quiet || !wait {
+            Stdio::null()
         } else {
-            Err(Error::Invalid(match status.code() {
-                Some(code) => format!("The command exited with status {code}"),
-                None => "The command was killed by a signal".to_string(),
-            }))
+            Stdio::inherit()
+        });
+        cmd.stderr(Stdio::piped());
+        let mut child = cmd
+            .spawn()
+            .map_err(|e| Error::io("Could not start the command", e))?;
+
+        if wait {
+            self.cancel.child.store(child.id(), Ordering::SeqCst);
+            let output = child
+                .wait_with_output()
+                .map_err(|e| Error::io("Could not wait for the command", e));
+            self.cancel.child.store(0, Ordering::SeqCst);
+            let output = output?;
+            if self.cancel.is_cancelled() {
+                return Err(Error::Invalid("Stopped".to_string()));
+            }
+            return exit_result(output.status, &output.stderr);
         }
+
+        let deadline = Instant::now() + START_GRACE;
+        loop {
+            match child.try_wait() {
+                Ok(Some(status)) => {
+                    let mut stderr = Vec::new();
+                    if let Some(mut pipe) = child.stderr.take() {
+                        let _ = pipe.read_to_end(&mut stderr);
+                    }
+                    return if status.success() {
+                        Ok(())
+                    } else {
+                        exit_result(status, &stderr)
+                    };
+                }
+                Ok(None) if Instant::now() < deadline => {
+                    std::thread::sleep(Duration::from_millis(20));
+                }
+                Ok(None) => break,
+                Err(e) => return Err(Error::io("Could not wait for the command", e)),
+            }
+        }
+        // Started: reap it from a thread when it eventually exits, so it
+        // never lingers as a zombie, and drain stderr so it never blocks.
+        std::thread::spawn(move || {
+            if let Some(mut pipe) = child.stderr.take() {
+                let _ = std::io::copy(&mut pipe, &mut std::io::sink());
+            }
+            let _ = child.wait();
+        });
+        Ok(())
     }
 
     fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> Result<()> {
@@ -171,6 +278,44 @@ impl<'a> Runner<'a> {
             Err(Error::Invalid(outcome.summary(&nested)))
         }
     }
+}
+
+/// The step's error for a non-zero exit, with what the command said.
+fn exit_result(status: std::process::ExitStatus, stderr: &[u8]) -> Result<()> {
+    if status.success() {
+        return Ok(());
+    }
+    let mut message = match status.code() {
+        Some(code) => format!("The command exited with status {code}"),
+        None => "The command was killed by a signal".to_string(),
+    };
+    let stderr = String::from_utf8_lossy(stderr);
+    let tail: Vec<&str> = stderr
+        .lines()
+        .map(str::trim)
+        .filter(|l| !l.is_empty())
+        .collect();
+    let tail = &tail[tail.len().saturating_sub(3)..];
+    if !tail.is_empty() {
+        message.push_str(": ");
+        message.push_str(&tail.join(" · "));
+    }
+    Err(Error::Invalid(message))
+}
+
+/// Validates the flow, then runs it on a thread of its own (a run blocks
+/// for as long as the flow takes) and resolves with the outcome. For runs
+/// that need no per-step progress: cards, the title-bar menu.
+pub async fn run_in_thread(flow: Flow) -> Result<Outcome> {
+    flow.validate()?;
+    let (tx, rx) = smol::channel::bounded(1);
+    std::thread::spawn(move || {
+        let outcome = Runner::new(true).run(&flow, &mut |_| {});
+        let _ = tx.send_blocking(outcome);
+    });
+    rx.recv()
+        .await
+        .map_err(|_| Error::Invalid("The run ended without a result".to_string()))
 }
 
 fn load_from_disk(id: &str) -> Result<Flow> {
@@ -282,6 +427,74 @@ mod tests {
                 .all(|e| !matches!(e, RunEvent::Started { index: 1 }))
         );
         assert!(outcome.summary(&flow).contains("1 failed step"));
+    }
+
+    #[test]
+    fn a_command_that_is_not_waited_for_still_fails_when_it_cannot_start() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            Step::new(StepKind::Exec {
+                command: "omarchy-launch-browserr".into(),
+                wait: false,
+            }),
+            Step::new(StepKind::Exec {
+                command: "sleep 2".into(),
+                wait: false,
+            }),
+        ];
+        flow.on_error = OnError::Continue;
+        let started = Instant::now();
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
+        assert_eq!(outcome.failures[0].0, 0);
+        assert!(
+            outcome.failures[0].1.contains("not found"),
+            "{}",
+            outcome.failures[0].1
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "a started command is not waited for"
+        );
+    }
+
+    #[test]
+    fn a_waited_command_reports_its_stderr() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![exec("echo oops >&2; exit 4")];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(
+            outcome.failures[0].1,
+            "The command exited with status 4: oops"
+        );
+    }
+
+    #[test]
+    fn cancel_stops_a_wait_and_kills_a_waited_command() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![exec("sleep 30"), exec("true")];
+        let cancel = Cancel::new();
+        let stopper = cancel.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(200));
+            stopper.cancel();
+        });
+        let started = Instant::now();
+        let runner = Runner::with_loader(&no_flows, true).cancellable(cancel);
+        let outcome = runner.run(&flow, &mut |_| {});
+        assert!(started.elapsed() < Duration::from_secs(5));
+        assert_eq!(outcome.ran, 1);
+        assert_eq!(outcome.stopped_at, Some(0));
+        assert!(outcome.failures[0].1.contains("Stopped"));
+
+        let mut flow = Flow::new("w".into(), "W".into());
+        flow.steps = vec![Step::new(StepKind::Wait { ms: 30_000 })];
+        let cancel = Cancel::new();
+        cancel.cancel();
+        let outcome = Runner::with_loader(&no_flows, true)
+            .cancellable(cancel)
+            .run(&flow, &mut |_| {});
+        assert_eq!(outcome.ran, 0);
     }
 
     #[test]

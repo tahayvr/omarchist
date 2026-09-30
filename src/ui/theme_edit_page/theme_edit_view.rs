@@ -162,7 +162,7 @@ impl ThemeEditPage {
         apply_theme(self.theme_name.clone(), window, cx);
     }
 
-    fn flush_pending_saves(&self, cx: &mut App) {
+    pub fn flush_pending_saves(&self, cx: &mut App) {
         self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
         for (_, tab) in &self.override_tabs {
             tab.update(cx, |tab, cx| tab.flush(cx));

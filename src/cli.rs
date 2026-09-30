@@ -7,7 +7,7 @@ use clap::{Parser, Subcommand, ValueEnum};
 use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::flows::runner::{RunEvent, Runner};
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
-use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_flow};
+use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_new_flow};
 use crate::system::flows::unique_id;
 use crate::system::notify;
 use crate::system::omarchy_paths::user_themes_dir;
@@ -195,7 +195,9 @@ pub fn run_command(command: &Command) -> ExitCode {
         Command::Flow {
             action: FlowCommand::Run { name },
         } => {
-            let flow = match find_flow(name) {
+            // The editor's guard on Lua steps applies to a hand-edited file
+            // too, so nothing reaches `hyprctl dispatch` unchecked.
+            let flow = match find_flow(name).and_then(|flow| flow.validate().map(|()| flow)) {
                 Ok(flow) => flow,
                 Err(e) => {
                     eprintln!("{e}");
@@ -315,7 +317,7 @@ fn import(source: &str, yes: bool) -> ExitCode {
     }
     let mut flow = imported.flow;
     flow.id = unique_id(&flow.name, &existing_ids());
-    match save_flow(&flow) {
+    match save_new_flow(&flow) {
         Ok(()) => {
             println!("Saved as '{}'. Run it with: {}", flow.id, flow.command());
             ExitCode::SUCCESS

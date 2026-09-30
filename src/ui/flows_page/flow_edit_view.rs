@@ -19,9 +19,11 @@ use gpui_component::{
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::requirements::{missing_programs, program_of};
-use crate::system::flows::runner::{Outcome, RunEvent, Runner};
+use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner};
 use crate::system::flows::share::Imported;
-use crate::system::flows::store::{existing_ids, load_flow, load_flows, runs_flow, save_flow};
+use crate::system::flows::store::{
+    existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
+};
 use crate::system::flows::templates::template;
 use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
 use crate::system::keybinds::chord::Chord;
@@ -82,25 +84,30 @@ pub enum FlowEditSource {
     Imported(Box<Imported>),
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum StepState {
     Idle,
     Running,
     Done,
-    Failed,
+    /// Why, shown under the step until the next run or edit.
+    Failed(String),
 }
 
+/// Progress from the runner thread, tagged with the run it belongs to so
+/// a run left behind by an earlier press cannot mark the wrong rows.
 enum RunMessage {
-    Event(RunEvent),
-    Done(Outcome),
+    Event(u64, RunEvent),
+    Done(u64, Outcome),
 }
 
 pub struct FlowEditPage {
     pub focus_handle: FocusHandle,
     /// Everything but the name and description, which live in the inputs.
     flow: Flow,
-    /// The flow as last saved; `None` until a new flow is saved.
-    saved: Option<Flow>,
+    /// What the editor opened with or last saved; the dirty check compares
+    /// against it, so a template or an import is not "unsaved" until it is
+    /// edited.
+    baseline: Flow,
     /// The user chose to leave without saving; nothing counts as unsaved.
     discarded: bool,
     name: Entity<InputState>,
@@ -110,6 +117,10 @@ pub struct FlowEditPage {
     selected_step: Option<usize>,
     step_states: Vec<StepState>,
     running: bool,
+    /// Counts runs; a message from an older run is ignored.
+    run_id: u64,
+    /// Stops the current run from the Stop button.
+    cancel: Option<Cancel>,
     apps: Vec<DesktopApp>,
     flows: Vec<Flow>,
     binds: Rc<Vec<Keybind>>,
@@ -127,26 +138,26 @@ pub struct FlowEditPage {
 
 impl FlowEditPage {
     pub fn new(source: FlowEditSource, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (flow, saved) = match &source {
+        let flow = match &source {
             FlowEditSource::Existing(id) => match load_flow(id) {
-                Ok(flow) => (flow.clone(), Some(flow)),
+                Ok(flow) => flow,
                 Err(e) => {
-                    // Opened as a new flow so Save can never replace the
-                    // unreadable file; it gets a fresh id.
+                    // The file is on the page as broken; there is nothing
+                    // to edit, and a new flow under its name would replace
+                    // it. Back to the list.
                     window.push_notification(format!("Could not read the flow: {e}"), cx);
-                    (Flow::new(String::new(), id.clone()), None)
+                    emit(cx, AppEvent::Navigate(ActivePage::Flows));
+                    Flow::new(String::new(), String::new())
                 }
             },
-            FlowEditSource::New(template_key) => {
-                let flow = template_key
-                    .as_deref()
-                    .and_then(template)
-                    .map(|t| t.flow)
-                    .unwrap_or_else(|| Flow::new(String::new(), String::new()));
-                (flow, None)
-            }
-            FlowEditSource::Imported(imported) => (imported.flow.clone(), None),
+            FlowEditSource::New(template_key) => template_key
+                .as_deref()
+                .and_then(template)
+                .map(|t| t.flow)
+                .unwrap_or_else(|| Flow::new(String::new(), String::new())),
+            FlowEditSource::Imported(imported) => imported.flow.clone(),
         };
+        let baseline = flow.clone();
         let import_origin = match &source {
             FlowEditSource::Imported(imported) => Some(imported.origin.clone()),
             _ => None,
@@ -179,7 +190,7 @@ impl FlowEditPage {
             focus_handle: cx.focus_handle(),
             step_states: vec![StepState::Idle; flow.steps.len()],
             flow,
-            saved,
+            baseline,
             discarded: false,
             name,
             description,
@@ -187,6 +198,8 @@ impl FlowEditPage {
             steps_focus: focus::tab_stop(cx),
             selected_step: None,
             running: false,
+            run_id: 0,
+            cancel: None,
             apps: Vec::new(),
             flows: Vec::new(),
             binds: Rc::new(Vec::new()),
@@ -251,13 +264,7 @@ impl FlowEditPage {
         if self.discarded {
             return false;
         }
-        match &self.saved {
-            Some(saved) => self.current(cx) != *saved,
-            None => {
-                let current = self.current(cx);
-                !current.name.is_empty() || !current.steps.is_empty()
-            }
-        }
+        self.current(cx) != self.baseline
     }
 
     // MARK: Commands
@@ -270,19 +277,23 @@ impl FlowEditPage {
             return;
         }
         let was_new = self.is_new();
-        if was_new {
+        let result = if was_new {
             flow.id = unique_id(&flow.name, &existing_ids());
-        }
-        match save_flow(&flow) {
+            save_new_flow(&flow)
+        } else {
+            save_flow(&flow)
+        };
+        match result {
             Ok(()) => {
                 window.push_notification(format!("Saved '{}'", flow.name), cx);
+                // Clean before anything navigates, or the reopen below would
+                // ask to discard the flow that was just saved.
+                self.flow = flow.clone();
+                self.baseline = flow.clone();
+                cx.notify();
                 if was_new {
                     // Reopen under the new id so triggers can refer to it.
                     emit(cx, AppEvent::Navigate(ActivePage::FlowEdit(flow.id)));
-                } else {
-                    self.flow = flow.clone();
-                    self.saved = Some(flow);
-                    cx.notify();
                 }
             }
             Err(e) => window.push_notification(format!("Could not save the flow: {e}"), cx),
@@ -298,22 +309,34 @@ impl FlowEditPage {
             window.push_notification("Add a step to run", cx);
             return;
         }
+        if let Err(e) = flow.validate_content() {
+            window.push_notification(format!("Cannot run the flow: {e}"), cx);
+            return;
+        }
         self.running = true;
+        self.run_id += 1;
+        let run_id = self.run_id;
+        let cancel = Cancel::new();
+        self.cancel = Some(cancel.clone());
         self.step_states = vec![StepState::Idle; flow.steps.len()];
         cx.notify();
 
         let (tx, rx) = smol::channel::unbounded::<RunMessage>();
-        cx.background_spawn(async move {
-            let outcome = Runner::new(true).run(&flow, &mut |event| {
-                let _ = tx.send_blocking(RunMessage::Event(event));
-            });
-            let _ = tx.send_blocking(RunMessage::Done(outcome));
-        })
-        .detach();
+        // A thread of its own: a run blocks (waits, waited commands) for as
+        // long as the flow takes, which is not what the executor's pool is
+        // for.
+        std::thread::spawn(move || {
+            let outcome = Runner::new(true)
+                .cancellable(cancel)
+                .run(&flow, &mut |event| {
+                    let _ = tx.send_blocking(RunMessage::Event(run_id, event));
+                });
+            let _ = tx.send_blocking(RunMessage::Done(run_id, outcome));
+        });
 
         cx.spawn_in(window, async move |this, cx| {
             while let Ok(message) = rx.recv().await {
-                let done = matches!(message, RunMessage::Done(_));
+                let done = matches!(message, RunMessage::Done(..));
                 this.update_in(cx, |this, window, cx| {
                     this.on_run_message(message, window, cx)
                 })
@@ -326,28 +349,57 @@ impl FlowEditPage {
         .detach();
     }
 
+    /// Stops the run after the current step; a command being waited for
+    /// is killed.
+    fn stop(&mut self, cx: &mut Context<Self>) {
+        if let Some(cancel) = &self.cancel {
+            cancel.cancel();
+        }
+        cx.notify();
+    }
+
     fn on_run_message(&mut self, message: RunMessage, window: &mut Window, cx: &mut Context<Self>) {
-        match message {
-            RunMessage::Event(RunEvent::Started { index }) => {
+        let (run_id, event) = match message {
+            RunMessage::Event(run_id, event) => (run_id, Some(event)),
+            RunMessage::Done(run_id, outcome) => {
+                if run_id == self.run_id {
+                    self.running = false;
+                    self.cancel = None;
+                    window.push_notification(outcome.summary(&self.current(cx)), cx);
+                    cx.notify();
+                }
+                return;
+            }
+        };
+        if run_id != self.run_id {
+            return;
+        }
+        match event {
+            Some(RunEvent::Started { index }) => {
                 if let Some(state) = self.step_states.get_mut(index) {
                     *state = StepState::Running;
                 }
             }
-            RunMessage::Event(RunEvent::Finished { index, error }) => {
+            Some(RunEvent::Finished { index, error }) => {
                 if let Some(state) = self.step_states.get_mut(index) {
-                    *state = if error.is_some() {
-                        StepState::Failed
-                    } else {
-                        StepState::Done
+                    *state = match error {
+                        Some(error) => StepState::Failed(error),
+                        None => StepState::Done,
                     };
                 }
             }
-            RunMessage::Done(outcome) => {
-                self.running = false;
-                window.push_notification(outcome.summary(&self.current(cx)), cx);
-            }
+            None => {}
         }
         cx.notify();
+    }
+
+    /// Editing the steps while they run would desynchronise the live
+    /// states (they are indexed by position).
+    fn refuse_while_running(&self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.running {
+            window.push_notification("Stop the flow before changing its steps", cx);
+        }
+        self.running
     }
 
     /// Lets the next navigation leave without asking again.
@@ -402,7 +454,7 @@ impl FlowEditPage {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        if self.step_dialog.is_some() {
+        if self.step_dialog.is_some() || self.refuse_while_running(window, cx) {
             return;
         }
         let initial = match mode {
@@ -436,14 +488,20 @@ impl FlowEditPage {
         self.step_dialog = Some((dialog, subscription));
     }
 
-    fn remove_step(&mut self, ix: usize, cx: &mut Context<Self>) {
+    fn remove_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refuse_while_running(window, cx) {
+            return;
+        }
         if ix < self.flow.steps.len() {
             self.flow.steps.remove(ix);
             self.touch_steps(cx);
         }
     }
 
-    fn move_step(&mut self, ix: usize, delta: isize, cx: &mut Context<Self>) {
+    fn move_step(&mut self, ix: usize, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refuse_while_running(window, cx) {
+            return;
+        }
         let len = self.flow.steps.len() as isize;
         let target = ix as isize + delta;
         if ix as isize >= len || target < 0 || target >= len {
@@ -454,14 +512,20 @@ impl FlowEditPage {
         self.touch_steps(cx);
     }
 
-    fn toggle_step(&mut self, ix: usize, cx: &mut Context<Self>) {
+    fn toggle_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refuse_while_running(window, cx) {
+            return;
+        }
         if let Some(step) = self.flow.steps.get_mut(ix) {
             step.enabled = !step.enabled;
             self.touch_steps(cx);
         }
     }
 
-    fn duplicate_step(&mut self, ix: usize, cx: &mut Context<Self>) {
+    fn duplicate_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refuse_while_running(window, cx) {
+            return;
+        }
         if let Some(step) = self.flow.steps.get(ix).cloned() {
             self.flow.steps.insert(ix + 1, step);
             self.selected_step = Some(ix + 1);
@@ -599,6 +663,33 @@ impl FlowEditPage {
             .border_color(theme.border)
     }
 
+    /// Who made the flow and where it came from, when the file says.
+    fn render_meta(&self, cx: &App) -> Option<impl IntoElement> {
+        let meta = &self.flow.meta;
+        let mut parts: Vec<String> = Vec::new();
+        if !meta.author.is_empty() {
+            parts.push(format!("By {}", meta.author));
+        }
+        if !meta.version.is_empty() {
+            parts.push(format!("version {}", meta.version));
+        }
+        if !meta.homepage.is_empty() {
+            parts.push(meta.homepage.clone());
+        }
+        if !meta.source.is_empty() {
+            parts.push(format!("imported from {}", meta.source));
+        }
+        if parts.is_empty() {
+            return None;
+        }
+        Some(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(selectable("flow-meta", parts.join(" · "))),
+        )
+    }
+
     fn render_import_banner(&self, cx: &App) -> Option<impl IntoElement> {
         let origin = self.import_origin.as_ref()?;
         Some(warning_banner(
@@ -682,16 +773,23 @@ impl FlowEditPage {
                         )
                     }),
             )
-            .child(
+            .child(if self.running {
+                Button::new("flow-stop")
+                    .compact()
+                    .danger()
+                    .icon(Icon::new(Icon::empty()).path("icons/square.svg"))
+                    .label("Stop")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, _, cx| this.stop(cx)))
+            } else {
                 Button::new("flow-run")
                     .compact()
                     .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                     .label("Run")
-                    .loading(self.running)
                     .tooltip_with_action("Run the flow as it is now", &Run, Some(KEY_CONTEXT))
                     .cursor_pointer()
-                    .on_click(cx.listener(|this, _, window, cx| this.run(window, cx))),
-            )
+                    .on_click(cx.listener(|this, _, window, cx| this.run(window, cx)))
+            })
             .child(
                 Button::new("flow-save")
                     .primary()
@@ -769,6 +867,7 @@ impl FlowEditPage {
                     .child(Self::label("Description"))
                     .child(Input::new(&self.description).small()),
             )
+            .children(self.render_meta(cx))
             .child(
                 div().text_sm().child(
                     FocusableSwitch::new("flow-on-error")
@@ -944,8 +1043,12 @@ impl FlowEditPage {
         let summary = summaries.summarize(&step.kind);
         let missing_program = program_of(&step.kind).filter(|p| self.missing.contains(p));
         let selected = list_focused && self.selected_step == Some(ix);
-        let state = self.step_states.get(ix).copied().unwrap_or(StepState::Idle);
+        let state = self.step_states.get(ix).cloned().unwrap_or(StepState::Idle);
         let count = self.flow.steps.len();
+        let failure = match &state {
+            StepState::Failed(error) => Some(error.clone()),
+            _ => None,
+        };
         let state_icon: Option<AnyElement> = match state {
             StepState::Idle => None,
             StepState::Running => Some(Spinner::new().small().into_any_element()),
@@ -956,7 +1059,7 @@ impl FlowEditPage {
                     .text_color(theme.success)
                     .into_any_element(),
             ),
-            StepState::Failed => Some(
+            StepState::Failed(_) => Some(
                 Icon::new(Icon::empty())
                     .path("icons/circle-x.svg")
                     .size_4()
@@ -1031,7 +1134,8 @@ impl FlowEditPage {
                             .text_xs()
                             .font_family("monospace")
                             .text_color(theme.muted_foreground)
-                            .truncate()
+                            // Reviewing an import: every character counts.
+                            .when(self.import_origin.is_none(), |this| this.truncate())
                             .child(selectable(("step-detail", ix), summary.detail)),
                     )
                     .when_some(missing_program, |this, program| {
@@ -1046,6 +1150,14 @@ impl FlowEditPage {
                                     ("step-missing", ix),
                                     format!("{program} is not installed"),
                                 )),
+                        )
+                    })
+                    .when_some(failure, |this, error| {
+                        this.child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.danger)
+                                .child(selectable(("step-error", ix), error)),
                         )
                     }),
             )
@@ -1062,9 +1174,9 @@ impl FlowEditPage {
                             .disabled(ix == 0)
                             .icon(Icon::new(Icon::empty()).path("icons/arrow-up.svg"))
                             .tooltip("Move up")
-                            .on_click(cx.listener(move |this, _, _, cx| {
+                            .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
-                                this.move_step(ix, -1, cx);
+                                this.move_step(ix, -1, window, cx);
                             })),
                     )
                     .child(
@@ -1075,9 +1187,9 @@ impl FlowEditPage {
                             .disabled(ix + 1 >= count)
                             .icon(Icon::new(Icon::empty()).path("icons/arrow-down.svg"))
                             .tooltip("Move down")
-                            .on_click(cx.listener(move |this, _, _, cx| {
+                            .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
-                                this.move_step(ix, 1, cx);
+                                this.move_step(ix, 1, window, cx);
                             })),
                     )
                     .child(
@@ -1099,9 +1211,9 @@ impl FlowEditPage {
                             .tab_stop(false)
                             .icon(Icon::new(Icon::empty()).path("icons/trash.svg"))
                             .tooltip("Remove")
-                            .on_click(cx.listener(move |this, _, _, cx| {
+                            .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
-                                this.remove_step(ix, cx);
+                                this.remove_step(ix, window, cx);
                             })),
                     )
                     .child(
@@ -1109,9 +1221,9 @@ impl FlowEditPage {
                             Switch::new(("step-enabled", ix))
                                 .small()
                                 .checked(step.enabled)
-                                .on_click(cx.listener(move |this, _, _, cx| {
+                                .on_click(cx.listener(move |this, _, window, cx| {
                                     cx.stop_propagation();
-                                    this.toggle_step(ix, cx);
+                                    this.toggle_step(ix, window, cx);
                                 })),
                         ),
                     ),
@@ -1239,29 +1351,29 @@ impl Render for FlowEditPage {
                     this.open_step_dialog(StepDialogMode::Edit(ix), window, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &RemoveStep, _, cx| {
+            .on_action(cx.listener(|this, _: &RemoveStep, window, cx| {
                 if let Some(ix) = this.selected_step {
-                    this.remove_step(ix, cx);
+                    this.remove_step(ix, window, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &MoveStepUp, _, cx| {
+            .on_action(cx.listener(|this, _: &MoveStepUp, window, cx| {
                 if let Some(ix) = this.selected_step {
-                    this.move_step(ix, -1, cx);
+                    this.move_step(ix, -1, window, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &MoveStepDown, _, cx| {
+            .on_action(cx.listener(|this, _: &MoveStepDown, window, cx| {
                 if let Some(ix) = this.selected_step {
-                    this.move_step(ix, 1, cx);
+                    this.move_step(ix, 1, window, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &ToggleStep, _, cx| {
+            .on_action(cx.listener(|this, _: &ToggleStep, window, cx| {
                 if let Some(ix) = this.selected_step {
-                    this.toggle_step(ix, cx);
+                    this.toggle_step(ix, window, cx);
                 }
             }))
-            .on_action(cx.listener(|this, _: &DuplicateStep, _, cx| {
+            .on_action(cx.listener(|this, _: &DuplicateStep, window, cx| {
                 if let Some(ix) = this.selected_step {
-                    this.duplicate_step(ix, cx);
+                    this.duplicate_step(ix, window, cx);
                 }
             }))
             .child(self.render_header(cx))

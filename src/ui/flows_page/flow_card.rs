@@ -46,6 +46,10 @@ pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoE
         row = row.child(Tag::secondary().small().child("At startup"));
         any = true;
     }
+    if !flow.meta.source.is_empty() {
+        row = row.child(Tag::warning().small().child("Imported"));
+        any = true;
+    }
     if !any {
         row = row.child(
             div()

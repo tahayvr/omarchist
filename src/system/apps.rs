@@ -136,6 +136,10 @@ pub fn parse_desktop_entry(id: &str, content: &str) -> Option<DesktopApp> {
             "StartupWMClass" => wm_class = Some(value.to_string()),
             "Terminal" => terminal = value == "true",
             "NoDisplay" | "Hidden" if value == "true" => hidden = true,
+            // A flow's own launcher entry: picking it as a step would make
+            // the flow start itself, forever. Flows are offered as the Flow
+            // kind instead.
+            "X-Omarchist-Flow" => hidden = true,
             _ => {}
         }
     }
@@ -221,6 +225,12 @@ pub fn resolve_icon(icon: &str) -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_flows_own_launcher_entry_is_not_an_app() {
+        let entry = "[Desktop Entry]\nType=Application\nName=Wrap up\nExec=omarchist flow run wrap-up\nX-Omarchist-Flow=wrap-up\n";
+        assert!(parse_desktop_entry("omarchist-flow-wrap-up", entry).is_none());
+    }
 
     #[test]
     fn parses_a_regular_entry() {

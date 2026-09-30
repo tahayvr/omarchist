@@ -7,9 +7,6 @@ on_error = "continue"
 [meta]
 author = "Omarchist"
 
-[triggers]
-startup = true
-
 [[step]]
 type = "exec"
 command = "omarchy-launch-browser"

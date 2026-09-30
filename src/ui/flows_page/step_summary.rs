@@ -52,9 +52,14 @@ impl SummaryContext<'_> {
     pub fn summarize(&self, kind: &StepKind) -> StepSummary {
         let detail = kind.text();
         match kind {
-            StepKind::Exec { command, .. } => {
+            StepKind::Exec { command, wait } => {
                 let action = Action::from_dispatcher(&Dispatcher::Exec(command.clone()));
-                self.summarize_action(action, detail)
+                let mut summary = self.summarize_action(action, detail);
+                // The flag changes what the step means; say so in the list.
+                if *wait {
+                    summary.title.push_str(" · waits");
+                }
+                summary
             }
             StepKind::Lua { expr } => {
                 let action = Action::from_dispatcher(&Dispatcher::Lua(expr.clone()));

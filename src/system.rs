@@ -1,5 +1,6 @@
 pub mod apps;
 pub mod bar_widget;
+pub mod binary;
 pub mod config;
 pub mod flows;
 pub mod fs;

@@ -88,8 +88,7 @@ fn install_into(dir: &Path) -> Result<()> {
 /// The widget runs Omarchist by the path the app was started from, so it
 /// works whether the binary is on `PATH` or not.
 fn current_command() -> Result<String> {
-    let exe = std::env::current_exe().map_err(|e| Error::io("Failed to find the binary", e))?;
-    Ok(exe.to_string_lossy().to_string())
+    Ok(crate::system::binary::omarchist_binary())
 }
 
 /// Installs the files, tells the shell to look again, and puts the widget

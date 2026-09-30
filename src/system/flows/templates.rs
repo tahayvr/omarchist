@@ -89,7 +89,10 @@ fn built_in_templates() -> Vec<Template> {
 
 fn built_in(path: &str) -> Result<Template> {
     let content = crate::assets::read_default_str(path)?;
-    let flow = parse_flow(&content)?;
+    let mut flow = parse_flow(&content)?;
+    // Triggers belong to the machine, never to a template: nobody expects
+    // "start from a template" to install a startup hook.
+    flow.triggers = Default::default();
     Ok(Template {
         key: built_in_key(path),
         flow,
@@ -148,6 +151,7 @@ fn user_template(path: &PathBuf) -> Result<Template> {
     let content = fs::read_to_string(path).map_err(|e| Error::io("Failed to read template", e))?;
     let mut flow = parse_flow(&content)?;
     flow.id.clear();
+    flow.triggers = Default::default();
     flow.validate_content()?;
     Ok(Template {
         key: format!("{USER_KEY_PREFIX}{stem}"),
@@ -168,6 +172,12 @@ mod tests {
             assert!(
                 template.flow.id.is_empty(),
                 "template {} carries an id; the editor assigns one on save",
+                template.key
+            );
+            assert_eq!(
+                template.flow.triggers,
+                Default::default(),
+                "template {} carries triggers; those belong to the machine",
                 template.key
             );
             assert!(
