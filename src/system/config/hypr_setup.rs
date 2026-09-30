@@ -81,6 +81,17 @@ fn with_require_line(content: &str) -> Option<String> {
                 REQUIRE_DIRECTIVE,
                 &content[insert_at..]
             )
+        } else if let Some(pos) = content.find("require(\"default.hypr.toggles\")") {
+            // Omarchy's toggles must load after Omarchist so they keep
+            // winning (No Gaps over a gaps override).
+            let line_start = content[..pos].rfind('\n').map(|i| i + 1).unwrap_or(0);
+            format!(
+                "{}{}\n{}\n{}",
+                &content[..line_start],
+                SOURCE_COMMENT,
+                REQUIRE_DIRECTIVE,
+                &content[line_start..]
+            )
         } else {
             format!(
                 "{}\n\n{}\n{}\n",
@@ -153,6 +164,17 @@ mod tests {
     fn a_file_without_autostart_gets_the_line_at_the_end() {
         let added = with_require_line("require(\"hypr.input\")").expect("added");
         assert!(added.ends_with(&format!("\n\n-- Added by Omarchist\n{REQUIRE_DIRECTIVE}\n")));
+    }
+
+    #[test]
+    fn without_autostart_the_line_still_precedes_omarchys_toggles() {
+        let added =
+            with_require_line("require(\"hypr.input\")\nrequire(\"default.hypr.toggles\")\n")
+                .expect("added");
+        assert_eq!(
+            added,
+            "require(\"hypr.input\")\n-- Added by Omarchist\nrequire(\"hypr.omarchist\")\nrequire(\"default.hypr.toggles\")\n"
+        );
     }
 
     #[test]

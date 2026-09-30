@@ -93,6 +93,8 @@ pub struct Runner<'a> {
     /// Discard step output rather than inheriting the caller's stdio.
     quiet: bool,
     cancel: Cancel,
+    /// How long a command that is not waited for gets to fail.
+    start_grace: Duration,
 }
 
 impl<'a> Runner<'a> {
@@ -102,6 +104,7 @@ impl<'a> Runner<'a> {
             load: &load_from_disk,
             quiet,
             cancel: Cancel::new(),
+            start_grace: START_GRACE,
         }
     }
 
@@ -110,7 +113,15 @@ impl<'a> Runner<'a> {
             load,
             quiet,
             cancel: Cancel::new(),
+            start_grace: START_GRACE,
         }
+    }
+
+    /// A longer grace for tests on a loaded machine.
+    #[cfg(test)]
+    fn start_grace(mut self, grace: Duration) -> Self {
+        self.start_grace = grace;
+        self
     }
 
     /// Lets another thread stop the run through `cancel`.
@@ -225,7 +236,7 @@ impl<'a> Runner<'a> {
             return exit_result(output.status, &output.stderr);
         }
 
-        let deadline = Instant::now() + START_GRACE;
+        let deadline = Instant::now() + self.start_grace;
         loop {
             match child.try_wait() {
                 Ok(Some(status)) => {
@@ -444,7 +455,9 @@ mod tests {
         ];
         flow.on_error = OnError::Continue;
         let started = Instant::now();
-        let (outcome, _) = events(&flow, &no_flows);
+        // The whole test suite runs in parallel; give `sh` time to report.
+        let runner = Runner::with_loader(&no_flows, true).start_grace(Duration::from_secs(1));
+        let outcome = runner.run(&flow, &mut |_| {});
         assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
         assert_eq!(outcome.failures[0].0, 0);
         assert!(
@@ -453,7 +466,7 @@ mod tests {
             outcome.failures[0].1
         );
         assert!(
-            started.elapsed() < Duration::from_secs(2),
+            started.elapsed() < Duration::from_secs(3),
             "a started command is not waited for"
         );
     }

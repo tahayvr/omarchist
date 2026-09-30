@@ -126,10 +126,7 @@ pub const KEYBOARD_LAYOUT: Backing = Backing {
         path: "/etc/vconsole.conf",
         key: "XKBLAYOUT",
     },
-    write: Write::CommandAnd {
-        argv: &["localectl", "set-x11-keymap"],
-        then: &[&["hyprctl", "reload"]],
-    },
+    write: Write::X11Keymap,
 };
 
 /// Every page in nav order: Hyprland first, then Omarchy.
@@ -2744,12 +2741,19 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                                     fallback: 6500,
                                 },
                             },
-                            write: Write::Command(&["hyprctl", "hyprsunset", "temperature"]),
+                            // The shell's indicator only re-reads on this
+                            // call; `omarchy-toggle-nightlight` makes it too.
+                            write: Write::CommandAnd {
+                                argv: &["hyprctl", "hyprsunset", "temperature"],
+                                then: &[&["omarchy-shell", "-q", "nightlight", "refresh"]],
+                            },
                         },
                         "Temperature",
-                        "Color temperature in kelvin; 6500 is neutral",
+                        "Color temperature in kelvin while the night light is on",
                         1000.0,
-                        6500.0,
+                        // At 6000 and above the script counts the light as
+                        // off and the switch can no longer turn it on.
+                        5900.0,
                         100.0
                     ),
                 ],
@@ -2886,7 +2890,8 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                     Backing {
                         read: Read::Command {
                             argv: &["omarchy-network-band"],
-                            parse: Parse::SecondToken,
+                            // `band` is the one in use; `selected` is the pin.
+                            parse: Parse::TokenOfLine("selected"),
                         },
                         write: Write::Command(&["omarchy-network-band"]),
                     },

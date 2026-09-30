@@ -270,8 +270,11 @@ impl MainWindowView {
                 );
                 self.theme_edit_view = Some(theme_edit_view);
             }
-            ActivePage::Configuration => {
-                if self.config_root.is_none() {
+            ActivePage::Configuration => match &self.config_view {
+                // Omarchy's own menu changes these values too: read them
+                // again on every visit.
+                Some(view) => view.update(cx, |view, cx| view.refresh_omarchy_values(window, cx)),
+                None => {
                     let config_view = cx.new(|cx| ConfigView::new(window, cx));
                     self.config_root = Some(
                         cx.new(|cx| Root::new(config_view.clone(), window, cx))
@@ -279,7 +282,7 @@ impl MainWindowView {
                     );
                     self.config_view = Some(config_view);
                 }
-            }
+            },
             ActivePage::Keybinds => match &self.keybinds_view {
                 // The Flows page saves keybinds too, and bindings.lua may
                 // have been edited: every visit rescans.

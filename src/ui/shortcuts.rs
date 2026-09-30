@@ -518,6 +518,13 @@ pub const SHORTCUTS: &[Shortcut] = &[
     ),
     // Configuration
     shortcut!(
+        "ctrl-f",
+        config_nav::FocusSearch,
+        Some("ConfigPage"),
+        CONFIG,
+        "Search settings"
+    ),
+    shortcut!(
         "up",
         config_nav::Prev,
         Some("ConfigNav"),

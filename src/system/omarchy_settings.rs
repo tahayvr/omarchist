@@ -47,6 +47,8 @@ pub enum Parse {
     LineIs(&'static str),
     /// The second whitespace-separated token of the first line.
     SecondToken,
+    /// The second token of the first line whose first token is this.
+    TokenOfLine(&'static str),
     /// The first integer in the output.
     Int,
     /// Whether the command succeeded.
@@ -86,6 +88,10 @@ pub enum Write {
     /// A command with the value appended, run in Omarchy's floating
     /// terminal because it asks for sudo or confirmation.
     Terminal(&'static [&'static str]),
+    /// `localectl set-x11-keymap <layout> <model> <variant> <options>` with
+    /// the model, variant and options the system already has: the command
+    /// clears every field it is not given.
+    X11Keymap,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -119,6 +125,54 @@ pub struct Choice {
 
 pub fn read(backing: &Backing) -> Option<Value> {
     read_from(&backing.read)
+}
+
+/// Waits for Omarchy's floating terminal (the window every terminal
+/// action opens) to close, so what it changed can be read back. The
+/// launcher hands the terminal to uwsm, so its window is the only thing to
+/// watch. Blocking: run it off the UI thread. Gives up after `timeout`.
+pub fn wait_for_terminal_to_close(timeout: std::time::Duration) {
+    let deadline = std::time::Instant::now() + timeout;
+    let terminal_open = || {
+        Command::new("hyprctl")
+            .args(["-j", "clients"])
+            .stdin(Stdio::null())
+            .output()
+            .ok()
+            .is_some_and(|o| String::from_utf8_lossy(&o.stdout).contains("org.omarchy.terminal"))
+    };
+    // Give the terminal a moment to appear, then wait for it to go.
+    let mut seen = false;
+    let mut checks = 0;
+    while std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        checks += 1;
+        if terminal_open() {
+            seen = true;
+        } else if seen || checks >= 5 {
+            return;
+        }
+    }
+}
+
+/// Reads every few seconds until the value equals `wanted` or `timeout`
+/// passes, for a change that runs in a terminal the user may take a while
+/// to finish (or close). Blocking: run it off the UI thread.
+pub fn read_until(
+    backing: &Backing,
+    wanted: &Value,
+    timeout: std::time::Duration,
+) -> Option<Value> {
+    let deadline = std::time::Instant::now() + timeout;
+    loop {
+        let current = read_from(&backing.read);
+        if current.as_ref().is_some_and(|c| same_value(c, wanted))
+            || std::time::Instant::now() >= deadline
+        {
+            return current;
+        }
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
 }
 
 pub fn read_from(read: &Read) -> Option<Value> {
@@ -165,6 +219,11 @@ fn parse_output(parse: Parse, success: bool, stdout: &str) -> Option<Value> {
         Parse::SecondToken => first
             .and_then(|l| l.split_whitespace().nth(1))
             .map(|t| Value::String(t.to_string())),
+        Parse::TokenOfLine(prefix) => stdout
+            .lines()
+            .map(|l| l.split_whitespace().collect::<Vec<_>>())
+            .find(|words| words.first() == Some(&prefix))
+            .and_then(|words| words.get(1).map(|t| Value::String(t.to_string()))),
         Parse::Int => {
             let digits: String = stdout
                 .chars()
@@ -224,7 +283,37 @@ pub fn write(backing: &Backing, value: &Value) -> Result<()> {
             full.push(value_text(value));
             launch_in_terminal(&full)
         }
+        Write::X11Keymap => {
+            let current = fs::read_to_string("/etc/vconsole.conf").unwrap_or_default();
+            let field = |key: &str| env_file_value(&current, key).unwrap_or_default();
+            let args = x11_keymap_args(
+                &value_text(value),
+                &field("XKBMODEL"),
+                &field("XKBVARIANT"),
+                &field("XKBOPTIONS"),
+            );
+            let argv: Vec<&str> = args.iter().map(String::as_str).collect();
+            run(&argv)?;
+            run(&["hyprctl", "reload"])
+        }
     }
+}
+
+/// The `localectl set-x11-keymap` line that changes only the layout.
+fn x11_keymap_args(layout: &str, model: &str, variant: &str, options: &str) -> Vec<String> {
+    let mut args = vec![
+        "localectl".to_string(),
+        "set-x11-keymap".to_string(),
+        layout.to_string(),
+    ];
+    // Trailing empty fields can be left off; a leading one must be passed
+    // as "" so the next field lands in the right place.
+    let rest = [model, variant, options];
+    let last = rest.iter().rposition(|f| !f.is_empty());
+    if let Some(last) = last {
+        args.extend(rest[..=last].iter().map(|f| f.to_string()));
+    }
+    args
 }
 
 /// `KEY=value` from a shell-style file, unquoted.
@@ -497,11 +586,47 @@ mod tests {
             parse_output(Parse::SecondToken, true, "band\t5\navailable\t5\n"),
             Some(json!("5"))
         );
+        // The pinned band is the `selected` line, not the one in use.
+        assert_eq!(
+            parse_output(
+                Parse::TokenOfLine("selected"),
+                true,
+                "band\t5\navailable\t5\nselected\tauto\n"
+            ),
+            Some(json!("auto"))
+        );
+        assert_eq!(
+            parse_output(Parse::TokenOfLine("selected"), true, "band\t5\n"),
+            None
+        );
         assert_eq!(
             parse_output(Parse::Int, true, "text size: 12 px\ngtk: 1.0\n"),
             Some(json!(12))
         );
         assert_eq!(parse_output(Parse::Succeeds, false, ""), Some(json!(false)));
+    }
+
+    #[test]
+    fn changing_the_layout_keeps_model_variant_and_options() {
+        assert_eq!(
+            x11_keymap_args("de", "pc105+inet", "", "terminate:ctrl_alt_bksp"),
+            [
+                "localectl",
+                "set-x11-keymap",
+                "de",
+                "pc105+inet",
+                "",
+                "terminate:ctrl_alt_bksp"
+            ]
+        );
+        assert_eq!(
+            x11_keymap_args("us", "", "intl", ""),
+            ["localectl", "set-x11-keymap", "us", "", "intl"]
+        );
+        assert_eq!(
+            x11_keymap_args("us", "", "", ""),
+            ["localectl", "set-x11-keymap", "us"]
+        );
         assert_eq!(parse_output(Parse::Fails, false, ""), Some(json!(true)));
         assert_eq!(
             parse_output(

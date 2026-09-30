@@ -47,15 +47,36 @@ pub const NAV_CONTEXT: &str = "ConfigNav";
 pub const CONTENT_CONTEXT: &str = "ConfigContent";
 
 pub mod config_nav {
-    gpui::actions!(config_nav, [Prev, Next, First, Last, Activate, Back]);
+    gpui::actions!(
+        config_nav,
+        [Prev, Next, First, Last, Activate, Back, FocusSearch]
+    );
 }
 
+/// The shortest text that reads back as the same number, so a value such
+/// as 0.0117 is shown as it is (not 0.012) and focusing the field and
+/// leaving it again changes nothing.
 fn format_number(value: f64) -> String {
     if value.fract() == 0.0 {
-        format!("{}", value as i64)
-    } else {
-        let text = format!("{value:.3}");
-        text.trim_end_matches('0').trim_end_matches('.').to_string()
+        return format!("{}", value as i64);
+    }
+    // Round away float noise (0.30000000000000004) but keep every digit
+    // the compositor reported.
+    let text = format!("{value:.6}");
+    text.trim_end_matches('0').trim_end_matches('.').to_string()
+}
+
+#[cfg(test)]
+mod format_tests {
+    use super::format_number;
+
+    #[test]
+    fn numbers_keep_their_digits_and_lose_float_noise() {
+        assert_eq!(format_number(5.0), "5");
+        assert_eq!(format_number(0.0117), "0.0117");
+        assert_eq!(format_number(0.8916), "0.8916");
+        assert_eq!(format_number(0.1 + 0.2), "0.3");
+        assert_eq!(format_number(-0.5), "-0.5");
     }
 }
 
@@ -212,6 +233,9 @@ struct OmarchyState {
     loaded: HashSet<usize>,
     loading: HashSet<usize>,
     errors: HashMap<&'static str, String>,
+    /// Items whose change runs in Omarchy's terminal; read back once it
+    /// is done, not the moment the terminal opens.
+    pending: HashSet<&'static str>,
 }
 
 #[derive(Clone, Debug)]
@@ -254,18 +278,41 @@ pub struct ConfigView {
     /// A save found `hyprland.lua` without Omarchist's require line and put
     /// it back; shown above the page until the view is rebuilt.
     hook_restored: bool,
+    /// The baseline changed off the UI thread; the number fields are
+    /// brought up to date on the next render (which has the window).
+    inputs_stale: bool,
+    /// A terminal action finished; the Omarchy values are re-read on the
+    /// next render (which has the window the loads need).
+    stale_after_terminal: bool,
+    /// The Hyprland settings could not be loaded (state file unreadable, no
+    /// compositor): every Hyprland control is disabled.
+    hyprland_unavailable: bool,
+    /// What `hyprctl configerrors` reported after the last save.
+    config_errors: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
 
 impl ConfigView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (config_manager, error) = match HyprlandConfigManager::load() {
-            Ok(manager) => (manager, None),
-            Err(e) => (
+        let (config_manager, error) = if !HyprlandConfigManager::compositor_reachable() {
+            (
                 HyprlandConfigManager::unavailable(),
-                Some(format!("Hyprland settings could not be loaded: {e}")),
-            ),
+                Some(
+                    "Hyprland is not running (or hyprctl is missing), so its settings cannot \
+                     be read or changed here"
+                        .to_string(),
+                ),
+            )
+        } else {
+            match HyprlandConfigManager::load() {
+                Ok(manager) => (manager, None),
+                Err(e) => (
+                    HyprlandConfigManager::unavailable(),
+                    Some(format!("Hyprland settings could not be loaded: {e}")),
+                ),
+            }
         };
+        let hyprland_unavailable = config_manager.is_unavailable();
 
         let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
         let mut layout_items: Vec<KeyboardLayoutItem> = match catalog {
@@ -342,6 +389,10 @@ impl ConfigView {
             nav_scroll: ScrollHandle::new(),
             error,
             hook_restored: false,
+            inputs_stale: false,
+            stale_after_terminal: false,
+            hyprland_unavailable,
+            config_errors: None,
             _subscriptions: subscriptions,
         };
 
@@ -374,11 +425,31 @@ impl ConfigView {
                 window,
                 move |this, input, event: &InputEvent, window, cx| match event {
                     InputEvent::Change => {
+                        // The hook fires even when a step at the range's
+                        // edge changes nothing; then the next Change is
+                        // typing, which waits for Enter or blur.
                         if stepped.take() {
-                            this.commit_number(item, input, cx);
+                            let typed = input.read(cx).value().trim().parse::<f64>().ok();
+                            let current = this.number_at(item);
+                            let is_step = typed.is_some_and(|t| {
+                                (t - current).abs() <= step + 1e-9 && t != current
+                            });
+                            if is_step {
+                                this.commit_number(item, input, cx);
+                            }
                         }
                     }
-                    InputEvent::PressEnter { .. } => this.commit_number(item, input, cx),
+                    InputEvent::PressEnter { .. } => {
+                        this.commit_number(item, input, cx);
+                        // Show what was written: a clamped or rounded value,
+                        // not the text as typed.
+                        let text = format_number(this.number_at(item));
+                        input.update(cx, |input, cx| {
+                            if input.value() != text {
+                                input.set_value(text, window, cx);
+                            }
+                        });
+                    }
                     // The window loses keyboard focus for a moment on every
                     // `hyprctl reload` a save triggers, which blurs the field
                     // while it stays the focused element; only a blur that
@@ -402,7 +473,33 @@ impl ConfigView {
         }
 
         this.load_page(this.active_page, window, cx);
+        // A page whose rows are disabled by a switch on another page (No
+        // Gaps on General disables Rounding on Appearance) needs that switch
+        // read whichever page opens first.
+        let gating: Vec<usize> = pages()
+            .enumerate()
+            .filter(|(_, page)| {
+                page.groups
+                    .iter()
+                    .flat_map(|g| g.items)
+                    .any(|item| items().any(|other| other.disabled_by == Some(item.id)))
+            })
+            .map(|(ix, _)| ix)
+            .collect();
+        for page_ix in gating {
+            this.load_page(page_ix, window, cx);
+        }
         this
+    }
+
+    /// Reads every Omarchy value, feature status and the software list
+    /// again: they change from Omarchy's own menu, the terminal actions run
+    /// from this page, and installs, none of which this page can observe.
+    pub fn refresh_omarchy_values(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.omarchy.loaded.clear();
+        self.software.loaded = false;
+        self.load_page(self.active_page, window, cx);
+        self.load_matching_pages(window, cx);
     }
 
     /// Focuses the page list, the page's first control.
@@ -415,11 +512,14 @@ impl ConfigView {
         match HyprlandConfigManager::load() {
             Ok(manager) => {
                 *self.config_manager.borrow_mut() = manager;
+                self.hyprland_unavailable = false;
                 self.error = None;
                 self.sync_inputs(window, cx);
                 cx.notify();
             }
             Err(e) => {
+                *self.config_manager.borrow_mut() = HyprlandConfigManager::unavailable();
+                self.hyprland_unavailable = true;
                 self.error = Some(format!("Hyprland settings could not be loaded: {e}"));
                 cx.notify();
             }
@@ -483,7 +583,10 @@ impl ConfigView {
         let Ok(typed) = input.read(cx).value().trim().parse::<f64>() else {
             return;
         };
-        if typed == self.number_at(item) {
+        let current = self.number_at(item);
+        // Unchanged, or the same text the field showed for the current
+        // value: nothing to write (and no reload to trigger).
+        if typed == current || input.read(cx).value().trim() == format_number(current) {
             return;
         }
         let value = self.number_value_for(item, typed.clamp(min, max));
@@ -506,16 +609,40 @@ impl ConfigView {
                 self.omarchy.errors.remove(item.id);
                 cx.notify();
                 let backing = *backing;
+                let in_terminal = matches!(backing.write, omarchy_settings::Write::Terminal(_));
+                // A toggle Omarchy applies through its own Hyprland reload
+                // changes the live values this page shows as the baseline.
+                let reloads_hyprland = matches!(
+                    backing.write,
+                    omarchy_settings::Write::Bool { .. }
+                        | omarchy_settings::Write::ToggleIfDifferent(_)
+                        | omarchy_settings::Write::X11Keymap
+                );
+                if in_terminal {
+                    self.omarchy.pending.insert(item.id);
+                }
                 cx.spawn(async move |this, cx| {
                     let wanted = value.clone();
                     let result = cx
                         .background_spawn(async move {
                             let result = omarchy_settings::write(&backing, &wanted);
-                            (result, omarchy_settings::read(&backing))
+                            let current = if in_terminal {
+                                // The terminal has only just opened; wait
+                                // for the value to change (or give up).
+                                omarchy_settings::read_until(
+                                    &backing,
+                                    &wanted,
+                                    Duration::from_secs(300),
+                                )
+                            } else {
+                                omarchy_settings::read(&backing)
+                            };
+                            (result, current)
                         })
                         .await;
                     this.update(cx, |this, cx| {
                         let (result, current) = result;
+                        this.omarchy.pending.remove(item.id);
                         // A script that did its work but ended with a slow
                         // `hyprctl reload` exits non-zero; the read-back is
                         // what counts.
@@ -533,11 +660,34 @@ impl ConfigView {
                         cx.notify();
                     })
                     .ok();
+                    if reloads_hyprland {
+                        this.update(cx, |this, cx| this.reload_baseline(cx)).ok();
+                    }
                 })
                 .detach();
             }
             Source::None => {}
         }
+    }
+
+    /// Re-reads the compositor's values (the baseline) off the UI thread,
+    /// keeping this page's overrides, after something outside this page
+    /// reloaded Hyprland.
+    fn reload_baseline(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let loaded = cx
+                .background_spawn(async { HyprlandConfigManager::load() })
+                .await;
+            this.update(cx, |this, cx| {
+                if let Ok(manager) = loaded {
+                    *this.config_manager.borrow_mut() = manager;
+                    this.inputs_stale = true;
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn set_hyprland(&mut self, path: &str, value: Value, cx: &mut Context<Self>) {
@@ -547,14 +697,60 @@ impl ConfigView {
 
     /// Drops the user's override so the setting follows Omarchy again, and
     /// shows the value it falls back to.
-    fn reset(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
-        self.config_manager.borrow_mut().reset(path);
+    fn reset(
+        &mut self,
+        item: &'static ItemDef,
+        path: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        // One component of a pair goes back to its baseline value; the
+        // other keeps the user's.
+        if let FieldDef::Pair { index, .. } = item.field
+            && let Some(Value::Array(base)) = self.config_manager.borrow().baseline_value(path)
+            && let Some(current) = self.item_value(item).and_then(|v| v.as_array().cloned())
+            && let Some(component) = base.get(index).cloned()
+        {
+            let mut pair = current;
+            pair.resize(2, Value::from(0.0));
+            pair[index] = component;
+            self.config_manager
+                .borrow_mut()
+                .set_value(path, Value::Array(pair));
+        } else {
+            self.config_manager.borrow_mut().reset(path);
+        }
         self.persist(cx);
         self.sync_inputs(window, cx);
     }
 
+    /// Keeps the keyboard on the page when the control it was on goes away
+    /// (a reset button unmounts): the content column's handle, from which
+    /// Tab continues down the page and Escape returns to the page list.
+    fn focus_row(&self, _item: &'static ItemDef, window: &mut Window, cx: &mut Context<Self>) {
+        self.content_focus.focus(window, cx);
+    }
+
     fn persist(&mut self, cx: &mut Context<Self>) {
         let saved = self.config_manager.borrow().save();
+        if saved.is_ok() {
+            // Reload, then ask what Hyprland rejected: a value another
+            // Hyprland version does not know must not look applied.
+            cx.spawn(async move |this, cx| {
+                let verdict = cx
+                    .background_spawn(async { manager::reload_hyprland_checked() })
+                    .await;
+                this.update(cx, |this, cx| {
+                    this.config_errors = match verdict {
+                        Ok(errors) => errors,
+                        Err(e) => Some(e.to_string()),
+                    };
+                    cx.notify();
+                })
+                .ok();
+            })
+            .detach();
+        }
         match saved {
             Ok(hook_restored) => {
                 if self
@@ -619,7 +815,10 @@ impl ConfigView {
         if terminal {
             let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
             match omarchy_settings::launch_in_terminal(&argv) {
-                Ok(()) => self.guard_require_line(cx),
+                Ok(()) => {
+                    self.guard_require_line(cx);
+                    self.refresh_after_terminal(cx);
+                }
                 Err(e) => {
                     self.omarchy.errors.insert(item.id, e.to_string());
                 }
@@ -727,6 +926,24 @@ impl ConfigView {
             return;
         }
         let _ = id;
+        self.refresh_after_terminal(cx);
+    }
+
+    /// Re-reads the Omarchy values once the terminal an action opened has
+    /// closed: that is when the install, removal or setup is done.
+    fn refresh_after_terminal(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            cx.background_spawn(async {
+                omarchy_settings::wait_for_terminal_to_close(Duration::from_secs(900))
+            })
+            .await;
+            this.update(cx, |this, cx| {
+                this.stale_after_terminal = true;
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn apply_load(&mut self, load: PageLoad, window: &mut Window, cx: &mut Context<Self>) {
@@ -830,8 +1047,16 @@ impl ConfigView {
 
     fn item_matches(item: &ItemDef, query: &str) -> bool {
         query.is_empty()
-            || item.label.to_lowercase().contains(query)
-            || item.description.to_lowercase().contains(query)
+            || Self::folds(item.label).contains(&Self::folds(query))
+            || Self::folds(item.description).contains(&Self::folds(query))
+    }
+
+    /// Lower case without spaces or hyphens, so "wifi" finds "Wi-Fi".
+    fn folds(text: &str) -> String {
+        text.chars()
+            .filter(|c| !matches!(c, ' ' | '-' | '_'))
+            .flat_map(char::to_lowercase)
+            .collect()
     }
 
     // ── rendering ────────────────────────────────────────────────────
@@ -921,13 +1146,18 @@ impl ConfigView {
         cx: &mut Context<Self>,
     ) -> AnyElement {
         let view = cx.entity();
+        let disabled = matches!(item.source, Source::Hyprland(_)) && self.hyprland_unavailable;
         Button::new(item.id)
             .label(label)
             .dropdown_caret(true)
             .outline()
             .small()
+            .disabled(disabled)
             .cursor_pointer()
             .dropdown_menu(move |menu, _, _| {
+                // Long lists (every monospace font) scroll instead of
+                // running off the window.
+                let menu = menu.scrollable(true).max_h(px(400.));
                 choices.iter().fold(menu, |menu, (value, label, checked)| {
                     let view = view.clone();
                     let value = value.clone();
@@ -953,7 +1183,10 @@ impl ConfigView {
             .disabled_by
             .and_then(|id| self.omarchy.values.get(id))
             .and_then(|v| v.as_bool())
-            .unwrap_or(false);
+            .unwrap_or(false)
+            // Nothing Hyprland-backed can be saved while the settings could
+            // not be loaded; the controls must not pretend otherwise.
+            || (matches!(item.source, Source::Hyprland(_)) && self.hyprland_unavailable);
         let control: AnyElement = match &item.field {
             FieldDef::Number { .. } | FieldDef::Pair { .. } => {
                 match self.number_inputs.get(item.id) {
@@ -972,6 +1205,7 @@ impl ConfigView {
                     .unwrap_or(false);
                 FocusableSwitch::new(item.id)
                     .checked(checked)
+                    .disabled(disabled)
                     .on_change(cx.listener(move |this, value, _, cx| {
                         this.write_item(item, Value::Bool(*value), cx);
                     }))
@@ -1133,11 +1367,13 @@ impl ConfigView {
                     .cursor_pointer()
                     .tooltip(format!("Reset to Omarchy's value: {fallback}"))
                     .on_click(cx.listener(move |this, _, window, cx| {
-                        this.reset(path, window, cx);
+                        this.reset(item, path, window, cx);
                         // The button disappears with the override; keep the
-                        // keyboard on the row's control.
-                        if let Some(input) = this.number_inputs.get(item.id) {
-                            input.read(cx).focus_handle(cx).focus(window, cx);
+                        // keyboard on the row's control (the number field,
+                        // or the row's own focus target for the rest).
+                        match this.number_inputs.get(item.id) {
+                            Some(input) => input.read(cx).focus_handle(cx).focus(window, cx),
+                            None => this.focus_row(item, window, cx),
                         }
                     }))
             })
@@ -1182,6 +1418,12 @@ impl ConfigView {
                     .text_xs()
                     .text_color(theme.danger)
                     .child(selectable("error", message))
+            }))
+            .children(self.omarchy.pending.contains(item.id).then(|| {
+                div()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child("Running in the terminal…")
             }))
     }
 
@@ -1242,20 +1484,33 @@ impl ConfigView {
             .get(&item.id)
             .copied()
             .unwrap_or_default();
-        // A menu entry with a condition knows whether it is installed; a
-        // plain action (a picker, a one-off setup) does not.
-        let (status, button, action) = if availability.remove {
-            let remove = item.remove.as_ref()?;
-            (Some("Installed"), "Remove…", remove.action.clone())
-        } else if availability.install {
-            (
-                (item.install.when.is_some() || item.remove.is_some()).then_some("Not installed"),
-                "Install…",
-                item.install.action.clone(),
-            )
-        } else {
+        // A menu entry with a condition knows whether it is installed
+        // (Omarchy hides the install entry once it is); a plain action (a
+        // picker such as Package or Theme) is offered as it is, with its
+        // remove counterpart beside it when the menu would show that too.
+        let remove = item
+            .remove
+            .as_ref()
+            .filter(|_| availability.remove)
+            .map(|r| ("Remove…", r.action.clone()));
+        let install = ("Install…", item.install.action.clone());
+        let (status, installed, buttons): (Option<&str>, bool, Vec<(&str, String)>) =
+            if item.install.when.is_some() {
+                if availability.install {
+                    (Some("Not installed"), false, vec![install])
+                } else {
+                    (Some("Installed"), true, remove.into_iter().collect())
+                }
+            } else {
+                (
+                    None,
+                    false,
+                    [Some(install), remove].into_iter().flatten().collect(),
+                )
+            };
+        if status.is_none() && buttons.is_empty() {
             return None;
-        };
+        }
         let id = item.id.clone();
         let element_id = ElementId::Name(format!("software-{group_ix}-{}", item.id).into());
         Some(
@@ -1281,26 +1536,37 @@ impl ConfigView {
                         .children(status.map(|status| {
                             div()
                                 .text_sm()
-                                .text_color(if availability.remove {
+                                .text_color(if installed {
                                     theme.success
                                 } else {
                                     theme.muted_foreground
                                 })
                                 .child(status)
                         }))
-                        .child(
-                            Button::new(ElementId::Name(
-                                format!("software-action-{group_ix}-{}", item.id).into(),
-                            ))
-                            .label(button)
-                            .outline()
-                            .small()
-                            .cursor_pointer()
-                            .on_click(cx.listener(
-                                move |this, _, _, cx| {
-                                    this.run_software_action(id.clone(), action.clone(), cx);
-                                },
-                            )),
+                        .children(
+                            buttons
+                                .into_iter()
+                                .enumerate()
+                                .map(|(ix, (label, action))| {
+                                    let id = id.clone();
+                                    Button::new(ElementId::Name(
+                                        format!("software-action-{group_ix}-{}-{ix}", item.id)
+                                            .into(),
+                                    ))
+                                    .label(label)
+                                    .outline()
+                                    .small()
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(
+                                        move |this, _, _, cx| {
+                                            this.run_software_action(
+                                                id.clone(),
+                                                action.clone(),
+                                                cx,
+                                            );
+                                        },
+                                    ))
+                                }),
                         ),
                 )
                 .into_any_element(),
@@ -1371,6 +1637,44 @@ impl ConfigView {
         sections
     }
 
+    /// Load and save errors, the restored require line, and what Hyprland
+    /// rejected after the last save.
+    fn render_banners(&self, cx: &mut Context<Self>) -> Option<impl IntoElement> {
+        let theme = cx.theme();
+        let mut lines: Vec<AnyElement> = Vec::new();
+        if let Some(error) = &self.error {
+            lines.push(
+                div()
+                    .text_sm()
+                    .text_color(theme.danger)
+                    .child(selectable("config-error", error.clone()))
+                    .into_any_element(),
+            );
+        }
+        if self.hook_restored {
+            lines.push(
+                div()
+                    .text_sm()
+                    .text_color(theme.warning)
+                    .child(selectable("config-hook-restored", HOOK_RESTORED_MESSAGE))
+                    .into_any_element(),
+            );
+        }
+        if let Some(errors) = &self.config_errors {
+            lines.push(
+                div()
+                    .text_sm()
+                    .text_color(theme.danger)
+                    .child(selectable(
+                        "config-errors",
+                        format!("Hyprland rejected part of its config: {errors}"),
+                    ))
+                    .into_any_element(),
+            );
+        }
+        (!lines.is_empty()).then(|| v_flex().gap_1().children(lines))
+    }
+
     fn render_content(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let query = self.query(cx);
         let muted = cx.theme().muted_foreground;
@@ -1385,27 +1689,18 @@ impl ConfigView {
         };
 
         let mut sections: Vec<AnyElement> = Vec::new();
-        if let Some(error) = &self.error {
-            sections.push(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().danger)
-                    .child(selectable("config-error", error.clone()))
-                    .into_any_element(),
-            );
-        }
-        if self.hook_restored {
-            sections.push(
-                div()
-                    .text_sm()
-                    .text_color(cx.theme().warning)
-                    .child(selectable("config-hook-restored", HOOK_RESTORED_MESSAGE))
-                    .into_any_element(),
-            );
-        }
         for (page_ix, page) in shown {
             let dynamic = page.dynamic.is_some();
+            // While searching, only a page with a matching item is worth a
+            // "Reading…" placeholder; the others are simply not shown.
+            let has_match = query.is_empty()
+                || page
+                    .groups
+                    .iter()
+                    .flat_map(|g| g.items)
+                    .any(|item| Self::item_matches(item, &query));
             let loading = !dynamic
+                && has_match
                 && page.group == PageGroup::Omarchy
                 && !self.omarchy.loaded.contains(&page_ix);
             let groups: Vec<AnyElement> = if dynamic {
@@ -1479,10 +1774,21 @@ impl ConfigView {
 
 impl Render for ConfigView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if std::mem::take(&mut self.inputs_stale) {
+            self.sync_inputs(window, cx);
+        }
+        if std::mem::take(&mut self.stale_after_terminal) {
+            self.refresh_omarchy_values(window, cx);
+        }
         v_flex()
             .id("config-view-root")
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
+            .on_action(
+                cx.listener(|this, _: &config_nav::FocusSearch, window, cx| {
+                    this.search.update(cx, |input, cx| input.focus(window, cx));
+                }),
+            )
             .size_full()
             .gap_4()
             .child(
@@ -1493,6 +1799,9 @@ impl Render for ConfigView {
                         .prefix(Icon::new(IconName::Search).size_4()),
                 ),
             )
+            // Problems stay in view above the scrolling column, whatever
+            // page or scroll position the user is on.
+            .children(self.render_banners(cx))
             .child(
                 // Not `h_flex`: its `items_center` would stop the content pane from
                 // filling the row height, which it needs to scroll.
@@ -1741,6 +2050,7 @@ mod tests {
                                 check(argv[0], item.id);
                             }
                         }
+                        Write::X11Keymap => check("localectl", item.id),
                         Write::ShellJson(_) => {}
                     }
                 }

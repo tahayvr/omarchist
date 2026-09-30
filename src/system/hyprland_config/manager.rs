@@ -78,6 +78,22 @@ impl HyprlandConfigManager {
         }
     }
 
+    /// Nothing can be saved: `load` failed and this is the stand-in.
+    pub fn is_unavailable(&self) -> bool {
+        self.unavailable
+    }
+
+    /// Whether the compositor answered when the baseline was read. Without
+    /// it (no Hyprland, or `hyprctl` missing) the baseline is Hyprland's
+    /// stock defaults, which is not what the user's desktop runs.
+    pub fn compositor_reachable() -> bool {
+        Command::new("hyprctl")
+            .args(["-j", "version"])
+            .stdin(std::process::Stdio::null())
+            .output()
+            .is_ok_and(|o| o.status.success())
+    }
+
     /// The settings in effect: the baseline with the overrides applied.
     pub fn effective(&self) -> HyprlandConfig {
         let mut value = self.baseline.clone();
@@ -104,6 +120,9 @@ impl HyprlandConfigManager {
     /// Records the user's choice. Choosing the baseline value again removes
     /// the override, so the key follows Omarchy from then on.
     pub fn set_value(&mut self, path: &str, value: Value) {
+        if self.unavailable {
+            return;
+        }
         match self.baseline_value(path) {
             Some(base) if baseline::values_equal(&base, &value) => {
                 baseline::remove_path(&mut self.overrides, path);
@@ -135,9 +154,9 @@ impl HyprlandConfigManager {
             ));
         }
         write_state(&self.state_path, &self.overrides)?;
-        let hook_restored = write_omarchist_lua(&self.overrides)?;
-        reload_hyprland();
-        Ok(hook_restored)
+        // The caller reloads Hyprland (checked, so a rejected value is
+        // reported rather than shown as applied).
+        write_omarchist_lua(&self.overrides)
     }
 
     pub fn config_path(&self) -> Result<PathBuf> {
@@ -189,13 +208,15 @@ fn load_overrides(state_path: &Path, scanned: &Scanned) -> Result<Value> {
     }
     let content =
         fs::read_to_string(state_path).map_err(|e| Error::io("Failed to read state file", e))?;
-    let parsed: Value = match serde_json::from_str(&content) {
-        Ok(value) => value,
-        Err(e) => {
-            eprintln!("Ignoring unreadable Hyprland state file: {e}");
-            return Ok(Value::Object(Map::new()));
-        }
-    };
+    // A file that does not parse is an error, not "no overrides": the
+    // page then refuses to save (so nothing replaces it) and says why,
+    // instead of every setting silently reading as Omarchy's.
+    let parsed: Value = serde_json::from_str(&content).map_err(|e| {
+        Error::Invalid(format!(
+            "{} could not be read (fix or remove it): {e}",
+            state_path.display()
+        ))
+    })?;
     if let Ok(state) = serde_json::from_value::<StateFile>(parsed.clone())
         && state.version >= STATE_VERSION
     {
