@@ -3,6 +3,7 @@ use std::fs;
 use std::path::PathBuf;
 
 use crate::error::{Error, Result};
+use crate::system::fs::write_atomic;
 use crate::system::hyprland_config::manager;
 use crate::system::omarchy_paths::omarchist_hyprland_dir;
 
@@ -29,8 +30,9 @@ pub fn load_overrides() -> Result<KeybindOverrides> {
 }
 
 /// Validates, writes the json, regenerates `omarchist.lua` (settings and
-/// keybinds together) and asks Hyprland to reload.
-pub fn save_overrides(overrides: &KeybindOverrides) -> Result<()> {
+/// keybinds together) and asks Hyprland to reload. `Ok(true)` when the
+/// `require` line in `hyprland.lua` had to be restored on the way.
+pub fn save_overrides(overrides: &KeybindOverrides) -> Result<bool> {
     overrides.validate()?;
 
     let path = overrides_path()?;
@@ -41,9 +43,9 @@ pub fn save_overrides(overrides: &KeybindOverrides) -> Result<()> {
     }
     let content = serde_json::to_string_pretty(overrides)
         .map_err(|e| Error::json("Failed to serialize keybinds", e))?;
-    fs::write(&path, content).map_err(|e| Error::io("Failed to write keybinds.json", e))?;
+    write_atomic(&path, content, "keybinds.json")?;
 
-    manager::write_omarchist_lua(&manager::saved_overrides())?;
+    let hook_restored = manager::write_omarchist_lua(&manager::saved_overrides())?;
     manager::reload_hyprland();
-    Ok(())
+    Ok(hook_restored)
 }

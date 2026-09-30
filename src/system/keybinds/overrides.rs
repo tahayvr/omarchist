@@ -195,11 +195,17 @@ fn validate_dispatcher(dispatcher: &Dispatcher) -> Result<()> {
     }
 }
 
-/// `hl.dsp.<path>(<args>)` on one line: the parenthesis opened after the
-/// path closes at the last character, so nothing can be chained after the
-/// call (`hl.dsp.a() or os.execute(..) or hl.dsp.b()`), and there are no
-/// statement separators. This is exactly the shape the scanner reconstructs.
+/// `hl.dsp.<path>(<literal args>)` on one line, and nothing else: the
+/// arguments may only be string, number, boolean and `nil` literals and
+/// tables of those, which is everything the scanner ever reconstructs and
+/// everything the action builder ever produces. Identifiers, calls and
+/// operators inside the parentheses are rejected, so a hand-edited json or
+/// an imported flow cannot smuggle `os.execute(..)` into the compositor as
+/// an argument (`hl.dsp.focus(os.execute("x"))` is a valid Lua call).
 pub(crate) fn is_dsp_call(expr: &str) -> bool {
+    if expr.contains(['\n', '\r']) {
+        return false;
+    }
     let Some(rest) = expr.strip_prefix("hl.dsp.") else {
         return false;
     };
@@ -207,51 +213,188 @@ pub(crate) fn is_dsp_call(expr: &str) -> bool {
         return false;
     };
     let path = &rest[..open];
-    let args = &rest[open..];
-    !path.is_empty()
-        && path
-            .chars()
-            .all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '.')
-        && !path.starts_with('.')
-        && !path.ends_with('.')
-        && args.ends_with(')')
-        && !args.contains(['\n', '\r', ';'])
-        && closes_at_end(args)
+    if !path.split('.').all(is_identifier) {
+        return false;
+    }
+    let mut parser = LiteralArgs {
+        chars: rest[open..].chars().collect(),
+        pos: 0,
+    };
+    parser.call_args() && parser.pos == parser.chars.len()
 }
 
-/// Whether `text`, which starts with `(`, is one parenthesised group: the
-/// first parenthesis closes at the last character and quotes are closed.
-fn closes_at_end(text: &str) -> bool {
-    let mut depth = 0i32;
-    let mut in_string: Option<char> = None;
-    let mut escaped = false;
-    for (i, c) in text.char_indices() {
-        if let Some(quote) = in_string {
-            if escaped {
-                escaped = false;
-            } else if c == '\\' {
-                escaped = true;
-            } else if c == quote {
-                in_string = None;
-            }
-            continue;
-        }
-        match c {
-            '"' | '\'' => in_string = Some(c),
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth < 0 {
-                    return false;
-                }
-                if depth == 0 && i + c.len_utf8() != text.len() {
-                    return false;
-                }
-            }
-            _ => {}
+fn is_identifier(word: &str) -> bool {
+    let mut chars = word.chars();
+    chars
+        .next()
+        .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        && chars.all(|c| c.is_ascii_alphanumeric() || c == '_')
+}
+
+/// Recursive-descent parser for a parenthesised list of Lua literals.
+struct LiteralArgs {
+    chars: Vec<char>,
+    pos: usize,
+}
+
+impl LiteralArgs {
+    fn peek(&self) -> Option<char> {
+        self.chars.get(self.pos).copied()
+    }
+
+    fn eat(&mut self, expected: char) -> bool {
+        if self.peek() == Some(expected) {
+            self.pos += 1;
+            true
+        } else {
+            false
         }
     }
-    depth == 0 && in_string.is_none()
+
+    fn skip_spaces(&mut self) {
+        while self.peek().is_some_and(|c| c == ' ' || c == '\t') {
+            self.pos += 1;
+        }
+    }
+
+    /// `( value, value, ... )`
+    fn call_args(&mut self) -> bool {
+        if !self.eat('(') {
+            return false;
+        }
+        self.skip_spaces();
+        if self.eat(')') {
+            return true;
+        }
+        loop {
+            if !self.value() {
+                return false;
+            }
+            self.skip_spaces();
+            if self.eat(')') {
+                return true;
+            }
+            if !self.eat(',') {
+                return false;
+            }
+            self.skip_spaces();
+        }
+    }
+
+    fn value(&mut self) -> bool {
+        self.skip_spaces();
+        match self.peek() {
+            Some('"') | Some('\'') => self.string(),
+            Some('{') => self.table(),
+            Some(c) if c == '-' || c.is_ascii_digit() => self.number(),
+            Some(c) if c.is_ascii_alphabetic() => {
+                let word = self.word();
+                matches!(word.as_str(), "true" | "false" | "nil")
+            }
+            _ => false,
+        }
+    }
+
+    fn word(&mut self) -> String {
+        let start = self.pos;
+        while self
+            .peek()
+            .is_some_and(|c| c.is_ascii_alphanumeric() || c == '_')
+        {
+            self.pos += 1;
+        }
+        self.chars[start..self.pos].iter().collect()
+    }
+
+    /// A quoted string; any backslash escape is accepted as two characters.
+    fn string(&mut self) -> bool {
+        let Some(quote) = self.peek() else {
+            return false;
+        };
+        self.pos += 1;
+        loop {
+            match self.peek() {
+                None => return false,
+                Some('\\') => self.pos += 2,
+                Some(c) if c == quote => {
+                    self.pos += 1;
+                    return true;
+                }
+                Some(_) => self.pos += 1,
+            }
+        }
+    }
+
+    /// `-12`, `1.5`, `1e+20`, `0x1f`.
+    fn number(&mut self) -> bool {
+        self.eat('-');
+        let start = self.pos;
+        while self
+            .peek()
+            .is_some_and(|c| c.is_ascii_hexdigit() || matches!(c, '.' | 'x' | 'X' | '+' | '-'))
+        {
+            // A sign is only part of an exponent.
+            if matches!(self.peek(), Some('+') | Some('-'))
+                && !matches!(self.chars.get(self.pos - 1), Some('e') | Some('E'))
+            {
+                break;
+            }
+            self.pos += 1;
+        }
+        self.pos > start && self.chars[start].is_ascii_digit()
+    }
+
+    /// `{ value, key = value, ["key"] = value }` with an optional trailing comma.
+    fn table(&mut self) -> bool {
+        if !self.eat('{') {
+            return false;
+        }
+        loop {
+            self.skip_spaces();
+            if self.eat('}') {
+                return true;
+            }
+            if !self.entry() {
+                return false;
+            }
+            self.skip_spaces();
+            if self.eat('}') {
+                return true;
+            }
+            if !self.eat(',') {
+                return false;
+            }
+        }
+    }
+
+    fn entry(&mut self) -> bool {
+        self.skip_spaces();
+        if self.eat('[') {
+            if !self.value() {
+                return false;
+            }
+            self.skip_spaces();
+            if !self.eat(']') {
+                return false;
+            }
+            self.skip_spaces();
+            return self.eat('=') && self.value();
+        }
+        if self
+            .peek()
+            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
+        {
+            let start = self.pos;
+            let word = self.word();
+            self.skip_spaces();
+            if self.eat('=') {
+                return is_identifier(&word) && self.value();
+            }
+            // Not a key: a bare literal such as `true`.
+            self.pos = start;
+        }
+        self.value()
+    }
 }
 
 /// The other binds on `target`'s chord that `hl.unbind` will remove and that
@@ -497,6 +640,46 @@ hl.bind(\"SUPER + SHIFT + R\", hl.dsp.exec_cmd(\"alacritty -e ssh \\\"box\\\"\")
         assert!(!is_dsp_call("hl.dsp.window.close()()"));
         assert!(!is_dsp_call("hl.dsp.a() .. hl.dsp.b()"));
         assert!(!is_dsp_call("hl.dsp.a(); os.exit()"));
+    }
+
+    #[test]
+    fn dsp_call_arguments_must_be_literals() {
+        // Every shape the scanner reconstructs and the builder produces.
+        for ok in [
+            "hl.dsp.window.resize({ x = 0, y = -100, relative = true })",
+            "hl.dsp.window.move({ workspace = \"3\", follow = false })",
+            "hl.dsp.window.cycle_next({ next = false })",
+            "hl.dsp.layout(\"togglesplit\")",
+            "hl.dsp.send_key_state({ mods = \"SUPER\", key = \"a\", state = \"down\" })",
+            "hl.dsp.group.active({ index = 2 })",
+            "hl.dsp.exec_cmd('single quotes')",
+            r#"hl.dsp.exec_cmd("escaped \" quote and \\ backslash")"#,
+            "hl.dsp.a(1.5, 1e+20, 0x1f, nil, { 1, 2, [\"k\"] = \"v\", [3] = true, })",
+            "hl.dsp.a({})",
+            "hl.dsp.a( )",
+        ] {
+            assert!(is_dsp_call(ok), "{ok}");
+        }
+        for bad in [
+            r#"hl.dsp.focus(os.execute("curl x | sh"))"#,
+            "hl.dsp.focus({ direction = os.getenv(\"X\") })",
+            "hl.dsp.focus({ [os.exit()] = 1 })",
+            "hl.dsp.focus(hl.dsp.window.close())",
+            "hl.dsp.focus(x)",
+            "hl.dsp.focus(1 + 1)",
+            "hl.dsp.focus(\"a\" .. \"b\")",
+            "hl.dsp.focus(function() end)",
+            "hl.dsp.focus({ f = function() end })",
+            "hl.dsp.focus(-x)",
+            "hl.dsp.focus(\"unterminated)",
+            "hl.dsp.focus(\"multi\nline\")",
+            "hl.dsp..focus()",
+            "hl.dsp.focus[1]()",
+            "hl.dsp.focus() -- comment",
+            "hl.dsp.focus(--[[ ]] 1)",
+        ] {
+            assert!(!is_dsp_call(bad), "{bad}");
+        }
     }
 
     /// Every Lua bind in the installed Omarchy config passes the guard, so

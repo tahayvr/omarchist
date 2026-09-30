@@ -66,8 +66,10 @@ The **Action** section builds the command for you; the line under it shows exact
 
 Omarchy declares binds in Lua, so Omarchist reads your `hyprland.lua` the same way Omarchy's keybinding menu does and records every bind. Your changes are saved to `~/.config/omarchist/hyprland/keybinds.json` and written as `hl.unbind` and `hl.bind` calls into `~/.config/hypr/omarchist.lua`, which loads after your `bindings.lua`. Hyprland reloads immediately, and your own files are never edited.
 
-While recording, Omarchist switches Hyprland into an empty submap so your shortcuts do not fire, and switches back when recording ends. An input method such as fcitx5 keeps its own hotkeys, so type those combinations instead of pressing them. If Omarchist is killed mid-recording and your shortcuts stop responding, run:
+While recording, Omarchist switches Hyprland into an empty submap so your shortcuts do not fire, and switches back when recording ends. An input method such as fcitx5 keeps its own hotkeys, so type those combinations instead of pressing them. If Omarchist is killed mid-recording and your shortcuts stop responding, press <kbd>Super</kbd> + <kbd>Shift</kbd> + <kbd>Escape</kbd> (the one shortcut the recording submap keeps), start Omarchist again (every launch leaves the submap), or run:
 
 ```bash
 hyprctl dispatch 'hl.dsp.submap("reset")'
 ```
+
+Because that chord belongs to the recorder, you cannot record it; type it instead.

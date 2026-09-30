@@ -2,6 +2,7 @@ pub mod apps;
 pub mod bar_widget;
 pub mod config;
 pub mod flows;
+pub mod fs;
 pub mod hyprland_config;
 pub mod instance;
 pub mod keybinds;

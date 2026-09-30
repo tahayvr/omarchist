@@ -182,10 +182,34 @@ async fn command_palette_runs_the_chosen_command(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestAppContext) {
-    let (_handle, view) = open(cx, ActivePage::ThemeEdit("not-an-omarchist-theme".into()));
+async fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::ThemeEdit("not-an-omarchist-theme".into()));
     cx.run_until_parked();
     assert_page(cx, &view, ActivePage::Themes);
+    // The refusal is explained with a toast, which only exists on screen
+    // when the main view renders the notification layer.
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, _| {
+        window
+            .try_find("notification")
+            .is_some_and(|toast| toast.visible())
+    })
+    .await;
+}
+
+#[gpui_kit::test]
+async fn notifications_are_shown(cx: &mut TestAppContext) {
+    let (handle, _) = open(cx, ActivePage::Themes);
+    cx.update_window(handle.into(), |_, window, cx| {
+        assert!(window.try_find("notification").is_none());
+        window.push_notification("Saved 'test'", cx);
+    })
+    .unwrap();
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, _| {
+        window
+            .try_find("notification")
+            .is_some_and(|toast| toast.visible())
+    })
+    .await;
 }
 
 #[gpui_kit::test]

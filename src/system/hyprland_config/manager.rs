@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::error::{Error, Result};
+use crate::system::fs::write_atomic;
 use crate::system::omarchy_paths::{omarchist_hyprland_dir, user_hyprland_config_dir};
 use crate::types::hyprland_config::HyprlandConfig;
 
@@ -124,16 +125,19 @@ impl HyprlandConfigManager {
         &self.overrides
     }
 
-    pub fn save(&self) -> Result<()> {
+    /// Saves and applies the overrides. `Ok(true)` when the `require` line
+    /// in `hyprland.lua` had gone missing and was put back (see
+    /// `write_omarchist_lua`).
+    pub fn save(&self) -> Result<bool> {
         if self.unavailable {
             return Err(Error::Invalid(
                 "Hyprland settings could not be loaded, so they are not saved".into(),
             ));
         }
         write_state(&self.state_path, &self.overrides)?;
-        write_omarchist_lua(&self.overrides)?;
+        let hook_restored = write_omarchist_lua(&self.overrides)?;
         reload_hyprland();
-        Ok(())
+        Ok(hook_restored)
     }
 
     pub fn config_path(&self) -> Result<PathBuf> {
@@ -218,7 +222,7 @@ fn write_state(state_path: &Path, overrides: &Value) -> Result<()> {
     };
     let content = serde_json::to_string_pretty(&state)
         .map_err(|e| Error::json("Failed to serialize Hyprland state", e))?;
-    fs::write(state_path, content).map_err(|e| Error::io("Failed to write state file", e))
+    write_atomic(state_path, content, "the Hyprland state file")
 }
 
 /// Asks Hyprland to re-read its config, in the background so saves never
@@ -255,7 +259,13 @@ pub fn saved_overrides() -> Value {
 /// Regenerates `~/.config/hypr/omarchist.lua` from the overrides plus the
 /// saved keybind overrides. Both the Configuration page and the Keybinds
 /// page go through here so neither can drop the other's section.
-pub fn write_omarchist_lua(overrides: &Value) -> Result<()> {
+///
+/// Also makes sure `hyprland.lua` still requires the file: Omarchy's
+/// `omarchy-refresh-hyprland` (the Configuration page's "Reset" runs it)
+/// replaces the user's `hyprland.lua` with a copy that has no such line,
+/// after which every save here would be inert. `Ok(true)` when the line had
+/// to be put back, so the caller can say so.
+pub fn write_omarchist_lua(overrides: &Value) -> Result<bool> {
     let keybinds = crate::system::keybinds::store::load_overrides()
         .unwrap_or_default()
         .valid_only();
@@ -264,10 +274,10 @@ pub fn write_omarchist_lua(overrides: &Value) -> Result<()> {
     let lua_path = get_lua_path()?;
     // Hyprland reloads on every write to ~/.config/hypr, so leave an
     // up-to-date file alone.
-    if fs::read_to_string(&lua_path).is_ok_and(|current| current == lua_content) {
-        return Ok(());
+    if !fs::read_to_string(&lua_path).is_ok_and(|current| current == lua_content) {
+        write_atomic(&lua_path, lua_content, "omarchist.lua")?;
     }
-    fs::write(&lua_path, lua_content).map_err(|e| Error::io("Failed to write omarchist.lua", e))
+    crate::system::config::hypr_setup::ensure_require_line()
 }
 
 fn get_state_path() -> Result<PathBuf> {
@@ -298,7 +308,7 @@ pub fn delete_config() -> Result<()> {
         fs::remove_file(&state_path).map_err(|e| Error::io("Failed to delete state file", e))?;
     }
     // Keep the file (hyprland.lua requires it) with only the keybinds left.
-    write_omarchist_lua(&Value::Object(Map::new()))
+    write_omarchist_lua(&Value::Object(Map::new())).map(|_| ())
 }
 
 #[cfg(test)]

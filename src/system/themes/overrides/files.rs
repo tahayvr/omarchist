@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use crate::error::{Error, Result};
 use crate::shell::theme_sh_commands::theme_color_all;
+use crate::system::fs::write_atomic;
 use crate::system::omarchy_paths::{themed_templates_dir, user_themed_templates_dir};
 use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
@@ -46,12 +47,7 @@ pub fn read(theme: &str, spec: &OverrideSpec) -> Result<Option<String>> {
 pub fn write(theme: &str, spec: &OverrideSpec, content: &str) -> Result<()> {
     validate(spec, content)?;
 
-    let dir = theme_dir(theme)?;
-    // A dotfile: `omarchy-theme-set` copies the folder with `*`, which skips it.
-    let tmp = dir.join(format!(".{}.tmp", spec.file));
-    fs::write(&tmp, content).map_err(|e| Error::io(format!("Failed to write {}", spec.file), e))?;
-    fs::rename(&tmp, dir.join(spec.file))
-        .map_err(|e| Error::io(format!("Failed to write {}", spec.file), e))
+    write_atomic(&theme_dir(theme)?.join(spec.file), content, spec.file)
 }
 
 /// Deletes the theme's copy so Omarchy generates the file again.

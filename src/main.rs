@@ -42,19 +42,20 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
 
 /// Answers other launches over the instance socket: brings the window
 /// forward and navigates to the requested page.
-fn serve_open_requests(cx: &mut App) {
-    let Some(listener) = instance::listen() else {
-        return;
-    };
+fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App) {
     let listener = std::sync::Arc::new(listener);
     cx.spawn(async move |cx| {
         loop {
             let accepting = listener.clone();
-            let Some(request) = cx
+            let request = match cx
                 .background_spawn(async move { instance::accept(&accepting) })
                 .await
-            else {
-                break;
+            {
+                instance::Accepted::Request(request) => request,
+                // A peer that sent nothing usable must not stop the server,
+                // or every later launch opens another window.
+                instance::Accepted::Rejected => continue,
+                instance::Accepted::Gone => break,
             };
             let page = match (request.view.as_deref(), request.theme) {
                 (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
@@ -144,6 +145,19 @@ fn main() -> ExitCode {
     if instance::forward(&request) {
         return ExitCode::SUCCESS;
     }
+    // Own the socket before the window exists, so two launches in the same
+    // instant cannot both open a window: the one that loses the bind hands
+    // its request to the winner.
+    let listener = match instance::listen() {
+        instance::Listen::Bound(listener) => Some(listener),
+        instance::Listen::Taken => {
+            if instance::forward(&request) {
+                return ExitCode::SUCCESS;
+            }
+            None
+        }
+        instance::Listen::Unavailable => None,
+    };
 
     let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
@@ -161,12 +175,16 @@ fn main() -> ExitCode {
         });
         let initial_page = cli_args_to_active_page(&cli_args, &settings);
 
-        if let Err(e) = hypr_setup::ensure_hypr_source() {
-            eprintln!("Failed to set up Hyprland config: {}", e);
+        match hypr_setup::ensure_hypr_source() {
+            Ok(true) => println!("Added the omarchist require line to hyprland.lua"),
+            Ok(false) => {}
+            Err(e) => eprintln!("Failed to set up Hyprland config: {}", e),
         }
 
         cx.set_global(AppEvents::default());
-        serve_open_requests(cx);
+        if let Some(listener) = listener {
+            serve_open_requests(listener, cx);
+        }
         if settings.settings.bar_widget {
             std::thread::spawn(|| {
                 if let Err(e) = omarchist::system::bar_widget::ensure_current() {
@@ -225,8 +243,12 @@ fn main() -> ExitCode {
             app_events::emit(cx, AppEvent::ToggleSidebar);
         });
 
-        // Never leave Hyprland stuck in the keystroke-recording submap, and
-        // let the next launch open its own window.
+        // Never leave Hyprland stuck in the keystroke-recording submap: a
+        // previous instance may have died while recording, a panic must
+        // leave it before the abort, and quitting leaves it too. The
+        // socket is removed on quit so the next launch opens its own window.
+        omarchist::system::keybinds::submap::install_panic_hook();
+        std::thread::spawn(omarchist::system::keybinds::submap::reset_on_startup);
         cx.on_app_quit(|_cx| {
             omarchist::system::keybinds::submap::leave_recording_submap();
             instance::remove_socket();

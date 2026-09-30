@@ -10,6 +10,7 @@ use serde_json::{Map, Value};
 
 use crate::assets::{extract_default_dir, read_default_str};
 use crate::error::{Error, Result};
+use crate::system::fs::write_atomic;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SettingsSchema {
@@ -110,8 +111,7 @@ pub fn ensure_config() -> Result<()> {
         let updated_content = content
             .replace("{{CREATED_AT}}", &timestamp)
             .replace("{{MODIFIED_AT}}", &timestamp);
-        fs::write(&settings_path, updated_content)
-            .map_err(|e| Error::io("Failed to write settings.json", e))?;
+        write_atomic(&settings_path, updated_content, "settings.json")?;
     }
 
     println!("Created default config at: {:?}", config_dir);
@@ -181,7 +181,7 @@ pub fn save_settings(settings: &SettingsSchema) -> Result<()> {
     let content = serde_json::to_string_pretty(settings)
         .map_err(|e| Error::json("Failed to serialize settings", e))?;
 
-    fs::write(&path, content).map_err(|e| Error::io("Failed to write settings", e))?;
+    write_atomic(&path, content, "settings.json")?;
 
     Ok(())
 }
@@ -312,7 +312,7 @@ fn migrate_settings_file(settings_path: &Path) -> Result<()> {
     let merged = merge_settings(&user, &defaults);
     let content = serde_json::to_string_pretty(&merged)
         .map_err(|e| Error::json("Failed to serialize settings", e))?;
-    fs::write(settings_path, content).map_err(|e| Error::io("Failed to write settings.json", e))
+    write_atomic(settings_path, content, "settings.json")
 }
 
 /// The defaults with the user's values on top: every key under `settings`
@@ -360,7 +360,7 @@ fn same_kind(a: &Value, b: &Value) -> bool {
 // Copies settings.json from defaults when it doesn't exist
 fn copy_settings_from_default(settings_path: &Path) -> Result<()> {
     let content = default_settings_content(&Utc::now().to_rfc3339())?;
-    fs::write(settings_path, content).map_err(|e| Error::io("Failed to write settings.json", e))
+    write_atomic(settings_path, content, "settings.json")
 }
 
 // Pre-Quattro versions of Omarchist generated a hyprlang

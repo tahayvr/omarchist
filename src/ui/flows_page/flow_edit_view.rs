@@ -17,6 +17,7 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::requirements::{missing_programs, program_of};
 use crate::system::flows::runner::{Outcome, RunEvent, Runner};
 use crate::system::flows::share::Imported;
@@ -539,8 +540,11 @@ impl FlowEditPage {
             save_overrides(&overrides)
         });
         match result {
-            Ok(()) => {
+            Ok(hook_restored) => {
                 window.push_notification("Keybind saved", cx);
+                if hook_restored {
+                    window.push_notification(HOOK_RESTORED_MESSAGE, cx);
+                }
                 self.load_context(cx);
             }
             Err(e) => window.push_notification(format!("Could not save the keybind: {e}"), cx),

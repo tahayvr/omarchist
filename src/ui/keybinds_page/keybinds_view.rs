@@ -20,6 +20,7 @@ use gpui_component::{
     v_flex,
 };
 
+use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::conflicts::find_conflicts;
 use crate::system::keybinds::overrides::{KeybindOverrides, Override, restore_specs};
@@ -600,10 +601,13 @@ impl KeybindsView {
         let mut overrides = self.overrides.clone();
         mutate(&mut overrides);
         match save_overrides(&overrides) {
-            Ok(()) => {
+            Ok(hook_restored) => {
                 self.overrides = overrides;
                 self.close_dialog(window, cx);
                 window.push_notification(success, cx);
+                if hook_restored {
+                    window.push_notification(HOOK_RESTORED_MESSAGE, cx);
+                }
                 self.pending_reselect = reselect;
                 self.refresh(window, cx);
             }

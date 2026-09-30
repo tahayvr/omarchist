@@ -12,6 +12,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
+use std::time::Duration;
 
 use gpui::*;
 use gpui_component::{
@@ -29,7 +30,9 @@ use gpui_component::{
 
 use serde_json::Value;
 
+use crate::system::config::hypr_setup::{self, HOOK_RESTORED_MESSAGE};
 use crate::system::hyprland_config::HyprlandConfigManager;
+use crate::system::hyprland_config::manager;
 use crate::system::omarchy_settings::{self, Choice};
 use crate::system::software_catalog::{self, Availability, SoftwareGroup};
 use crate::ui::config_page::pages::{
@@ -248,6 +251,9 @@ pub struct ConfigView {
     nav_scroll: ScrollHandle,
     /// Loading or saving the Hyprland settings failed; shown above the page.
     error: Option<String>,
+    /// A save found `hyprland.lua` without Omarchist's require line and put
+    /// it back; shown above the page until the view is rebuilt.
+    hook_restored: bool,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -335,6 +341,7 @@ impl ConfigView {
             scroll: ScrollHandle::new(),
             nav_scroll: ScrollHandle::new(),
             error,
+            hook_restored: false,
             _subscriptions: subscriptions,
         };
 
@@ -549,13 +556,16 @@ impl ConfigView {
     fn persist(&mut self, cx: &mut Context<Self>) {
         let saved = self.config_manager.borrow().save();
         match saved {
-            Ok(()) => {
+            Ok(hook_restored) => {
                 if self
                     .error
                     .as_deref()
                     .is_some_and(|e| e.starts_with("Saving"))
                 {
                     self.error = None;
+                }
+                if hook_restored {
+                    self.hook_restored = true;
                 }
             }
             Err(e) => {
@@ -608,8 +618,11 @@ impl ConfigView {
         self.omarchy.errors.remove(item.id);
         if terminal {
             let argv: Vec<String> = argv.iter().map(|s| s.to_string()).collect();
-            if let Err(e) = omarchy_settings::launch_in_terminal(&argv) {
-                self.omarchy.errors.insert(item.id, e.to_string());
+            match omarchy_settings::launch_in_terminal(&argv) {
+                Ok(()) => self.guard_require_line(cx),
+                Err(e) => {
+                    self.omarchy.errors.insert(item.id, e.to_string());
+                }
             }
             cx.notify();
             return;
@@ -627,6 +640,28 @@ impl ConfigView {
                 cx.notify();
             })
             .ok();
+        })
+        .detach();
+    }
+
+    /// A terminal action may replace `hyprland.lua` (Omarchy's reset and
+    /// migration scripts do), which drops the require line and leaves every
+    /// setting on this page inert. Watch for the change and put it back.
+    fn guard_require_line(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let restored = cx
+                .background_spawn(async move {
+                    hypr_setup::restore_require_line_after_change(Duration::from_secs(600))
+                })
+                .await;
+            if restored {
+                this.update(cx, |this, cx| {
+                    this.hook_restored = true;
+                    manager::reload_hyprland();
+                    cx.notify();
+                })
+                .ok();
+            }
         })
         .detach();
     }
@@ -1356,6 +1391,15 @@ impl ConfigView {
                     .text_sm()
                     .text_color(cx.theme().danger)
                     .child(selectable("config-error", error.clone()))
+                    .into_any_element(),
+            );
+        }
+        if self.hook_restored {
+            sections.push(
+                div()
+                    .text_sm()
+                    .text_color(cx.theme().warning)
+                    .child(selectable("config-hook-restored", HOOK_RESTORED_MESSAGE))
                     .into_any_element(),
             );
         }

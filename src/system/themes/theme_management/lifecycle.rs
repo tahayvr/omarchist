@@ -9,6 +9,7 @@ use crate::types::themes::EditingTheme;
 use super::colors::update_colors_toml;
 use super::paths::get_custom_themes_dir;
 use crate::assets::extract_default_dir;
+use crate::system::fs::write_atomic;
 use crate::system::themes::overrides::palette;
 use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
@@ -110,8 +111,7 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<()> {
         .replace("{{MODIFIED_AT}}", &now)
         .replace("{{AUTHOR}}", "");
 
-    fs::write(&json_path, updated_content)
-        .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
+    write_atomic(&json_path, updated_content, "omarchist.json")?;
 
     Ok(())
 }
@@ -159,8 +159,7 @@ pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()
     let json_path = theme_dir.join("omarchist.json");
     let json_content = serde_json::to_string_pretty(&updated_theme)
         .map_err(|e| Error::json("Failed to serialize theme data", e))?;
-    fs::write(&json_path, json_content)
-        .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
+    write_atomic(&json_path, json_content, "omarchist.json")?;
 
     remove_legacy_light_mode_file(&theme_dir)?;
 
@@ -228,8 +227,7 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<String> {
 
         let updated_content = serde_json::to_string_pretty(&theme)
             .map_err(|e| Error::json("Failed to serialize theme data", e))?;
-        fs::write(&json_path, updated_content)
-            .map_err(|e| Error::io("Failed to write omarchist.json", e))?;
+        write_atomic(&json_path, updated_content, "omarchist.json")?;
     }
 
     Ok(new_name.to_string())

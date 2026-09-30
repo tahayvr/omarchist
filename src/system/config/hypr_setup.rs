@@ -2,10 +2,14 @@ use crate::error::{Error, Result};
 use std::fs;
 use std::path::PathBuf;
 
+use crate::system::fs::write_atomic;
 use crate::system::hyprland_config::manager;
 use crate::system::omarchy_paths::user_hyprland_config_dir;
 
 const SOURCE_COMMENT: &str = "-- Added by Omarchist";
+/// Shown when a save had to put the require line back.
+pub const HOOK_RESTORED_MESSAGE: &str =
+    "hyprland.lua no longer loaded Omarchist's settings; the require line was added back";
 const REQUIRE_DIRECTIVE: &str = "require(\"hypr.omarchist\")";
 
 // Adds `require("hypr.omarchist")` to the user's hyprland.lua, idempotently.
@@ -27,8 +31,17 @@ const REQUIRE_DIRECTIVE: &str = "require(\"hypr.omarchist\")";
 // Quattro install: `hyprctl configerrors` reported exactly this "module not
 // found" error immediately after adding the require line alone).
 pub fn ensure_hypr_source() -> Result<bool> {
+    // Writing the stub also re-checks the require line.
+    ensure_omarchist_lua_stub()
+}
+
+/// Adds the `require("hypr.omarchist")` line to `hyprland.lua` when it is
+/// missing. `Ok(true)` when it had to be added: at first launch, or after
+/// something replaced the user's file (`omarchy-refresh-hyprland`, a reset
+/// from the Configuration page, a hand edit), which would otherwise leave
+/// every Omarchist setting and keybind silently inert.
+pub fn ensure_require_line() -> Result<bool> {
     let hypr_config_path = get_hypr_config_path()?;
-    ensure_omarchist_lua_stub()?;
 
     if !hypr_config_path.exists() {
         return Err(Error::Invalid(format!(
@@ -40,44 +53,50 @@ pub fn ensure_hypr_source() -> Result<bool> {
     let content = fs::read_to_string(&hypr_config_path)
         .map_err(|e| Error::io("Failed to read hyprland.lua", e))?;
 
-    if content.contains(REQUIRE_DIRECTIVE) {
+    let Some(new_content) = with_require_line(&content) else {
         return Ok(false);
-    }
-
-    let new_content = if let Some(pos) = content.find("require(\"hypr.autostart\")") {
-        let insert_at = content[pos..]
-            .find('\n')
-            .map(|offset| pos + offset + 1)
-            .unwrap_or(content.len());
-        format!(
-            "{}{}\n{}\n{}",
-            &content[..insert_at],
-            SOURCE_COMMENT,
-            REQUIRE_DIRECTIVE,
-            &content[insert_at..]
-        )
-    } else {
-        format!(
-            "{}\n\n{}\n{}\n",
-            content.trim_end(),
-            SOURCE_COMMENT,
-            REQUIRE_DIRECTIVE
-        )
     };
 
-    fs::write(&hypr_config_path, new_content)
-        .map_err(|e| Error::io("Failed to write hyprland.lua", e))?;
-
-    println!("Added omarchist require directive to hyprland.lua");
+    write_atomic(&hypr_config_path, new_content, "hyprland.lua")?;
 
     Ok(true)
+}
+
+/// `content` with the require line added after `require("hypr.autostart")`
+/// (or at the end), or `None` when it is already there.
+fn with_require_line(content: &str) -> Option<String> {
+    if content.contains(REQUIRE_DIRECTIVE) {
+        return None;
+    }
+    Some(
+        if let Some(pos) = content.find("require(\"hypr.autostart\")") {
+            let insert_at = content[pos..]
+                .find('\n')
+                .map(|offset| pos + offset + 1)
+                .unwrap_or(content.len());
+            format!(
+                "{}{}\n{}\n{}",
+                &content[..insert_at],
+                SOURCE_COMMENT,
+                REQUIRE_DIRECTIVE,
+                &content[insert_at..]
+            )
+        } else {
+            format!(
+                "{}\n\n{}\n{}\n",
+                content.trim_end(),
+                SOURCE_COMMENT,
+                REQUIRE_DIRECTIVE
+            )
+        },
+    )
 }
 
 // Guarantees `~/.config/hypr/omarchist.lua` exists so `require("hypr.omarchist")`
 // never dangles, even before the user has saved any Hyprland setting, and
 // that it carries the current settings, keybind overrides and recording
 // submap (the file is regenerated only when its content would change).
-fn ensure_omarchist_lua_stub() -> Result<()> {
+fn ensure_omarchist_lua_stub() -> Result<bool> {
     let dir = user_hyprland_config_dir().ok_or(Error::UnknownDirectory("home"))?;
     if !dir.exists() {
         return Err(Error::UnknownDirectory("Hyprland config"));
@@ -85,7 +104,61 @@ fn ensure_omarchist_lua_stub() -> Result<()> {
     manager::write_omarchist_lua(&manager::saved_overrides())
 }
 
+/// The user's `~/.config/hypr/hyprland.lua`.
+pub fn hypr_config_path() -> Result<PathBuf> {
+    get_hypr_config_path()
+}
+
+/// Waits for `hyprland.lua` to change (a reset or migration run in a
+/// terminal) and then makes sure it still requires Omarchist, polling
+/// every two seconds for at most `timeout`. Blocking: run it off the UI
+/// thread. `true` when the require line had to be put back.
+pub fn restore_require_line_after_change(timeout: std::time::Duration) -> bool {
+    let Ok(path) = get_hypr_config_path() else {
+        return false;
+    };
+    let modified = |path: &std::path::Path| fs::metadata(path).and_then(|m| m.modified()).ok();
+    let before = modified(&path);
+    let deadline = std::time::Instant::now() + timeout;
+    while std::time::Instant::now() < deadline {
+        std::thread::sleep(std::time::Duration::from_secs(2));
+        if modified(&path) != before {
+            return ensure_require_line().unwrap_or(false);
+        }
+    }
+    false
+}
+
 fn get_hypr_config_path() -> Result<PathBuf> {
     let dir = user_hyprland_config_dir().ok_or(Error::UnknownDirectory("home"))?;
     Ok(dir.join("hyprland.lua"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{REQUIRE_DIRECTIVE, with_require_line};
+
+    #[test]
+    fn the_line_goes_after_autostart_and_only_once() {
+        let omarchy = "require(\"hypr.bindings\")\nrequire(\"hypr.autostart\")\n\nrequire(\"default.hypr.toggles\")\n";
+        let added = with_require_line(omarchy).expect("added");
+        assert_eq!(
+            added,
+            "require(\"hypr.bindings\")\nrequire(\"hypr.autostart\")\n-- Added by Omarchist\nrequire(\"hypr.omarchist\")\n\nrequire(\"default.hypr.toggles\")\n"
+        );
+        assert!(with_require_line(&added).is_none(), "idempotent");
+    }
+
+    #[test]
+    fn a_file_without_autostart_gets_the_line_at_the_end() {
+        let added = with_require_line("require(\"hypr.input\")").expect("added");
+        assert!(added.ends_with(&format!("\n\n-- Added by Omarchist\n{REQUIRE_DIRECTIVE}\n")));
+    }
+
+    #[test]
+    fn omarchys_reset_copy_is_recognised_as_missing_the_line() {
+        // What `omarchy-refresh-hyprland` copies over the user's file.
+        let reset = "require(\"default.hypr.omarchy\")\nrequire(\"hypr.autostart\")\nrequire(\"default.hypr.toggles\")\n";
+        assert!(with_require_line(reset).is_some());
+    }
 }

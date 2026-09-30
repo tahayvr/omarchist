@@ -4,6 +4,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::error::{Error, Result};
+use crate::system::fs::write_atomic;
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
 
@@ -129,7 +130,7 @@ pub fn save_flow(flow: &Flow) -> Result<()> {
     {
         fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create flows directory", e))?;
     }
-    fs::write(&path, flow.to_toml()?).map_err(|e| Error::io("Failed to write flow", e))?;
+    write_atomic(&path, flow.to_toml()?, "the flow")?;
     // A shared file copied in as `<id>.flow.toml` is superseded by this save.
     let _ = fs::remove_file(shared_path(&flow.id)?);
     launcher::sync_triggers(flow)

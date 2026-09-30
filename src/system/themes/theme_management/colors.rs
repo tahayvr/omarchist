@@ -1,8 +1,8 @@
-use crate::error::{Error, Result};
-use std::fs;
+use crate::error::Result;
 
 use crate::types::themes::ColorsConfig;
 
+use crate::system::fs::write_atomic;
 use crate::system::themes::theme_file_ops::omarchist_theme_dir;
 
 // Serializes the palette in the exact shape Quattro's `omarchy-theme-color`
@@ -78,8 +78,7 @@ pub fn update_colors_toml(theme_name: &str, colors: &ColorsConfig) -> Result<()>
     let theme_dir = omarchist_theme_dir(theme_name)?;
 
     let toml_path = theme_dir.join("colors.toml");
-    fs::write(&toml_path, render_colors_toml(colors))
-        .map_err(|e| Error::io("Failed to write colors.toml", e))?;
+    write_atomic(&toml_path, render_colors_toml(colors), "colors.toml")?;
 
     Ok(())
 }
