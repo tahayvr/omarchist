@@ -29,6 +29,7 @@ pub struct CliArgs {
     #[arg(short, long, value_enum)]
     pub view: Option<ViewOption>,
 
+    /// Open this theme in the Theme Designer (with `--view themes`)
     #[arg(short, long, requires = "view")]
     pub theme: Option<String>,
 }
@@ -71,6 +72,13 @@ pub enum Command {
     Theme {
         #[command(subcommand)]
         action: ThemeCommand,
+    },
+    /// Remove everything Omarchist added outside its package (Hyprland
+    /// hook, bar widget, flow launchers, settings); themes stay
+    Uninstall {
+        /// Remove without asking
+        #[arg(short, long)]
+        yes: bool,
     },
 }
 
@@ -122,7 +130,16 @@ pub enum FlowCommand {
 
 impl CliArgs {
     pub fn parse_args() -> Self {
-        Self::parse()
+        let args = Self::parse();
+        if args.theme.is_some() && args.view != Some(ViewOption::Themes) {
+            let mut cmd = <Self as clap::CommandFactory>::command();
+            cmd.error(
+                clap::error::ErrorKind::ArgumentConflict,
+                "--theme only goes with --view themes",
+            )
+            .exit();
+        }
+        args
     }
 }
 
@@ -186,6 +203,7 @@ pub fn run_command(command: &Command) -> ExitCode {
         Command::Theme {
             action: ThemeCommand::FromImage { image, name, apply },
         } => theme_from_image(image, name.as_deref(), *apply),
+        Command::Uninstall { yes } => uninstall(*yes),
         Command::Flow {
             action: FlowCommand::Export { name, output },
         } => export(name, output.as_ref()),
@@ -374,6 +392,56 @@ fn theme_from_image(image: &Path, name: Option<&str>, apply: bool) -> ExitCode {
         println!("Apply it with: omarchy-theme-set {theme_name}");
     }
     println!("Edit it with: omarchist --view themes --theme {theme_name}");
+    ExitCode::SUCCESS
+}
+
+/// Lists what Omarchist added to this machine, asks, and removes it in
+/// order, stopping at the first failure so nothing is half done. A running
+/// window is told nothing: its next save would recreate the files, so the
+/// user is asked to quit it first.
+fn uninstall(yes: bool) -> ExitCode {
+    let steps = crate::system::uninstall::plan();
+    if steps.is_empty() {
+        println!("Nothing to remove: Omarchist has not changed this machine.");
+        return ExitCode::SUCCESS;
+    }
+    if crate::system::instance::is_running() {
+        eprintln!("Quit Omarchist first, then run this again.");
+        return ExitCode::FAILURE;
+    }
+    println!("This will:");
+    for step in &steps {
+        println!("  - {}", step.describe());
+    }
+    println!("Themes made with Omarchist stay in ~/.config/omarchy/themes.");
+    if !yes {
+        if !std::io::stdin().is_terminal() {
+            eprintln!("Not a terminal; pass --yes to remove without confirmation");
+            return ExitCode::FAILURE;
+        }
+        if !confirm("Remove all of this?") {
+            println!("Nothing removed.");
+            return ExitCode::SUCCESS;
+        }
+    }
+    let mut reload = false;
+    for step in &steps {
+        if let Err(e) = crate::system::uninstall::run(step) {
+            eprintln!("{}: {e}", step.describe());
+            eprintln!("Stopped; run this again once that is fixed.");
+            return ExitCode::FAILURE;
+        }
+        reload |= matches!(
+            step,
+            crate::system::uninstall::Step::RequireLine(_)
+                | crate::system::uninstall::Step::OmarchistLua(_)
+        );
+        println!("Done: {}", step.describe());
+    }
+    if reload {
+        crate::system::hyprland_config::manager::reload_hyprland_blocking();
+    }
+    println!("Omarchist's files are gone. Remove the package with: sudo pacman -R omarchist-bin");
     ExitCode::SUCCESS
 }
 

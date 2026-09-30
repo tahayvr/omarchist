@@ -30,6 +30,11 @@ pub struct AppEvents {
 impl Global for AppEvents {}
 
 impl AppEvents {
+    pub fn has_pending(cx: &App) -> bool {
+        cx.try_global::<AppEvents>()
+            .is_some_and(|events| !events.queue.borrow().is_empty())
+    }
+
     pub fn drain(cx: &App) -> Vec<AppEvent> {
         cx.try_global::<AppEvents>()
             .map(|events| events.queue.take())

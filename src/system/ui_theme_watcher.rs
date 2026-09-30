@@ -338,7 +338,9 @@ pub fn load_and_apply_omarchy_theme(cx: &mut App) {
 }
 
 /// The Settings page can force light or dark regardless of the desktop
-/// theme (`theme_mode`); `omarchy` follows the theme.
+/// theme (`theme_mode`); `omarchy` follows the theme. Every `Theme::change`
+/// re-applies the theme's own `font.size`, so the user's size is put back
+/// afterwards.
 pub fn apply_forced_mode(cx: &mut App) {
     match crate::system::config::config_setup::settings()
         .theme_mode
@@ -348,6 +350,22 @@ pub fn apply_forced_mode(cx: &mut App) {
         "dark" => Theme::change(ThemeMode::Dark, None, cx),
         _ => {}
     }
+    apply_font_size(cx);
+}
+
+/// The text size the Settings page holds, in pixels.
+pub fn font_size_px(size: &str) -> f32 {
+    match size {
+        "small" => 14.0,
+        "large" => 18.0,
+        _ => 16.0,
+    }
+}
+
+/// Applies the saved font size over whatever the theme config carries.
+pub fn apply_font_size(cx: &mut App) {
+    let size = crate::system::config::config_setup::settings().font_size;
+    Theme::global_mut(cx).font_size = gpui::px(font_size_px(&size));
 }
 
 /// The modification time of the user's themes folder: a theme created,
@@ -358,22 +376,33 @@ fn user_themes_dir_modified() -> Option<std::time::SystemTime> {
     std::fs::metadata(dir).and_then(|m| m.modified()).ok()
 }
 
-// Check the omarchy current theme every second: a switch reloads the app's
-// own look and moves the "Applied" marker; a change to the themes folder
-// refreshes the Themes page.
+/// When the running theme's `colors.toml` last changed: editing the
+/// applied theme in the Designer and re-applying it rewrite the file
+/// without changing the theme's name.
+fn current_colors_modified() -> Option<std::time::SystemTime> {
+    let path = get_colors_toml_path()?;
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+// Check the omarchy current theme every second: a switch (or a re-apply
+// of the same theme) reloads the app's own look and moves the "Applied"
+// marker; a change to the themes folder refreshes the Themes page.
 pub fn spawn_ui_theme_watcher(cx: &mut App) {
     cx.spawn(async move |cx| {
         let mut last_theme_name: Option<String> = get_active_omarchy_theme_name();
         let mut last_dir_modified = user_themes_dir_modified();
+        let mut last_colors_modified = current_colors_modified();
 
         loop {
             Timer::after(POLL_INTERVAL).await;
 
             let current_theme_name = get_active_omarchy_theme_name();
             let dir_modified = user_themes_dir_modified();
+            let colors_modified = current_colors_modified();
 
-            if current_theme_name != last_theme_name {
+            if current_theme_name != last_theme_name || colors_modified != last_colors_modified {
                 last_theme_name = current_theme_name;
+                last_colors_modified = colors_modified;
                 crate::ui::app_events::emit_async(
                     cx,
                     crate::ui::app_events::AppEvent::ReloadUiTheme,

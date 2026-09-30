@@ -644,10 +644,10 @@ pub fn open_keybind_dialog(
     let dialog = cx.new(|cx| KeybindDialog::new(mode, binds, window, cx));
     let view = dialog.clone();
     let body_focus = dialog.read(cx).body_focus.clone();
-    window.open_dialog(cx, move |d, _, _| {
+    window.open_dialog(cx, move |d, window, _| {
         let on_close_view = view.clone();
         d.title(title)
-            .w(px(640.))
+            .w(focus::dialog_width(640., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)

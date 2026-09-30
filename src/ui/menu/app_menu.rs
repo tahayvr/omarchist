@@ -30,7 +30,7 @@ actions!(
         NavigateBack,
     ]
 );
-actions!(appearance, [SwitchToLight, SwitchToDark]);
+actions!(appearance, [SwitchToLight, SwitchToDark, FollowOmarchy]);
 
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = app_menu, no_json)]

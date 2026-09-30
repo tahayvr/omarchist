@@ -4,6 +4,7 @@ use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
 use omarchist::system::instance;
+use omarchist::system::omarchy_paths;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
@@ -37,6 +38,17 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
             ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
         }
     }
+}
+
+/// Saves the Settings page's "Look" and applies it: a forced light or dark
+/// mode, or `omarchy` to follow the desktop theme again.
+fn set_theme_mode(mode: &str, cx: &mut App) {
+    let mode = mode.to_string();
+    if let Err(e) = config_setup::update_settings(move |s| s.theme_mode = mode.clone()) {
+        eprintln!("Failed to save the appearance setting: {e}");
+    }
+    ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+    cx.refresh_windows();
 }
 
 /// Answers other launches over the instance socket: brings the window
@@ -174,17 +186,23 @@ fn main() -> ExitCode {
         });
         let initial_page = cli_args_to_active_page(&cli_args, &settings);
 
-        match hypr_setup::ensure_hypr_source() {
-            Ok(true) => println!("Added the omarchist require line to hyprland.lua"),
-            Ok(false) => {}
-            Err(e) => eprintln!("Failed to set up Hyprland config: {}", e),
+        // On anything but Quattro the Hyprland hook and the bar plugin
+        // would only damage a config they do not understand; the window
+        // opens and says so instead.
+        let quattro = omarchy_paths::is_quattro_installed();
+        if quattro {
+            match hypr_setup::ensure_hypr_source() {
+                Ok(true) => println!("Added the omarchist require line to hyprland.lua"),
+                Ok(false) => {}
+                Err(e) => eprintln!("Failed to set up Hyprland config: {}", e),
+            }
         }
 
         cx.set_global(AppEvents::default());
         if let Some(listener) = listener {
             serve_open_requests(listener, cx);
         }
-        if settings.settings.bar_widget {
+        if settings.settings.bar_widget && quattro {
             std::thread::spawn(|| {
                 if let Err(e) = omarchist::system::bar_widget::ensure_current() {
                     eprintln!("Failed to refresh the bar widget: {e}");
@@ -206,45 +224,31 @@ fn main() -> ExitCode {
         ui_theme_watcher::load_and_apply_omarchy_theme(cx);
         ui_theme_watcher::spawn_ui_theme_watcher(cx);
 
-        // Load and apply saved font size from settings (after theme change to override default)
-        if let Ok(font_size_str) = config_setup::get_font_size() {
-            let font_size_px = match font_size_str.as_str() {
-                "small" => 14.0,
-                "medium" => 16.0,
-                "large" => 18.0,
-                _ => 16.0,
-            };
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size_px);
-        }
-
-        // The menu's light/dark switch is the Settings page's "Look".
+        // The menu's light/dark switch is the Settings page's "Look"; the
+        // page re-reads the file when shown, so the two never disagree.
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
-            let _ = config_setup::update_settings(|s| s.theme_mode = "light".to_string());
-            gpui_component::Theme::change(gpui_component::ThemeMode::Light, None, cx);
-            cx.refresh_windows();
+            set_theme_mode("light", cx);
         });
         cx.on_action(|_: &app_menu::SwitchToDark, cx: &mut App| {
-            let _ = config_setup::update_settings(|s| s.theme_mode = "dark".to_string());
-            gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
-            cx.refresh_windows();
+            set_theme_mode("dark", cx);
+        });
+        cx.on_action(|_: &app_menu::FollowOmarchy, cx: &mut App| {
+            set_theme_mode("omarchy", cx);
         });
         cx.on_action(|_: &app_menu::Quit, cx: &mut App| {
             cx.quit();
         });
         cx.on_action(|action: &app_menu::SelectFont, cx: &mut App| {
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
-
             let font_size_str = match action.0 {
                 14 => "small",
                 16 => "medium",
                 18 => "large",
                 _ => "medium",
             };
-
             if let Err(e) = config_setup::update_font_size(font_size_str) {
                 eprintln!("Failed to save font size setting: {}", e);
             }
-
+            ui_theme_watcher::apply_font_size(cx);
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {

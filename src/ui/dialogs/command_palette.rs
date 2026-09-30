@@ -1,10 +1,10 @@
 // The command palette: every app-wide command in one searchable list, with
 // shortcuts looked up from the keymap.
 //
-// Items carry no `CommandItem::action`. The palette dispatches that from
-// inside the dialog, which is outside the main view's element path, so
-// `on_confirm` closes the dialog and dispatches through the main window's
-// focus handle instead.
+// Items carry no `CommandItem::action`: that would dispatch while the
+// dialog is still open, and the main view ignores page commands then. So
+// `on_confirm` closes the dialog first and dispatches through the main
+// window's focus handle.
 use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder;
@@ -114,6 +114,11 @@ fn groups() -> Vec<Group> {
                     app_menu::ToggleSidebar,
                 ),
                 entry(
+                    "Follow Omarchy's appearance",
+                    &["theme", "mode", "auto"],
+                    app_menu::FollowOmarchy,
+                ),
+                entry(
                     "Light appearance",
                     &["theme", "mode"],
                     app_menu::SwitchToLight,
@@ -162,7 +167,7 @@ pub fn open_command_palette(target: FocusHandle, window: &mut Window, cx: &mut A
     let state = cx.new(|cx| CommandState::new(window, cx));
 
     let dialog_state = state.clone();
-    window.open_dialog(cx, move |dialog, _, _| {
+    window.open_dialog(cx, move |dialog, window, _| {
         let confirm_groups = groups.clone();
         let target = target.clone();
         let command = groups
@@ -189,7 +194,7 @@ pub fn open_command_palette(target: FocusHandle, window: &mut Window, cx: &mut A
             .on_cancel(|window, cx| window.close_dialog(cx));
 
         dialog
-            .w(px(560.))
+            .w(focus::dialog_width(560., window))
             .margin_top(px(96.))
             .overlay(true)
             .overlay_closable(true)

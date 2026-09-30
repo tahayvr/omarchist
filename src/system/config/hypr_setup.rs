@@ -62,6 +62,42 @@ pub fn ensure_require_line() -> Result<bool> {
     Ok(true)
 }
 
+/// Whether `hyprland.lua` loads Omarchist.
+pub fn has_require_line(content: &str) -> bool {
+    content.contains(REQUIRE_DIRECTIVE)
+}
+
+/// `content` without the require line and the comment above it, for the
+/// uninstall. Only whole lines that are exactly ours go; a require the
+/// user wrote inside other code stays.
+pub fn without_require_line(content: &str) -> String {
+    let mut out = String::with_capacity(content.len());
+    let mut pending_comment: Option<&str> = None;
+    for line in content.split_inclusive('\n') {
+        let trimmed = line.trim();
+        if trimmed == SOURCE_COMMENT {
+            // Only dropped when our require follows it.
+            if let Some(comment) = pending_comment.take() {
+                out.push_str(comment);
+            }
+            pending_comment = Some(line);
+            continue;
+        }
+        if trimmed == REQUIRE_DIRECTIVE {
+            pending_comment = None;
+            continue;
+        }
+        if let Some(comment) = pending_comment.take() {
+            out.push_str(comment);
+        }
+        out.push_str(line);
+    }
+    if let Some(comment) = pending_comment {
+        out.push_str(comment);
+    }
+    out
+}
+
 /// `content` with the require line added after `require("hypr.autostart")`
 /// (or at the end), or `None` when it is already there.
 fn with_require_line(content: &str) -> Option<String> {
@@ -147,7 +183,19 @@ fn get_hypr_config_path() -> Result<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    use super::{REQUIRE_DIRECTIVE, with_require_line};
+    use super::{REQUIRE_DIRECTIVE, with_require_line, without_require_line};
+
+    #[test]
+    fn the_uninstall_takes_out_only_the_lines_it_added() {
+        let omarchy = "require(\"hypr.bindings\")\nrequire(\"hypr.autostart\")\n\nrequire(\"default.hypr.toggles\")\n";
+        let added = with_require_line(omarchy).expect("added");
+        assert_eq!(without_require_line(&added), omarchy);
+        // A comment that is not followed by our require stays, as does a
+        // require inside other code.
+        let hand = "-- Added by Omarchist\nlocal x = 1\nif x then require(\"hypr.omarchist\") end\n";
+        assert_eq!(without_require_line(hand), hand);
+        assert_eq!(without_require_line(omarchy), omarchy);
+    }
 
     #[test]
     fn the_line_goes_after_autostart_and_only_once() {

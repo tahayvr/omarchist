@@ -156,7 +156,7 @@ emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(theme_name)));
 let _ = emit_async(cx, AppEvent::RefreshThemes);
 ```
 
-`MainWindowView::new` registers `cx.observe_global_in::<AppEvents>` and drains the queue in `handle_app_event`. Feedback goes through `window.push_notification(..)`; `MainWindowView::render` must keep rendering `Root::render_notification_layer` (after the dialog and sheet layers) or every toast is silent — `tests/keyboard_nav.rs::notifications_are_shown` guards it. Add a variant to `AppEvent` and a match arm there for any new request. Local UI state still lives on the entity and is updated with `cx.notify()`.
+`MainWindowView::new` registers `cx.observe_global_in::<AppEvents>` and drains the queue in `handle_app_event` (events queued before the view existed are drained on the first frame). Feedback goes through `window.push_notification(..)`; `MainWindowView::render` must keep rendering `Root::render_notification_layer` (after the dialog and sheet layers) or every toast is silent — `tests/keyboard_nav.rs::notifications_are_shown` guards it. Add a variant to `AppEvent` and a match arm there for any new request. Local UI state still lives on the entity and is updated with `cx.notify()`.
 
 ### UI Patterns
 
@@ -254,7 +254,7 @@ GPUI focus is the only source of truth; never keep a shadow "focused index" that
 - Composites (sidebar, tab strips, theme grid, keybinds table and filters, config section list) are one tab stop with a roving index; their arrow keys are actions in their own `key_context`. Tab never stops on individual items inside them.
 - Each page exposes `focus_entry(&self, window, cx)`; `MainWindowView::navigate_to` calls it so keyboard users land on the first control. `Escape` (`focus::EscapeToSidebar`) toggles between the sidebar and the page.
 - Dialogs wrap their content in `focus::dialog_body(...)` (handles `dialog::Submit` = Ctrl+Enter) and call `focus::focus_first_in(&body_focus, window, cx)` after `open_dialog`. Tab is trapped by gpui-kit itself: every dialog is a `focus_trap`, and `Root`'s Tab handler stays inside the active trap. Where a control's own `tab` binding is overridden (`... > Input`), route it to `focus::FocusNext`/`FocusPrev`, whose handler (`focus_next_trapped`) honours the trap the same way.
-- Commands dispatched from inside a dialog (the palette) never reach `MainWindowView`'s handlers, because the dialog is rendered by `Root` outside the main view's element path. Close the dialog and dispatch through the main view's `FocusHandle::dispatch_action` instead.
+- Dialogs are deferred elements of `Root`, but the main view stays their dispatch ancestor, so global shortcuts pressed inside a dialog reach `MainWindowView`. Its page-level handlers (navigation, New Theme, Import, the help dialog, the palette) therefore check `dialog_open(window, cx)` first and do nothing while a dialog is up. The palette closes itself and dispatches the chosen command through the main view's `FocusHandle::dispatch_action`, so the command runs with no dialog open.
 - Headless UI tests (`tests/keyboard_nav.rs`) follow the GPUI Kit testing guide (gpui-kit.com/docs/test): `#[gpui_kit::test]`, types from the Kit root (`gpui_kit::{TestAppContext, ..}`, `gpui_kit::component::Root`), `cx.update(gpui_kit::init)`, `cx.open_window(size, ..)` around the production `Root`/`MainWindowView`, `window.render_frame(cx)` before the first query, `TestWindowExt` for `find`/`press`/`input`, `wait_for` for async work, and model state checked next to UI snapshots. Elements that tests query carry a stable `.id(..)` followed by `.test_support()` *before* `.track_focus(..)` (`SidebarNav`, `focus::dialog_body`); `test_support()` is inert in normal builds but wraps the element under `test-support`, so such helpers return `impl ParentElement + StatefulInteractiveElement + ..` rather than `Stateful<Div>`. The window must be free of network tasks (the Omarchy update watcher starts from `main.rs`) and background work runs on gpui's executor (`cx.background_spawn`, not `smol::unblock`) so the test scheduler can drive it.
 - Scrolling content wraps sections in `FocusSection` so a focused section scrolls into view.
 - Focus rings come from `handle.is_focused(window)` and `focus::focus_border`.
@@ -405,7 +405,11 @@ omarchist flow run morning-start     # Run a flow without opening the window
 omarchist flow list
 ```
 
-Subcommands (`CliArgs::command`) are handled by `cli::run_command` in `main()` before the GPUI app starts, so they never open a window.
+Subcommands (`CliArgs::command`) are handled by `cli::run_command` in `main()` before the GPUI app starts, so they never open a window. `--theme` is refused unless `--view themes` is given (`CliArgs::parse_args`).
+
+`omarchist uninstall` (`src/system/uninstall.rs`) lists and removes everything the app puts outside its package, in an order that never leaves a dangling `require`: the require line and `omarchist.lua`, the bar plugin, flow launcher files, `~/.config/omarchist`, `~/.local/share/omarchist`. Themes stay. It refuses while a window is running (`instance::is_running`) and stops at the first failure. Anything new that writes outside `~/.config/omarchist` needs a `Step` there.
+
+Startup checks `omarchy_paths::is_quattro_installed()` (`$OMARCHY_PATH/default/hypr/bootstrap.lua`): on anything else the Hyprland hook and the bar plugin are not touched and the window shows a notification. The About page's "Copy debug info" (`about_view::debug_info`) gathers the versions a bug report needs.
 
 To extend: add variants to `ViewOption` enum and handle them in `cli_args_to_active_page()`.
 

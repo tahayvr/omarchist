@@ -117,11 +117,18 @@ pub struct MainWindowView {
     about_view: Option<Entity<AboutView>>,
     omarchy_root: Option<AnyView>,
     omarchy_view: Option<Entity<OmarchyView>>,
-    sidebar_collapsed: bool,
+    /// The user's own choice from the toggle; `None` follows the width.
+    sidebar_expanded: Option<bool>,
     /// The sidebar is one tab stop; arrow keys move `sidebar_index`.
     sidebar_focus: FocusHandle,
     sidebar_index: usize,
     focus_handle: FocusHandle,
+}
+
+/// Whether a dialog is open. Safe before the window's `Root` exists (the
+/// initial navigation runs while the view is being built).
+fn dialog_open(window: &mut Window, cx: &mut App) -> bool {
+    window.root::<Root>().flatten().is_some() && window.has_active_dialog(cx)
 }
 
 impl MainWindowView {
@@ -164,7 +171,7 @@ impl MainWindowView {
             about_view: None,
             omarchy_root: None,
             omarchy_view: None,
-            sidebar_collapsed: true,
+            sidebar_expanded: None,
             sidebar_focus,
             sidebar_index: initial_sidebar_index,
             focus_handle,
@@ -178,6 +185,35 @@ impl MainWindowView {
             }
         })
         .detach();
+        // Anything emitted before this view existed (the instance socket,
+        // the theme watcher) would otherwise wait for the next emit; a
+        // touch of the global runs the observer above.
+        if AppEvents::has_pending(cx) {
+            cx.defer(|cx| cx.update_global::<AppEvents, _>(|_, _| {}));
+        }
+
+        if !crate::system::omarchy_paths::is_quattro_installed() {
+            window.defer(cx, |window, cx| {
+                window.push_notification(
+                    "Omarchist 2 needs Omarchy 4 (Quattro), which was not found; Hyprland \
+                     settings, keybinds and the bar widget are not applied on this system",
+                    cx,
+                );
+            });
+        }
+
+        // A settings.json that could not be read was set aside at startup.
+        if crate::system::config::config_setup::SETTINGS_RESET
+            .swap(false, std::sync::atomic::Ordering::SeqCst)
+        {
+            window.defer(cx, |window, cx| {
+                window.push_notification(
+                    "settings.json could not be read; it was kept as settings.json.broken and \
+                     the defaults were restored",
+                    cx,
+                );
+            });
+        }
 
         // Closing the window (the title bar, SUPER+W) goes through the same
         // unsaved-changes check as Ctrl+Q.
@@ -332,8 +368,9 @@ impl MainWindowView {
                 self.flow_edit_root = Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
                 self.flow_edit_view = Some(view);
             }
-            ActivePage::Settings => {
-                if self.settings_root.is_none() {
+            ActivePage::Settings => match &self.settings_view {
+                Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
+                None => {
                     let settings_view = cx.new(SettingsView::new);
                     self.settings_root = Some(
                         cx.new(|cx| Root::new(settings_view.clone(), window, cx))
@@ -341,7 +378,7 @@ impl MainWindowView {
                     );
                     self.settings_view = Some(settings_view);
                 }
-            }
+            },
             ActivePage::About => {
                 if self.about_root.is_none() {
                     let about_view = cx.new(AboutView::new);
@@ -368,7 +405,7 @@ impl MainWindowView {
             // the CLI and Omarchy itself change the folder behind its back.
             ActivePage::Themes => {
                 self.themes_view
-                    .update(cx, |view, cx| view.refresh_themes(cx));
+                    .update(cx, |view, cx| view.refresh_themes(window, cx));
             }
         }
     }
@@ -384,6 +421,12 @@ impl MainWindowView {
     }
 
     pub fn navigate_to(&mut self, page: ActivePage, window: &mut Window, cx: &mut Context<Self>) {
+        // Page shortcuts reach this view from inside a dialog too (the
+        // dialog layer is drawn under this view's element); a page must not
+        // change behind an open dialog.
+        if dialog_open(window, cx) {
+            return;
+        }
         let page = match page {
             ActivePage::ThemeEdit(name) if !is_omarchist_theme(&name) => {
                 // Deferred: at startup this runs before the window's `Root`
@@ -525,7 +568,7 @@ impl MainWindowView {
         match &self.active_page {
             ActivePage::Themes | ActivePage::ThemeEdit(_) => {
                 self.themes_view
-                    .update(cx, |page, cx| page.refresh_themes(cx));
+                    .update(cx, |page, cx| page.refresh_themes(window, cx));
             }
             ActivePage::Keybinds => {
                 if let Some(view) = &self.keybinds_view {
@@ -550,7 +593,17 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.reload(window, cx));
                 }
             }
-            ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => {}
+            ActivePage::Omarchy => {
+                if let Some(view) = &self.omarchy_view {
+                    view.update(cx, |view, cx| view.check_again(cx));
+                }
+            }
+            ActivePage::Settings => {
+                if let Some(view) = &self.settings_view {
+                    view.update(cx, |view, cx| view.refresh(cx));
+                }
+            }
+            ActivePage::About => {}
         }
     }
 
@@ -587,16 +640,11 @@ impl MainWindowView {
             AppEvent::Navigate(page) => self.navigate_to(page, window, cx),
             AppEvent::RefreshThemes => {
                 self.themes_view.update(cx, |themes_page, cx| {
-                    themes_page.refresh_themes(cx);
+                    themes_page.refresh_themes(window, cx);
                 });
             }
             AppEvent::ToggleSidebar => {
-                self.sidebar_collapsed = !self.sidebar_collapsed;
-                let collapsed = self.sidebar_collapsed;
-                self.themes_view.update(cx, |themes_page, cx| {
-                    themes_page.set_sidebar_collapsed(collapsed, cx);
-                });
-                cx.notify();
+                self.toggle_sidebar(window, cx);
             }
             AppEvent::ReloadUiTheme => {
                 ui_theme_watcher::load_and_apply_omarchy_theme(cx);
@@ -717,9 +765,21 @@ impl MainWindowView {
     }
 
     fn sidebar_should_be_collapsed(&self, window: &Window) -> bool {
-        // Responsive sidebar: auto-collapse on small windows (< 768px)
-        let is_small_window = window.viewport_size().width < px(768.0);
-        is_small_window || self.sidebar_collapsed
+        // Collapsed until the user opens it; their choice then holds at
+        // any window width, so the toggle never looks broken.
+        let _ = window;
+        !self.sidebar_expanded.unwrap_or(false)
+    }
+
+    /// Flips the sidebar from whatever it shows now; an explicit choice
+    /// outlives the window's width.
+    fn toggle_sidebar(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let collapsed = self.sidebar_should_be_collapsed(window);
+        self.sidebar_expanded = Some(collapsed);
+        self.themes_view.update(cx, |themes_page, cx| {
+            themes_page.set_sidebar_collapsed(!collapsed, cx);
+        });
+        cx.notify();
     }
 }
 
@@ -810,6 +870,9 @@ impl Render for MainWindowView {
             ))
             .on_action(
                 cx.listener(|_, _: &crate::ui::menu::app_menu::NewTheme, window, cx| {
+                    if dialog_open(window, cx) {
+                        return;
+                    }
                     crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog(window, cx);
                 }),
             )
@@ -855,6 +918,9 @@ impl Render for MainWindowView {
             ))
             .on_action(
                 cx.listener(|_, _: &crate::ui::menu::app_menu::ImportFlow, window, cx| {
+                    if dialog_open(window, cx) {
+                        return;
+                    }
                     import_flow_from_dialog(window, cx);
                 }),
             )
@@ -877,9 +943,15 @@ impl Render for MainWindowView {
                 this.reload_page(window, cx);
             }))
             .on_action(cx.listener(|_, _: &focus::ShowShortcuts, window, cx| {
+                if dialog_open(window, cx) {
+                    return;
+                }
                 crate::ui::dialogs::shortcuts_dialog::open_shortcuts_dialog(window, cx);
             }))
             .on_action(cx.listener(|this, _: &focus::ShowCommands, window, cx| {
+                if dialog_open(window, cx) {
+                    return;
+                }
                 crate::ui::dialogs::command_palette::open_command_palette(
                     this.focus_handle.clone(),
                     window,
@@ -931,15 +1003,8 @@ impl Render for MainWindowView {
                                             .suffix(|_, _| {
                                                 Kbd::new(Keystroke::parse("ctrl-b").unwrap())
                                             })
-                                            .on_click(cx.listener(|this, _, _, cx| {
-                                                this.sidebar_collapsed = !this.sidebar_collapsed;
-                                                this.themes_view.update(cx, |themes_page, cx| {
-                                                    themes_page.set_sidebar_collapsed(
-                                                        this.sidebar_collapsed,
-                                                        cx,
-                                                    );
-                                                });
-                                                cx.notify();
+                                            .on_click(cx.listener(|this, _, window, cx| {
+                                                this.toggle_sidebar(window, cx);
                                             })),
                                     )
                                     .render("sidebar-footer-menu", window, cx),

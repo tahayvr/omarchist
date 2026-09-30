@@ -14,3 +14,4 @@ pub mod omarchy_settings;
 pub mod software_catalog;
 pub mod themes;
 pub mod ui_theme_watcher;
+pub mod uninstall;

@@ -254,6 +254,11 @@ pub fn reload_hyprland() {
     });
 }
 
+/// Reloads Hyprland and waits for it, for the CLI.
+pub fn reload_hyprland_blocking() {
+    let _ = Command::new("hyprctl").arg("reload").output();
+}
+
 /// Reloads Hyprland and waits for it, then asks what it rejected. Blocking:
 /// run it off the UI thread. `Ok(Some(text))` is Hyprland's own error list;
 /// `Ok(None)` means the config loaded clean.

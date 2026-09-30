@@ -58,6 +58,12 @@ pub fn forward(request: &OpenRequest) -> bool {
     BufReader::new(stream).read_line(&mut reply).is_ok() && reply.trim() == "ok"
 }
 
+/// Whether an instance is answering on the socket. A stale socket left by
+/// a crash refuses the connection, so it does not count.
+pub fn is_running() -> bool {
+    socket_path().is_some_and(|path| UnixStream::connect(path).is_ok())
+}
+
 /// The outcome of trying to own the instance socket.
 pub enum Listen {
     /// This process answers launches from now on.

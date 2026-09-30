@@ -22,10 +22,10 @@ use crate::ui::theme_edit_page::shared::IMAGE_EXTENSIONS;
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
     let body_focus = cx.focus_handle();
     let trap_focus = body_focus.clone();
-    window.open_dialog(cx, move |dialog, _, cx| {
+    window.open_dialog(cx, move |dialog, window, cx| {
         dialog
             .title("Create New Theme")
-            .w(px(640.))
+            .w(crate::ui::focus::dialog_width(640., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)

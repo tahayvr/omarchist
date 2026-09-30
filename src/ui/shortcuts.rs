@@ -232,6 +232,48 @@ pub const SHORTCUTS: &[Shortcut] = &[
     shortcut!(
         "?",
         focus::ShowShortcuts,
+        Some("FlowsGrid"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("FlowsGrid"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("FlowSteps"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("FlowSteps"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
+        Some("OverrideNav"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "shift-?",
+        focus::ShowShortcuts,
+        Some("OverrideNav"),
+        GLOBAL,
+        "Show keyboard shortcuts"
+    ),
+    shortcut!(
+        "?",
+        focus::ShowShortcuts,
         Some("KeybindsFilters"),
         GLOBAL,
         "Show keyboard shortcuts"
@@ -438,6 +480,13 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("ThemeEditPage"),
         THEME_EDIT,
         "Back to Themes"
+    ),
+    shortcut!(
+        "escape",
+        theme_edit::LeaveField,
+        Some("ThemeEditPage > Input"),
+        THEME_EDIT,
+        "Leave the text field"
     ),
     shortcut!(
         "ctrl-pagedown",

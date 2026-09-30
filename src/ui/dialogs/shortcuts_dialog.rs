@@ -79,7 +79,7 @@ fn key_label(key: &str) -> String {
 pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
     let body_focus = cx.focus_handle();
     let trap_focus = body_focus.clone();
-    window.open_dialog(cx, move |dialog, _, cx| {
+    window.open_dialog(cx, move |dialog, window, cx| {
         let theme = cx.theme();
         let muted = theme.muted_foreground;
         let border = theme.border;
@@ -121,7 +121,7 @@ pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
 
         dialog
             .title("Keyboard Shortcuts")
-            .w(px(720.))
+            .w(focus::dialog_width(720., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)
@@ -133,7 +133,7 @@ pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
                 .child(
                     v_flex()
                         .id("shortcuts-list")
-                        .h(px(520.))
+                        .h(focus::dialog_height(520., window))
                         .overflow_y_scrollbar()
                         .gap_5()
                         .pr_3()

@@ -78,16 +78,31 @@ pub fn ensure_config() -> Result<()> {
         let settings_path = config_dir.join("settings.json");
         if settings_path.exists() {
             // Check if user's version needs updating
-            match should_update_settings(&settings_path, &default_version)? {
-                UpdateAction::Update => {
+            match should_update_settings(&settings_path, &default_version) {
+                Ok(UpdateAction::Update) => {
                     println!(
                         "Updating settings.json from older version to {}",
                         default_version
                     );
                     migrate_settings_file(&settings_path)?;
                 }
-                UpdateAction::Keep => {
+                Ok(UpdateAction::Keep) => {
                     validate_settings(&settings_path)?;
+                }
+                // A file that cannot be read (a crash mid-write, a hand
+                // edit) would otherwise leave every setting dead for good:
+                // keep it for the user to look at and start over.
+                Err(e) => {
+                    let broken = settings_path.with_extension("json.broken");
+                    fs::rename(&settings_path, &broken).map_err(|e| {
+                        Error::io("Failed to set the broken settings.json aside", e)
+                    })?;
+                    copy_settings_from_default(&settings_path)?;
+                    eprintln!(
+                        "settings.json could not be read ({e}); kept as {} and recreated",
+                        broken.display()
+                    );
+                    SETTINGS_RESET.store(true, std::sync::atomic::Ordering::SeqCst);
                 }
             }
         } else {
@@ -276,15 +291,26 @@ fn is_version_older(user_version: &str, default_version: &str) -> Result<bool> {
 fn should_update_settings(settings_path: &Path, default_version: &str) -> Result<UpdateAction> {
     let content = fs::read_to_string(settings_path)
         .map_err(|e| Error::io("Failed to read settings.json", e))?;
-    let settings: SettingsSchema = serde_json::from_str(&content)
+    // Only the version matters here; the tolerant merge that follows an
+    // older version corrects a value of the wrong type, so the typed parse
+    // must not run first and reject the file.
+    let raw: Value = serde_json::from_str(&content)
         .map_err(|e| Error::json("Failed to parse settings.json", e))?;
+    let version = raw["version"].as_str().unwrap_or("0.0.0");
 
-    if is_version_older(&settings.version, default_version)? {
+    if is_version_older(version, default_version)?
+        || serde_json::from_value::<SettingsSchema>(raw.clone()).is_err()
+    {
         Ok(UpdateAction::Update)
     } else {
         Ok(UpdateAction::Keep)
     }
 }
+
+/// Set when `ensure_config` had to set a broken `settings.json` aside, so
+/// the window can say so once.
+pub static SETTINGS_RESET: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(false);
 
 /// The default settings with the timestamps filled in.
 fn default_settings_content(created_at: &str) -> Result<String> {
@@ -382,6 +408,24 @@ fn remove_legacy_hyprland_conf(config_dir: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_wrong_type_or_older_file_is_migrated_and_a_broken_one_is_an_error() {
+        let dir = std::env::temp_dir().join(format!(
+            "omarchist-settings-decision-{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.json");
+        std::fs::write(&path, r#"{"version":"1.2.0","settings":{"auto_apply_theme":"true"},"metadata":{"created_at":"x","last_modified":"x"}}"#).unwrap();
+        assert!(matches!(
+            should_update_settings(&path, "1.2.0").unwrap(),
+            UpdateAction::Update
+        ));
+        std::fs::write(&path, "{\"version\":\"1.2.0\",").unwrap();
+        assert!(should_update_settings(&path, "1.2.0").is_err());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
     use serde_json::json;
 
     use super::*;

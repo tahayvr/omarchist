@@ -287,6 +287,10 @@ pub struct ConfigView {
     /// The Hyprland settings could not be loaded (state file unreadable, no
     /// compositor): every Hyprland control is disabled.
     hyprland_unavailable: bool,
+    /// The first load (a `hyprctl` batch and a scan of `hyprland.lua`) is
+    /// running off the UI thread; Hyprland pages show "Reading…" until it
+    /// lands.
+    hyprland_loading: bool,
     /// What `hyprctl configerrors` reported after the last save.
     config_errors: Option<String>,
     _subscriptions: Vec<Subscription>,
@@ -294,25 +298,17 @@ pub struct ConfigView {
 
 impl ConfigView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (config_manager, error) = if !HyprlandConfigManager::compositor_reachable() {
-            (
-                HyprlandConfigManager::unavailable(),
-                Some(
-                    "Hyprland is not running (or hyprctl is missing), so its settings cannot \
-                     be read or changed here"
-                        .to_string(),
-                ),
-            )
-        } else {
-            match HyprlandConfigManager::load() {
-                Ok(manager) => (manager, None),
-                Err(e) => (
-                    HyprlandConfigManager::unavailable(),
-                    Some(format!("Hyprland settings could not be loaded: {e}")),
-                ),
-            }
-        };
-        let hyprland_unavailable = config_manager.is_unavailable();
+        // The settings themselves are read in the background (below), so
+        // the page appears at once; until they land the controls are
+        // disabled like an unavailable compositor's.
+        let compositor = HyprlandConfigManager::compositor_reachable();
+        let config_manager = HyprlandConfigManager::unavailable();
+        let error = (!compositor).then(|| {
+            "Hyprland is not running (or hyprctl is missing), so its settings cannot \
+             be read or changed here"
+                .to_string()
+        });
+        let hyprland_unavailable = true;
 
         let catalog = crate::system::hyprland_config::keyboard::load_keyboard_catalog();
         let mut layout_items: Vec<KeyboardLayoutItem> = match catalog {
@@ -392,9 +388,13 @@ impl ConfigView {
             inputs_stale: false,
             stale_after_terminal: false,
             hyprland_unavailable,
+            hyprland_loading: compositor,
             config_errors: None,
             _subscriptions: subscriptions,
         };
+        if compositor {
+            this.load_hyprland(cx);
+        }
 
         for item in items() {
             let (min, max, step) = match item.field {
@@ -509,21 +509,20 @@ impl ConfigView {
 
     /// Re-reads the saved configuration from disk and refreshes the fields.
     pub fn reload(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match HyprlandConfigManager::load() {
-            Ok(manager) => {
-                *self.config_manager.borrow_mut() = manager;
-                self.hyprland_unavailable = false;
-                self.error = None;
-                self.sync_inputs(window, cx);
-                cx.notify();
-            }
-            Err(e) => {
-                *self.config_manager.borrow_mut() = HyprlandConfigManager::unavailable();
-                self.hyprland_unavailable = true;
-                self.error = Some(format!("Hyprland settings could not be loaded: {e}"));
-                cx.notify();
-            }
+        if HyprlandConfigManager::compositor_reachable() {
+            self.error = None;
+            self.hyprland_loading = true;
+            self.load_hyprland(cx);
+        } else {
+            *self.config_manager.borrow_mut() = HyprlandConfigManager::unavailable();
+            self.hyprland_unavailable = true;
+            self.error = Some(
+                "Hyprland is not running (or hyprctl is missing), so its settings cannot \
+                 be read or changed here"
+                    .to_string(),
+            );
         }
+        cx.notify();
         self.omarchy.loaded.clear();
         self.software.loaded = false;
         self.load_page(self.active_page, window, cx);
@@ -668,6 +667,32 @@ impl ConfigView {
             }
             Source::None => {}
         }
+    }
+
+    /// The first read of the Hyprland settings, off the UI thread; a failure
+    /// leaves the Hyprland controls disabled with the reason.
+    fn load_hyprland(&mut self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            let loaded = cx
+                .background_spawn(async { HyprlandConfigManager::load() })
+                .await;
+            this.update(cx, |this, cx| {
+                this.hyprland_loading = false;
+                match loaded {
+                    Ok(manager) => {
+                        *this.config_manager.borrow_mut() = manager;
+                        this.hyprland_unavailable = false;
+                        this.inputs_stale = true;
+                    }
+                    Err(e) => {
+                        this.error = Some(format!("Hyprland settings could not be loaded: {e}"));
+                    }
+                }
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Re-reads the compositor's values (the baseline) off the UI thread,
@@ -1701,8 +1726,10 @@ impl ConfigView {
                     .any(|item| Self::item_matches(item, &query));
             let loading = !dynamic
                 && has_match
-                && page.group == PageGroup::Omarchy
-                && !self.omarchy.loaded.contains(&page_ix);
+                && match page.group {
+                    PageGroup::Omarchy => !self.omarchy.loaded.contains(&page_ix),
+                    PageGroup::Hyprland => self.hyprland_loading,
+                };
             let groups: Vec<AnyElement> = if dynamic {
                 self.render_software(page_ix, &query, cx)
             } else if loading {

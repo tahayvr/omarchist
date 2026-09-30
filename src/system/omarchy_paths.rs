@@ -16,6 +16,18 @@ pub fn omarchy_install_dir() -> PathBuf {
         .unwrap_or_else(|_| PathBuf::from("/usr/share/omarchy"))
 }
 
+/// Whether the installed Omarchy is Quattro (v4), the only version this app
+/// supports: Quattro's Hyprland config is Lua, bootstrapped from this file.
+/// A 3.x install has `default/hypr/*.conf` instead, and writing a Lua
+/// module or a `require` line into its `hyprland.conf` would only break it.
+pub fn is_quattro_installed() -> bool {
+    omarchy_install_dir()
+        .join("default")
+        .join("hypr")
+        .join("bootstrap.lua")
+        .is_file()
+}
+
 // `$OMARCHY_PATH/themes` — themes shipped with Omarchy itself, read-only.
 pub fn system_themes_dir() -> PathBuf {
     omarchy_install_dir().join("themes")

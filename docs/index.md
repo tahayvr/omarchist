@@ -21,6 +21,17 @@ yay -S omarchist-bin
 Omarchist 2.x requires Omarchy Quattro (v4). Use an Omarchist 1.x release with Omarchy 3.x.
 :::
 
+### Uninstall
+
+Omarchist adds a few things outside its package: a `require("hypr.omarchist")` line in `~/.config/hypr/hyprland.lua`, the `~/.config/hypr/omarchist.lua` it generates, the bar widget plugin, launcher entries and startup hooks for flows, and its own settings under `~/.config/omarchist`. Remove them first, then the package:
+
+```bash
+omarchist uninstall
+sudo pacman -R omarchist-bin
+```
+
+`omarchist uninstall` lists what it will remove and asks before it does. Themes you made stay in `~/.config/omarchy/themes`; they are ordinary Omarchy themes and keep working. See [Command Line](/cli#uninstall).
+
 ## Settings
 
 The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own options. They live in `~/.config/omarchist/settings.json`, and an Omarchist update adds new options without touching the ones you set.

@@ -1,12 +1,38 @@
 use gpui::FontWeight;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, Sizable, button::*, h_flex, v_flex};
+use gpui_component::{ActiveTheme, Icon, Sizable, WindowExt, button::*, h_flex, v_flex};
 
 use gpui_base::TestSupportExt;
 
 use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "AboutView";
+const ISSUES_URL: &str = "https://github.com/tahayvr/omarchist/issues/new";
+
+/// What a bug report needs: the versions of Omarchist, Omarchy, and
+/// Hyprland, and whether this is a Quattro install. Blocking on two short
+/// commands, so it is gathered when the button is pressed.
+pub fn debug_info() -> String {
+    let omarchy = crate::system::omarchy::updates::installed_version()
+        .unwrap_or_else(|| "not found".to_string());
+    let hyprland = std::process::Command::new("hyprctl")
+        .args(["-j", "version"])
+        .output()
+        .ok()
+        .and_then(|out| serde_json::from_slice::<serde_json::Value>(&out.stdout).ok())
+        .and_then(|v| v["tag"].as_str().map(str::to_string))
+        .unwrap_or_else(|| "not running".to_string());
+    format!(
+        "Omarchist {}\nOmarchy {omarchy}{}\nHyprland {hyprland}\nOMARCHY_PATH {}",
+        env!("CARGO_PKG_VERSION"),
+        if crate::system::omarchy_paths::is_quattro_installed() {
+            ""
+        } else {
+            " (not Quattro)"
+        },
+        crate::system::omarchy_paths::omarchy_install_dir().display(),
+    )
+}
 
 pub struct AboutView {
     pub focus_handle: FocusHandle,
@@ -66,6 +92,40 @@ impl Render for AboutView {
                                 "version",
                                 concat!("v", env!("CARGO_PKG_VERSION")),
                             )),
+                    )
+                    .child(
+                        div()
+                            .text_sm()
+                            .text_color(theme.muted_foreground)
+                            .child(selectable(
+                                "license",
+                                "Apache-2.0 · © 2026 Taha Hossein Nejad",
+                            )),
+                    ),
+            )
+            .child(
+                h_flex()
+                    .mt_8()
+                    .gap_2()
+                    .flex_wrap()
+                    .justify_center()
+                    .child(
+                        Button::new("report-issue")
+                            .label("Report an issue")
+                            .outline()
+                            .cursor_pointer()
+                            .on_click(|_, _, cx| cx.open_url(ISSUES_URL)),
+                    )
+                    .child(
+                        Button::new("copy-debug-info")
+                            .label("Copy debug info")
+                            .outline()
+                            .cursor_pointer()
+                            .tooltip("Versions to paste into a bug report")
+                            .on_click(|_, window, cx| {
+                                cx.write_to_clipboard(ClipboardItem::new_string(debug_info()));
+                                window.push_notification("Debug info copied", cx);
+                            }),
                     ),
             )
             .child(

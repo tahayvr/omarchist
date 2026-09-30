@@ -1,7 +1,7 @@
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable, button::Button, button::ButtonVariants, h_flex, text::TextView,
-    text::TextViewStyle, v_flex,
+    ActiveTheme, Sizable, WindowExt, button::Button, button::ButtonVariants, h_flex,
+    text::TextView, text::TextViewStyle, v_flex,
 };
 
 use crate::system::omarchy::release_notes::fetch_latest_release_notes;
@@ -32,27 +32,7 @@ impl OmarchyView {
     pub fn new(updates: Entity<OmarchyUpdates>, cx: &mut Context<Self>) -> Self {
         let observer = cx.observe(&updates, |_, _, cx| cx.notify());
 
-        cx.spawn(
-            async move |this, cx| match fetch_latest_release_notes().await {
-                Ok((tag, notes)) => {
-                    this.update(cx, |this, _cx| {
-                        this.latest_tag = Some(tag);
-                        this.release_notes = Some(notes);
-                    })
-                    .ok();
-                }
-                Err(e) => {
-                    eprintln!("Failed to fetch release notes: {e}");
-                    this.update(cx, |this, _cx| {
-                        this.release_notes_error = Some(e.to_string());
-                    })
-                    .ok();
-                }
-            },
-        )
-        .detach();
-
-        Self {
+        let mut view = Self {
             updates,
             latest_tag: None,
             release_notes: None,
@@ -61,7 +41,36 @@ impl OmarchyView {
             notes_focus: crate::ui::focus::tab_stop(cx),
             notes_scroll: ScrollHandle::new(),
             _updates_observer: observer,
-        }
+        };
+        view.load_notes(cx);
+        view
+    }
+
+    /// Fetches the release notes; run when the page opens and again from
+    /// "Check again" and Ctrl+R, so a page opened offline recovers.
+    pub fn load_notes(&mut self, cx: &mut Context<Self>) {
+        self.release_notes_error = None;
+        cx.notify();
+        cx.spawn(
+            async move |this, cx| match fetch_latest_release_notes().await {
+                Ok((tag, notes)) => {
+                    this.update(cx, |this, cx| {
+                        this.latest_tag = Some(tag);
+                        this.release_notes = Some(notes);
+                        cx.notify();
+                    })
+                    .ok();
+                }
+                Err(e) => {
+                    this.update(cx, |this, cx| {
+                        this.release_notes_error = Some(e.to_string());
+                        cx.notify();
+                    })
+                    .ok();
+                }
+            },
+        )
+        .detach();
     }
 
     /// Focuses the first control on the page.
@@ -88,17 +97,20 @@ impl OmarchyView {
         cx.notify();
     }
 
-    fn run_update(&mut self, cx: &mut Context<Self>) {
+    fn run_update(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match crate::shell::omarchy_sh_commands::launch_omarchy_update() {
             Ok(()) => self
                 .updates
                 .update(cx, |updates, cx| updates.watch_running_update(cx)),
-            Err(e) => eprintln!("{e}"),
+            Err(e) => window.push_notification(format!("Could not start the update: {e}"), cx),
         }
     }
 
-    fn check_again(&mut self, cx: &mut Context<Self>) {
+    pub fn check_again(&mut self, cx: &mut Context<Self>) {
         self.updates.update(cx, |updates, cx| updates.refresh(cx));
+        if self.release_notes.is_none() {
+            self.load_notes(cx);
+        }
     }
 
     /// The version line and, under it, what the update check found.
@@ -161,7 +173,9 @@ impl OmarchyView {
                             Button::new("update-omarchy")
                                 .label("Update Omarchy")
                                 .cursor_pointer()
-                                .on_click(cx.listener(|this, _, _, cx| this.run_update(cx))),
+                                .on_click(
+                                    cx.listener(|this, _, window, cx| this.run_update(window, cx)),
+                                ),
                         ),
                 )
                 .children(pending.iter().enumerate().map(|(ix, line)| {

@@ -58,7 +58,7 @@ impl ThemeEditTab {
     }
 }
 
-actions!(theme_edit, [ApplyTheme]);
+actions!(theme_edit, [ApplyTheme, LeaveField]);
 
 pub struct ThemeEditPage {
     theme_name: String,
@@ -278,6 +278,11 @@ impl Render for ThemeEditPage {
             }))
             .on_action(cx.listener(|this, _: &ApplyTheme, window, cx| {
                 this.apply_theme(window, cx);
+            }))
+            // Escape in a text field steps out to the tab strip; the
+            // page's own Escape (Back to Themes) is one press further.
+            .on_action(cx.listener(|this, _: &LeaveField, window, cx| {
+                this.tabs_focus.focus(window, cx);
             }))
             .child(
                 h_flex()

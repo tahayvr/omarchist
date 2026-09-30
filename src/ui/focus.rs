@@ -27,6 +27,21 @@ actions!(
 );
 
 /// A focus handle that Tab/Shift-Tab can reach.
+/// A dialog width that fits the window: `wanted` at most, and never wider
+/// than the viewport minus a margin, so a dialog in a narrow tile keeps
+/// its close button on screen.
+pub fn dialog_width(wanted: f32, window: &Window) -> Pixels {
+    let viewport: f32 = window.viewport_size().width.into();
+    px(wanted.min((viewport - 32.).max(280.)))
+}
+
+/// A dialog list height that fits the window: `wanted` at most, and never
+/// taller than the viewport minus room for the title and margins.
+pub fn dialog_height(wanted: f32, window: &Window) -> Pixels {
+    let viewport: f32 = window.viewport_size().height.into();
+    px(wanted.min((viewport - 160.).max(160.)))
+}
+
 pub fn tab_stop(cx: &mut App) -> FocusHandle {
     cx.focus_handle().tab_stop(true)
 }

@@ -47,6 +47,14 @@ const CHECK_INTERVALS: &[(u32, &str)] = &[
 
 pub struct SettingsView {
     settings: SettingsConfig,
+    /// The bar switch shows what `shell.json` says, not the saved setting:
+    /// the plugin can be disabled from the bar's own layout editor.
+    bar_widget_on: bool,
+    /// `omarchy plugin enable/disable` is running in the background.
+    bar_widget_pending: bool,
+    /// A failed write of settings.json, shown on the next render (which
+    /// has the window).
+    save_error: Option<String>,
     pub focus_handle: FocusHandle,
     scroll: ScrollHandle,
 }
@@ -55,6 +63,9 @@ impl SettingsView {
     pub fn new(cx: &mut Context<Self>) -> Self {
         Self {
             settings: settings(),
+            bar_widget_on: bar_widget::is_enabled(),
+            bar_widget_pending: false,
+            save_error: None,
             focus_handle: cx.focus_handle(),
             scroll: ScrollHandle::new(),
         }
@@ -69,40 +80,65 @@ impl SettingsView {
     fn change(&mut self, change: impl Fn(&mut SettingsConfig), cx: &mut Context<Self>) {
         change(&mut self.settings);
         if let Err(e) = update_settings(change) {
-            eprintln!("Failed to save settings: {e}");
+            // The control already shows the new value; say that it will
+            // not survive a restart.
+            self.save_error = Some(format!("Settings could not be saved: {e}"));
         }
         cx.notify();
     }
 
     fn set_font_size(&mut self, size: &'static str, cx: &mut Context<Self>) {
         self.change(move |s| s.font_size = size.to_string(), cx);
-        gpui_component::Theme::global_mut(cx).font_size = px(font_size_px(size));
+        ui_theme_watcher::apply_font_size(cx);
         cx.refresh_windows();
     }
 
-    /// Installs and enables the bar widget, or takes it off the bar, and
-    /// keeps the setting in step with what the shell ended up with.
+    /// Re-reads the file: the gear menu and the shortcuts change these
+    /// settings too.
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        self.settings = settings();
+        if !self.bar_widget_pending {
+            self.bar_widget_on = bar_widget::is_enabled();
+        }
+        cx.notify();
+    }
+
+    /// Installs and enables the bar widget, or takes it off the bar, in the
+    /// background (the shell's plugin commands take a moment), and keeps the
+    /// setting in step with what the shell ended up with.
     fn set_bar_widget(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
-        let result = if on {
-            bar_widget::enable()
-        } else {
-            bar_widget::disable()
-        };
-        match result {
-            Ok(()) => {
-                self.change(move |s| s.bar_widget = on, cx);
-                let message = if on {
-                    "Omarchist is on the bar. Move it with the bar's Edit Layout."
-                } else {
-                    "Omarchist was removed from the bar."
+        if self.bar_widget_pending {
+            return;
+        }
+        self.bar_widget_pending = true;
+        self.bar_widget_on = on;
+        cx.notify();
+        let task = cx.background_spawn(async move {
+            if on {
+                bar_widget::enable()
+            } else {
+                bar_widget::disable()
+            }
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            this.update_in(cx, |this, window, cx| {
+                this.bar_widget_pending = false;
+                this.bar_widget_on = bar_widget::is_enabled();
+                let on = this.bar_widget_on;
+                this.change(move |s| s.bar_widget = on, cx);
+                let message = match result {
+                    Ok(()) if on => {
+                        "Omarchist is on the bar. Move it with the bar's Edit Layout.".to_string()
+                    }
+                    Ok(()) => "Omarchist was removed from the bar.".to_string(),
+                    Err(e) => e.to_string(),
                 };
                 window.push_notification(message, cx);
-            }
-            Err(e) => {
-                self.change(move |s| s.bar_widget = bar_widget::is_enabled(), cx);
-                window.push_notification(e.to_string(), cx);
-            }
-        }
+            })
+            .ok();
+        })
+        .detach();
     }
 
     fn set_theme_mode(&mut self, mode: &'static str, cx: &mut Context<Self>) {
@@ -220,16 +256,11 @@ impl SettingsView {
     }
 }
 
-fn font_size_px(size: &str) -> f32 {
-    match size {
-        "small" => 14.0,
-        "large" => 18.0,
-        _ => 16.0,
-    }
-}
-
 impl Render for SettingsView {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(message) = self.save_error.take() {
+            window.push_notification(message, cx);
+        }
         let s = self.settings.clone();
         let font_size: &'static str = FONT_SIZES
             .iter()
@@ -374,7 +405,8 @@ impl Render for SettingsView {
                     "Show Omarchist in the Bar",
                     "A bar widget that runs your flows and opens Omarchist on a page",
                     FocusableSwitch::new("bar-widget-switch")
-                        .checked(s.bar_widget)
+                        .checked(self.bar_widget_on)
+                        .disabled(self.bar_widget_pending)
                         .on_change(cx.listener(|this, value, window, cx| {
                             this.set_bar_widget(*value, window, cx);
                         }))

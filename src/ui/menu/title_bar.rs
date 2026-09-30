@@ -171,7 +171,8 @@ impl Render for MainTitleBar {
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window: &mut Window, cx: &mut Context<PopupMenu>| {
                                 let font_size = f32::from(cx.theme().font_size) as i32;
-                                let is_light = cx.theme().mode == gpui_component::ThemeMode::Light;
+                                let look = crate::system::config::config_setup::settings().theme_mode;
+                                let follows = look != "light" && look != "dark";
                                 menu.label("Font Size")
                                     .check_side(Side::Right)
                                     .menu_with_check("Large", font_size == 18, Box::new(SelectFont(18)))
@@ -180,8 +181,9 @@ impl Render for MainTitleBar {
                                     .separator()
                                     .label("Appearance")
                                     .check_side(Side::Right)
-                                    .menu_with_check("Light", is_light, Box::new(super::app_menu::SwitchToLight))
-                                    .menu_with_check("Dark", !is_light, Box::new(super::app_menu::SwitchToDark))
+                                    .menu_with_check("Follow Omarchy", follows, Box::new(super::app_menu::FollowOmarchy))
+                                    .menu_with_check("Light", look == "light", Box::new(super::app_menu::SwitchToLight))
+                                    .menu_with_check("Dark", look == "dark", Box::new(super::app_menu::SwitchToDark))
                             }),
                     )
                     .child(

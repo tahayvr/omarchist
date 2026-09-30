@@ -8,6 +8,7 @@ outline: deep
 omarchist [--view <page>] [--theme <name>]
 omarchist theme from-image <image> [--name <name>] [--apply]
 omarchist flow <run | list | export | import> ...
+omarchist uninstall [--yes]
 ```
 
 ## Open a page
@@ -52,3 +53,14 @@ omarchist flow import https://example.com/focus.flow.toml
 ```
 
 See [Flows](/flows/) for what a flow is and [Sharing flows](/flows/#sharing-flows) for the file format.
+
+## Uninstall
+
+`omarchist uninstall` removes everything Omarchist added outside its package, in this order, and stops at the first failure so nothing is left half done:
+
+1. The `require("hypr.omarchist")` line in `~/.config/hypr/hyprland.lua` and `~/.config/hypr/omarchist.lua` (Hyprland is reloaded, so your settings and keybinds go back to Omarchy's).
+2. The bar widget, taken off the bar and deleted from `~/.config/omarchy/plugins`.
+3. Every flow's launcher entry, icon, and startup hook.
+4. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates) and `~/.local/share/omarchist`.
+
+It prints that list and asks first; `--yes` skips the question. Quit Omarchist before you run it, because a running window would write its files back on the next save. Themes you made stay in `~/.config/omarchy/themes`. Remove the package afterwards with `sudo pacman -R omarchist-bin`.

@@ -7,7 +7,7 @@ use crate::ui::menu::app_menu::NewTheme;
 use crate::ui::themes_page::theme_grid::{self, ThemeFilter, ThemeGrid};
 use gpui::*;
 use gpui_component::{
-    Icon, Sizable as _,
+    Icon, Sizable as _, WindowExt,
     button::{Button, ButtonVariants as _},
     h_flex,
     tab::{Tab, TabBar},
@@ -31,18 +31,8 @@ impl ThemesPage {
         // Themes are loaded on a background thread and pushed into the grid once ready.
         let theme_grid = cx.new(|cx| ThemeGrid::new(vec![], window, cx));
 
-        cx.spawn(async move |this, cx| {
-            // Not `smol::unblock`: the test scheduler only drives gpui's own executor.
-            let themes = cx.background_spawn(async { Self::load_all_themes() }).await;
-            this.update(cx, |this, cx| {
-                this.theme_grid.update(cx, |grid, cx| {
-                    grid.update_themes(themes, cx);
-                });
-                cx.notify();
-            })
-            .ok();
-        })
-        .detach();
+        // Not `smol::unblock`: the test scheduler only drives gpui's own executor.
+        Self::spawn_load(window, cx);
 
         Self {
             active_tab: 0,
@@ -71,13 +61,23 @@ impl ThemesPage {
     }
 
     /// Rescans both theme folders in the background and replaces the grid.
-    pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
-        cx.spawn(async move |this, cx| {
-            let themes = cx.background_spawn(async { Self::load_all_themes() }).await;
-            this.update(cx, |this, cx| {
+    pub fn refresh_themes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        Self::spawn_load(window, cx);
+    }
+
+    /// Reads both theme folders off the UI thread and fills the grid; a
+    /// folder that could not be read is reported, since an empty grid
+    /// would otherwise look like "no themes".
+    fn spawn_load(window: &mut Window, cx: &mut Context<Self>) {
+        cx.spawn_in(window, async move |this, cx| {
+            let (themes, errors) = cx.background_spawn(async { Self::load_all_themes() }).await;
+            this.update_in(cx, |this, window, cx| {
                 this.theme_grid.update(cx, |grid, cx| {
                     grid.update_themes(themes, cx);
                 });
+                for error in errors {
+                    window.push_notification(error, cx);
+                }
                 cx.notify();
             })
             .ok();
@@ -91,15 +91,16 @@ impl ThemesPage {
         });
     }
 
-    fn load_all_themes() -> Vec<crate::types::themes::ThemeEntry> {
+    fn load_all_themes() -> (Vec<crate::types::themes::ThemeEntry>, Vec<String>) {
         let mut themes = Vec::new();
+        let mut errors = Vec::new();
         match get_system_themes() {
             Ok(system) => themes.extend(system),
-            Err(e) => eprintln!("Could not read Omarchy's themes: {e}"),
+            Err(e) => errors.push(format!("Could not read Omarchy's themes: {e}")),
         }
         match get_user_themes() {
             Ok(user) => themes.extend(user),
-            Err(e) => eprintln!("Could not read your themes: {e}"),
+            Err(e) => errors.push(format!("Could not read your themes: {e}")),
         }
         // One list, A to Z, with the running theme marked.
         themes.sort_by_key(|theme| theme.title.to_lowercase());
@@ -107,7 +108,7 @@ impl ThemesPage {
         for theme in &mut themes {
             theme.applied = applied.as_deref() == Some(theme.dir.as_str());
         }
-        themes
+        (themes, errors)
     }
 }
 

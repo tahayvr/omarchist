@@ -140,24 +140,32 @@ impl OmarchyUpdates {
     }
 
     /// Checks now and again on the schedule from the Settings page
-    /// (`check_updates`, `update_check_hours`), re-reading it each time so
-    /// a change applies without a restart.
+    /// (`check_updates`, `update_check_hours`). The wait is taken in short
+    /// slices against the time of the last check, and the schedule is
+    /// re-read on each, so turning the check on or shortening the interval
+    /// takes effect within a minute rather than after the wait already
+    /// under way.
     pub fn start_periodic(this: Entity<Self>, cx: &mut App) {
         let this = this.downgrade();
         cx.spawn(async move |cx| {
+            let slice = Duration::from_secs(60).min(DISABLED_RECHECK);
+            let mut last_check: Option<std::time::Instant> = None;
             loop {
                 let settings = settings();
-                let wait = if settings.check_updates {
+                let due = settings.check_updates
+                    && last_check.is_none_or(|at| {
+                        at.elapsed()
+                            >= Duration::from_secs(
+                                u64::from(settings.update_check_hours.clamp(1, 24 * 7)) * 3600,
+                            )
+                    });
+                if due {
                     if this.update(cx, |this, cx| this.refresh(cx)).is_err() {
                         break;
                     }
-                    Duration::from_secs(
-                        u64::from(settings.update_check_hours.clamp(1, 24 * 7)) * 3600,
-                    )
-                } else {
-                    DISABLED_RECHECK
-                };
-                smol::Timer::after(wait).await;
+                    last_check = Some(std::time::Instant::now());
+                }
+                smol::Timer::after(slice).await;
             }
         })
         .detach();

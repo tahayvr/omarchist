@@ -38,12 +38,12 @@ pub fn open_confirm_dialog(
     } = dialog;
 
     let trap_focus = body_focus.clone();
-    window.open_dialog(cx, move |d, _, cx| {
+    window.open_dialog(cx, move |d, window, cx| {
         let confirm = on_confirm.clone();
         let submit = on_confirm.clone();
         let muted = cx.theme().muted_foreground;
         d.title(title)
-            .w(px(440.))
+            .w(crate::ui::focus::dialog_width(440., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)

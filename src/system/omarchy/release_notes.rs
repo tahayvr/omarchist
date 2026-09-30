@@ -16,6 +16,8 @@ pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
     let request = isahc::Request::builder()
         .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
         .redirect_policy(RedirectPolicy::Follow)
+        // A black-holed network must not leave "Loading…" up for minutes.
+        .timeout(std::time::Duration::from_secs(15))
         .header("User-Agent", "omarchist")
         .body(())
         .map_err(|e| Error::Network(format!("Failed to build request: {e}")))?;
