@@ -62,43 +62,17 @@ impl Render for MainTitleBar {
                             .ghost()
                             .cursor_pointer()
                             .dropdown_menu(|menu: PopupMenu, _window, _cx| {
-                                menu.menu("About", Box::new(super::app_menu::NavigateToAbout))
+                                // Pages and page actions live in the sidebar and
+                                // the palette; this menu holds what has no page.
+                                menu.menu("Command palette", Box::new(crate::ui::focus::ShowCommands))
+                                    .menu("Keyboard shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
+                                    .separator()
+                                    .menu("Re-apply theme", Box::new(super::app_menu::RefreshTheme))
+                                    .separator()
                                     .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
-                                    .menu("Command Palette", Box::new(crate::ui::focus::ShowCommands))
-                                    .menu("Keyboard Shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
+                                    .menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))
-                            }),
-                    )
-                    .child(
-                        Button::new("themes-menu")
-                            .label("Themes")
-                            .small()
-                            .compact()
-                            .ghost()
-                            .cursor_pointer()
-                            .dropdown_menu(|menu: PopupMenu, _, _| {
-                                menu.item(PopupMenuItem::new("Create New Theme")
-                                        .on_click(|_, window, cx| {
-                                            crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog(window, cx);
-                                        }),
-                                )
-                                .separator()
-                                .menu("Refresh Theme", Box::new(super::app_menu::RefreshTheme))
-                                .separator()
-                                .item(PopupMenuItem::new("Import Theme...").disabled(true))
-                                .item(PopupMenuItem::new("Export Theme...").disabled(true))
-                            }),
-                    )
-                    .child(
-                        Button::new("keybinds-menu")
-                            .label("Keybinds")
-                            .small()
-                            .compact()
-                            .ghost()
-                            .cursor_pointer()
-                            .dropdown_menu(|menu: PopupMenu, _, _| {
-                                menu.menu("Add Keybind...", Box::new(app_menu::NewKeybind))
                             }),
                     )
                     .child(
@@ -111,9 +85,9 @@ impl Render for MainTitleBar {
                             .dropdown_menu(|menu: PopupMenu, window, cx| {
                                 // Read on every open so the list matches the flows folder.
                                 let flows = load_flows().unwrap_or_default();
-                                menu.menu("New Flow", Box::new(app_menu::NewFlow))
-                                    .menu("New from Template", Box::new(app_menu::NewFlowFromTemplate))
-                                    .menu("Import Flow...", Box::new(app_menu::ImportFlow))
+                                menu.menu("New flow", Box::new(app_menu::NewFlow))
+                                    .menu("New from template", Box::new(app_menu::NewFlowFromTemplate))
+                                    .menu("Import flow…", Box::new(app_menu::ImportFlow))
                                     .separator()
                                     .submenu("Run", window, cx, move |menu, _, _| {
                                         if flows.is_empty() {
@@ -173,7 +147,7 @@ impl Render for MainTitleBar {
                                 let font_size = f32::from(cx.theme().font_size) as i32;
                                 let look = crate::system::config::config_setup::settings().theme_mode;
                                 let follows = look != "light" && look != "dark";
-                                menu.label("Font Size")
+                                menu.label("Font size")
                                     .check_side(Side::Right)
                                     .menu_with_check("Large", font_size == 18, Box::new(SelectFont(18)))
                                     .menu_with_check("Medium", font_size == 16, Box::new(SelectFont(16)))
@@ -192,7 +166,7 @@ impl Render for MainTitleBar {
                             .small()
                             .ghost()
                             .cursor_pointer()
-                            .tooltip("Star The Repo")
+                            .tooltip("Star the repo")
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist")
                             }),

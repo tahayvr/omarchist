@@ -477,7 +477,7 @@ impl Render for PalettePane {
                 .child(
                     h_flex().child(
                         Button::new(SharedString::from(format!("remove-old-{}", self.bundle.id)))
-                            .label("Remove Old Files")
+                            .label("Remove old files")
                             .small()
                             .outline()
                             .cursor_pointer()

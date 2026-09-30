@@ -95,13 +95,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
         GLOBAL,
         "Settings"
     ),
-    shortcut!(
-        "ctrl-n",
-        app_menu::NewTheme,
-        None,
-        GLOBAL,
-        "Create a new theme"
-    ),
+    shortcut!("ctrl-n", app_menu::NewTheme, None, GLOBAL, "New theme"),
     shortcut!(
         "ctrl-r",
         focus::ReloadPage,
@@ -114,7 +108,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
         app_menu::RefreshTheme,
         None,
         GLOBAL,
-        "Re-apply the Omarchy theme"
+        "Re-apply theme"
     ),
     shortcut!(
         "ctrl-b",
@@ -656,7 +650,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
         keybinds_nav::AddKeybind,
         Some("KeybindsPage"),
         KEYBINDS,
-        "Add a keybind"
+        "Add keybind"
     ),
     shortcut!(
         "alt-1",
@@ -859,7 +853,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
         flows_nav::NewFlow,
         Some("FlowsPage"),
         FLOWS,
-        "Create a flow"
+        "New flow"
     ),
     shortcut!(
         "down",
@@ -1000,7 +994,14 @@ pub const SHORTCUTS: &[Shortcut] = &[
         flow_edit_nav::AddStep,
         Some("FlowEditPage"),
         FLOWS,
-        "Add a step"
+        "Add step"
+    ),
+    shortcut!(
+        "ctrl-shift-e",
+        flow_edit_nav::Export,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Export the flow"
     ),
     shortcut!(
         "up",

@@ -180,7 +180,6 @@ impl OmarchyView {
                 )
                 .children(pending.iter().enumerate().map(|(ix, line)| {
                     div()
-                        .font_family("monospace")
                         .text_xs()
                         .text_color(theme.muted_foreground)
                         .child(selectable(("pending", ix), line.clone()))
@@ -325,7 +324,7 @@ impl Render for OmarchyView {
         } else {
             let (label, detail) = match &self.release_notes_error {
                 Some(error) => ("Release notes unavailable.", Some(error.clone())),
-                None => ("Loading release notes...", None),
+                None => ("Loading release notes…", None),
             };
             v_flex()
                 .gap_2()

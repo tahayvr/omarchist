@@ -154,7 +154,7 @@ impl Render for AboutView {
                     )
                     .child(
                         Button::new("docs")
-                            .label("DOCS")
+                            .label("Docs")
                             .ghost()
                             .cursor_pointer()
                             .large()

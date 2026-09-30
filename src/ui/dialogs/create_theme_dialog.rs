@@ -24,7 +24,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
     let trap_focus = body_focus.clone();
     window.open_dialog(cx, move |dialog, window, cx| {
         dialog
-            .title("Create New Theme")
+            .title("New theme")
             .w(crate::ui::focus::dialog_width(640., window))
             .overlay(true)
             .keyboard(true)
@@ -58,7 +58,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                 .child(
                                     Button::new("from-image-btn")
                                         .primary()
-                                        .label("Select Image")
+                                        .label("Select image")
                                         .cursor_pointer()
                                         .on_click(|_, window, cx| {
                                             window.close_dialog(cx);
@@ -90,7 +90,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                 .child(
                                     Button::new("from-scratch-btn")
                                         .primary()
-                                        .label("Create Manually")
+                                        .label("Create manually")
                                         .cursor_pointer()
                                         .on_click(|_, window, cx| {
                                             let theme_name = generate_unique_theme_name();
@@ -106,10 +106,8 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
 
                                                     window.close_dialog(cx);
 
-                                                    let msg = format!(
-                                                        "Created new theme: {}",
-                                                        created_theme_name
-                                                    );
+                                                    let msg =
+                                                        format!("Created '{created_theme_name}'");
                                                     window.push_notification(msg, cx);
 
                                                     cx.refresh_windows();
@@ -117,7 +115,7 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
                                                 Err(e) => {
                                                     window.close_dialog(cx);
                                                     let msg =
-                                                        format!("Failed to create theme: {}", e);
+                                                        format!("Could not create the theme: {e}");
                                                     window.push_notification(msg, cx);
                                                 }
                                             }

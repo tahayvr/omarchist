@@ -353,12 +353,13 @@ impl ShellSectionForm {
                 .into_any_element(),
             Field::Bool(checked) => {
                 let name = key.key.clone();
+                // Laid out like every other cell: the label in the fixed
+                // two-line box, the control under it.
                 v_flex()
                     .gap_2()
-                    .child(field_label("", None))
+                    .child(field_label(label, None))
                     .child(
                         FocusableSwitch::new(SharedString::from(id))
-                            .label(label)
                             .checked(*checked)
                             .on_change(cx.listener(move |this, checked: &bool, _, cx| {
                                 if let Some(Field::Bool(value)) = this.fields.get_mut(&name) {

@@ -67,6 +67,10 @@ pub enum EmptyReason {
 
 pub struct KeybindsTableDelegate {
     columns: Vec<Column>,
+    /// Below 900 px: no Source column, its tags sit under the action.
+    narrow: bool,
+    /// The width the columns were last sized for.
+    fitted: Pixels,
     rows: Vec<KeybindRow>,
     loading: bool,
     empty_reason: EmptyReason,
@@ -78,22 +82,53 @@ pub struct KeybindsTableDelegate {
 
 impl KeybindsTableDelegate {
     pub fn new(page_focus: FocusHandle) -> Self {
-        Self {
+        let mut delegate = Self {
             page_focus,
-            columns: vec![
-                Column::new("edit", "").width(px(36.)).resizable(false),
-                Column::new("action", "Action").width(px(260.)),
-                Column::new("keys", "Keystrokes").width(px(230.)),
-                Column::new("command", "Command").width(px(360.)),
-                Column::new("source", "Source")
-                    .width(px(230.))
-                    .resizable(false),
-            ],
+            columns: Vec::new(),
+            narrow: false,
+            fitted: px(0.),
             rows: Vec::new(),
             loading: true,
             empty_reason: EmptyReason::Loading,
             error: None,
+        };
+        delegate.fit_width(px(1100.));
+        delegate
+    }
+
+    /// Sizes the columns to the width the table has: Action and Command
+    /// share what the fixed columns leave, and below 900 px the Source
+    /// column folds into the Action cell so nothing is clipped. `true`
+    /// when the columns changed and the header needs a re-layout.
+    pub fn fit_width(&mut self, available: Pixels) -> bool {
+        let available = available.max(px(480.));
+        if self.fitted == available {
+            return false;
         }
+        self.fitted = available;
+        let narrow = available < px(900.);
+        let edit = px(36.);
+        let keys = if narrow { px(190.) } else { px(230.) };
+        let source = if narrow { px(0.) } else { px(230.) };
+        // The scrollbar and borders take a little of the width.
+        let rest = (available - edit - keys - source - px(24.)).max(px(300.));
+        let action = rest * if narrow { 0.45 } else { 0.4 };
+        let command = rest - action;
+        self.narrow = narrow;
+        self.columns = vec![
+            Column::new("edit", "").width(edit).resizable(false),
+            Column::new("action", "Action").width(action),
+            Column::new("keys", "Keystrokes").width(keys),
+            Column::new("command", "Command").width(command),
+        ];
+        if !narrow {
+            self.columns.push(
+                Column::new("source", "Source")
+                    .width(source)
+                    .resizable(false),
+            );
+        }
+        true
     }
 
     pub fn rows(&self) -> &[KeybindRow] {
@@ -157,7 +192,7 @@ impl KeybindsTableDelegate {
         let label = row.bind.label().to_string();
         let undescribed = row.bind.description.is_empty();
 
-        h_flex()
+        let cell = h_flex()
             .gap_2()
             .items_center()
             .min_w_0()
@@ -185,8 +220,19 @@ impl KeybindsTableDelegate {
                             .build(window, cx)
                         }),
                 )
-            })
+            });
+        // Rows have a fixed height, so the folded Source tags sit inline
+        // after the (truncating) label.
+        if self.narrow {
+            cell.child(
+                div()
+                    .flex_shrink_0()
+                    .child(self.render_source_cell(row, row_ix, cx)),
+            )
             .into_any_element()
+        } else {
+            cell.into_any_element()
+        }
     }
 
     fn render_command_cell(&self, row: &KeybindRow, row_ix: usize, cx: &App) -> AnyElement {
@@ -198,7 +244,6 @@ impl KeybindsTableDelegate {
             .min_w_0()
             .w_full()
             .truncate()
-            .font_family("monospace")
             .text_xs()
             .text_color(theme.muted_foreground)
             .child(selectable(("kb-cmd-text", row_ix), text))
@@ -207,13 +252,17 @@ impl KeybindsTableDelegate {
     }
 
     fn render_source_cell(&self, row: &KeybindRow, row_ix: usize, _cx: &App) -> AnyElement {
-        let origin_tag = match row.bind.origin {
-            Origin::Default => Tag::secondary(),
-            Origin::User => Tag::info(),
-            Origin::Omarchist => Tag::primary(),
-        }
-        .rounded(px(0.))
-        .child(row.bind.origin.label());
+        // Folded into the Action cell, a Default origin says nothing worth
+        // the space; the other origins and every status still show.
+        let origin_tag = (!self.narrow || row.bind.origin != Origin::Default).then(|| {
+            match row.bind.origin {
+                Origin::Default => Tag::secondary(),
+                Origin::User => Tag::info(),
+                Origin::Omarchist => Tag::primary(),
+            }
+            .rounded(px(0.))
+            .child(row.bind.origin.label())
+        });
 
         let status_tag = match &row.kind {
             RowKind::Plain => None,
@@ -241,7 +290,7 @@ impl KeybindsTableDelegate {
             .id(("kb-source", row_ix))
             .gap_1()
             .items_center()
-            .child(origin_tag)
+            .children(origin_tag)
             .children(status_tag)
             .when_some(note, |this, note| {
                 this.tooltip(move |window, cx| Tooltip::new(note.clone()).build(window, cx))
@@ -264,7 +313,12 @@ impl TableDelegate for KeybindsTableDelegate {
     }
 
     fn column(&self, col_ix: usize, _cx: &App) -> Column {
-        self.columns[col_ix].clone()
+        // The table may ask for a column from its previous layout during
+        // the frame the count shrinks.
+        self.columns
+            .get(col_ix)
+            .cloned()
+            .unwrap_or_else(|| Column::new("", "").width(px(0.)))
     }
 
     fn loading(&self, _cx: &App) -> bool {

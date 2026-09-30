@@ -964,7 +964,6 @@ impl ActionBuilder {
                                     .py_1()
                                     .rounded(theme.radius)
                                     .bg(theme.secondary)
-                                    .font_family("monospace")
                                     .text_xs()
                                     .child(selectable("kept-lua", expr.clone())),
                             ),
@@ -1089,7 +1088,6 @@ impl ActionBuilder {
                         .py_0p5()
                         .rounded(theme.radius)
                         .bg(theme.secondary)
-                        .font_family("monospace")
                         .child(selectable("preview-cmd", dispatcher.text().to_string())),
                 ),
             Err(message) => row.child(

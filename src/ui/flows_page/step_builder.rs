@@ -393,7 +393,6 @@ impl StepBuilder {
                         .py_0p5()
                         .rounded(theme.radius)
                         .bg(theme.secondary)
-                        .font_family("monospace")
                         .child(selectable("step-preview", step.text())),
                 )
                 .into_any_element(),

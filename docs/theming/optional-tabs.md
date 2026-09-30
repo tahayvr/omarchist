@@ -22,7 +22,7 @@ Your palette already themes every app on your desktop. The tabs after **Optional
 
 In the list, a dot marks the apps you customized. An app you have not installed is dimmed; you can still customize it for people who use the theme.
 
-To start over, click **Reset to Generated**. To go back to the palette, turn **Customize** off. Omarchist asks before it discards your changes.
+To start over, click **Reset to generated**. To go back to the palette, turn **Customize** off. Omarchist asks before it discards your changes.
 
 ::: tip
 The **General** tab lists every app you customized under **Customized Apps**. Click one to jump to it.
@@ -32,7 +32,7 @@ The **General** tab lists every app you customized under **Customized Apps**. Cl
 
 **Apps that follow your palette.** Terminal Colors, Terminal Menus, Screen Share Picker, and Obsidian show the palette colors the app uses. Change a color and only that app uses the new one. Every color you leave alone keeps following the palette, even when you change the palette later. **Reset** under a color hands it back to the palette.
 
-**Apps with their own colors.** Every other app keeps the colors you set for it. When you change the palette later, those apps keep their colors. Click **Reset to Generated** to pick up the palette again.
+**Apps with their own colors.** Every other app keeps the colors you set for it. When you change the palette later, those apps keep their colors. Click **Reset to generated** to pick up the palette again.
 
 ## Desktop
 

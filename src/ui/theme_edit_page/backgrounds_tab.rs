@@ -173,7 +173,7 @@ impl BackgroundsTab {
                 self.images.retain(|img| img.filename != filename);
             }
             Err(e) => {
-                self.error_message = Some(format!("Failed to delete image: {}", e));
+                self.error_message = Some(format!("Could not remove the image: {e}"));
             }
         }
 
@@ -320,7 +320,7 @@ impl BackgroundsTab {
                         .when(self.boot_logo.is_some(), |row| {
                             row.child(
                                 Button::new("boot-logo-refresh")
-                                    .label("Refresh Preview")
+                                    .label("Refresh preview")
                                     .small()
                                     .ghost()
                                     .disabled(busy)
@@ -378,7 +378,7 @@ impl Render for BackgroundsTab {
                     )
                     .child(
                         Button::new("add-images-btn")
-                            .label("Add Images")
+                            .label("Add images")
                             .primary()
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| {
@@ -393,7 +393,7 @@ impl Render for BackgroundsTab {
                     v_flex()
                         .p_8()
                         .items_center()
-                        .child(Label::new("Loading...").text_color(cx.theme().muted_foreground))
+                        .child(Label::new("Loading…").text_color(cx.theme().muted_foreground))
                         .into_any_element()
                 } else if images.is_empty() {
                     v_flex()

@@ -59,7 +59,7 @@ A template is a flow file without an id. The three built-in ones ship with Omarc
 
 ## Sharing flows
 
-- **Export** from a card's menu, the editor's menu, or `omarchist flow export`. The file leaves out the id and triggers, which belong to your machine.
+- **Export** from a card's menu, the editor's menu (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>), or `omarchist flow export`. The file leaves out the id and triggers, which belong to your machine.
 - **Import** with **Import flow**, by dropping a `.flow.toml` file onto the Flows page, or with `omarchist flow import <file or https URL>`.
 
 An imported flow opens in the editor with a note showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and it runs them as you. The command line prints the steps and asks before saving.

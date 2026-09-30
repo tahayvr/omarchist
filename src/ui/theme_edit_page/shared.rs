@@ -251,6 +251,7 @@ pub fn color_picker_with_clipboard(
     let picker_state_clone = picker_state.clone();
     let id: SharedString = id.into();
     let clipboard_id: SharedString = format!("{}-clipboard", id).into();
+    let hex_id: SharedString = format!("{}-hex", id).into();
     let clipboard = Clipboard::new(clipboard_id).value_fn(move |_, cx| {
         picker_state_clone
             .read(cx)
@@ -259,11 +260,40 @@ pub fn color_picker_with_clipboard(
             .unwrap_or_default()
             .into()
     });
+    let picker_state_for_hex = picker_state.clone();
 
     v_flex()
         .gap_2()
         .child(field_label(label, Some(clipboard.into_any_element())))
         .child(ColorPicker::new(picker_state))
+        // The value in the open, selectable (Ctrl+C) without opening the
+        // picker.
+        .child(div().text_xs().child(HexValue {
+            id: hex_id,
+            state: picker_state_for_hex,
+        }))
+}
+
+/// The picker's current value as text, read at render time so it follows
+/// every change.
+#[derive(IntoElement)]
+struct HexValue {
+    id: SharedString,
+    state: Entity<ColorPickerState>,
+}
+
+impl RenderOnce for HexValue {
+    fn render(self, _window: &mut Window, cx: &mut App) -> impl IntoElement {
+        let hex = self
+            .state
+            .read(cx)
+            .value()
+            .map(|c| hex6(&c.to_hex()))
+            .unwrap_or_default();
+        div()
+            .text_color(cx.theme().muted_foreground)
+            .child(selectable(self.id, hex))
+    }
 }
 
 /// Whether the theme was installed with `omarchy theme install`, a git clone

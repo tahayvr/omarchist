@@ -305,7 +305,7 @@ impl Render for ThemeEditPage {
                     )
                     .child(
                         Button::new("apply-theme-btn")
-                            .label("Apply Theme")
+                            .label("Apply theme")
                             .compact()
                             .tooltip_with_action(
                                 "Apply this theme now",
@@ -320,7 +320,10 @@ impl Render for ThemeEditPage {
                     .child(
                         tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)
                             .flex_1()
-                            .min_w_0()
+                            // Wide enough for the optional strip, so in a
+                            // narrow window the whole strip drops under
+                            // the buttons instead of clipping its end.
+                            .min_w(px(560.))
                             .on_action(cx.listener(
                                 |this, _: &focus::tab_strip::Prev, window, cx| {
                                     this.prev_tab(window, cx);

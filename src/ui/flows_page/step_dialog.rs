@@ -136,7 +136,7 @@ pub fn open_step_dialog(
     cx: &mut App,
 ) -> Entity<StepDialog> {
     let title = match mode {
-        StepDialogMode::Add => "Add a step",
+        StepDialogMode::Add => "Add step",
         StepDialogMode::Edit(_) => "Edit step",
     };
     let dialog = cx.new(|cx| StepDialog::new(mode, initial, exclude_flow, window, cx));

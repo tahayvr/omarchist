@@ -42,10 +42,39 @@ pub struct OverridePane {
     /// `edit_generation` while a debounced save is pending.
     saved_generation: u64,
     error: Option<String>,
+    /// The colors Omarchy's own template would put in the file, shown
+    /// while the theme does not ship it so Customize is an informed choice.
+    preview: Option<Vec<String>>,
     _editor_subscription: Option<Subscription>,
 }
 
 impl EventEmitter<StatusChanged> for OverridePane {}
+
+/// The distinct `#rrggbb` colors in `content`, in order of first use.
+pub fn preview_colors(content: &str) -> Vec<String> {
+    let bytes = content.as_bytes();
+    let mut colors: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'#' {
+            // Six digits, or eight with alpha; anything else is not a color.
+            let run = bytes[i + 1..]
+                .iter()
+                .take_while(|b| b.is_ascii_hexdigit())
+                .count();
+            if run == 6 || run == 8 {
+                let hex = content[i..i + 7].to_ascii_lowercase();
+                if !colors.contains(&hex) {
+                    colors.push(hex);
+                }
+            }
+            i += 1 + run;
+            continue;
+        }
+        i += 1;
+    }
+    colors
+}
 
 impl OverridePane {
     pub fn new(
@@ -67,6 +96,7 @@ impl OverridePane {
             edit_generation: 0,
             saved_generation: 0,
             error: None,
+            preview: None,
             _editor_subscription: None,
         };
         pane.cloned = theme_is_cloned(&pane.theme_name);
@@ -80,10 +110,62 @@ impl OverridePane {
                 }
                 pane.show_editor(&content, window, cx)
             }
-            Ok(None) => {}
+            Ok(None) => pane.load_preview(cx),
             Err(e) => pane.error = Some(e.to_string()),
         }
         pane
+    }
+
+    /// Renders Omarchy's template off the UI thread for the swatch strip.
+    fn load_preview(&mut self, cx: &mut Context<Self>) {
+        let theme = self.theme_name.clone();
+        let spec = self.spec;
+        cx.spawn(async move |this, cx| {
+            let colors = cx
+                .background_spawn(async move {
+                    overrides::generated(&theme, spec).map(|content| preview_colors(&content))
+                })
+                .await;
+            this.update(cx, |this, cx| {
+                if this.editor.is_none() {
+                    this.preview = Some(colors.unwrap_or_default());
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn render_preview(&self, cx: &App) -> Option<AnyElement> {
+        let colors = self.preview.as_ref().filter(|c| !c.is_empty())?;
+        let theme = cx.theme();
+        Some(
+            h_flex()
+                .gap_2()
+                .flex_wrap()
+                .children(colors.iter().enumerate().map(|(ix, hex)| {
+                    let color = crate::ui::color_utils::hex_to_hsla(hex).unwrap_or(theme.muted);
+                    v_flex()
+                        .gap_1()
+                        .items_center()
+                        .child(
+                            div()
+                                .size_8()
+                                .rounded(theme.radius)
+                                .border_1()
+                                .border_color(theme.border)
+                                .bg(color),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                .child(selectable(("preview-hex", ix), hex.clone())),
+                        )
+                }))
+                .into_any_element(),
+        )
     }
 
     pub fn is_custom(&self) -> bool {
@@ -239,6 +321,7 @@ impl OverridePane {
                 self.editor = None;
                 self._editor_subscription = None;
                 self.error = None;
+                self.load_preview(cx);
                 cx.emit(StatusChanged);
             }
             Err(e) => self.error = Some(e.to_string()),
@@ -366,7 +449,7 @@ impl Render for OverridePane {
                 .child(
                     h_flex().child(
                         Button::new(SharedString::from(format!("reset-{file}")))
-                            .label("Reset to Generated")
+                            .label("Reset to generated")
                             .small()
                             .outline()
                             .cursor_pointer()
@@ -375,9 +458,21 @@ impl Render for OverridePane {
                             ),
                     ),
                 ),
-            None => pane,
+            None => pane.children(self.render_preview(cx)),
         };
 
         pane
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::preview_colors;
+
+    #[test]
+    fn preview_lists_each_color_once_and_skips_hashes() {
+        let text =
+            "bg = \"#1A2B3C\"\nfg = '#1a2b3c'\nalpha = #ff000080\nhash #deadbeefcafe\nshort #abc\n";
+        assert_eq!(preview_colors(text), vec!["#1a2b3c", "#ff0000"]);
     }
 }

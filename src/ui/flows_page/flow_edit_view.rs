@@ -998,7 +998,6 @@ impl FlowEditPage {
                                     .py_1()
                                     .rounded(theme.radius)
                                     .bg(theme.secondary)
-                                    .font_family("monospace")
                                     .text_xs()
                                     .truncate()
                                     .text_color(if is_new {
@@ -1132,7 +1131,6 @@ impl FlowEditPage {
                     .child(
                         div()
                             .text_xs()
-                            .font_family("monospace")
                             .text_color(theme.muted_foreground)
                             // Reviewing an import: every character counts.
                             .when(self.import_origin.is_none(), |this| this.truncate())
@@ -1291,7 +1289,7 @@ impl FlowEditPage {
                     .w_full()
                     .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
                     .label("Add step")
-                    .tooltip_with_action("Add a step", &AddStep, Some(KEY_CONTEXT))
+                    .tooltip_with_action("Add step", &AddStep, Some(KEY_CONTEXT))
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.open_step_dialog(StepDialogMode::Add, window, cx)

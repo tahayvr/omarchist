@@ -192,7 +192,8 @@ mod tests {
         assert_eq!(without_require_line(&added), omarchy);
         // A comment that is not followed by our require stays, as does a
         // require inside other code.
-        let hand = "-- Added by Omarchist\nlocal x = 1\nif x then require(\"hypr.omarchist\") end\n";
+        let hand =
+            "-- Added by Omarchist\nlocal x = 1\nif x then require(\"hypr.omarchist\") end\n";
         assert_eq!(without_require_line(hand), hand);
         assert_eq!(without_require_line(omarchy), omarchy);
     }

@@ -165,15 +165,22 @@ impl RenderOnce for FocusableSwitch {
             .track_focus(&focus_handle)
             .gap_3()
             .items_center()
+            // The row never grows past its cell: a long label wraps in
+            // place of running into the next grid column.
+            .max_w_full()
+            .min_w_0()
             .px_1()
             .py_0p5()
             .rounded(radius)
             .border_1()
             .border_color(ring)
             .when(!disabled, |this| this.cursor_pointer())
-            .when_some(self.label.clone(), |this, label| this.child(label))
+            .when_some(self.label.clone(), |this, label| {
+                this.child(div().min_w_0().flex_shrink(1.).child(label))
+            })
             .child(
                 Switch::new("switch")
+                    .flex_none()
                     .checked(checked)
                     .disabled(disabled)
                     .when_some(on_change.clone(), |this, handler| {

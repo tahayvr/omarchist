@@ -347,7 +347,7 @@ fn import(source: &str, yes: bool) -> ExitCode {
     }
 }
 
-/// The same steps as the Create New Theme dialog: a folder named after the
+/// The same steps as the New theme dialog: a folder named after the
 /// image (or `--name`), a palette extracted from it, and the image copied
 /// in as the wallpaper.
 fn theme_from_image(image: &Path, name: Option<&str>, apply: bool) -> ExitCode {

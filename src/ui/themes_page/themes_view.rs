@@ -171,8 +171,8 @@ impl Render for ThemesPage {
                                         .on_click(cx.listener(|view, index, _, cx| {
                                             view.set_tab(*index, cx);
                                         }))
-                                        .child(Tab::new().label("All Themes"))
-                                        .child(Tab::new().label("Omarchist Themes")),
+                                        .child(Tab::new().label("All themes"))
+                                        .child(Tab::new().label("Omarchist themes")),
                                 ),
                         ),
                     )

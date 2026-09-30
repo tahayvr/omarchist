@@ -352,7 +352,7 @@ impl FlowsView {
         let view = cx.entity();
         open_confirm_dialog(
             ConfirmDialog {
-                title: "Delete flow",
+                title: "Delete this flow?",
                 message: format!(
                     "Delete '{}'? Its keybind, launcher entry, and startup hook are removed with it.",
                     flow.name
@@ -419,7 +419,7 @@ impl FlowsView {
                             Button::new("new-flow-main")
                                 .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
                                 .label("New flow")
-                                .tooltip_with_action("Create a flow", &NewFlow, Some(KEY_CONTEXT))
+                                .tooltip_with_action("New flow", &NewFlow, Some(KEY_CONTEXT))
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
                         )
@@ -493,7 +493,11 @@ impl FlowsView {
                                 div()
                                     .text_sm()
                                     .text_color(theme.muted_foreground)
-                                    .truncate()
+                                    // Two lines before an ellipsis: the
+                                    // action buttons leave this column
+                                    // little width.
+                                    .line_clamp(2)
+                                    .text_ellipsis()
                                     .child(selectable(
                                         ("flow-description", filtered_ix),
                                         description,
@@ -683,7 +687,7 @@ impl FlowsView {
                 Button::new("new-flow-empty")
                     .primary()
                     .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                    .label("Create a flow")
+                    .label("New flow")
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
             )

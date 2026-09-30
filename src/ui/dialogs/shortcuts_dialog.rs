@@ -120,7 +120,7 @@ pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
         }).collect::<Vec<_>>();
 
         dialog
-            .title("Keyboard Shortcuts")
+            .title("Keyboard shortcuts")
             .w(focus::dialog_width(720., window))
             .overlay(true)
             .keyboard(true)

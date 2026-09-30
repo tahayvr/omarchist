@@ -6,8 +6,10 @@ use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, button::Button, h_flex, scroll::ScrollableElement, v_flex};
 
-const BREAKPOINT_SM: f32 = 768.0;
-const BREAKPOINT_LG: f32 = 1280.0;
+// Two columns from 560 px so a narrow window shows more than one theme
+// per screen; a card is never narrower than about 260 px.
+const BREAKPOINT_SM: f32 = 560.0;
+const BREAKPOINT_LG: f32 = 1100.0;
 const GRID_GAP: f32 = 16.0;
 const PAGE_PADDING_LEFT: f32 = 16.0;
 const PAGE_PADDING_RIGHT: f32 = 26.0;

@@ -639,7 +639,7 @@ pub fn open_keybind_dialog(
 ) -> Entity<KeybindDialog> {
     let title = match &mode {
         DialogMode::Edit { .. } => "Edit keybind",
-        DialogMode::Add | DialogMode::AddPreset { .. } => "New keybind",
+        DialogMode::Add | DialogMode::AddPreset { .. } => "Add keybind",
     };
     let dialog = cx.new(|cx| KeybindDialog::new(mode, binds, window, cx));
     let view = dialog.clone();

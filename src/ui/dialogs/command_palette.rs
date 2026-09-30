@@ -72,9 +72,9 @@ fn groups() -> Vec<Group> {
         Group {
             title: "Themes",
             entries: vec![
-                entry("Create a new theme", &["new", "add"], app_menu::NewTheme),
+                entry("New theme", &["new", "add"], app_menu::NewTheme),
                 entry(
-                    "Re-apply the Omarchy theme",
+                    "Re-apply theme",
                     &["refresh", "reload", "colors"],
                     app_menu::RefreshTheme,
                 ),
@@ -83,7 +83,7 @@ fn groups() -> Vec<Group> {
         Group {
             title: "Keybinds",
             entries: vec![entry(
-                "Add a keybind",
+                "Add keybind",
                 &["new", "bind", "shortcut"],
                 app_menu::NewKeybind,
             )],
@@ -93,12 +93,12 @@ fn groups() -> Vec<Group> {
             entries: vec![
                 entry("New flow", &["create", "add"], app_menu::NewFlow),
                 entry(
-                    "New flow from a template",
+                    "New from template",
                     &["create", "templates"],
                     app_menu::NewFlowFromTemplate,
                 ),
                 entry(
-                    "Import a flow",
+                    "Import flow",
                     &["open", "file", "share"],
                     app_menu::ImportFlow,
                 ),

@@ -15,11 +15,14 @@ use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 use crate::ui::themes_page::themes_view::ThemesPage;
+use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Collapsible, Icon, IconName, Root, Side, WindowExt, h_flex,
     kbd::Kbd,
     sidebar::{Sidebar, SidebarGroup, SidebarItem, SidebarMenu, SidebarMenuItem},
+    tooltip::Tooltip,
+    v_flex,
 };
 
 use crate::system::ui_theme_watcher;
@@ -31,10 +34,10 @@ const SIDEBAR_CONTEXT: &str = "Sidebar";
 
 /// Sidebar entries in display order: label, icon, page.
 const SIDEBAR_ITEMS: [(&str, &str); 4] = [
-    ("THEMES", "ctrl-1"),
-    ("CONFIGURATION", "ctrl-2"),
-    ("KEYBINDS", "ctrl-3"),
-    ("FLOWS", "ctrl-4"),
+    ("Themes", "ctrl-1"),
+    ("Configuration", "ctrl-2"),
+    ("Keybinds", "ctrl-3"),
+    ("Flows", "ctrl-4"),
 ];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -818,10 +821,30 @@ impl SidebarItem for SidebarNav {
             .track_focus(&self.focus)
             .cursor_pointer()
             .child(
-                SidebarMenu::new()
-                    .collapsed(self.collapsed)
-                    .children(self.items)
-                    .render("sidebar-nav-menu", window, cx),
+                // Laid out as `SidebarMenu` does, so a collapsed item (an
+                // icon alone) can carry its page name as a tooltip.
+                v_flex()
+                    .gap_2()
+                    .children(self.items.into_iter().enumerate().map(|(ix, item)| {
+                        let (label, keys) = SIDEBAR_ITEMS[ix];
+                        let item = item.collapsed(self.collapsed).render(
+                            ("sidebar-nav-menu", ix),
+                            window,
+                            cx,
+                        );
+                        div()
+                            .id(("sidebar-nav-tip", ix))
+                            .when(self.collapsed, |this: Stateful<Div>| {
+                                this.tooltip(move |window, cx| {
+                                    Tooltip::new(label)
+                                        .key_binding(Some(Kbd::new(
+                                            Keystroke::parse(keys).unwrap(),
+                                        )))
+                                        .build(window, cx)
+                                })
+                            })
+                            .child(item)
+                    })),
             )
     }
 }
@@ -833,6 +856,11 @@ impl Render for MainWindowView {
         self.themes_view.update(cx, |themes_page, cx| {
             themes_page.set_sidebar_collapsed(sidebar_should_be_collapsed, cx);
         });
+        if let Some(view) = &self.keybinds_view {
+            view.update(cx, |view, cx| {
+                view.set_sidebar_collapsed(sidebar_should_be_collapsed, cx)
+            });
+        }
 
         div()
             .id("main-window-root")

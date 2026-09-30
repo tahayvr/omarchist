@@ -169,6 +169,8 @@ pub struct KeybindsView {
     /// An add request that arrived during a scan.
     add_when_loaded: bool,
     _subscriptions: Vec<Subscription>,
+    /// Pushed in by the main window: the table's width depends on it.
+    sidebar_collapsed: bool,
 }
 
 impl KeybindsView {
@@ -249,6 +251,7 @@ impl KeybindsView {
             pending_reselect: None,
             add_when_loaded: false,
             _subscriptions: subscriptions,
+            sidebar_collapsed: true,
         };
         view.refresh(window, cx);
         view
@@ -708,7 +711,7 @@ impl KeybindsView {
                 .detach();
             }
             Err(e) => {
-                window.push_notification(format!("Could not save keybind: {e}"), cx);
+                window.push_notification(format!("Could not save the keybind: {e}"), cx);
             }
         }
     }
@@ -1015,18 +1018,46 @@ impl KeybindsView {
         h_flex()
             .justify_between()
             .items_center()
+            .flex_wrap()
+            .gap_x_4()
             .text_xs()
             .text_color(theme.muted_foreground)
-            .child(selectable("kb-summary", summary))
-            .child(selectable(
+            .child(div().flex_none().child(selectable("kb-summary", summary)))
+            .child(div().min_w_0().truncate().child(selectable(
                 "kb-footer-note",
                 "Changes are written to ~/.config/hypr/omarchist.lua and applied immediately",
-            ))
+            )))
+    }
+}
+
+impl KeybindsView {
+    pub fn set_sidebar_collapsed(&mut self, collapsed: bool, cx: &mut Context<Self>) {
+        if self.sidebar_collapsed != collapsed {
+            self.sidebar_collapsed = collapsed;
+            cx.notify();
+        }
+    }
+
+    /// Sizes the table's columns to the width it will get.
+    fn fit_table(&mut self, window: &Window, cx: &mut Context<Self>) {
+        let sidebar = if self.sidebar_collapsed {
+            px(48.)
+        } else {
+            px(255.)
+        };
+        let available = window.viewport_size().width - sidebar - px(48.);
+        self.table.update(cx, |table, cx| {
+            if table.delegate_mut().fit_width(available) {
+                // Rebuilds the column groups: the count may have changed.
+                table.refresh(cx);
+            }
+        });
     }
 }
 
 impl Render for KeybindsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.fit_table(window, cx);
         v_flex()
             .id("keybinds-page")
             .key_context(KEY_CONTEXT)
@@ -1152,7 +1183,7 @@ impl Render for KeybindsView {
                             .small()
                             .icon(IconName::Plus)
                             .label("Add keybind")
-                            .tooltip_with_action("Add a keybind", &AddKeybind, Some(KEY_CONTEXT))
+                            .tooltip_with_action("Add keybind", &AddKeybind, Some(KEY_CONTEXT))
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, window, cx| this.open_add(window, cx))),
                     )

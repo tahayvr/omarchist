@@ -297,12 +297,20 @@ impl Render for GeneralTab {
             .child(focus_section(
                 "general-light",
                 &self.scroll,
-                FocusableSwitch::new("light-theme-toggle")
-                    .label("Light Theme")
-                    .checked(is_light)
-                    .on_change(cx.listener(|this, checked, window, cx| {
-                        this.on_light_mode_toggle(*checked, window, cx);
-                    })),
+                // Labelled like the Name and Author rows above it.
+                form_section()
+                    .child(
+                        Label::new("Light mode")
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground),
+                    )
+                    .child(
+                        FocusableSwitch::new("light-theme-toggle")
+                            .checked(is_light)
+                            .on_change(cx.listener(|this, checked, window, cx| {
+                                this.on_light_mode_toggle(*checked, window, cx);
+                            })),
+                    ),
             ))
             .child(focus_section(
                 "general-customized",
