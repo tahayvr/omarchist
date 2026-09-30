@@ -69,24 +69,64 @@ impl ThemeCard {
 
 fn confirm_delete_theme(theme: &ThemeEntry, window: &mut Window, cx: &mut App) {
     let dir = theme.dir.clone();
+    let title = theme.title.clone();
     let is_system = matches!(theme.origin, crate::types::themes::ThemeOrigin::System);
+    let message = if theme.applied {
+        format!(
+            "\"{title}\" is the theme Omarchy is running. Deleting it removes all of its files \
+             and leaves Omarchy on a theme that no longer exists until you apply another. This \
+             cannot be undone."
+        )
+    } else {
+        format!("Delete \"{title}\" and all of its files? This cannot be undone.")
+    };
     open_confirm_dialog(
         ConfirmDialog {
-            title: "Delete theme",
-            message: format!(
-                "Delete \"{}\" and all of its files? This cannot be undone.",
-                theme.title
-            ),
+            title: "Delete this theme?",
+            message,
             confirm_label: "Delete",
             danger: true,
         },
-        move |window, cx| match delete_theme(&dir, is_system) {
-            Ok(()) => emit(cx, AppEvent::RefreshThemes),
-            Err(e) => window.push_notification(format!("Failed to delete theme: {e}"), cx),
+        move |window, cx| {
+            let handle = window.window_handle();
+            let dir = dir.clone();
+            let title = title.clone();
+            cx.spawn(async move |cx| {
+                // Removing a folder of wallpapers takes long enough to stall
+                // a frame.
+                let result = cx
+                    .background_spawn(async move { delete_theme(&dir, is_system) })
+                    .await;
+                handle
+                    .update(cx, |_, window, cx| match result {
+                        Ok(()) => {
+                            window.push_notification(format!("Deleted '{title}'"), cx);
+                            emit(cx, AppEvent::RefreshThemes);
+                        }
+                        Err(e) => {
+                            window.push_notification(format!("Could not delete '{title}': {e}"), cx)
+                        }
+                    })
+                    .ok();
+            })
+            .detach();
         },
         window,
         cx,
     );
+}
+
+/// A small outlined label next to the title.
+fn badge(text: &'static str, color: Hsla, radius: Pixels) -> Div {
+    div()
+        .px_1p5()
+        .py_0p5()
+        .rounded(radius)
+        .border_1()
+        .border_color(color.opacity(0.4))
+        .text_xs()
+        .text_color(color)
+        .child(text)
 }
 
 fn color_palette_display(colors: &crate::types::themes::ThemeColors) -> Div {
@@ -138,13 +178,30 @@ impl Render for ThemeCard {
                     .items_center()
                     .justify_between()
                     .child(
-                        div()
-                            .text_color(theme.foreground)
-                            .text_sm()
-                            .font_weight(FontWeight::BOLD)
-                            .child(selectable(
-                                ("theme-title", self.index),
-                                self.theme.title.clone(),
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .min_w_0()
+                            .flex_1()
+                            .child(
+                                div()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_color(theme.foreground)
+                                    .text_sm()
+                                    .font_weight(FontWeight::BOLD)
+                                    .child(selectable(
+                                        ("theme-title", self.index),
+                                        self.theme.title.clone(),
+                                    )),
+                            )
+                            .when(self.theme.applied, |row| {
+                                row.child(badge("Applied", theme.primary, theme.radius))
+                            })
+                            .child(badge(
+                                self.theme.origin.badge_text(),
+                                theme.muted_foreground,
+                                theme.radius,
                             )),
                     )
                     .child({

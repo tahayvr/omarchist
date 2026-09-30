@@ -61,6 +61,9 @@ impl GridNav {
     }
 
     fn move_by(&mut self, delta: isize) -> bool {
+        if self.item_count == 0 {
+            return false;
+        }
         let Some(current) = self.focused_index else {
             return self.set(0);
         };
@@ -94,6 +97,9 @@ pub struct ThemeGrid {
     themes: Vec<ThemeEntry>,
     filter: ThemeFilter,
     cards: Vec<Entity<ThemeCard>>,
+    /// False until the first scan lands, so a slow disk shows "Loading"
+    /// rather than "no themes".
+    loaded: bool,
     sidebar_collapsed: bool,
     pub focus: FocusHandle,
     nav: GridNav,
@@ -119,6 +125,7 @@ impl ThemeGrid {
             themes,
             filter: ThemeFilter::All,
             cards,
+            loaded: false,
             sidebar_collapsed: true,
             focus,
             nav: GridNav::new(item_count, 3),
@@ -148,7 +155,11 @@ impl ThemeGrid {
 
     pub fn update_themes(&mut self, themes: Vec<ThemeEntry>, cx: &mut Context<Self>) {
         self.themes = themes;
+        self.loaded = true;
         self.nav.item_count = self.themes.len();
+        if self.nav.item_count == 0 {
+            self.nav.focused_index = None;
+        }
         self.cards = Self::make_cards(&self.themes, cx);
         cx.notify();
     }
@@ -355,26 +366,29 @@ impl Render for ThemeGrid {
             .size_full()
             .min_w_0()
             .when(is_empty, |this| {
+                let message = if !self.loaded {
+                    "Loading themes…"
+                } else if matches!(self.filter, ThemeFilter::Only(ThemeOrigin::Omarchist)) {
+                    "No themes made with Omarchist yet"
+                } else {
+                    "No themes found"
+                };
                 this.flex().items_center().justify_center().child(
                     v_flex()
                         .items_center()
                         .gap_4()
-                        .child(
-                            div()
-                                .text_color(muted)
-                                .mt_12()
-                                .text_sm()
-                                .child("You have no themes."),
-                        )
-                        .child(
-                            h_flex().child(
-                                Button::new("empty-create-theme-btn")
-                                    .label("Create New Theme")
-                                    .on_click(|_, window, cx| {
-                                        open_create_theme_dialog(window, cx);
-                                    }),
-                            ),
-                        ),
+                        .child(div().text_color(muted).mt_12().text_sm().child(message))
+                        .when(self.loaded, |this| {
+                            this.child(
+                                h_flex().child(
+                                    Button::new("empty-create-theme-btn")
+                                        .label("New theme")
+                                        .on_click(|_, window, cx| {
+                                            open_create_theme_dialog(window, cx);
+                                        }),
+                                ),
+                            )
+                        }),
                 )
             })
             .when(!is_empty, |this| {

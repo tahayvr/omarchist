@@ -78,16 +78,31 @@ pub fn theme_color_all(colors_file: &Path) -> Result<String> {
 
 /// Renders the boot screen preview `omarchy-plymouth-switcher` shows for a
 /// theme, from its colors and logo.
+/// Renders a Plymouth preview with Omarchy's own `omarchy-plymouth-preview`.
+/// The script ends by opening the result in a fullscreen `imv` (it is a
+/// user-facing preview command), which would cover the app and block until
+/// the viewer is closed, so it runs with a PATH shim whose `imv` does
+/// nothing; the written file is the result.
 pub fn plymouth_preview(background: &str, text: &str, logo: &Path, output: &Path) -> Result<()> {
+    let shim_dir = imv_shim_dir()?;
+    let path = std::env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![shim_dir.clone()];
+    paths.extend(std::env::split_paths(&path));
+    let path = std::env::join_paths(paths)
+        .map_err(|e| Error::Invalid(format!("Cannot build PATH for the preview: {e}")))?;
     let result = Command::new("omarchy-plymouth-preview")
         .arg(background)
         .arg(text)
         .arg(logo)
         .arg(output)
+        .env("PATH", path)
+        .stdin(Stdio::null())
         .output()
-        .map_err(|e| Error::io("Failed to execute omarchy-plymouth-preview", e))?;
+        .map_err(|e| Error::io("Failed to execute omarchy-plymouth-preview", e));
+    let _ = std::fs::remove_dir_all(&shim_dir);
+    let result = result?;
 
-    if !result.status.success() {
+    if !result.status.success() && !output.is_file() {
         return Err(Error::Invalid(format!(
             "omarchy-plymouth-preview failed: {}",
             String::from_utf8_lossy(&result.stderr).trim()
@@ -95,6 +110,26 @@ pub fn plymouth_preview(background: &str, text: &str, logo: &Path, output: &Path
     }
 
     Ok(())
+}
+
+/// A directory holding an `imv` that exits at once, to put first on PATH.
+fn imv_shim_dir() -> Result<std::path::PathBuf> {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = std::env::temp_dir().join(format!(
+        "omarchist-plymouth-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or_default()
+    ));
+    std::fs::create_dir_all(&dir).map_err(|e| Error::io("Failed to create the preview shim", e))?;
+    let imv = dir.join("imv");
+    std::fs::write(&imv, "#!/bin/sh\nexit 0\n")
+        .map_err(|e| Error::io("Failed to create the preview shim", e))?;
+    std::fs::set_permissions(&imv, std::fs::Permissions::from_mode(0o755))
+        .map_err(|e| Error::io("Failed to create the preview shim", e))?;
+    Ok(dir)
 }
 
 // Refresh apps to apply theme changes

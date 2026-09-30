@@ -100,6 +100,9 @@ pub fn list_background_images(theme_name: &str, is_system: bool) -> Result<Vec<P
         .map(|entry| entry.path())
         .collect();
 
+    // The order Omarchy cycles them in (`omarchy-theme-set` sorts by name).
+    let mut images = images;
+    images.sort();
     Ok(images)
 }
 
@@ -119,7 +122,14 @@ pub fn add_background_image(
 
     let dest_path = backgrounds_dir.join(filename);
 
-    // Copy the file (overwrites if exists)
+    // Never replace an image of the same name behind the user's back: the
+    // grid would keep showing the old picture from its cache.
+    if dest_path.exists() {
+        return Err(Error::Invalid(format!(
+            "{} is already in this theme",
+            filename.to_string_lossy()
+        )));
+    }
     fs::copy(source_path, &dest_path)
         .map_err(|e| Error::io("Failed to copy background image", e))?;
 

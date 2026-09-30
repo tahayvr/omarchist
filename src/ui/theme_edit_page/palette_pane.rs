@@ -44,6 +44,9 @@ pub struct PalettePane {
     old_files: Vec<&'static str>,
     busy: bool,
     edit_generation: u64,
+    /// The generation the last started save carried; behind
+    /// `edit_generation` while a debounced save is pending.
+    saved_generation: u64,
     error: Option<String>,
     _subscriptions: Vec<Subscription>,
 }
@@ -70,6 +73,7 @@ impl PalettePane {
             old_files: Vec::new(),
             busy: false,
             edit_generation: 0,
+            saved_generation: 0,
             error: None,
             _subscriptions: Vec::new(),
         };
@@ -85,6 +89,9 @@ impl PalettePane {
     /// Reads the theme's colors and this bundle's changes from disk again,
     /// so colors that follow the palette show its current values.
     pub fn reload(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        // An edit still waiting for its save must reach disk first, or the
+        // re-read would show and later re-save the value from before it.
+        self.flush(cx);
         match load_theme_for_editing(&self.theme_name) {
             Ok(theme) => {
                 self.colors = theme.colors;
@@ -131,12 +138,24 @@ impl PalettePane {
             .unwrap_or_default()
     }
 
+    /// Creates a picker per relevant key, keeping the ones that already
+    /// exist (an open popover survives a refresh) and only moving their
+    /// value when the palette moved under them.
     fn build_pickers(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self._subscriptions.clear();
-        self.pickers.clear();
         let keys = self.keys.clone().unwrap_or_default();
+        let wanted: Vec<&'static str> = keys.iter().map(|base| base.key).collect();
+        self.pickers.retain(|key, _| wanted.contains(key));
         for base in keys {
             let hex = self.value(base.key);
+            if let Some(picker) = self.pickers.get(base.key) {
+                let current = picker.read(cx).value().map(|c| hex6(&c.to_hex()));
+                if current.as_deref() != Some(hex.as_str())
+                    && let Some(color) = hex_to_hsla(&hex)
+                {
+                    picker.update(cx, |picker, cx| picker.set_value(color, window, cx));
+                }
+                continue;
+            }
             let picker = cx.new(|cx| {
                 let picker = ColorPickerState::new(window, cx);
                 match hex_to_hsla(&hex) {
@@ -169,14 +188,17 @@ impl PalettePane {
         let generation = self.edit_generation;
         let theme = self.theme_name.clone();
         let bundle = self.bundle;
-        let overrides = self.overrides.clone();
         cx.notify();
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
-            let current = this.update(cx, |this, _| this.edit_generation == generation);
-            if !matches!(current, Ok(true)) {
+            let Ok(Some(overrides)) = this.update(cx, |this, _| {
+                (this.edit_generation == generation).then(|| {
+                    this.saved_generation = generation;
+                    this.overrides.clone()
+                })
+            }) else {
                 return;
-            }
+            };
             let result = cx
                 .background_spawn(async move { palette::set(&theme, bundle, overrides) })
                 .await;
@@ -189,6 +211,17 @@ impl PalettePane {
             .ok();
         })
         .detach();
+    }
+
+    /// Writes a pending edit now (before a reload or an Apply).
+    pub fn flush(&mut self, cx: &mut Context<Self>) {
+        if self.edit_generation == self.saved_generation {
+            return;
+        }
+        self.saved_generation = self.edit_generation;
+        let result = palette::set(&self.theme_name, self.bundle, self.overrides.clone());
+        self.error = result.err().map(|e| e.to_string());
+        cx.notify();
     }
 
     /// Makes one color follow the palette again.
@@ -207,6 +240,7 @@ impl PalettePane {
         }
         self.busy = true;
         self.edit_generation += 1;
+        self.saved_generation = self.edit_generation;
         let theme = self.theme_name.clone();
         let bundle = self.bundle;
         let overrides = enabled.then(BTreeMap::new);
@@ -245,6 +279,33 @@ impl PalettePane {
             },
             move |window, cx| {
                 pane.update(cx, |pane, cx| pane.set_enabled(false, window, cx))
+                    .ok();
+            },
+            window,
+            cx,
+        );
+    }
+
+    /// Turning the bundle on regenerates its files; when the theme ships
+    /// hand-written ones from an older Omarchist, ask first.
+    fn confirm_enable(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.old_files.is_empty() {
+            self.set_enabled(true, window, cx);
+            return;
+        }
+        let pane = cx.entity().downgrade();
+        open_confirm_dialog(
+            ConfirmDialog {
+                title: "Replace the old files?",
+                message: format!(
+                    "This replaces {} with files generated from the palette.",
+                    self.old_files.join(", ")
+                ),
+                confirm_label: "Replace",
+                danger: true,
+            },
+            move |window, cx| {
+                pane.update(cx, |pane, cx| pane.set_enabled(true, window, cx))
                     .ok();
             },
             window,
@@ -322,7 +383,7 @@ impl PalettePane {
                     .disabled(self.busy)
                     .on_change(cx.listener(|this, checked: &bool, window, cx| {
                         if *checked {
-                            this.set_enabled(true, window, cx);
+                            this.confirm_enable(window, cx);
                         } else {
                             this.confirm_disable(window, cx);
                         }

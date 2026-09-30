@@ -2,8 +2,11 @@ use crate::system::themes::theme_file_ops::{
     add_background_image, boot_logo, list_background_images, remove_background_image,
     remove_boot_logo, render_boot_preview, set_boot_logo,
 };
+use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::text::selectable;
-use crate::ui::theme_edit_page::shared::{error_message, focus_section, tab_container};
+use crate::ui::theme_edit_page::shared::{
+    IMAGE_EXTENSIONS, error_message, focus_section, tab_container,
+};
 use anyhow;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -15,7 +18,6 @@ use gpui_component::{
     separator::Separator,
     v_flex,
 };
-use smol;
 use std::path::PathBuf;
 
 #[derive(Clone)]
@@ -94,31 +96,42 @@ impl BackgroundsTab {
         let is_system_theme = self.is_system_theme;
 
         cx.spawn(async move |this, cx| {
-            let result = smol::unblock(|| {
-                rfd::FileDialog::new()
-                    .add_filter("Images", &["png", "jpg", "jpeg", "gif", "webp", "bmp"])
-                    .set_title("Select Background Images")
-                    .pick_files()
-            })
-            .await;
+            let result = cx
+                .background_spawn(async move {
+                    rfd::FileDialog::new()
+                        .add_filter("Images", IMAGE_EXTENSIONS)
+                        .set_title("Select Background Images")
+                        .pick_files()
+                })
+                .await;
 
             if let Some(paths) = result {
-                let mut added_count = 0;
-                let mut errors = Vec::new();
-
-                for path in &paths {
-                    match add_background_image(&theme_name, is_system_theme, path) {
-                        Ok(_) => added_count += 1,
-                        Err(e) => errors.push(format!("{}: {}", path.display(), e)),
-                    }
-                }
+                this.update(cx, |this, cx| {
+                    this.is_loading = true;
+                    cx.notify();
+                })
+                .ok();
+                // Copying wallpapers is slow enough to freeze the window.
+                let (added_count, errors) = cx
+                    .background_spawn(async move {
+                        let mut added_count = 0;
+                        let mut errors = Vec::new();
+                        for path in &paths {
+                            match add_background_image(&theme_name, is_system_theme, path) {
+                                Ok(_) => added_count += 1,
+                                Err(e) => errors.push(format!("{}: {}", path.display(), e)),
+                            }
+                        }
+                        (added_count, errors)
+                    })
+                    .await;
 
                 let _ = this.update(cx, |this, cx| {
                     this.load_images(cx);
 
                     if !errors.is_empty() {
                         this.error_message = Some(format!(
-                            "Added {} images. Failed to add: {}",
+                            "Added {} images. Not added: {}",
                             added_count,
                             errors.join("; ")
                         ));
@@ -130,6 +143,26 @@ impl BackgroundsTab {
             Ok::<_, anyhow::Error>(())
         })
         .detach();
+    }
+
+    /// Asks first: the file was copied into the theme, so the source may be
+    /// gone, and the button sits where a slipped click lands.
+    fn confirm_delete_image(&self, filename: String, window: &mut Window, cx: &mut Context<Self>) {
+        let tab = cx.entity().downgrade();
+        open_confirm_dialog(
+            ConfirmDialog {
+                title: "Remove this background?",
+                message: format!("{filename} is deleted from the theme."),
+                confirm_label: "Remove",
+                danger: true,
+            },
+            move |window, cx| {
+                tab.update(cx, |tab, cx| tab.delete_image(&filename, window, cx))
+                    .ok();
+            },
+            window,
+            cx,
+        );
     }
 
     fn delete_image(&mut self, filename: &str, _window: &mut Window, cx: &mut Context<Self>) {
@@ -152,13 +185,14 @@ impl BackgroundsTab {
     fn choose_boot_logo(&mut self, cx: &mut Context<Self>) {
         let theme_name = self.theme_name.clone();
         cx.spawn(async move |this, cx| {
-            let picked = smol::unblock(|| {
-                rfd::FileDialog::new()
-                    .add_filter("PNG image", &["png"])
-                    .set_title("Select a Boot Logo")
-                    .pick_file()
-            })
-            .await;
+            let picked = cx
+                .background_spawn(async move {
+                    rfd::FileDialog::new()
+                        .add_filter("PNG image", &["png", "PNG"])
+                        .set_title("Select a Boot Logo")
+                        .pick_file()
+                })
+                .await;
             let Some(path) = picked else {
                 return;
             };
@@ -177,11 +211,23 @@ impl BackgroundsTab {
                 this.boot_busy = false;
                 this.boot_logo = boot_logo(&this.theme_name, this.is_system_theme);
                 this.boot_error = result.err().map(|e| e.to_string());
+                // gpui caches decoded images by path; the file changed.
+                this.forget_boot_images(cx);
                 cx.notify();
             })
             .ok();
         })
         .detach();
+    }
+
+    /// Drops the cached decodes of the logo and its preview so a replaced
+    /// file is drawn, not the old picture.
+    fn forget_boot_images(&self, cx: &mut App) {
+        if let Some(dir) = self.boot_logo.as_ref().and_then(|p| p.parent()) {
+            for file in ["unlock.png", "preview-unlock.png"] {
+                ImageSource::from(dir.join(file)).remove_asset(cx);
+            }
+        }
     }
 
     fn refresh_boot_preview(&mut self, cx: &mut Context<Self>) {
@@ -194,6 +240,7 @@ impl BackgroundsTab {
             this.update(cx, |this, cx| {
                 this.boot_busy = false;
                 this.boot_error = result.err().map(|e| e.to_string());
+                this.forget_boot_images(cx);
                 cx.notify();
             })
             .ok();
@@ -408,8 +455,10 @@ impl Render for BackgroundsTab {
                                                         .on_click(cx.listener({
                                                             let filename = filename.clone();
                                                             move |this, _, window, cx| {
-                                                                this.delete_image(
-                                                                    &filename, window, cx,
+                                                                this.confirm_delete_image(
+                                                                    filename.clone(),
+                                                                    window,
+                                                                    cx,
                                                                 );
                                                             }
                                                         })),

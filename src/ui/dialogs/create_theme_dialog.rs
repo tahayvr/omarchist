@@ -9,7 +9,6 @@ use gpui_component::{
     separator::Separator,
     v_flex,
 };
-use smol;
 
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, generate_unique_theme_name, slugify_theme_name, unique_theme_name,
@@ -18,6 +17,7 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
 use crate::ui::focus;
+use crate::ui::theme_edit_page::shared::IMAGE_EXTENSIONS;
 
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
     let body_focus = cx.focus_handle();
@@ -134,13 +134,14 @@ fn open_image_picker(window: &mut Window, cx: &mut App) {
     let window_handle = window.window_handle();
 
     cx.spawn(async move |cx| {
-        let result = smol::unblock(|| {
-            rfd::FileDialog::new()
-                .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
-                .set_title("Select an image for theme creation")
-                .pick_file()
-        })
-        .await;
+        let result = cx
+            .background_spawn(async move {
+                rfd::FileDialog::new()
+                    .add_filter("Images", IMAGE_EXTENSIONS)
+                    .set_title("Select an image for theme creation")
+                    .pick_file()
+            })
+            .await;
 
         if let Some(path) = result {
             let _ = window_handle.update(cx, |_view, window, cx| {

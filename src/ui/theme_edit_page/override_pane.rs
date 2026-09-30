@@ -13,6 +13,7 @@ use crate::system::themes::overrides::{self, OverrideSpec};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::text::selectable;
+use crate::ui::theme_edit_page::color_map_form::is_user_plugin_spec;
 use crate::ui::theme_edit_page::override_editors::{EditorView, OverrideEditor};
 use crate::ui::theme_edit_page::shared::{error_message, git_ignored_note, theme_is_cloned};
 
@@ -37,6 +38,9 @@ pub struct OverridePane {
     busy: bool,
     /// Bumped on every edit so only the last one in a burst is written.
     edit_generation: u64,
+    /// The generation the last started save carried; behind
+    /// `edit_generation` while a debounced save is pending.
+    saved_generation: u64,
     error: Option<String>,
     _editor_subscription: Option<Subscription>,
 }
@@ -61,12 +65,21 @@ impl OverridePane {
             latest: String::new(),
             busy: false,
             edit_generation: 0,
+            saved_generation: 0,
             error: None,
             _editor_subscription: None,
         };
         pane.cloned = theme_is_cloned(&pane.theme_name);
         match overrides::read(&pane.theme_name, spec) {
-            Ok(Some(content)) => pane.show_editor(&content, window, cx),
+            Ok(Some(content)) => {
+                // Open on the view that matches the file.
+                if EditorView::for_spec(spec).contains(&EditorView::Plugin)
+                    && is_user_plugin_spec(&content)
+                {
+                    pane.view = EditorView::Plugin;
+                }
+                pane.show_editor(&content, window, cx)
+            }
             Ok(None) => {}
             Err(e) => pane.error = Some(e.to_string()),
         }
@@ -85,10 +98,6 @@ impl OverridePane {
             this.latest = event.0.clone();
             this.schedule_save(event.0.clone(), cx);
         }));
-        if let Some(seeded) = editor.seeded_content(cx) {
-            self.latest = seeded.clone();
-            self.schedule_save(seeded, cx);
-        }
         self.editor = Some(editor);
     }
 
@@ -126,6 +135,23 @@ impl OverridePane {
         })
     }
 
+    /// Writes a pending edit now (before an Apply or leaving the page).
+    pub fn flush(&mut self, cx: &mut Context<Self>) {
+        if self.edit_generation == self.saved_generation || self.editor.is_none() {
+            return;
+        }
+        self.saved_generation = self.edit_generation;
+        let result = overrides::write(&self.theme_name, self.spec, &self.latest);
+        self.error = result.err().map(|e| e.to_string());
+        cx.notify();
+    }
+
+    /// Drops a pending save: the file is being replaced or removed.
+    fn cancel_pending_save(&mut self) {
+        self.edit_generation += 1;
+        self.saved_generation = self.edit_generation;
+    }
+
     fn schedule_save(&mut self, content: String, cx: &mut Context<Self>) {
         self.edit_generation += 1;
         let generation = self.edit_generation;
@@ -133,7 +159,13 @@ impl OverridePane {
         let spec = self.spec;
         cx.spawn(async move |this, cx| {
             cx.background_executor().timer(SAVE_DELAY).await;
-            let current = this.update(cx, |this, _| this.edit_generation == generation);
+            let current = this.update(cx, |this, _| {
+                let pending = this.edit_generation == generation;
+                if pending {
+                    this.saved_generation = generation;
+                }
+                pending
+            });
             if !matches!(current, Ok(true)) {
                 return;
             }
@@ -159,7 +191,7 @@ impl OverridePane {
             return;
         }
         if let overrides::Seed::Fixed(seed) = self.spec.seed {
-            self.edit_generation += 1;
+            self.cancel_pending_save();
             self.error = None;
             if overrides::validate(self.spec, seed).is_ok()
                 && let Err(e) = overrides::write(&self.theme_name, self.spec, seed)
@@ -172,7 +204,7 @@ impl OverridePane {
             return;
         }
         self.busy = true;
-        self.edit_generation += 1;
+        self.cancel_pending_save();
         let theme = self.theme_name.clone();
         let spec = self.spec;
         cx.spawn_in(window, async move |this, cx| {
@@ -201,7 +233,7 @@ impl OverridePane {
     }
 
     fn remove(&mut self, cx: &mut Context<Self>) {
-        self.edit_generation += 1;
+        self.cancel_pending_save();
         match overrides::remove(&self.theme_name, self.spec) {
             Ok(()) => {
                 self.editor = None;

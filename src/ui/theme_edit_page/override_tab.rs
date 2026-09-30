@@ -93,6 +93,16 @@ impl OverrideTab {
 
     /// Re-reads the theme, so palette bundles show the palette's current
     /// colors after the Colors tab changed them.
+    /// Writes every pane's pending edit now.
+    pub fn flush(&mut self, cx: &mut Context<Self>) {
+        for pane in self.panes.iter().flatten() {
+            match pane {
+                Pane::File(pane) => pane.update(cx, |pane, cx| pane.flush(cx)),
+                Pane::Bundle(pane) => pane.update(cx, |pane, cx| pane.flush(cx)),
+            }
+        }
+    }
+
     pub fn refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.refresh_status();
         for pane in self.panes.iter().flatten() {

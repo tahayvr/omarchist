@@ -5,9 +5,10 @@
 //! alone keep following the palette. The changes live in `omarchist.json`
 //! (`EditingTheme::palettes`); the files are only ever generated.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Mutex, OnceLock};
 
 use crate::error::{Error, Result};
 use crate::shell::theme_sh_commands::theme_color_all;
@@ -172,8 +173,32 @@ fn render_bundle(bundle: &PaletteBundle, palette: &Palette) -> Result<Rendered> 
 }
 
 /// The base keys whose value shows up in the bundle's files, found by
-/// changing each one and seeing whether the rendered files change.
+/// changing each one and seeing whether the rendered files change. The
+/// probe renders the templates once per base key (each render runs
+/// `omarchy-theme-color`), and the answer depends only on the templates, so
+/// it is worked out once per bundle and kept for the session.
 pub fn relevant_keys(
+    bundle: &PaletteBundle,
+    colors: &ColorsConfig,
+) -> Result<Vec<&'static BaseKey>> {
+    static CACHE: OnceLock<Mutex<HashMap<&'static str, Vec<&'static BaseKey>>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(keys) = cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .get(bundle.id)
+    {
+        return Ok(keys.clone());
+    }
+    let keys = probe_relevant_keys(bundle, colors)?;
+    cache
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .insert(bundle.id, keys.clone());
+    Ok(keys)
+}
+
+fn probe_relevant_keys(
     bundle: &PaletteBundle,
     colors: &ColorsConfig,
 ) -> Result<Vec<&'static BaseKey>> {

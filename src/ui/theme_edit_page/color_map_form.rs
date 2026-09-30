@@ -258,29 +258,35 @@ impl Render for ColorMapForm {
 pub struct NeovimPluginForm {
     repo: Entity<InputState>,
     colorscheme: Entity<InputState>,
-    /// The spec for the default plugin, when the file did not name one of
-    /// its own and the form filled the default in.
-    seeded: Option<String>,
+    /// The file is a color map, not a plugin spec: the fields are empty and
+    /// nothing is written until the user asks for a plugin.
+    empty: bool,
     _subscriptions: Vec<Subscription>,
 }
 
-/// The plugin the Plugin view starts on.
+/// The plugin the "Use a plugin" button fills in.
 const DEFAULT_PLUGIN: (&str, &str) = ("tahayvr/sunset-drive.nvim", "sunsetdrive");
 
 /// The colorscheme plugin of Omarchy's own generated `neovim.lua`.
 const OMARCHY_PLUGIN: &str = "bjarneo/aether.nvim";
 
+/// Whether `neovim.lua` names a plugin of the user's own (rather than being
+/// Omarchy's generated color map), so the pane opens on the Plugin view.
+pub fn is_user_plugin_spec(content: &str) -> bool {
+    let (repo, _) = parse_plugin(content);
+    !repo.is_empty() && repo != OMARCHY_PLUGIN
+}
+
 impl EventEmitter<ContentChanged> for NeovimPluginForm {}
 
 impl NeovimPluginForm {
     pub fn new(content: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let (mut repo, mut colorscheme) = parse_plugin(content);
-        let mut seeded = None;
-        if repo.is_empty() || repo == OMARCHY_PLUGIN {
-            repo = DEFAULT_PLUGIN.0.to_string();
-            colorscheme = DEFAULT_PLUGIN.1.to_string();
-            seeded = plugin_lua(&repo, &colorscheme);
-        }
+        let empty = !is_user_plugin_spec(content);
+        let (repo, colorscheme) = if empty {
+            (String::new(), String::new())
+        } else {
+            parse_plugin(content)
+        };
         let repo = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder(DEFAULT_PLUGIN.0)
@@ -307,14 +313,26 @@ impl NeovimPluginForm {
         Self {
             repo,
             colorscheme,
-            seeded,
+            empty,
             _subscriptions: subscriptions,
         }
     }
 
-    /// The content the form filled in on its own, to be saved like an edit.
-    pub fn seeded(&self) -> Option<String> {
-        self.seeded.clone()
+    /// Replaces the color map with the default plugin spec. The only way a
+    /// plugin spec is written without the user typing one, so looking at
+    /// this view never changes the file.
+    fn use_default_plugin(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.repo.update(cx, |input, cx| {
+            input.set_value(DEFAULT_PLUGIN.0, window, cx);
+        });
+        self.colorscheme.update(cx, |input, cx| {
+            input.set_value(DEFAULT_PLUGIN.1, window, cx);
+        });
+        self.empty = false;
+        if let Some(content) = plugin_lua(DEFAULT_PLUGIN.0, DEFAULT_PLUGIN.1) {
+            cx.emit(ContentChanged(content));
+        }
+        cx.notify();
     }
 }
 
@@ -371,7 +389,7 @@ pub fn plugin_lua(repo: &str, colorscheme: &str) -> Option<String> {
 }
 
 impl Render for NeovimPluginForm {
-    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let input = |label: &'static str, state: &Entity<InputState>| {
             v_flex()
                 .gap_2()
@@ -379,13 +397,25 @@ impl Render for NeovimPluginForm {
                 .child(Input::new(state))
                 .into_any_element()
         };
-        field_grid(
-            (pane_grid_columns(window) / 2).max(1),
-            vec![
-                input("Plugin", &self.repo),
-                input("Colorscheme", &self.colorscheme),
-            ],
-        )
+        v_flex()
+            .gap_4()
+            .when(self.empty, |this| {
+                this.child(
+                    Button::new("use-plugin")
+                        .label("Use a plugin instead of the colors")
+                        .small()
+                        .on_click(
+                            cx.listener(|this, _, window, cx| this.use_default_plugin(window, cx)),
+                        ),
+                )
+            })
+            .child(field_grid(
+                (pane_grid_columns(window) / 2).max(1),
+                vec![
+                    input("Plugin", &self.repo),
+                    input("Colorscheme", &self.colorscheme),
+                ],
+            ))
     }
 }
 

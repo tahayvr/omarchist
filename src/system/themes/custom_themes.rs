@@ -42,6 +42,7 @@ fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
         origin,
         image,
         colors,
+        applied: false,
     })
 }
 

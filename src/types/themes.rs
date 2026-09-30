@@ -39,6 +39,9 @@ pub struct ThemeEntry {
     pub origin: ThemeOrigin,
     pub image: String,
     pub colors: Option<ThemeColors>,
+    /// The theme Omarchy currently runs (`current/theme.name`).
+    #[serde(default)]
+    pub applied: bool,
 }
 
 fn default_version() -> String {

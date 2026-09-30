@@ -314,8 +314,12 @@ impl MainWindowView {
                     self.omarchy_view = Some(omarchy_view);
                 }
             }
-            // Themes is always present.
-            ActivePage::Themes => {}
+            // Themes is always present; a visit rescans, because the editor,
+            // the CLI and Omarchy itself change the folder behind its back.
+            ActivePage::Themes => {
+                self.themes_view
+                    .update(cx, |view, cx| view.refresh_themes(cx));
+            }
         }
     }
 

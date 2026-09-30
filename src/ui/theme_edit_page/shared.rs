@@ -282,3 +282,9 @@ pub fn git_ignored_note(cx: &App) -> Div {
         cx.theme().warning,
     )
 }
+
+/// Extensions the image pickers list, in both cases: the portal's filters
+/// are case-sensitive globs, and cameras write `.JPG`.
+pub const IMAGE_EXTENSIONS: &[&str] = &[
+    "png", "PNG", "jpg", "JPG", "jpeg", "JPEG", "webp", "WEBP", "gif", "GIF", "bmp", "BMP",
+];

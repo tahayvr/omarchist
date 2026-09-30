@@ -13,8 +13,9 @@ use crate::system::themes::color_utils::{
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-// `~/.local/state/omarchy/current/theme.name`
-fn get_active_omarchy_theme_name() -> Option<String> {
+/// `~/.local/state/omarchy/current/theme.name`: the folder name of the
+/// theme Omarchy runs.
+pub fn get_active_omarchy_theme_name() -> Option<String> {
     let name_file = crate::system::omarchy_paths::current_theme_name_file()?;
     let name = std::fs::read_to_string(&name_file).ok()?;
     let trimmed = name.trim().to_string();
@@ -349,21 +350,43 @@ pub fn apply_forced_mode(cx: &mut App) {
     }
 }
 
-// Check the omarchy current theme directory every second.
+/// The modification time of the user's themes folder: a theme created,
+/// renamed, installed or deleted by anything (the CLI, `omarchy theme
+/// install`, a file manager) changes it.
+fn user_themes_dir_modified() -> Option<std::time::SystemTime> {
+    let dir = crate::system::omarchy_paths::user_themes_dir()?;
+    std::fs::metadata(dir).and_then(|m| m.modified()).ok()
+}
+
+// Check the omarchy current theme every second: a switch reloads the app's
+// own look and moves the "Applied" marker; a change to the themes folder
+// refreshes the Themes page.
 pub fn spawn_ui_theme_watcher(cx: &mut App) {
     cx.spawn(async move |cx| {
         let mut last_theme_name: Option<String> = get_active_omarchy_theme_name();
+        let mut last_dir_modified = user_themes_dir_modified();
 
         loop {
             Timer::after(POLL_INTERVAL).await;
 
             let current_theme_name = get_active_omarchy_theme_name();
+            let dir_modified = user_themes_dir_modified();
 
             if current_theme_name != last_theme_name {
                 last_theme_name = current_theme_name;
                 crate::ui::app_events::emit_async(
                     cx,
                     crate::ui::app_events::AppEvent::ReloadUiTheme,
+                );
+                crate::ui::app_events::emit_async(
+                    cx,
+                    crate::ui::app_events::AppEvent::RefreshThemes,
+                );
+            } else if dir_modified != last_dir_modified {
+                last_dir_modified = dir_modified;
+                crate::ui::app_events::emit_async(
+                    cx,
+                    crate::ui::app_events::AppEvent::RefreshThemes,
                 );
             }
         }

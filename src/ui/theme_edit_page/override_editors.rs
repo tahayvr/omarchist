@@ -126,14 +126,6 @@ impl OverrideEditor {
         }
     }
 
-    /// Content a form filled in on its own when it opened, if any.
-    pub fn seeded_content(&self, cx: &App) -> Option<String> {
-        match self {
-            Self::Plugin(editor) => editor.read(cx).seeded(),
-            _ => None,
-        }
-    }
-
     pub fn element(&self) -> AnyElement {
         match self {
             Self::Colors(editor) => editor.clone().into_any_element(),

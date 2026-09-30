@@ -70,12 +70,19 @@ impl ThemesPage {
         focus.focus(window, cx);
     }
 
+    /// Rescans both theme folders in the background and replaces the grid.
     pub fn refresh_themes(&mut self, cx: &mut Context<Self>) {
-        let themes = Self::load_all_themes();
-        self.theme_grid.update(cx, |grid, cx| {
-            grid.update_themes(themes, cx);
-        });
-        cx.notify();
+        cx.spawn(async move |this, cx| {
+            let themes = cx.background_spawn(async { Self::load_all_themes() }).await;
+            this.update(cx, |this, cx| {
+                this.theme_grid.update(cx, |grid, cx| {
+                    grid.update_themes(themes, cx);
+                });
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     pub fn set_sidebar_collapsed(&mut self, collapsed: bool, cx: &mut Context<Self>) {
@@ -86,11 +93,19 @@ impl ThemesPage {
 
     fn load_all_themes() -> Vec<crate::types::themes::ThemeEntry> {
         let mut themes = Vec::new();
-        if let Ok(system) = get_system_themes() {
-            themes.extend(system);
+        match get_system_themes() {
+            Ok(system) => themes.extend(system),
+            Err(e) => eprintln!("Could not read Omarchy's themes: {e}"),
         }
-        if let Ok(user) = get_user_themes() {
-            themes.extend(user);
+        match get_user_themes() {
+            Ok(user) => themes.extend(user),
+            Err(e) => eprintln!("Could not read your themes: {e}"),
+        }
+        // One list, A to Z, with the running theme marked.
+        themes.sort_by_key(|theme| theme.title.to_lowercase());
+        let applied = crate::system::ui_theme_watcher::get_active_omarchy_theme_name();
+        for theme in &mut themes {
+            theme.applied = applied.as_deref() == Some(theme.dir.as_str());
         }
         themes
     }

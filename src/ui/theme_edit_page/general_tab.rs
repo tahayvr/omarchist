@@ -32,6 +32,9 @@ pub struct GeneralTab {
     author_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
+    /// The entries with a file or bundle of their own, read when the tab is
+    /// shown (not on every render: it stats every override file).
+    customized: Vec<Entry>,
     scroll: ScrollHandle,
 }
 
@@ -56,15 +59,17 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        let tab = Self {
+        let mut tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
             is_saving: false,
             error_message: None,
+            customized: Vec::new(),
             scroll: scroll.clone(),
         };
+        tab.refresh(cx);
 
         cx.subscribe_in(
             &tab.name_input,
@@ -162,6 +167,9 @@ impl GeneralTab {
         self.error_message = None;
         cx.notify();
 
+        let was_applied = crate::system::ui_theme_watcher::get_active_omarchy_theme_name()
+            .as_deref()
+            == Some(old_name.as_str());
         match rename_theme(&old_name, &new_name) {
             Ok(folder) => {
                 self.is_saving = false;
@@ -170,12 +178,17 @@ impl GeneralTab {
                 self.name_input
                     .update(cx, |input, cx| input.set_value(folder.clone(), window, cx));
                 if folder != old_name {
+                    // Omarchy still points at the old folder name; move it
+                    // along so Refresh Theme and the switcher keep working.
+                    if was_applied {
+                        crate::ui::theme_apply::apply_theme(folder.clone(), window, cx);
+                    }
                     cx.emit(GeneralTabEvent::Renamed(folder));
                 }
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(format!("Failed to rename theme: {}", e));
+                self.error_message = Some(format!("Could not rename the theme: {}", e));
             }
         }
 
@@ -184,17 +197,23 @@ impl GeneralTab {
 }
 
 impl GeneralTab {
-    fn render_customized(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
+    /// Re-reads which apps are customized; called when the tab is shown.
+    pub fn refresh(&mut self, cx: &mut Context<Self>) {
         let theme = &self.original_theme_name;
         let palettes = load_theme_for_editing(theme)
             .map(|data| data.palettes)
             .unwrap_or_default();
-        let customized: Vec<Entry> = Category::all()
+        self.customized = Category::all()
             .into_iter()
             .flat_map(entries::in_category)
             .filter(|entry| entry.is_custom(theme, &palettes))
             .collect();
+        cx.notify();
+    }
+
+    fn render_customized(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let muted = cx.theme().muted_foreground;
+        let customized = self.customized.clone();
 
         let body = if customized.is_empty() {
             Label::new("None").text_sm().into_any_element()

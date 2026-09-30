@@ -85,12 +85,18 @@ impl ThemeEditPage {
         // it), so the theme is never one of Omarchy's, whatever it is named.
         let is_system = false;
 
-        let theme_data = match load_theme_for_editing(&theme_name) {
-            Ok(data) => data,
-            Err(e) => {
-                eprintln!("Failed to load theme '{}': {}", theme_name, e);
-                EditingTheme::default()
-            }
+        // A theme whose manifest cannot be read opens with the stock
+        // palette; the tabs say so rather than passing it off as the
+        // theme's colors.
+        let (theme_data, load_error) = match load_theme_for_editing(&theme_name) {
+            Ok(data) => (data, None),
+            Err(e) => (
+                EditingTheme::default(),
+                Some(format!(
+                    "'{theme_name}' could not be read, so these are default colors, not \
+                     the theme's: {e}"
+                )),
+            ),
         };
 
         // Shared by every tab so focused sections can scroll into view.
@@ -132,7 +138,7 @@ impl ThemeEditPage {
             theme_name,
             active_tab: 0,
             tab_count,
-            error_message: None,
+            error_message: load_error,
             general_tab,
             colors_tab,
             backgrounds_tab,
@@ -152,8 +158,15 @@ impl ThemeEditPage {
     fn apply_theme(&self, window: &mut Window, cx: &mut App) {
         // A change made within the save delay must be on disk before Omarchy
         // stages the theme.
-        self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
+        self.flush_pending_saves(cx);
         apply_theme(self.theme_name.clone(), window, cx);
+    }
+
+    fn flush_pending_saves(&self, cx: &mut App) {
+        self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
+        for (_, tab) in &self.override_tabs {
+            tab.update(cx, |tab, cx| tab.flush(cx));
+        }
     }
 
     fn set_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -161,10 +174,17 @@ impl ThemeEditPage {
         if self.active_tab != index {
             self.active_tab = index;
             self.scroll.set_offset(Point::default());
-            if let Some(ThemeEditTab::Optional(category)) = ThemeEditTab::all().get(index).copied()
-                && let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == category)
-            {
-                tab.update(cx, |tab, cx| tab.refresh(window, cx));
+            match ThemeEditTab::all().get(index).copied() {
+                Some(ThemeEditTab::Optional(category)) => {
+                    if let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == category)
+                    {
+                        tab.update(cx, |tab, cx| tab.refresh(window, cx));
+                    }
+                }
+                Some(ThemeEditTab::General) => {
+                    self.general_tab.update(cx, |tab, cx| tab.refresh(cx));
+                }
+                _ => {}
             }
             cx.notify();
         }
@@ -176,7 +196,7 @@ impl ThemeEditPage {
 
     fn navigate_back(&self, _window: &mut Window, cx: &mut Context<Self>) {
         // The page entity is dropped on the way out; a pending save with it.
-        self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
+        self.flush_pending_saves(cx);
         // Refresh first so a newly created theme is in the grid on arrival.
         emit(cx, AppEvent::RefreshThemes);
         emit(cx, AppEvent::Navigate(ActivePage::Themes));
