@@ -4,7 +4,7 @@ outline: deep
 
 # Themes
 
-The **Themes** page (<kbd>Ctrl</kbd> + <kbd>1</kbd>) shows every theme on your system. **All themes** lists Omarchy's and yours; **Omarchist themes** lists only the ones made here. **Apply** switches your desktop to the theme. The <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu edits it, opens its folder, or deletes it.
+The **Themes** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) shows every theme on your system. **All themes** lists Omarchy's and yours; **Omarchist themes** lists only the ones made here. **Apply** switches your desktop to the theme. The <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu edits it, opens its folder, or deletes it.
 
 <img src="/images/themes-light.webp" alt="Themes page" class="screenshot light-only">
 <img src="/images/themes-dark.webp" alt="Themes page" class="screenshot dark-only">

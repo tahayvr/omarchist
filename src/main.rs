@@ -14,9 +14,10 @@ use std::process::ExitCode;
 use std::rc::Rc;
 
 /// The page to open: `--view` wins, then the Settings page's startup page
-/// (or the page shown last), then Themes.
+/// (or the page shown last), then Home.
 fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
+        Some(ViewOption::Home) => ActivePage::Home,
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Flows) => ActivePage::Flows,
@@ -32,10 +33,10 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
         }
         None => {
             let name = match settings.settings.startup_page.as_str() {
-                "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
+                "last" => settings.metadata.last_page.as_deref().unwrap_or("home"),
                 name => name,
             };
-            ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
+            ActivePage::from_view_name(name).unwrap_or(ActivePage::Home)
         }
     }
 }

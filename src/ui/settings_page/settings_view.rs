@@ -29,6 +29,7 @@ const THEME_MODES: &[(&str, &str)] = &[
     ("dark", "Dark"),
 ];
 const STARTUP_PAGES: &[(&str, &str)] = &[
+    ("home", "Home"),
     ("themes", "Themes"),
     ("config", "Configuration"),
     ("keybinds", "Keybinds"),

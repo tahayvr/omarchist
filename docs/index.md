@@ -5,6 +5,7 @@ Omarchist is a desktop app for [Omarchy](https://omarchy.org/) Linux. Design the
 
 ## Features
 
+- **Home**: the page Omarchist opens on. The running theme as a color ribbon, Omarchy's version and update status, how much you have changed on each page, the themes you made with **Apply** on each, and your flows with **Run**.
 - **[Themes](/theming/)**: design a theme from scratch or from an image. Omarchist writes `colors.toml`; Omarchy generates the rest.
 - **[Configuration](/configuring/)**: gaps, borders, blur, keyboard, mouse, and touchpad, applied as you change them.
 - **[Keybinds](/configuring/keybinds)**: search and change every Hyprland keybind, recording keys the way an editor does.
@@ -42,7 +43,7 @@ The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own optio
 | Section | Options |
 | --- | --- |
 | **Appearance** | Font size. Look: follow the desktop theme's light or dark mode, or force one. The gear menu's light and dark switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. |
-| **Startup** | The page Omarchist opens on when you start it without `--view`, or the page you used last. |
+| **Startup** | The page Omarchist opens on when you start it without `--view` (Home unless you choose another), or the page you used last. |
 | **Omarchy Updates** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. |
 | **Theme Designer** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |
 | **Flows** | A desktop notification when a flow run from a keybind or the command line finishes. |

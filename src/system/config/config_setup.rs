@@ -45,7 +45,7 @@ impl Default for SettingsConfig {
             font_size: "small".to_string(),
             auto_apply_theme: false,
             theme_mode: "omarchy".to_string(),
-            startup_page: "themes".to_string(),
+            startup_page: "home".to_string(),
             check_updates: true,
             update_check_hours: 6,
             notify_updates: false,

@@ -4,7 +4,7 @@ outline: deep
 
 # Keybinds
 
-The **Keybinds** page (<kbd>Ctrl</kbd> + <kbd>3</kbd>) lists every keyboard shortcut Hyprland runs on your system and lets you change them without editing Lua.
+The **Keybinds** page (<kbd>Ctrl</kbd> + <kbd>4</kbd>) lists every keyboard shortcut Hyprland runs on your system and lets you change them without editing Lua.
 
 <img src="/images/keybinds-light.webp" alt="Keybinds page" class="screenshot light-only">
 <img src="/images/keybinds-dark.webp" alt="Keybinds page" class="screenshot dark-only">

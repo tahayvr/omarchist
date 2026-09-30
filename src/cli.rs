@@ -36,6 +36,7 @@ pub struct CliArgs {
 
 #[derive(ValueEnum, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ViewOption {
+    Home,
     Themes,
     Settings,
     About,
@@ -49,6 +50,7 @@ impl ViewOption {
     /// The name used on the command line and in `settings.json`.
     pub fn name(&self) -> &'static str {
         match self {
+            ViewOption::Home => "home",
             ViewOption::Themes => "themes",
             ViewOption::Config => "config",
             ViewOption::Keybinds => "keybinds",

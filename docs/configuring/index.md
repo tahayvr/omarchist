@@ -4,7 +4,7 @@ outline: deep
 
 # Hyprland
 
-The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) sets Hyprland options without touching `hyprland.lua`. Changes apply immediately, and the search box filters every section at once. A number field's − and + buttons and the <kbd>↑</kbd> and <kbd>↓</kbd> keys move it by one step, sized for the setting (pixels by 1, opacity by 0.05, delays by 50 ms), and apply at once. A value you type applies when you press <kbd>Enter</kbd> or leave the field.
+The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>3</kbd>) sets Hyprland options without touching `hyprland.lua`. Changes apply immediately, and the search box filters every section at once. A number field's − and + buttons and the <kbd>↑</kbd> and <kbd>↓</kbd> keys move it by one step, sized for the setting (pixels by 1, opacity by 0.05, delays by 50 ms), and apply at once. A value you type applies when you press <kbd>Enter</kbd> or leave the field.
 
 <img src="/images/config-light.webp" alt="Configuration page" class="screenshot light-only">
 <img src="/images/config-dark.webp" alt="Configuration page" class="screenshot dark-only">

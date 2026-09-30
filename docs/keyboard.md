@@ -14,7 +14,7 @@ Everything in Omarchist works from the keyboard. <kbd>Ctrl</kbd> + <kbd>/</kbd> 
 
 | Keys | Action |
 | --- | --- |
-| <kbd>Ctrl</kbd> + <kbd>1</kbd> … <kbd>4</kbd> | Themes, Configuration, Keybinds, Flows |
+| <kbd>Ctrl</kbd> + <kbd>1</kbd> … <kbd>5</kbd> | Home, Themes, Configuration, Keybinds, Flows |
 | <kbd>Ctrl</kbd> + <kbd>,</kbd> | Settings |
 | <kbd>Ctrl</kbd> + <kbd>N</kbd> | Create a new theme |
 | <kbd>Ctrl</kbd> + <kbd>R</kbd> | Reload the current page |
@@ -24,6 +24,17 @@ Everything in Omarchist works from the keyboard. <kbd>Ctrl</kbd> + <kbd>/</kbd> 
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd> or <kbd>Ctrl</kbd> + <kbd>P</kbd> | Command palette |
 | <kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd> | Light or dark look |
 | <kbd>Ctrl</kbd> + <kbd>Q</kbd> | Quit |
+
+## Home
+
+The tiles, theme cards, and flow cards are one Tab stop.
+
+| Keys | Action |
+| --- | --- |
+| <kbd>←</kbd> / <kbd>→</kbd>, <kbd>Home</kbd>, <kbd>End</kbd> | Move between cards |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Previous or next section (tiles, themes, flows) |
+| <kbd>Enter</kbd> | Open the page behind a tile, a theme in the Designer, or run a flow |
+| <kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Apply the theme, or edit the flow |
 
 ## Themes
 
