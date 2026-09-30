@@ -1,7 +1,7 @@
 pub mod color_extractor;
 pub mod color_utils;
 pub mod custom_themes;
-pub mod overrides;
+pub mod icons;
 pub mod parse_colors;
 pub mod preview_img;
 pub mod system_themes;

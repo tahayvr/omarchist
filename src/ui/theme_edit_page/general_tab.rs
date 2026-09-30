@@ -1,6 +1,4 @@
-use crate::system::themes::overrides::Category;
-use crate::system::themes::overrides::entries::{self, Entry};
-use crate::system::themes::theme_management::{load_theme_for_editing, rename_theme, update_theme};
+use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
@@ -18,8 +16,6 @@ use gpui_component::{
 pub enum GeneralTabEvent {
     /// The theme folder was renamed; every view holding the old name is stale.
     Renamed(String),
-    /// Show this override's pane.
-    OpenOverride(Entry),
 }
 
 impl EventEmitter<GeneralTabEvent> for GeneralTab {}
@@ -34,7 +30,6 @@ pub struct GeneralTab {
     error_message: Option<String>,
     /// The entries with a file or bundle of their own, read when the tab is
     /// shown (not on every render: it stats every override file).
-    customized: Vec<Entry>,
     scroll: ScrollHandle,
 }
 
@@ -59,17 +54,15 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        let mut tab = Self {
+        let tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
             is_saving: false,
             error_message: None,
-            customized: Vec::new(),
             scroll: scroll.clone(),
         };
-        tab.refresh(cx);
 
         cx.subscribe_in(
             &tab.name_input,
@@ -196,50 +189,6 @@ impl GeneralTab {
     }
 }
 
-impl GeneralTab {
-    /// Re-reads which apps are customized; called when the tab is shown.
-    pub fn refresh(&mut self, cx: &mut Context<Self>) {
-        let theme = &self.original_theme_name;
-        let palettes = load_theme_for_editing(theme)
-            .map(|data| data.palettes)
-            .unwrap_or_default();
-        self.customized = Category::all()
-            .into_iter()
-            .flat_map(entries::in_category)
-            .filter(|entry| entry.is_custom(theme, &palettes))
-            .collect();
-        cx.notify();
-    }
-
-    fn render_customized(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        let muted = cx.theme().muted_foreground;
-        let customized = self.customized.clone();
-
-        let body = if customized.is_empty() {
-            Label::new("None").text_sm().into_any_element()
-        } else {
-            h_flex()
-                .gap_2()
-                .flex_wrap()
-                .children(customized.into_iter().map(|entry| {
-                    Button::new(SharedString::from(format!("customized-{}", entry.id())))
-                        .label(format!("{} · {}", entry.category().label(), entry.app()))
-                        .small()
-                        .outline()
-                        .cursor_pointer()
-                        .on_click(cx.listener(move |_, _, _, cx| {
-                            cx.emit(GeneralTabEvent::OpenOverride(entry));
-                        }))
-                }))
-                .into_any_element()
-        };
-
-        form_section()
-            .child(Label::new("Customized Apps").text_sm().text_color(muted))
-            .child(body)
-    }
-}
-
 impl Render for GeneralTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let is_light = self.theme_data.is_light_theme;
@@ -311,11 +260,6 @@ impl Render for GeneralTab {
                                 this.on_light_mode_toggle(*checked, window, cx);
                             })),
                     ),
-            ))
-            .child(focus_section(
-                "general-customized",
-                &self.scroll,
-                self.render_customized(cx),
             ))
             .children(
                 self.error_message

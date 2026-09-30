@@ -93,7 +93,6 @@ export default defineConfig({
         items: [
           { text: "Overview", link: "/theming/" },
           { text: "Theme Designer", link: "/theming/#theme-designer" },
-          { text: "Optional Tabs", link: "/theming/optional-tabs" },
           { text: "Sharing Themes", link: "/theming/sharing" },
         ],
       },

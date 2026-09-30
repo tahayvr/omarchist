@@ -5,48 +5,10 @@ use crate::system::omarchy_paths::user_themes_dir;
 use crate::system::themes::color_extractor::{
     ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
-use crate::system::themes::color_utils::{adjust_brightness, hex_to_rgb};
-use crate::system::themes::overrides;
+use crate::system::themes::color_utils::adjust_brightness;
+use crate::system::themes::icons;
 use crate::system::themes::theme_management::{create_theme_from_defaults, save_theme_data};
 use crate::types::themes::{ColorsConfig, EditingTheme};
-
-// Available icon themes mapped to their representative colors (RGB)
-const ICON_THEMES: &[(&str, (u8, u8, u8))] = &[
-    ("Yaru-red", (233, 32, 32)),     // Red (#e92020)
-    ("Yaru-blue", (32, 143, 233)),   // Blue (#208fe9)
-    ("Yaru-olive", (99, 107, 47)),   // Olive (#636B2F)
-    ("Yaru-yellow", (233, 186, 32)), // Yellow (#e9ba20)
-    ("Yaru-purple", (94, 39, 80)),   // Purple (#5e2750)
-    ("Yaru-magenta", (255, 0, 255)), // Magenta (#FF00FF)
-    ("Yaru-sage", (18, 61, 24)),     // Sage (#123d18)
-];
-
-// Calculate Euclidean distance between two RGB colors
-fn color_distance(c1: (u8, u8, u8), c2: (u8, u8, u8)) -> f32 {
-    let dr = (c1.0 as f32 - c2.0 as f32).powi(2);
-    let dg = (c1.1 as f32 - c2.1 as f32).powi(2);
-    let db = (c1.2 as f32 - c2.2 as f32).powi(2);
-    (dr + dg + db).sqrt()
-}
-
-// Select the best matching icon theme based on the accent color
-fn select_icon_theme(accent_hex: &str) -> &'static str {
-    let accent_rgb = match hex_to_rgb(accent_hex) {
-        Some(rgb) => rgb,
-        None => return "Yaru-blue", // Default fallback
-    };
-
-    // Find the closest color match among all available themes
-    ICON_THEMES
-        .iter()
-        .min_by(|(_, c1), (_, c2)| {
-            let d1 = color_distance(accent_rgb, *c1);
-            let d2 = color_distance(accent_rgb, *c2);
-            d1.total_cmp(&d2)
-        })
-        .map(|(name, _)| *name)
-        .unwrap_or("Yaru-blue")
-}
 
 // Create a complete theme from an image. A failure after the folder was
 // created removes it again, so a half-made theme never lingers on the
@@ -60,10 +22,7 @@ pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<St
         let editing_theme = build_theme_from_palette(&palette, theme_name);
         save_theme_data(theme_name, &editing_theme)?;
 
-        if let Some(icons) = overrides::find("icons.theme") {
-            let icon_theme = select_icon_theme(&palette.accent);
-            overrides::write(theme_name, icons, &format!("{icon_theme}\n"))?;
-        }
+        icons::write(theme_name, icons::closest_to(&palette.accent))?;
 
         copy_image_to_backgrounds(image_path, theme_name)
     })();
@@ -129,7 +88,6 @@ fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> Editing
         modified_at: now,
         author: None,
         colors: colors_config,
-        palettes: Default::default(),
         is_light_theme: palette.is_light_theme,
     }
 }

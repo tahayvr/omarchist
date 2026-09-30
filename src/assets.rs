@@ -149,8 +149,8 @@ mod tests {
             );
         }
 
-        // Pre-Quattro leftovers must not come back, and override files are
-        // opt-in: Omarchy generates all of these from colors.toml.
+        // Pre-Quattro leftovers must not come back, and a new theme ships
+        // no per-app files: Omarchy generates all of these from colors.toml.
         for legacy in [
             "light.mode",
             "theme/btop.theme",

@@ -6,9 +6,7 @@ use std::time::Duration;
 use gpui_kit::component::{Root, WindowExt};
 use gpui_kit::test::{TestAppContextExt, TestWindowExt};
 use gpui_kit::{AppContext, Entity, TestAppContext, WindowHandle, px, size};
-use omarchist::system::themes::overrides::Category;
 use omarchist::ui::app_events::AppEvents;
-use omarchist::ui::theme_edit_page::override_tab::OverrideTab;
 use omarchist::{ActivePage, MainTitleBar, MainWindowView};
 
 /// The sidebar page list's test target (`SidebarNav` in `app_view.rs`).
@@ -237,41 +235,6 @@ async fn notifications_are_shown(cx: &mut TestAppContext) {
             .is_some_and(|toast| toast.visible())
     })
     .await;
-}
-
-#[gpui_kit::test]
-fn override_app_list_moves_with_the_arrow_keys(cx: &mut TestAppContext) {
-    cx.update(|cx| {
-        cx.set_global(AppEvents::default());
-        gpui_kit::init(cx);
-        cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
-    });
-    let mut tab = None;
-    let handle = cx.open_window(size(px(1280.), px(800.)), |window, cx| {
-        let view = cx
-            .new(|cx| OverrideTab::new("keyboard-nav-test".into(), Category::AiTools, window, cx));
-        tab = Some(view.clone());
-        Root::new(view, window, cx)
-    });
-    let tab = tab.expect("tab created");
-
-    cx.update_window(handle.into(), |_, window, cx| {
-        window.render_frame(cx);
-        tab.update(cx, |tab, cx| tab.focus_entry(window, cx));
-        window.render_frame(cx);
-        assert_eq!(window.find("override-nav").focused(), Some(true));
-        assert!(window.try_find("override-pane-claude.json").is_some());
-
-        window.press("down", cx);
-        window.render_frame(cx);
-        assert!(window.try_find("override-pane-pi.json").is_some());
-        assert!(window.try_find("override-pane-claude.json").is_none());
-
-        window.press("end", cx);
-        window.render_frame(cx);
-        assert!(window.try_find("override-pane-t3code.json").is_some());
-    })
-    .unwrap();
 }
 
 #[gpui_kit::test]

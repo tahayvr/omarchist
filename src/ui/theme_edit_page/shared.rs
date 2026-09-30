@@ -196,13 +196,6 @@ pub fn tab_grid_columns(window: &Window) -> usize {
     grid_columns(content_width(window))
 }
 
-/// Columns for a field grid in a pane beside the app list of an optional tab.
-pub fn pane_grid_columns(window: &Window) -> usize {
-    let width = content_width(window);
-    let nav = if width >= 680. { 244. } else { 0. };
-    grid_columns(width - nav)
-}
-
 // The width left for a tab's content: the viewport minus the collapsed
 // sidebar and the page padding.
 fn content_width(window: &Window) -> f32 {
@@ -218,14 +211,6 @@ pub fn section_title(text: impl Into<SharedString>) -> Div {
     div()
         .text_base()
         .font_weight(FontWeight::SEMIBOLD)
-        .child(text.into())
-}
-
-pub fn group_title(text: impl Into<SharedString>, cx: &App) -> Div {
-    div()
-        .text_sm()
-        .font_weight(FontWeight::MEDIUM)
-        .text_color(cx.theme().muted_foreground)
         .child(text.into())
 }
 
@@ -294,23 +279,6 @@ impl RenderOnce for HexValue {
             .text_color(cx.theme().muted_foreground)
             .child(selectable(self.id, hex))
     }
-}
-
-/// Whether the theme was installed with `omarchy theme install`, a git clone
-/// whose code-running files Omarchy does not load.
-pub fn theme_is_cloned(theme_name: &str) -> bool {
-    crate::system::themes::theme_file_ops::get_theme_path(theme_name, false)
-        .is_some_and(|dir| dir.join(".git").is_dir() && !dir.is_symlink())
-}
-
-/// The warning on an override Omarchy skips because the theme was installed
-/// from a git repository.
-pub fn git_ignored_note(cx: &App) -> Div {
-    help_text(
-        "git-ignored-note",
-        "Ignored: Omarchy does not load this from a theme installed from git.",
-        cx.theme().warning,
-    )
 }
 
 /// Extensions the image pickers list, in both cases: the portal's filters

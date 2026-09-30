@@ -1,5 +1,3 @@
-use crate::system::themes::overrides::Category;
-use crate::system::themes::overrides::entries::Entry;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
 use crate::ui::app_events::{AppEvent, emit};
@@ -10,7 +8,7 @@ use crate::ui::theme_apply::apply_theme;
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
-use crate::ui::theme_edit_page::override_tab::OverrideTab;
+use crate::ui::theme_edit_page::icons_tab::IconsTab;
 use crate::ui::theme_edit_page::shared::error_message;
 use gpui::*;
 use gpui_component::{
@@ -23,38 +21,33 @@ use gpui_component::{
 
 const KEY_CONTEXT: &str = "ThemeEditPage";
 
-// Tab order of the Theme Designer: what every theme needs, then the
-// optional per-app files grouped by category. UI-only, so it lives with the
-// page rather than in the shared theme data types.
+// Tab order of the Theme Designer. A theme is its colors.toml, its
+// backgrounds, and its icon color; Omarchy generates every app's files from
+// those. UI-only, so it lives with the page rather than in the shared theme
+// data types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ThemeEditTab {
     General,
     Colors,
     Backgrounds,
-    Optional(Category),
+    Icons,
 }
 
 impl ThemeEditTab {
-    /// How many tabs come before the optional ones.
-    pub const CORE_COUNT: usize = 3;
+    pub const ALL: [ThemeEditTab; 4] = [
+        ThemeEditTab::General,
+        ThemeEditTab::Colors,
+        ThemeEditTab::Backgrounds,
+        ThemeEditTab::Icons,
+    ];
 
     pub fn as_str(&self) -> &'static str {
         match self {
             ThemeEditTab::General => "General",
             ThemeEditTab::Colors => "Colors",
             ThemeEditTab::Backgrounds => "Backgrounds",
-            ThemeEditTab::Optional(category) => category.label(),
+            ThemeEditTab::Icons => "Icons",
         }
-    }
-
-    pub fn all() -> Vec<ThemeEditTab> {
-        let mut tabs = vec![
-            ThemeEditTab::General,
-            ThemeEditTab::Colors,
-            ThemeEditTab::Backgrounds,
-        ];
-        tabs.extend(Category::all().map(ThemeEditTab::Optional));
-        tabs
     }
 }
 
@@ -68,8 +61,7 @@ pub struct ThemeEditPage {
     general_tab: Entity<GeneralTab>,
     colors_tab: Entity<ColorsTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
-    /// One per `Category`, in `Category::all()` order.
-    override_tabs: Vec<(Category, Entity<OverrideTab>)>,
+    icons_tab: Entity<IconsTab>,
     pub focus_handle: FocusHandle,
     /// The tab strip is one tab stop; left/right switch tabs.
     tabs_focus: FocusHandle,
@@ -105,14 +97,12 @@ impl ThemeEditPage {
         let general_tab = cx
             .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         // Reopening the page under the new name rebuilds every tab from disk.
-        cx.subscribe_in(
+        cx.subscribe(
             &general_tab,
-            window,
-            |this, _, event: &GeneralTabEvent, window, cx| match event {
+            |_, _, event: &GeneralTabEvent, cx| match event {
                 GeneralTabEvent::Renamed(name) => {
                     emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
                 }
-                GeneralTabEvent::OpenOverride(entry) => this.open_override(*entry, window, cx),
             },
         )
         .detach();
@@ -120,15 +110,9 @@ impl ThemeEditPage {
             .new(|cx| ColorsTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         let backgrounds_tab =
             cx.new(|cx| BackgroundsTab::new(theme_name.clone(), is_system, &scroll, window, cx));
-        let override_tabs = Category::all()
-            .into_iter()
-            .map(|category| {
-                let tab = cx.new(|cx| OverrideTab::new(theme_name.clone(), category, window, cx));
-                (category, tab)
-            })
-            .collect();
+        let icons_tab = cx.new(|cx| IconsTab::new(theme_name.clone(), cx));
 
-        let tab_count = ThemeEditTab::all().len();
+        let tab_count = ThemeEditTab::ALL.len();
 
         let focus_handle = cx.focus_handle();
         let tabs_focus = focus::tab_stop(cx);
@@ -142,7 +126,7 @@ impl ThemeEditPage {
             general_tab,
             colors_tab,
             backgrounds_tab,
-            override_tabs,
+            icons_tab,
             focus_handle,
             tabs_focus,
             content_focus: cx.focus_handle(),
@@ -164,9 +148,6 @@ impl ThemeEditPage {
 
     pub fn flush_pending_saves(&self, cx: &mut App) {
         self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
-        for (_, tab) in &self.override_tabs {
-            tab.update(cx, |tab, cx| tab.flush(cx));
-        }
     }
 
     fn set_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -174,18 +155,10 @@ impl ThemeEditPage {
         if self.active_tab != index {
             self.active_tab = index;
             self.scroll.set_offset(Point::default());
-            match ThemeEditTab::all().get(index).copied() {
-                Some(ThemeEditTab::Optional(category)) => {
-                    if let Some((_, tab)) = self.override_tabs.iter().find(|(c, _)| *c == category)
-                    {
-                        tab.update(cx, |tab, cx| tab.refresh(window, cx));
-                    }
-                }
-                Some(ThemeEditTab::General) => {
-                    self.general_tab.update(cx, |tab, cx| tab.refresh(cx));
-                }
-                _ => {}
+            if ThemeEditTab::ALL.get(index) == Some(&ThemeEditTab::Icons) {
+                self.icons_tab.update(cx, |tab, cx| tab.refresh(cx));
             }
+            let _ = window;
             cx.notify();
         }
     }
@@ -202,24 +175,6 @@ impl ThemeEditPage {
         emit(cx, AppEvent::Navigate(ActivePage::Themes));
     }
 
-    /// Shows an override's pane on its category's tab.
-    fn open_override(&mut self, entry: Entry, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(index) = ThemeEditTab::all()
-            .iter()
-            .position(|tab| *tab == ThemeEditTab::Optional(entry.category()))
-        else {
-            return;
-        };
-        if let Some((_, tab)) = self
-            .override_tabs
-            .iter()
-            .find(|(c, _)| *c == entry.category())
-        {
-            tab.update(cx, |tab, cx| tab.select(entry.id(), window, cx));
-        }
-        self.set_tab(index, window, cx);
-    }
-
     fn next_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.set_tab(self.active_tab + 1, window, cx);
     }
@@ -229,8 +184,7 @@ impl ThemeEditPage {
     }
 
     fn render_tab_content(&self, _window: &mut Window, _cx: &mut Context<Self>) -> AnyElement {
-        let tabs = ThemeEditTab::all();
-        let active_tab = tabs
+        let active_tab = ThemeEditTab::ALL
             .get(self.active_tab)
             .copied()
             .unwrap_or(ThemeEditTab::General);
@@ -239,12 +193,7 @@ impl ThemeEditPage {
             ThemeEditTab::General => self.general_tab.clone().into_any_element(),
             ThemeEditTab::Colors => self.colors_tab.clone().into_any_element(),
             ThemeEditTab::Backgrounds => self.backgrounds_tab.clone().into_any_element(),
-            ThemeEditTab::Optional(category) => self
-                .override_tabs
-                .iter()
-                .find(|(c, _)| *c == category)
-                .map(|(_, tab)| tab.clone().into_any_element())
-                .unwrap_or_else(|| div().into_any_element()),
+            ThemeEditTab::Icons => self.icons_tab.clone().into_any_element(),
         }
     }
 }
@@ -252,8 +201,6 @@ impl ThemeEditPage {
 impl Render for ThemeEditPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
-        let tabs = ThemeEditTab::all();
-        let (core, optional) = tabs.split_at(ThemeEditTab::CORE_COUNT);
 
         v_flex()
             .id("theme-edit-page")
@@ -320,10 +267,10 @@ impl Render for ThemeEditPage {
                     .child(
                         tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)
                             .flex_1()
-                            // Wide enough for the optional strip, so in a
-                            // narrow window the whole strip drops under
-                            // the buttons instead of clipping its end.
-                            .min_w(px(560.))
+                            // Wide enough for the four tabs, so in a narrow
+                            // window the strip drops under the buttons
+                            // instead of clipping its end.
+                            .min_w(px(440.))
                             .on_action(cx.listener(
                                 |this, _: &focus::tab_strip::Prev, window, cx| {
                                     this.prev_tab(window, cx);
@@ -350,53 +297,16 @@ impl Render for ThemeEditPage {
                                 },
                             ))
                             .child(
-                                h_flex()
-                                    .gap_3()
-                                    .flex_wrap()
-                                    .items_center()
-                                    .child(
-                                        TabBar::new("theme-edit-tabs")
-                                            .cursor_pointer()
-                                            .selected_index(self.active_tab)
-                                            .on_click(cx.listener(|view, index, window, cx| {
-                                                view.set_tab(*index, window, cx);
-                                            }))
-                                            .children(
-                                                core.iter()
-                                                    .map(|tab| Tab::new().label(tab.as_str())),
-                                            ),
-                                    )
-                                    .child(
-                                        h_flex()
-                                            .gap_2()
-                                            .items_center()
-                                            .child(div().w_px().h_5().bg(theme.border))
-                                            .child(
-                                                div()
-                                                    .text_xs()
-                                                    .text_color(theme.muted_foreground)
-                                                    .child("Optional"),
-                                            ),
-                                    )
-                                    .child(
-                                        TabBar::new("theme-edit-optional-tabs")
-                                            .cursor_pointer()
-                                            .selected_index(
-                                                self.active_tab
-                                                    .wrapping_sub(ThemeEditTab::CORE_COUNT),
-                                            )
-                                            .on_click(cx.listener(|view, index, window, cx| {
-                                                view.set_tab(
-                                                    ThemeEditTab::CORE_COUNT + *index,
-                                                    window,
-                                                    cx,
-                                                );
-                                            }))
-                                            .children(
-                                                optional
-                                                    .iter()
-                                                    .map(|tab| Tab::new().label(tab.as_str())),
-                                            ),
+                                TabBar::new("theme-edit-tabs")
+                                    .cursor_pointer()
+                                    .selected_index(self.active_tab)
+                                    .on_click(cx.listener(|view, index, window, cx| {
+                                        view.set_tab(*index, window, cx);
+                                    }))
+                                    .children(
+                                        ThemeEditTab::ALL
+                                            .iter()
+                                            .map(|tab| Tab::new().label(tab.as_str())),
                                     ),
                             ),
                     ),

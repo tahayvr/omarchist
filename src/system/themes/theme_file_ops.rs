@@ -257,11 +257,16 @@ pub fn set_boot_logo(theme_name: &str, source_path: &std::path::Path) -> Result<
 /// foreground, so the boot screen switcher lists the theme.
 pub fn render_boot_preview(theme_name: &str) -> Result<()> {
     let dir = omarchist_theme_dir(theme_name)?;
-    let palette = crate::system::themes::overrides::palette(theme_name)?;
+    // Omarchy's resolver, so aliases and derived values match what the
+    // boot screen switcher will use.
+    let resolved = crate::shell::theme_sh_commands::theme_color_all(&dir.join("colors.toml"))?;
     let color = |key: &str| {
-        palette
-            .get(key)
-            .map(str::to_string)
+        resolved
+            .lines()
+            .find_map(|line| {
+                let (k, v) = line.split_once('\t')?;
+                (k.trim() == key).then(|| v.trim().to_string())
+            })
             .ok_or_else(|| Error::Invalid(format!("The theme has no {key} color")))
     };
     crate::shell::theme_sh_commands::plymouth_preview(

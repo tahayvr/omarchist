@@ -49,7 +49,7 @@ The filter tabs switch with <kbd>←</kbd> / <kbd>→</kbd>; <kbd>Enter</kbd> or
 | <kbd>Delete</kbd> | Delete the theme |
 | <kbd>Escape</kbd> | Back to the filter tabs |
 
-In the Theme Designer, <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd> or <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Tab</kbd> / <kbd>Ctrl</kbd> + <kbd>Tab</kbd> switch tabs, <kbd>Ctrl</kbd> + <kbd>S</kbd> applies the theme, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back (in a text field, the first <kbd>Escape</kbd> only leaves the field). Color pickers open with <kbd>Enter</kbd>; switches toggle with <kbd>Space</kbd>. On an optional tab, <kbd>↑</kbd> and <kbd>↓</kbd> move through the app list and <kbd>Enter</kbd> goes to the app's settings; see [Optional Tabs](/theming/optional-tabs#keyboard).
+In the Theme Designer, <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd> or <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Tab</kbd> / <kbd>Ctrl</kbd> + <kbd>Tab</kbd> switch tabs, <kbd>Ctrl</kbd> + <kbd>S</kbd> applies the theme, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back (in a text field, the first <kbd>Escape</kbd> only leaves the field). Color pickers open with <kbd>Enter</kbd>; switches and icon colors toggle with <kbd>Space</kbd>.
 
 ## Configuration
 
