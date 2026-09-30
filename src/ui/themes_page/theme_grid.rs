@@ -330,9 +330,10 @@ impl Render for ThemeGrid {
                 let moved = this.nav.move_by(step);
                 this.move_focus(moved, cx);
             }))
-            .on_action(cx.listener(|this, _: &Apply, _, cx| {
+            .on_action(cx.listener(|this, _: &Apply, window, cx| {
                 if let Some(card) = this.focused_card() {
-                    card.update(cx, |card, _| card.activate());
+                    let dir = card.read(cx).theme_dir();
+                    crate::ui::theme_apply::apply_theme(dir, window, cx);
                 }
             }))
             .on_action(cx.listener(|this, _: &Edit, _, cx| {

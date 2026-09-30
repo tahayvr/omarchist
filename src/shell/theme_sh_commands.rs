@@ -7,23 +7,53 @@ pub async fn apply_theme(dir: String) -> Result<()> {
     apply_theme_with_cmd("omarchy-theme-set", dir).await
 }
 
+/// `omarchy-theme-set <dir>`, waiting for it. Blocking: run it off the UI
+/// thread (`cx.background_spawn`).
+pub fn apply_theme_blocking(dir: &str) -> Result<()> {
+    run_theme_cmd("omarchy-theme-set", dir)
+}
+
 async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<()> {
-    unblock(move || {
-        let output = Command::new(cmd)
-            .arg(&dir)
-            .output()
-            .map_err(|e| Error::io(format!("Failed to execute {cmd}"), e))?;
+    unblock(move || run_theme_cmd(cmd, &dir)).await
+}
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(Error::Invalid(format!(
-                "Failed to apply theme '{dir}': {stderr}"
-            )));
-        }
+fn run_theme_cmd(cmd: &str, dir: &str) -> Result<()> {
+    let output = Command::new(cmd)
+        .arg(dir)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| Error::io(format!("Failed to execute {cmd}"), e))?;
 
-        Ok(())
-    })
-    .await
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = stderr.trim();
+        return Err(Error::Invalid(if stderr.is_empty() {
+            format!("{cmd} exited with {}", output.status)
+        } else {
+            stderr.to_string()
+        }));
+    }
+
+    Ok(())
+}
+
+/// `omarchy-theme-refresh`, waiting for it. Blocking: run it off the UI
+/// thread.
+pub fn refresh_theme_blocking() -> Result<()> {
+    let output = Command::new("omarchy-theme-refresh")
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| Error::io("Failed to execute omarchy-theme-refresh", e))?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stderr = stderr.trim();
+        return Err(Error::Invalid(if stderr.is_empty() {
+            format!("omarchy-theme-refresh exited with {}", output.status)
+        } else {
+            stderr.to_string()
+        }));
+    }
+    Ok(())
 }
 
 /// Resolves a `colors.toml` into Omarchy's full palette (`key<TAB>value`
@@ -114,20 +144,14 @@ mod tests {
         });
     }
 
-    /// A command that exits non-zero should resolve to Err containing the theme name.
+    /// A command that exits non-zero without a message names the command
+    /// and its status, so the notification is never "failed: ".
     #[test]
-    fn apply_theme_with_cmd_nonzero_exit_returns_err_with_theme_name() {
+    fn apply_theme_with_cmd_nonzero_exit_returns_err() {
         smol::block_on(async {
             let result = apply_theme_with_cmd("false", "my-theme".to_string()).await;
-            assert!(
-                result.is_err(),
-                "expected Err when command exits non-zero, got Ok"
-            );
-            let msg = result.unwrap_err().to_string();
-            assert!(
-                msg.contains("my-theme"),
-                "error message should contain the theme name, got: {msg}"
-            );
+            let msg = result.expect_err("non-zero exit is an error").to_string();
+            assert!(msg.contains("false exited with"), "{msg}");
         });
     }
 

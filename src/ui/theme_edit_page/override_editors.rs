@@ -12,7 +12,7 @@ use gpui_component::{
 };
 
 use crate::system::themes::overrides::{EditorKind, OverrideSpec, btop, chromium};
-use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::color_utils::{hex_to_hsla, hex6};
 use crate::ui::theme_edit_page::color_map_form::{ColorMapForm, NeovimPluginForm};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, field_grid, field_label, group_title, pane_grid_columns,
@@ -169,10 +169,11 @@ impl Codec {
     }
 
     fn set(self, content: &str, key: &str, hex: &str) -> Option<String> {
+        let hex = hex6(hex);
         match self {
-            Codec::Btop => Some(btop::set(content, key, hex)),
-            Codec::Chromium => chromium::from_hex(hex),
-            Codec::Plain => Some(format!("{}\n", &hex[..hex.len().min(7)])),
+            Codec::Btop => Some(btop::set(content, key, &hex)),
+            Codec::Chromium => chromium::from_hex(&hex),
+            Codec::Plain => Some(format!("{hex}\n")),
         }
     }
 }

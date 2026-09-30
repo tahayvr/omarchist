@@ -1,6 +1,7 @@
 use crate::error::Result;
 use std::path::Path;
 
+use crate::system::omarchy_paths::user_themes_dir;
 use crate::system::themes::color_extractor::{
     ColorPalette, copy_image_to_backgrounds, extract_palette,
 };
@@ -47,21 +48,31 @@ fn select_icon_theme(accent_hex: &str) -> &'static str {
         .unwrap_or("Yaru-blue")
 }
 
-// Create a complete theme from an image
+// Create a complete theme from an image. A failure after the folder was
+// created removes it again, so a half-made theme never lingers on the
+// Themes page.
 pub fn create_theme_from_image(image_path: &Path, theme_name: &str) -> Result<String> {
     let palette = extract_palette(image_path)?;
 
     create_theme_from_defaults(theme_name)?;
 
-    let editing_theme = build_theme_from_palette(&palette, theme_name);
-    save_theme_data(theme_name, &editing_theme)?;
+    let filled = (|| {
+        let editing_theme = build_theme_from_palette(&palette, theme_name);
+        save_theme_data(theme_name, &editing_theme)?;
 
-    if let Some(icons) = overrides::find("icons.theme") {
-        let icon_theme = select_icon_theme(&palette.accent);
-        overrides::write(theme_name, icons, &format!("{icon_theme}\n"))?;
+        if let Some(icons) = overrides::find("icons.theme") {
+            let icon_theme = select_icon_theme(&palette.accent);
+            overrides::write(theme_name, icons, &format!("{icon_theme}\n"))?;
+        }
+
+        copy_image_to_backgrounds(image_path, theme_name)
+    })();
+    if let Err(e) = filled {
+        if let Some(dir) = user_themes_dir() {
+            let _ = std::fs::remove_dir_all(dir.join(theme_name));
+        }
+        return Err(e);
     }
-
-    copy_image_to_backgrounds(image_path, theme_name)?;
 
     Ok(theme_name.to_string())
 }
@@ -108,6 +119,7 @@ fn build_theme_from_palette(palette: &ColorPalette, theme_name: &str) -> Editing
         color15: palette.bright.white.clone(),
         hyprland_active_border: None,
         hyprland_inactive_border: None,
+        extra: Vec::new(),
     };
 
     EditingTheme {

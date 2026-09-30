@@ -1,17 +1,19 @@
 use crate::error::{Error, Result};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use chrono::Utc;
 
 use crate::types::themes::EditingTheme;
 
-use super::colors::update_colors_toml;
+use super::colors::{read_colors_toml, update_colors_toml};
 use super::paths::get_custom_themes_dir;
 use crate::assets::extract_default_dir;
 use crate::system::fs::write_atomic;
 use crate::system::themes::overrides::palette;
-use crate::system::themes::theme_file_ops::omarchist_theme_dir;
+use crate::system::themes::theme_file_ops::{is_system_theme, omarchist_theme_dir};
 
 pub fn generate_unique_theme_name() -> String {
     let themes_dir = match get_custom_themes_dir() {
@@ -69,13 +71,20 @@ pub fn unique_theme_name(base: &str) -> String {
     let Some(themes_dir) = get_custom_themes_dir() else {
         return base.to_string();
     };
-    if !themes_dir.join(base).exists() {
+    if !name_is_taken(&themes_dir, base) {
         return base.to_string();
     }
     (2..)
         .map(|n| format!("{base}-{n}"))
-        .find(|name| !themes_dir.join(name).exists())
+        .find(|name| !name_is_taken(&themes_dir, name))
         .unwrap_or_else(|| format!("{base}-{}", Utc::now().timestamp()))
+}
+
+/// A name is taken by a folder in the user's themes dir or by one of
+/// Omarchy's own themes: `omarchy-theme-set` copies the official theme first
+/// and overlays the user's folder of the same name, so the two would merge.
+fn name_is_taken(themes_dir: &Path, name: &str) -> bool {
+    themes_dir.join(name).exists() || is_system_theme(name)
 }
 
 pub fn create_theme_from_defaults(theme_name: &str) -> Result<String> {
@@ -83,7 +92,7 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String> {
 
     let new_theme_dir = themes_dir.join(theme_name);
 
-    if new_theme_dir.exists() {
+    if name_is_taken(&themes_dir, theme_name) {
         return Err(Error::ThemeExists(theme_name.to_string()));
     }
 
@@ -133,6 +142,12 @@ pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme> {
         .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
     let mut editing_theme: EditingTheme = serde_json::from_str(&content)
         .map_err(|e| Error::json("Failed to parse omarchist.json", e))?;
+
+    // colors.toml is what Omarchy reads and what users may hand-edit, so it
+    // is the palette's source of truth; the manifest's copy only fills gaps.
+    if let Ok(toml) = fs::read_to_string(theme_dir.join("colors.toml")) {
+        editing_theme.colors = read_colors_toml(&toml, &editing_theme.colors);
+    }
 
     // `mode` in colors.toml is authoritative; the `light.mode` marker file is
     // only honored for themes written by pre-Quattro versions of Omarchist.
@@ -185,9 +200,27 @@ pub fn update_theme<F>(theme_name: &str, edit: F) -> Result<()>
 where
     F: FnOnce(&mut EditingTheme),
 {
+    // Tabs save from the UI thread and from background tasks; the lock
+    // makes each load-edit-save one step so no tab can overwrite another's
+    // fields with a stale snapshot.
+    let lock = theme_lock(theme_name);
+    let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let mut theme = load_theme_for_editing(theme_name)?;
     edit(&mut theme);
     save_theme_data(theme_name, &theme)
+}
+
+/// One mutex per theme name, shared by every thread that saves it.
+fn theme_lock(theme_name: &str) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
+    let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut locks = locks
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    locks
+        .entry(theme_name.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
 }
 
 /// Renames an Omarchist theme to the folder name `new_name` slugs to (see
@@ -210,7 +243,7 @@ pub fn rename_theme(old_name: &str, new_name: &str) -> Result<String> {
     }
     let new_path = themes_dir.join(new_name);
 
-    if new_path.exists() {
+    if name_is_taken(&themes_dir, new_name) {
         return Err(Error::ThemeExists(new_name.to_string()));
     }
 

@@ -15,7 +15,7 @@ use crate::system::themes::overrides;
 use crate::system::themes::overrides::palette::{self, BaseKey, PaletteBundle};
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::ColorsConfig;
-use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::color_utils::{hex_to_hsla, hex6};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::focus::FocusableSwitch;
 use crate::ui::text::selectable;
@@ -149,8 +149,7 @@ impl PalettePane {
                 &picker,
                 move |this: &mut Self, _, event: &ColorPickerEvent, cx| {
                     if let ColorPickerEvent::Change(Some(color)) = event {
-                        let hex = color.to_hex();
-                        let hex = hex[..hex.len().min(7)].to_lowercase();
+                        let hex = hex6(&color.to_hex());
                         if this.value(key).eq_ignore_ascii_case(&hex) {
                             return;
                         }

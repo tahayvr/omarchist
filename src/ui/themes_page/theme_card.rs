@@ -1,4 +1,3 @@
-use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
 use crate::types::themes::ThemeEntry;
 use crate::ui::app_events::{AppEvent, emit};
@@ -6,13 +5,13 @@ use crate::ui::app_view::ActivePage;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::text::selectable;
+use crate::ui::theme_apply::apply_theme;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, IconName, Sizable, WindowExt, button::*, h_flex, menu::DropdownMenu,
     menu::PopupMenuItem, v_flex,
 };
-use smol;
 use std::path::PathBuf;
 
 pub struct ThemeCard {
@@ -40,14 +39,9 @@ impl ThemeCard {
         self.is_focused = focused;
     }
 
-    pub fn activate(&mut self) {
-        let dir = self.theme.dir.clone();
-        smol::spawn(async move {
-            if let Err(e) = apply_theme(dir).await {
-                eprintln!("Failed to apply theme: {}", e);
-            }
-        })
-        .detach();
+    /// The folder name `omarchy-theme-set` takes.
+    pub fn theme_dir(&self) -> String {
+        self.theme.dir.clone()
     }
 
     /// Opens the Theme Designer for editable themes.
@@ -267,14 +261,8 @@ impl Render for ThemeCard {
                             .small()
                             .primary()
                             .cursor_pointer()
-                            .on_click(move |_event, _window, _cx| {
-                                let dir_clone = dir.clone();
-                                smol::spawn(async move {
-                                    if let Err(e) = apply_theme(dir_clone).await {
-                                        eprintln!("Failed: {}", e);
-                                    }
-                                })
-                                .detach();
+                            .on_click(move |_event, window, cx| {
+                                apply_theme(dir.clone(), window, cx);
                             })
                     }),
             )

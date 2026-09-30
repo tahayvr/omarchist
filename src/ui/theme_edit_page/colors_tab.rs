@@ -1,6 +1,6 @@
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
-use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::color_utils::{hex_to_hsla, hex6};
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, error_message, field_grid, field_label, focus_section,
     section_title, tab_container, tab_grid_columns,
@@ -41,10 +41,16 @@ pub struct ColorsTab {
     // ("rgba(..ee) rgba(..ee) 45deg"), which a color picker cannot express.
     active_border_input: Entity<InputState>,
     inactive_border_input: Entity<InputState>,
-    is_saving: bool,
+    /// Bumped on every edit; a pending save only runs if it is still the
+    /// latest, so a dragged slider writes once, not once per frame.
+    edit_generation: u64,
+    /// The generation the last completed (or in-flight) save carried.
+    saved_generation: u64,
     error_message: Option<String>,
     scroll: ScrollHandle,
 }
+
+const SAVE_DELAY: std::time::Duration = std::time::Duration::from_millis(300);
 
 impl ColorsTab {
     fn create_color_picker(
@@ -61,11 +67,11 @@ impl ColorsTab {
             window,
             move |this, _picker, event: &ColorPickerEvent, window, cx| {
                 if let ColorPickerEvent::Change(Some(color)) = event {
-                    let hex = color.to_hex();
+                    let hex = hex6(&color.to_hex());
                     this.update_colors(|config| {
                         setter(config, hex);
                     });
-                    this.save(window, cx);
+                    this.schedule_save(window, cx);
                 }
             },
         )
@@ -171,7 +177,8 @@ impl ColorsTab {
             bright_white_picker,
             active_border_input,
             inactive_border_input,
-            is_saving: false,
+            edit_generation: 0,
+            saved_generation: 0,
             error_message: None,
             scroll: scroll.clone(),
         }
@@ -193,30 +200,25 @@ impl ColorsTab {
         cx.subscribe_in(
             &input,
             window,
-            move |this, input, event: &InputEvent, _window, cx| {
+            move |this, input, event: &InputEvent, window, cx| {
                 if let InputEvent::Change = event {
                     let raw = input.read(cx).value().to_string();
                     let trimmed = raw.trim();
+                    if let Err(e) = validate_border(trimmed) {
+                        // Keep the last valid value on disk; say why.
+                        this.error_message = Some(e);
+                        cx.notify();
+                        return;
+                    }
                     let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
                     setter(&mut this.theme_data.colors, value);
-                    this.save_borders(cx);
+                    this.schedule_save(window, cx);
                 }
             },
         )
         .detach();
 
         input
-    }
-
-    fn save_borders(&mut self, cx: &mut Context<Self>) {
-        let active = self.theme_data.colors.hyprland_active_border.clone();
-        let inactive = self.theme_data.colors.hyprland_inactive_border.clone();
-        let result = update_theme(&self.theme_name, |theme| {
-            theme.colors.hyprland_active_border = active;
-            theme.colors.hyprland_inactive_border = inactive;
-        });
-        self.error_message = result.err().map(|e| e.to_string());
-        cx.notify();
     }
 
     fn update_colors<F>(&mut self, updater: F)
@@ -226,43 +228,71 @@ impl ColorsTab {
         updater(&mut self.theme_data.colors);
     }
 
-    fn save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        if self.theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
+    /// Saves 300 ms after the last edit, off the UI thread.
+    fn schedule_save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.edit_generation += 1;
         self.error_message = None;
         cx.notify();
+        let generation = self.edit_generation;
+        cx.spawn(async move |this, cx| {
+            cx.background_executor().timer(SAVE_DELAY).await;
+            let current = this.update(cx, |this, _| this.edit_generation == generation);
+            if !matches!(current, Ok(true)) {
+                return;
+            }
+            let Ok(save) = this.update(cx, |this, _| this.pending_save()) else {
+                return;
+            };
+            let result = cx.background_spawn(async move { save() }).await;
+            this.update(cx, |this, cx| {
+                if this.edit_generation == generation {
+                    this.error_message = result.err().map(|e| e.to_string());
+                    cx.notify();
+                }
+            })
+            .ok();
+        })
+        .detach();
+    }
 
-        // Only the palette is written here; the mode belongs to the General
-        // tab and the borders are saved on their own.
-        let colors = self.theme_data.colors.clone();
-        match update_theme(&self.theme_name, |theme| {
-            let mode = theme.colors.mode.clone();
-            let active_border = theme.colors.hyprland_active_border.clone();
-            let inactive_border = theme.colors.hyprland_inactive_border.clone();
-            theme.colors = colors;
-            theme.colors.mode = mode;
-            theme.colors.hyprland_active_border = active_border;
-            theme.colors.hyprland_inactive_border = inactive_border;
-        }) {
-            Ok(()) => {
-                self.is_saving = false;
-            }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(e.to_string());
-            }
+    /// Writes any edit that has not reached disk yet, now, so an Apply
+    /// right after a change stages what the user sees.
+    pub fn flush(&mut self, cx: &mut Context<Self>) {
+        if self.edit_generation == self.saved_generation {
+            return;
         }
-
+        let save = self.pending_save();
+        self.error_message = save().err().map(|e| e.to_string());
         cx.notify();
+    }
+
+    /// The save for the current snapshot, to run on any thread. Only the
+    /// palette and borders are written; the mode belongs to the General tab.
+    fn pending_save(&mut self) -> Box<dyn FnOnce() -> crate::error::Result<()> + Send> {
+        self.saved_generation = self.edit_generation;
+        let theme_name = self.theme_name.clone();
+        let colors = self.theme_data.colors.clone();
+        Box::new(move || {
+            update_theme(&theme_name, |theme| {
+                let mode = theme.colors.mode.clone();
+                theme.colors = colors;
+                theme.colors.mode = mode;
+            })
+        })
+    }
+}
+
+/// What `omarchy-theme-color` accepts for a border value; anything else it
+/// drops with a note on stderr, and a quote would break the TOML string.
+fn validate_border(value: &str) -> std::result::Result<(), String> {
+    const ALLOWED: &str = "#(),._+/%- ";
+    if value
+        .chars()
+        .all(|c| c.is_ascii_alphanumeric() || ALLOWED.contains(c))
+    {
+        Ok(())
+    } else {
+        Err("A border can only use letters, digits, spaces and # ( ) , . _ + / % -".to_string())
     }
 }
 

@@ -1,13 +1,12 @@
-use crate::shell::theme_sh_commands::apply_theme;
 use crate::system::themes::overrides::Category;
 use crate::system::themes::overrides::entries::Entry;
-use crate::system::themes::theme_file_ops::is_system_theme;
 use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::focus::{self, tab_strip_container};
 use crate::ui::menu::app_menu;
+use crate::ui::theme_apply::apply_theme;
 use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
@@ -82,7 +81,9 @@ pub struct ThemeEditPage {
 
 impl ThemeEditPage {
     pub fn new(theme_name: String, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let is_system = is_system_theme(&theme_name);
+        // Only Omarchist's own themes reach the editor (`navigate_to` gates
+        // it), so the theme is never one of Omarchy's, whatever it is named.
+        let is_system = false;
 
         let theme_data = match load_theme_for_editing(&theme_name) {
             Ok(data) => data,
@@ -148,14 +149,11 @@ impl ThemeEditPage {
         self.tabs_focus.focus(window, cx);
     }
 
-    fn apply_theme(&self) {
-        let dir = self.theme_name.clone();
-        smol::spawn(async move {
-            if let Err(e) = apply_theme(dir).await {
-                eprintln!("Failed to apply theme: {}", e);
-            }
-        })
-        .detach();
+    fn apply_theme(&self, window: &mut Window, cx: &mut App) {
+        // A change made within the save delay must be on disk before Omarchy
+        // stages the theme.
+        self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
+        apply_theme(self.theme_name.clone(), window, cx);
     }
 
     fn set_tab(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
@@ -177,6 +175,8 @@ impl ThemeEditPage {
     }
 
     fn navigate_back(&self, _window: &mut Window, cx: &mut Context<Self>) {
+        // The page entity is dropped on the way out; a pending save with it.
+        self.colors_tab.update(cx, |tab, cx| tab.flush(cx));
         // Refresh first so a newly created theme is in the grid on arrival.
         emit(cx, AppEvent::RefreshThemes);
         emit(cx, AppEvent::Navigate(ActivePage::Themes));
@@ -256,8 +256,8 @@ impl Render for ThemeEditPage {
             .on_action(cx.listener(|this, _: &app_menu::NavigateBack, window, cx| {
                 this.navigate_back(window, cx);
             }))
-            .on_action(cx.listener(|this, _: &ApplyTheme, _window, _cx| {
-                this.apply_theme();
+            .on_action(cx.listener(|this, _: &ApplyTheme, window, cx| {
+                this.apply_theme(window, cx);
             }))
             .child(
                 h_flex()
@@ -288,7 +288,9 @@ impl Render for ThemeEditPage {
                                 Some(KEY_CONTEXT),
                             )
                             .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _window, _cx| this.apply_theme())),
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.apply_theme(window, cx)),
+                            ),
                     )
                     .child(
                         tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)

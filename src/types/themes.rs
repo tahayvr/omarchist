@@ -106,6 +106,7 @@ impl Default for EditingTheme {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ColorsConfig {
     // No `cursor` key: Omarchy's resolver unconditionally derives it from
     // `bright_foreground` (color15), so a stored value would never be read.
@@ -145,6 +146,10 @@ pub struct ColorsConfig {
     pub hyprland_active_border: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub hyprland_inactive_border: Option<String>,
+    /// Keys in `colors.toml` that Omarchist does not edit (a user-added
+    /// `orange`, say), kept in order so a save never drops them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub extra: Vec<(String, String)>,
 }
 
 fn default_mode() -> String {
@@ -178,6 +183,7 @@ impl Default for ColorsConfig {
             color15: "#F8F8FF".to_string(),
             hyprland_active_border: None,
             hyprland_inactive_border: None,
+            extra: Vec::new(),
         }
     }
 }

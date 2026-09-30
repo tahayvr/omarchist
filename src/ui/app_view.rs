@@ -381,13 +381,7 @@ impl MainWindowView {
                 .unwrap_or(false);
 
             if auto_apply {
-                let dir = theme_name.clone();
-                cx.spawn(async move |_this, _cx| {
-                    if let Err(e) = crate::shell::theme_sh_commands::apply_theme(dir).await {
-                        eprintln!("auto_apply_theme failed: {}", e);
-                    }
-                })
-                .detach();
+                crate::ui::theme_apply::apply_theme(theme_name.clone(), window, cx);
             }
         }
 
@@ -750,13 +744,8 @@ impl Render for MainWindowView {
                 },
             ))
             .on_action(cx.listener(
-                |_, _: &crate::ui::menu::app_menu::RefreshTheme, _window, cx| {
-                    cx.spawn(async move |_this, _cx| {
-                        if let Err(e) = crate::shell::theme_sh_commands::refresh_theme() {
-                            eprintln!("Failed to refresh theme: {e}");
-                        }
-                    })
-                    .detach();
+                |_, _: &crate::ui::menu::app_menu::RefreshTheme, window, cx| {
+                    crate::ui::theme_apply::refresh_theme(window, cx);
                 },
             ))
             .on_action(

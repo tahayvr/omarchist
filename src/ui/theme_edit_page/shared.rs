@@ -1,3 +1,4 @@
+use crate::ui::color_utils::hex6;
 use crate::ui::focus::FocusSection;
 use crate::ui::text::selectable;
 use gpui::*;
@@ -254,7 +255,7 @@ pub fn color_picker_with_clipboard(
         picker_state_clone
             .read(cx)
             .value()
-            .map(|c| c.to_hex())
+            .map(|c| hex6(&c.to_hex()))
             .unwrap_or_default()
             .into()
     });
