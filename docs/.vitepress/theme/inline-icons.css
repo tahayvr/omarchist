@@ -22,3 +22,9 @@
   -webkit-mask: url("../../theming/images/more.svg") no-repeat center / contain;
   mask: url("../../theming/images/more.svg") no-repeat center / contain;
 }
+
+.icon-inline-rotate-ccw {
+  background-color: currentColor;
+  -webkit-mask: url("../../theming/images/rotate-ccw.svg") no-repeat center / contain;
+  mask: url("../../theming/images/rotate-ccw.svg") no-repeat center / contain;
+}

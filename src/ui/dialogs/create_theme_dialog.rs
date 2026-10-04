@@ -1,4 +1,3 @@
-use std::cell::RefCell;
 use std::path::PathBuf;
 
 use anyhow;
@@ -6,140 +5,142 @@ use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, IconName, WindowExt,
     button::{Button, ButtonVariants},
-    divider::Divider,
-    h_flex, v_flex,
+    h_flex,
+    separator::Separator,
+    v_flex,
 };
-use smol;
 
 use crate::system::themes::theme_management::{
-    create_theme_from_defaults, generate_unique_theme_name,
+    create_theme_from_defaults, generate_unique_theme_name, slugify_theme_name, unique_theme_name,
 };
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
-
-thread_local! {
-    pub static PENDING_THEME_NAVIGATION: RefCell<Option<String>> = const { RefCell::new(None) };
-    pub static PENDING_REFRESH_THEMES: RefCell<bool> = const { RefCell::new(false) };
-}
+use crate::ui::focus;
+use crate::ui::theme_edit_page::shared::IMAGE_EXTENSIONS;
 
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
-    window.open_dialog(cx, |dialog, _, cx| {
+    let body_focus = cx.focus_handle();
+    let trap_focus = body_focus.clone();
+    window.open_dialog(cx, move |dialog, window, cx| {
         dialog
-            .title("Create New Theme")
-            .w(px(640.))
+            .title("New theme")
+            .w(crate::ui::focus::dialog_width(640., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)
             .overlay_closable(true)
             .child(
-                h_flex()
-                    .h(px(320.))
-                    .child(
-                        // Left Column - Create from Image
-                        v_flex()
-                            .flex_1()
-                            .h_full()
-                            .p_4()
-                            .gap_4()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                Icon::new(Icon::empty())
-                                    .path("icons/image.svg")
-                                    .size(px(24.))
-                                    .text_color(cx.theme().muted_foreground),
-                            )
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child("Automatically based on an image"),
-                            )
-                            .child(
-                                Button::new("from-image-btn")
-                                    .primary()
-                                    .label("Select Image")
-                                    .cursor_pointer()
-                                    .on_click(|_, window, cx| {
-                                        window.close_dialog(cx);
-                                        open_image_picker(window, cx);
-                                    }),
-                            ),
-                    )
-                    .child(Divider::vertical().color(cx.theme().border))
-                    .child(
-                        // Right Column - Create Manually
-                        v_flex()
-                            .flex_1()
-                            .h_full()
-                            .p_4()
-                            .gap_4()
-                            .items_center()
-                            .justify_center()
-                            .child(
-                                Icon::new(IconName::Palette)
-                                    .size(px(24.))
-                                    .text_color(cx.theme().muted_foreground),
-                            )
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .text_color(cx.theme().muted_foreground)
-                                    .child("Manually from scratch"),
-                            )
-                            .child(
-                                Button::new("from-scratch-btn")
-                                    .primary()
-                                    .label("Create Manually")
-                                    .cursor_pointer()
-                                    .on_click(|_, window, cx| {
-                                        let theme_name = generate_unique_theme_name();
+                focus::dialog_body("create-theme-dialog", &trap_focus, |_, _| {}).child(
+                    h_flex()
+                        .h(px(320.))
+                        .child(
+                            // Left Column - Create from Image
+                            v_flex()
+                                .flex_1()
+                                .h_full()
+                                .p_4()
+                                .gap_4()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    Icon::new(Icon::empty())
+                                        .path("icons/image.svg")
+                                        .size(px(24.))
+                                        .text_color(cx.theme().muted_foreground),
+                                )
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child("Automatically based on an image"),
+                                )
+                                .child(
+                                    Button::new("from-image-btn")
+                                        .primary()
+                                        .label("Select image")
+                                        .cursor_pointer()
+                                        .on_click(|_, window, cx| {
+                                            window.close_dialog(cx);
+                                            open_image_picker(window, cx);
+                                        }),
+                                ),
+                        )
+                        .child(Separator::vertical().color(cx.theme().border))
+                        .child(
+                            // Right Column - Create Manually
+                            v_flex()
+                                .flex_1()
+                                .h_full()
+                                .p_4()
+                                .gap_4()
+                                .items_center()
+                                .justify_center()
+                                .child(
+                                    Icon::new(IconName::Palette)
+                                        .size(px(24.))
+                                        .text_color(cx.theme().muted_foreground),
+                                )
+                                .child(
+                                    div()
+                                        .text_sm()
+                                        .text_color(cx.theme().muted_foreground)
+                                        .child("Manually from scratch"),
+                                )
+                                .child(
+                                    Button::new("from-scratch-btn")
+                                        .primary()
+                                        .label("Create manually")
+                                        .cursor_pointer()
+                                        .on_click(|_, window, cx| {
+                                            let theme_name = generate_unique_theme_name();
 
-                                        match create_theme_from_defaults(&theme_name) {
-                                            Ok(created_theme_name) => {
-                                                PENDING_THEME_NAVIGATION.with(|nav| {
-                                                    *nav.borrow_mut() =
-                                                        Some(created_theme_name.clone());
-                                                });
+                                            match create_theme_from_defaults(&theme_name) {
+                                                Ok(created_theme_name) => {
+                                                    emit(
+                                                        cx,
+                                                        AppEvent::Navigate(ActivePage::ThemeEdit(
+                                                            created_theme_name.clone(),
+                                                        )),
+                                                    );
 
-                                                window.close_dialog(cx);
+                                                    window.close_dialog(cx);
 
-                                                let msg = format!(
-                                                    "Created new theme: {}",
-                                                    created_theme_name
-                                                );
-                                                window.push_notification(msg, cx);
+                                                    let msg =
+                                                        format!("Created '{created_theme_name}'");
+                                                    window.push_notification(msg, cx);
 
-                                                cx.refresh_windows();
+                                                    cx.refresh_windows();
+                                                }
+                                                Err(e) => {
+                                                    window.close_dialog(cx);
+                                                    let msg =
+                                                        format!("Could not create the theme: {e}");
+                                                    window.push_notification(msg, cx);
+                                                }
                                             }
-                                            Err(e) => {
-                                                window.close_dialog(cx);
-                                                let msg = format!("Failed to create theme: {}", e);
-                                                window.push_notification(msg, cx);
-                                            }
-                                        }
-                                    }),
-                            ),
-                    ),
+                                        }),
+                                ),
+                        ),
+                ),
             )
     });
+    focus::focus_first_in(&body_focus, window, cx);
 }
 
 fn open_image_picker(window: &mut Window, cx: &mut App) {
-    // Get window handle for use in async context
     let window_handle = window.window_handle();
 
-    // Spawn async task to open file dialog without blocking the UI
     cx.spawn(async move |cx| {
-        // Run the blocking file dialog in a background thread
-        let result = smol::unblock(|| {
-            rfd::FileDialog::new()
-                .add_filter("Images", &["png", "jpg", "jpeg", "webp", "gif"])
-                .set_title("Select an image for theme creation")
-                .pick_file()
-        })
-        .await;
+        let result = cx
+            .background_spawn(async move {
+                rfd::FileDialog::new()
+                    .add_filter("Images", IMAGE_EXTENSIONS)
+                    .set_title("Select an image for theme creation")
+                    .pick_file()
+            })
+            .await;
 
-        // Process the result back on the main thread
         if let Some(path) = result {
             let _ = window_handle.update(cx, |_view, window, cx| {
                 process_image_and_create_theme(window, cx, path);
@@ -152,25 +153,13 @@ fn open_image_picker(window: &mut Window, cx: &mut App) {
 }
 
 fn process_image_and_create_theme(window: &mut Window, cx: &mut App, image_path: PathBuf) {
-    // Generate theme name from filename
+    // Theme folder name from the image's file stem, made safe and unique.
     let theme_name = image_path
         .file_stem()
         .and_then(|s| s.to_str())
-        .map(|s| s.to_lowercase().replace(' ', "-"))
+        .map(slugify_theme_name)
+        .map(|base| unique_theme_name(&base))
         .unwrap_or_else(generate_unique_theme_name);
 
-    // Open progress dialog and start async theme creation
     open_theme_creation_progress_dialog(theme_name, image_path, window, cx);
-}
-
-pub fn take_pending_navigation() -> Option<String> {
-    PENDING_THEME_NAVIGATION.with(|nav| nav.borrow_mut().take())
-}
-
-pub fn take_pending_refresh() -> bool {
-    PENDING_REFRESH_THEMES.with(|refresh| {
-        let value = *refresh.borrow();
-        *refresh.borrow_mut() = false;
-        value
-    })
 }

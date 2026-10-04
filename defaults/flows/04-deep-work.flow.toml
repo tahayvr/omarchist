@@ -1,0 +1,43 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 1
+name = "Deep work"
+description = "Twenty-five minutes with notifications silenced, then a five-minute break."
+icon = "clock"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "notify"
+title = "Deep work"
+body = "25 minutes, go"
+
+[[step]]
+type = "exec"
+command = "omarchy-shell notifications setDnd on && omarchy-shell -q omarchy.indicators refresh"
+wait = true
+
+[[step]]
+type = "wait"
+ms = 1500000
+
+[[step]]
+type = "exec"
+command = "omarchy-shell notifications setDnd off && omarchy-shell -q omarchy.indicators refresh"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Take a five"
+body = "Stand up and stretch"
+
+[[step]]
+type = "wait"
+ms = 300000
+
+[[step]]
+type = "notify"
+title = "Break's over"
+body = "Run Deep work again for another round"

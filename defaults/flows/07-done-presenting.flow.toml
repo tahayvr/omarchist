@@ -1,0 +1,35 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 1
+name = "Done presenting"
+description = "Brings back the bar, notifications, idle, and the screensaver after Present."
+icon = "sparkles"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "omarchy-toggle-bar on"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-toggle screensaver-off off"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-toggle-idle allow-idle"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-shell notifications setDnd off && omarchy-shell -q omarchy.indicators refresh"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Done presenting"
+body = "Everything is back to normal"

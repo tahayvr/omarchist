@@ -1,6 +1,6 @@
 [package]
 name = "omarchist"
-version = "1.0.1"
+version = "2.0.0"
 edition = "2024"
 description = "A GUI app for Omarchy Linux."
 documentation = "https://omarchist.com"
@@ -8,7 +8,7 @@ readme = "README.md"
 homepage = "https://omarchist.com"
 repository = "https://github.com/tahayvr/omarchist"
 license = "Apache-2.0"
-keywords = ["omarchy", "themes", "hyprland", "waybar"]
+keywords = ["omarchy", "themes", "hyprland"]
 categories = ["config"]
 
 # Explicitly include what the build needs
@@ -22,9 +22,16 @@ include = [
 ]
 
 [dependencies]
-gpui = { version = "0.2.2" }
-gpui-component = "0.5.1"
-gpui-component-assets = "0.5.1"
+# gpui-pre is a weekly snapshot of Zed's unstable gpui; every gpui crate is
+# pinned exactly and bumped together.
+gpui = { package = "gpui-pre", version = "=0.3.4" }
+gpui_platform = { package = "gpui-pre-platform", version = "=0.3.4", features = ["wayland", "x11"] }
+gpui-base = "=0.6.1"
+gpui-component = { version = "=0.6.1", features = ["tree-sitter-lua"] }
+gpui-kit-assets = "=0.6.1"
+# gpui's macros resolve their paths through gpui_kit whenever it is in the
+# dependency graph, so it must be a normal dependency.
+gpui-kit = { version = "=0.6.1", default-features = false, features = ["component"] }
 anyhow = "1.0.101"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
@@ -33,14 +40,31 @@ dirs = "6.0.0"
 base64 = "0.22.1"
 rust-embed = "8.11.0"
 chrono = "0.4.43"
-sysinfo = "0.38.1"
-battery = "0.7.8"
 rfd = "0.17.2"
 isahc = { version = "1.7.2", features = ["json"] }
 clap = { version = "4.5.58", features = ["derive"] }
 image = { version = "0.25.9", features = ["png", "jpeg", "webp"] }
 color-thief = "0.2.2"
 palette = "0.7.6"
+thiserror = "2"
+xkbcommon = { version = "0.8", default-features = false }
+toml = "1.1.6"
+
+[dev-dependencies]
+# Headless UI tests under tests/.
+gpui-kit = { version = "=0.6.1", default-features = false, features = ["component", "test-support"] }
+
+# Day-to-day runs (`just run`): the app crate is built unoptimized and
+# recompiles in seconds, dependencies are built optimized once so gpui
+# renders at a usable speed, and debug info is limited to line tables,
+# which is enough for backtraces and cuts codegen and link time.
+[profile.dev-fast]
+inherits = "dev"
+debug = "line-tables-only"
+
+[profile.dev-fast.package."*"]
+opt-level = 3
+debug = false
 
 [profile.release]
 opt-level = 'z'     # Optimize for size

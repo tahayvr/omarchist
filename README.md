@@ -2,13 +2,15 @@
 <img src="./assets/logo/omarchist.png" width="120">
 
 <h1>OMARCHIST</h1>
-<p>A GUI app for <a href="https://omarchy.org"> Omarchy</a>. Powered by Rust.</p>
+<p>A GUI app for <a href="https://omarchy.org">Omarchy</a>. Powered by Rust.</p>
 </div>
 
-Omarchist brings Omarchy theme creation and system configuration into the GUI realm.
-Think of it as an optional add-on.
+Omarchist brings Omarchy theming and system configuration into a window: design themes, tune Hyprland, change keybinds, and chain actions into flows, without editing config files by hand. Think of it as an optional add-on.
 
-<img src="screenshots/omarchist-themes.png" alt="Omarchist Themes" width="800">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/themes-dark.webp">
+  <img src="screenshots/themes-light.webp" alt="Omarchist Themes page" width="800">
+</picture>
 
 ## Install
 
@@ -17,33 +19,57 @@ yay -S omarchist-bin
 ```
 
 > [!NOTE]
-> This goes without saying: Omarchist only works on Omarchy Linux. duh
+> Omarchist only works on Omarchy Linux. Version 2.x targets Omarchy Quattro (v4); for Omarchy 3.x use an Omarchist 1.x release.
 
-> [!NOTE]
-> Omarchist is still in early development, so expect some rough edges and missing features.
+Docs: [omarchist.com](https://omarchist.com/)
 
 ## Features
 
-### **Theme Designer:**
+### Theme Designer
 
-Design, preview, and fine-tune your themes with color pickers, easy updates, and an intuitive interface that makes customization effortless.
+Create a theme from scratch or from an image. Omarchist writes `colors.toml`; Omarchy generates your terminals, borders, bar, and editor themes from it.
 
-  <img src="screenshots/omarchist-screenshot-1.png" alt="Omarchist Theme Designer" width="800">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/designer-colors-dark.webp">
+  <img src="screenshots/designer-colors-light.webp" alt="Theme Designer" width="800">
+</picture>
 
-### **Config Management:**
+### Configuration
 
-Edit and generate configs for Waybar, Omarchy, Hyprland, etc (WIP).
+Gaps, borders, blur, keyboard, mouse, and touchpad, applied as you change them. Omarchist writes its values to `~/.config/hypr/omarchist.lua` and only adds the one line to your `hyprland.lua` that loads it.
 
-  <img src="screenshots/omarchist-screenshot-2.png" alt="Omarchist Theme Designer" width="800">
-  
-  <img src="screenshots/omarchist-screenshot-3.png" alt="Omarchist Theme Designer" width="800">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/config-dark.webp">
+  <img src="screenshots/config-light.webp" alt="Configuration page" width="800">
+</picture>
 
-> [!IMPORTANT]
-> Omarchist puts your current waybar config in `~/.config/omarchist/waybar/backup-original/` for safekeeping. You can restore it anytime from the app.
+### Keybinds
+
+Search and change every Hyprland keybind on your system. Record a combination the way you would in an editor, or type it in Omarchy's syntax for keys the compositor keeps to itself. Your `bindings.lua` is never touched.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/keybind-dialog-dark.webp">
+  <img src="screenshots/keybind-dialog-light.webp" alt="Keybind editor" width="800">
+</picture>
+
+### Flows
+
+String actions together, like Shortcuts on a Mac: open apps, switch workspaces, wait, notify. Run a flow from a keybind, the app launcher, at startup, or anywhere with `omarchist flow run <name>`. Start from a template, and share flows as `.flow.toml` files.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="screenshots/flow-editor-dark.webp">
+  <img src="screenshots/flow-editor-light.webp" alt="Flow editor" width="800">
+</picture>
+
+### Keyboard first
+
+Every page, dialog, and control works without a mouse. `Ctrl+/` lists every shortcut and `Ctrl+Shift+P` opens a command palette.
 
 ## Acknowledgements
 
-- Thanks [@dhh](https://github.com/dhh) for Omarchy.
+- Thanks [@dhh](https://github.com/dhh) for Omarchy
+- Thanks [@zed-industries](https://github.com/zed-industries/zed) for gpui
+- Thanks [@Huacnlee](https://github.com/huacnlee) for gpui-kit
 
 ## License
 

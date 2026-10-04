@@ -1,35 +1,47 @@
-use super::omarchy_version::GitHubRelease;
+use crate::error::{Error, Result};
 use isahc::AsyncReadResponseExt;
+use isahc::config::{Configurable, RedirectPolicy};
+use serde::Deserialize;
 
-pub async fn fetch_latest_release_notes() -> Result<(String, String), String> {
-    // Fetch latest release from GitHub using isahc (runtime-agnostic)
+#[derive(Debug, Deserialize)]
+struct GitHubRelease {
+    tag_name: String,
+    body: Option<String>,
+}
+
+/// The tag and body of the newest stable release on GitHub. This is only
+/// used for the release notes; whether an update is installable is decided
+/// by `updates::check_for_updates` against the package repository.
+pub async fn fetch_latest_release_notes() -> Result<(String, String)> {
     let request = isahc::Request::builder()
-        .uri("https://api.github.com/repos/basecamp/omarchy/releases/latest")
+        .uri("https://api.github.com/repos/omacom/omarchy/releases/latest")
+        .redirect_policy(RedirectPolicy::Follow)
+        // A black-holed network must not leave "Loading…" up for minutes.
+        .timeout(std::time::Duration::from_secs(15))
         .header("User-Agent", "omarchist")
         .body(())
-        .map_err(|e| format!("Failed to build request: {e}"))?;
+        .map_err(|e| Error::Network(format!("Failed to build request: {e}")))?;
 
     let mut response = isahc::send_async(request)
         .await
-        .map_err(|e| format!("Failed to fetch releases: {e}"))?;
+        .map_err(|e| Error::Network(format!("Failed to fetch releases: {e}")))?;
 
     if !response.status().is_success() {
-        return Err(format!("GitHub API returned status: {}", response.status()));
+        return Err(Error::Network(format!(
+            "GitHub API returned status: {}",
+            response.status()
+        )));
     }
 
     let release: GitHubRelease = response
         .json::<GitHubRelease>()
         .await
-        .map_err(|e| format!("Failed to parse release data: {e}"))?;
-
-    // Skip prereleases
-    if release.prerelease {
-        return Err("Latest release is a prerelease".to_string());
-    }
+        .map_err(|e| Error::Network(format!("Failed to parse release data: {e}")))?;
 
     let tag = release.tag_name;
     let notes = release
         .body
+        .map(|body| body.replace("\r\n", "\n"))
         .unwrap_or_else(|| "No release notes available.".to_string());
 
     Ok((tag, notes))

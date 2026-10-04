@@ -2,60 +2,60 @@
 outline: deep
 ---
 
-# Configuring
+# Hyprland
 
-Omarchist provides a **Configuring** page to configure Hyprland, the window manager for Omarchy Linux. You find this in the left sidebar under **Configuring**.
+The **Configuration** page (<kbd>Ctrl</kbd> + <kbd>2</kbd>) sets Hyprland options without touching `hyprland.lua`. Changes apply immediately, and the search box filters every section at once. A number field's − and + buttons and the <kbd>↑</kbd> and <kbd>↓</kbd> keys move it by one step, sized for the setting (pixels by 1, opacity by 0.05, delays by 50 ms), and apply at once. A value you type applies when you press <kbd>Enter</kbd> or leave the field.
 
-## Hyprland
+<img src="/images/config-light.webp" alt="Configuration page" class="screenshot light-only">
+<img src="/images/config-dark.webp" alt="Configuration page" class="screenshot dark-only">
 
-The Hyprland configuration page contains settings for your window manager. Changes apply immediately.
+| Section | Settings |
+| --- | --- |
+| **General** | Border size and grab area, gaps (in, out, floating, workspaces) with Omarchy's no-gaps toggle beside them, the layout (Dwindle, Master, Scrolling, or Monocle), tearing, and floating-window snapping. |
+| **Appearance** | Corner rounding, opacity, dimming, blur, shadows, glow, motion blur, and animations. |
+| **Layouts** | Single-window aspect ratio with Omarchy's square-window toggle, and every option of the Dwindle, Master, and Scrolling layouts. |
+| **Keyboard** | Layout (set system-wide through `localectl`, so Omarchy's own layout logic applies), Num Lock on start, keybinds by symbol, repeat rate and delay. |
+| **Mouse** | Sensitivity and acceleration, scrolling, and how the pointer changes focus. |
+| **Touchpad** | Tapping, clicking, and scrolling. |
+| **Groups** | Window grouping behaviour and the group bar. |
+| **Cursor** | Hiding, warping, and zooming the pointer. |
+| **Windows** | Focus, workspaces, moving focus, and keybind and drag behaviour. |
+| **System** | Adaptive sync and direct scanout, HDR, display wake, the not-responding dialog, and XWayland. |
 
-### General
+## Omarchy settings
 
-Configure window borders, gaps, and layout.
+Below the Hyprland pages, the list continues with Omarchy's own settings. These read and write through Omarchy's scripts and files, so a change here is the same as the matching entry of Omarchy's menu, and there is no reset button because nothing is stored twice.
 
-- **Border Size**: Thickness of window borders in pixels.
-- **Resize on Border**: Enable resizing windows by dragging on borders.
-- **Gaps In**: Space between windows.
-- **Gaps Out**: Space between windows and screen edges.
-- **Gaps Workspaces**: Gaps between workspaces. Stacks with gaps out.
-- **Layout**: Choose between **Dwindle** or **Master** window layouts.
+| Page | Settings |
+| --- | --- |
+| **Lock & Idle** | Seconds before the screensaver and the lock, stay awake, screensaver on or off, Suspend in the system menu, and a Lock button. |
+| **Power** | The power profile on power and on battery, the battery percentage in the bar, and the hybrid GPU switch. |
+| **Notifications** | Do not disturb and crash capture. |
+| **Default Apps** | The browser, terminal, and editor; only installed apps are offered. |
+| **Bar** | Show the bar, its position, and transparency. |
+| **Fonts** | The monospace font and the text size for the shell, GTK apps, and terminals. |
+| **Displays** | The focused monitor's scale, night light and its temperature, and the laptop display. |
+| **Devices** | Touchpad, touchscreen, and Bluetooth. |
+| **Network** | The DNS provider and the Wi-Fi band. |
+| **Security** | Fingerprint, FIDO2 key, SSH server, and sudoless Docker each show whether they are set up and open Omarchy's terminal to set them up or remove them. |
+| **Updates & Resets** | The package channel, firmware updates, the timezone (type to search the list) and **Automatic Time**, and resets of the Hyprland, shell, tmux, and boot screen configs. Changing the timezone or automatic time asks for your password in Omarchy's terminal. |
 
-### Appearance
+Pages show only what applies to this machine: laptop-only rows appear on laptops, and the fingerprint row when a reader is present. Settings that need your password or a confirmation open in Omarchy's floating terminal, the same as from the menu.
 
-Configure visual effects and transparency.
+## Settings you changed
 
-- **Rounding**: Corner radius for windows in pixels.
-- **Active/Inactive Opacity**: Window transparency (0.0 to 1.0).
-- **Enable Blur**: Toggle blur effects for transparent windows.
-- **Blur Size**: Distance of the blur effect.
-- **Blur Passes**: Number of blur iterations.
+Every setting starts at the value Omarchy gives it, or the value your own `looknfeel.lua` and `input.lua` set. When you change one, a reset button <span class="icon-inline icon-inline-rotate-ccw"></span> appears next to it. Its tooltip shows the value Omarchy uses, and clicking it puts the setting back under Omarchy's control. Setting a value back by hand does the same.
 
-### Input
+Settings you have not changed keep following Omarchy, so an Omarchy update that changes a default reaches you.
 
-Configure keyboard, mouse, and touchpad settings.
+Two of Omarchy's own toggles override Hyprland fields while they are on: **No Gaps** (gaps, border, and rounding) and **Square Single Window** (the single-window aspect ratio). They sit next to the fields they override, which are disabled while the toggle is on.
 
-**Keyboard:**
-- **Keyboard Layout**: Layout code (e.g., `us`, `de`, `fr`).
-- **Repeat Rate**: How fast keys repeat when held (repeats per second).
-- **Repeat Delay**: Milliseconds before key repeat starts.
+The page leaves out Hyprland options that do nothing on Omarchy (the default wallpaper and splash, workspace swipe without a gesture, swallowing without a pattern), options that would break it (auto reload, lock-screen recovery, permission enforcement), and driver and debugging knobs.
 
-**Mouse:**
-- **Sensitivity**: Mouse speed from -1.0 to 1.0.
-- **Natural Scroll**: Invert scrolling direction.
-- **Left Handed**: Swap left and right mouse buttons.
+## How it works
 
-**Touchpad:**
-- **Disable While Typing**: Disable touchpad when typing.
-- **Tap to Click**: Tap on touchpad to click.
-- **Natural Scroll**: Invert touchpad scrolling.
+Omarchist keeps only the settings you changed, in `~/.config/omarchist/hyprland/state.json`, and writes them as `hl.config` calls into `~/.config/hypr/omarchist.lua`, which your `hyprland.lua` loads after Omarchy's defaults and your own files. The first time Omarchist runs, it adds one line, `require("hypr.omarchist")`, to your `hyprland.lua` after the line that loads Omarchy's autostart, so Hyprland loads that file. It never changes anything else in your own config files.
 
-### Miscellaneous
+To know what a setting goes back to, Omarchist evaluates your `hyprland.lua` with a stub of Hyprland's `hl` API and records every `hl.config` call except its own file, the same way the Keybinds page reads your keybinds. This needs the `lua` interpreter, which Omarchy installs.
 
-Additional settings.
-
-- **VFR**: Variable refresh rate to save battery.
-
-## Auto-Save
-
-All changes save automatically. You do not need to click a Save button.
+Omarchist 1.x stored the whole configuration, which pinned Omarchy's values in `omarchist.lua`. On first start, Omarchist 2 keeps only the settings that differ from what Omarchy and Hyprland set, and leaves the old file next to the new one as `state.json.legacy`.

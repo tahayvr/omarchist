@@ -5,11 +5,11 @@ export default defineConfig({
   title: "Omarchist Docs",
   description:
     "Documentation for Omarchist. A GUI app for managing & theming Omarchy Linux.",
-  base: "/docs/",
+  base: "/",
   cleanUrls: true,
   head: [
-    ["link", { rel: "icon", href: "/docs/images/icon.png" }],
-    ["link", { rel: "canonical", href: "https://omarchist.com/docs/" }],
+    ["link", { rel: "icon", href: "/images/icon.png" }],
+    ["link", { rel: "canonical", href: "https://omarchist.com/" }],
 
     // Basic SEO
     [
@@ -17,7 +17,7 @@ export default defineConfig({
       {
         name: "keywords",
         content:
-          "Omarchist, Omarchy Linux, Hyprland, Waybar, Linux theming, GUI app, Linux customization",
+          "Omarchist, Omarchy Linux, Hyprland, Linux theming, GUI app, Linux customization",
       },
     ],
     ["meta", { name: "author", content: "Taha Nejad" }],
@@ -25,7 +25,7 @@ export default defineConfig({
 
     // Open Graph / Facebook
     ["meta", { property: "og:type", content: "website" }],
-    ["meta", { property: "og:url", content: "https://omarchist.com/docs/" }],
+    ["meta", { property: "og:url", content: "https://omarchist.com/" }],
     [
       "meta",
       {
@@ -75,7 +75,7 @@ export default defineConfig({
     // https://vitepress.dev/reference/default-theme-config
     logo: "/images/icon.png",
     siteTitle: "OMARCHIST",
-    // nav: [{ text: "Themes", link: "https://omarchist.com/themes" }],
+    nav: [{ text: "Support", link: "https://github.com/sponsors/tahayvr" }],
 
     sidebar: [
       {
@@ -83,7 +83,9 @@ export default defineConfig({
         items: [
           { text: "Introduction", link: "/" },
           { text: "Installation", link: "/#installation" },
+          { text: "Settings", link: "/#settings" },
           { text: "CLI", link: "/cli" },
+          { text: "Keyboard Navigation", link: "/keyboard" },
         ],
       },
       {
@@ -98,13 +100,23 @@ export default defineConfig({
         text: "CONFIGURATION",
         items: [
           { text: "Hyprland", link: "/configuring/" },
-          { text: "Status Bar", link: "/configuring/status-bar" },
+          { text: "Keybinds", link: "/configuring/keybinds" },
+          { text: "Omarchy", link: "/configuring/omarchy" },
+          { text: "Bar Widget", link: "/configuring/bar-widget" },
+        ],
+      },
+      {
+        text: "FLOWS",
+        items: [
+          { text: "Flows", link: "/flows/" },
+          { text: "Templates", link: "/flows/#templates" },
+          { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],
       },
     ],
 
     editLink: {
-      pattern: "https://github.com/tahayvr/omarchist/docs/edit/main/:path",
+      pattern: "https://github.com/tahayvr/omarchist/edit/main/docs/:path",
       text: "Edit this page on GitHub",
     },
 
@@ -116,7 +128,7 @@ export default defineConfig({
       provider: "local",
     },
     footer: {
-      message: "Omarchist is released under the MIT License.",
+      message: "Omarchist is released under the Apache-2.0 License.",
       copyright: 'Copyright © 2026 <a href="https://taha.gg">Taha Nejad</a>',
     },
   },

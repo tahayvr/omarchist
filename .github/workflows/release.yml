@@ -33,9 +33,61 @@ jobs:
         env:
           GITHUB_REPO: ${{ github.repository }}
 
+  check:
+    name: Check and test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxcb1-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-dev \
+            libxkbcommon-x11-dev \
+            libwayland-dev \
+            libvulkan-dev \
+            libx11-dev \
+            libxi-dev \
+            libgl1-mesa-dev \
+            libssl-dev \
+            libfontconfig1-dev \
+            libasound2-dev \
+            lua5.4 \
+            pkg-config
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-check-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-check-cargo-
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        run: cargo clippy --all-targets --all-features --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
   build:
     name: Build (${{ matrix.target }})
-    needs: changelog
+    needs: [changelog, check]
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -139,10 +191,14 @@ jobs:
           cp omarchist.desktop release-dist/
           cd release-dist
           tar -czf ../${{ matrix.artifact }}.tar.gz *
+          cd ..
+          sha256sum ${{ matrix.artifact }}.tar.gz > ${{ matrix.artifact }}.tar.gz.sha256
 
       - name: Create GitHub Release and upload artifact
         uses: softprops/action-gh-release@v3
         with:
-          files: ${{ matrix.artifact }}.tar.gz
+          files: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.tar.gz.sha256
           tag_name: ${{ github.ref_name }}
           body: ${{ needs.changelog.outputs.release_body }}

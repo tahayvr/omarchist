@@ -2,14 +2,13 @@
 outline: deep
 ---
 
-# Omarchy Settings
+# Omarchy
 
-Omarchy system settings are currently not available in the Settings page. You manage Omarchy updates through the terminal using the `omarchy-update` command.
+The **Omarchy** page (the Omarchy icon in the title bar) shows the installed version, whether an update is waiting, and the latest release notes.
 
-::: info Coming Soon
-System settings and update management will be added in a future release.
-:::
+<img src="/images/omarchy-light.webp" alt="Omarchy page" class="screenshot light-only">
+<img src="/images/omarchy-dark.webp" alt="Omarchy page" class="screenshot dark-only">
 
-## Check Version
+The version and the update check come from Omarchy's own tools, `omarchy-version` and `omarchy-update-available`, so they match your package channel. The check runs when you open the page, and **Check again** runs it now. In the background it runs at startup and then on the interval you choose under **Omarchy Updates** on the Settings page (every six hours by default); switch **Check in the Background** off there to stop it. A pending update shows what it is, puts a red dot on the Omarchy icon, and **Update Omarchy** runs `omarchy-update` in a terminal. The page checks again when that finishes.
 
-You can view the current Omarchy version in the **About** page.
+If the check cannot run, the page says so. An offline machine reads as up to date, as it does in Omarchy's own bar.

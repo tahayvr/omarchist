@@ -1,24 +1,18 @@
+use crate::error::{Error, Result};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
+use std::sync::{Arc, Mutex, OnceLock};
 
 use chrono::Utc;
 
 use crate::types::themes::EditingTheme;
 
-use super::btop::parse_btop_theme;
-use super::chromium::update_chromium_config;
-use super::colors::colors_config_from_terminal;
-use super::colors::update_colors_toml;
-use super::hyprland::{parse_hyprland_conf, update_hyprland_conf};
-use super::hyprlock::{parse_hyprlock_conf, update_hyprlock_conf};
-use super::icons::{parse_icons_theme, update_icons_theme};
-use super::mako::{parse_mako_ini, update_mako_ini};
+use super::colors::{read_colors_toml, update_colors_toml};
 use super::paths::get_custom_themes_dir;
-use super::swayosd::{parse_swayosd_css, update_swayosd_css};
-use super::terminal::update_terminal_configs;
-use super::walker::update_walker_css;
-use super::waybar::{parse_waybar_css, update_waybar_css};
 use crate::assets::extract_default_dir;
+use crate::system::fs::write_atomic;
+use crate::system::themes::theme_file_ops::{is_system_theme, omarchist_theme_dir};
 
 pub fn generate_unique_theme_name() -> String {
     let themes_dir = match get_custom_themes_dir() {
@@ -46,14 +40,59 @@ pub fn generate_unique_theme_name() -> String {
     }
 }
 
-pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+// Turns arbitrary text (typically an image file stem) into a theme folder
+// name Omarchy accepts: lowercase ASCII letters, digits and single dashes.
+// `omarchy-theme-set` itself only lowercases and swaps spaces, and rejects
+// names starting with a dot or containing a slash.
+pub fn slugify_theme_name(input: &str) -> String {
+    let mut slug = String::with_capacity(input.len());
+    let mut pending_dash = false;
+    for ch in input.trim().chars() {
+        if ch.is_ascii_alphanumeric() {
+            if pending_dash && !slug.is_empty() {
+                slug.push('-');
+            }
+            pending_dash = false;
+            slug.push(ch.to_ascii_lowercase());
+        } else {
+            pending_dash = true;
+        }
+    }
+    if slug.is_empty() {
+        "custom-theme".to_string()
+    } else {
+        slug
+    }
+}
+
+// `base`, or `base-2`, `base-3`, ... — the first that isn't already a theme.
+pub fn unique_theme_name(base: &str) -> String {
+    let Some(themes_dir) = get_custom_themes_dir() else {
+        return base.to_string();
+    };
+    if !name_is_taken(&themes_dir, base) {
+        return base.to_string();
+    }
+    (2..)
+        .map(|n| format!("{base}-{n}"))
+        .find(|name| !name_is_taken(&themes_dir, name))
+        .unwrap_or_else(|| format!("{base}-{}", Utc::now().timestamp()))
+}
+
+/// A name is taken by a folder in the user's themes dir or by one of
+/// Omarchy's own themes: `omarchy-theme-set` copies the official theme first
+/// and overlays the user's folder of the same name, so the two would merge.
+fn name_is_taken(themes_dir: &Path, name: &str) -> bool {
+    themes_dir.join(name).exists() || is_system_theme(name)
+}
+
+pub fn create_theme_from_defaults(theme_name: &str) -> Result<String> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let new_theme_dir = themes_dir.join(theme_name);
 
-    if new_theme_dir.exists() {
-        return Err(format!("Theme '{}' already exists", theme_name));
+    if name_is_taken(&themes_dir, theme_name) {
+        return Err(Error::ThemeExists(theme_name.to_string()));
     }
 
     extract_default_dir("theme", &new_theme_dir)?;
@@ -62,7 +101,7 @@ pub fn create_theme_from_defaults(theme_name: &str) -> Result<String, String> {
     Ok(theme_name.to_string())
 }
 
-fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), String> {
+fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<()> {
     let json_path = theme_dir.join("omarchist.json");
 
     if !json_path.exists() {
@@ -72,7 +111,7 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
     let now = Utc::now().to_rfc3339();
 
     let content = fs::read_to_string(&json_path)
-        .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
+        .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
 
     let updated_content = content
         .replace("{{THEME_NAME}}", theme_name)
@@ -80,208 +119,183 @@ fn update_theme_metadata(theme_dir: &Path, theme_name: &str) -> Result<(), Strin
         .replace("{{MODIFIED_AT}}", &now)
         .replace("{{AUTHOR}}", "");
 
-    fs::write(&json_path, updated_content)
-        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+    write_atomic(&json_path, updated_content, "omarchist.json")?;
 
     Ok(())
 }
 
-pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme, String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+pub fn load_theme_for_editing(theme_name: &str) -> Result<EditingTheme> {
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
 
     let theme_dir = themes_dir.join(theme_name);
 
     if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
+        return Err(Error::ThemeNotFound(theme_name.to_string()));
     }
 
     let json_path = theme_dir.join("omarchist.json");
-    let mut editing_theme: EditingTheme = if json_path.exists() {
-        let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
-        serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?
-    } else {
-        EditingTheme::default()
-    };
+    if !json_path.is_file() {
+        return Err(Error::NotOmarchistTheme(theme_name.to_string()));
+    }
+    let content = fs::read_to_string(&json_path)
+        .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
+    let mut editing_theme: EditingTheme = serde_json::from_str(&content)
+        .map_err(|e| Error::json("Failed to parse omarchist.json", e))?;
 
-    editing_theme.is_light_theme = theme_dir.join("light.mode").exists();
-
-    let waybar_css_path = theme_dir.join("waybar.css");
-    if waybar_css_path.exists()
-        && let Ok(css_content) = fs::read_to_string(&waybar_css_path)
-        && let Some(config) = parse_waybar_css(&css_content)
-    {
-        editing_theme.apps.waybar = Some(config);
+    // colors.toml is what Omarchy reads and what users may hand-edit, so it
+    // is the palette's source of truth; the manifest's copy only fills gaps.
+    if let Ok(toml) = fs::read_to_string(theme_dir.join("colors.toml")) {
+        editing_theme.colors = read_colors_toml(&toml, &editing_theme.colors);
     }
 
-    let hyprland_conf_path = theme_dir.join("hyprland.conf");
-    if hyprland_conf_path.exists()
-        && let Ok(conf_content) = fs::read_to_string(&hyprland_conf_path)
-        && let Some(config) = parse_hyprland_conf(&conf_content)
-    {
-        editing_theme.apps.hyprland = Some(config);
-    }
-
-    let icons_theme_path = theme_dir.join("icons.theme");
-    if icons_theme_path.exists()
-        && let Ok(content) = fs::read_to_string(&icons_theme_path)
-        && let Some(icons_config) = parse_icons_theme(&content)
-    {
-        editing_theme.apps.icons = Some(icons_config);
-    }
-
-    let hyprlock_conf_path = theme_dir.join("hyprlock.conf");
-    if hyprlock_conf_path.exists()
-        && let Ok(conf_content) = fs::read_to_string(&hyprlock_conf_path)
-        && let Some(config) = parse_hyprlock_conf(&conf_content)
-    {
-        editing_theme.apps.hyprlock = Some(config);
-    }
-
-    let mako_ini_path = theme_dir.join("mako.ini");
-    if mako_ini_path.exists()
-        && let Ok(ini_content) = fs::read_to_string(&mako_ini_path)
-        && let Some(config) = parse_mako_ini(&ini_content)
-    {
-        editing_theme.apps.mako = Some(config);
-    }
-
-    let btop_theme_path = theme_dir.join("btop.theme");
-    if btop_theme_path.exists()
-        && let Ok(theme_content) = fs::read_to_string(&btop_theme_path)
-        && let Some(config) = parse_btop_theme(&theme_content)
-    {
-        editing_theme.apps.btop = Some(config);
-    }
-
-    let swayosd_css_path = theme_dir.join("swayosd.css");
-    if swayosd_css_path.exists()
-        && let Ok(css_content) = fs::read_to_string(&swayosd_css_path)
-        && let Some(config) = parse_swayosd_css(&css_content)
-    {
-        editing_theme.apps.swayosd = Some(config);
-    }
+    // `mode` in colors.toml is authoritative; the `light.mode` marker file is
+    // only honored for themes written by pre-Quattro versions of Omarchist.
+    editing_theme.is_light_theme =
+        editing_theme.colors.mode == "light" || theme_dir.join("light.mode").exists();
 
     Ok(editing_theme)
 }
 
-pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
-
-    let theme_dir = themes_dir.join(theme_name);
-
-    if !theme_dir.exists() {
-        return Err(format!("Theme '{}' not found", theme_name));
-    }
+pub fn save_theme_data(theme_name: &str, theme_data: &EditingTheme) -> Result<()> {
+    let theme_dir = omarchist_theme_dir(theme_name)?;
 
     let mut updated_theme = theme_data.clone();
     updated_theme.modified_at = Utc::now().to_rfc3339();
+    // `is_light_theme` is runtime-only; `colors.mode` is what persists (in
+    // both the manifest and colors.toml) and what `load_theme_for_editing`
+    // reads back, so keep them in sync here.
+    updated_theme.colors.mode = if theme_data.is_light_theme {
+        "light".to_string()
+    } else {
+        "dark".to_string()
+    };
 
     let json_path = theme_dir.join("omarchist.json");
     let json_content = serde_json::to_string_pretty(&updated_theme)
-        .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
-    fs::write(&json_path, json_content)
-        .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+        .map_err(|e| Error::json("Failed to serialize theme data", e))?;
+    write_atomic(&json_path, json_content, "omarchist.json")?;
 
-    update_light_mode_file(&theme_dir, theme_data.is_light_theme)?;
+    remove_legacy_light_mode_file(&theme_dir)?;
 
-    if let Some(ref waybar_config) = theme_data.apps.waybar {
-        update_waybar_css(theme_name, waybar_config)?;
-    }
-
-    if let Some(ref hyprland_config) = theme_data.apps.hyprland {
-        update_hyprland_conf(theme_name, hyprland_config)?;
-    }
-
-    if let Some(ref walker_config) = theme_data.apps.walker {
-        update_walker_css(theme_name, walker_config)?;
-    }
-
-    if let Some(ref terminal_config) = theme_data.apps.terminal {
-        update_terminal_configs(theme_name, terminal_config)?;
-        let colors = colors_config_from_terminal(terminal_config, &theme_data.colors.accent);
-        update_colors_toml(theme_name, &colors)?;
-    }
-
-    if let Some(ref chromium_config) = theme_data.apps.chromium {
-        update_chromium_config(theme_name, chromium_config)?;
-    }
-
-    if let Some(ref hyprlock_config) = theme_data.apps.hyprlock {
-        update_hyprlock_conf(theme_name, hyprlock_config)?;
-    }
-
-    if let Some(ref mako_config) = theme_data.apps.mako {
-        update_mako_ini(theme_name, mako_config)?;
-    }
-
-    if let Some(ref btop_config) = theme_data.apps.btop {
-        super::btop::update_btop_theme(theme_name, btop_config)?;
-    }
-
-    if let Some(ref swayosd_config) = theme_data.apps.swayosd {
-        update_swayosd_css(theme_name, swayosd_config)?;
-    }
-
-    if let Some(ref icons_config) = theme_data.apps.icons
-        && let Some(theme_name_val) = icons_config.get("theme_name").and_then(|v| v.as_str())
-    {
-        update_icons_theme(theme_name, theme_name_val)?;
-    }
+    // Omarchy generates every app's file from colors.toml.
+    update_colors_toml(theme_name, &updated_theme.colors)?;
 
     Ok(())
 }
 
-pub fn rename_theme(old_name: &str, new_name: &str) -> Result<(), String> {
-    let themes_dir = get_custom_themes_dir()
-        .ok_or_else(|| "Could not determine custom themes directory".to_string())?;
+// Loads the theme fresh from disk, applies `edit`, and saves. Every tab of
+// the Theme Designer holds its own snapshot of the theme, so tabs must go
+// through this to change only the fields they own rather than saving a whole
+// stale snapshot over another tab's work.
+pub fn update_theme<F>(theme_name: &str, edit: F) -> Result<()>
+where
+    F: FnOnce(&mut EditingTheme),
+{
+    // Tabs save from the UI thread and from background tasks; the lock
+    // makes each load-edit-save one step so no tab can overwrite another's
+    // fields with a stale snapshot.
+    let lock = theme_lock(theme_name);
+    let _guard = lock.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+    let mut theme = load_theme_for_editing(theme_name)?;
+    edit(&mut theme);
+    save_theme_data(theme_name, &theme)
+}
 
-    let old_path = themes_dir.join(old_name);
+/// One mutex per theme name, shared by every thread that saves it.
+fn theme_lock(theme_name: &str) -> Arc<Mutex<()>> {
+    static LOCKS: OnceLock<Mutex<HashMap<String, Arc<Mutex<()>>>>> = OnceLock::new();
+    let locks = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut locks = locks
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    locks
+        .entry(theme_name.to_string())
+        .or_insert_with(|| Arc::new(Mutex::new(())))
+        .clone()
+}
+
+/// Renames an Omarchist theme to the folder name `new_name` slugs to (see
+/// [`slugify_theme_name`]), so the result is always one folder directly
+/// under the themes directory that `omarchy-theme-set` can apply. Returns
+/// that folder name.
+pub fn rename_theme(old_name: &str, new_name: &str) -> Result<String> {
+    if !new_name.chars().any(|c| c.is_ascii_alphanumeric()) {
+        return Err(Error::Invalid(
+            "A theme name needs at least one letter or digit".into(),
+        ));
+    }
+    let new_name = slugify_theme_name(new_name);
+    let new_name = new_name.as_str();
+    let themes_dir = get_custom_themes_dir().ok_or(Error::UnknownDirectory("custom themes"))?;
+
+    let old_path = omarchist_theme_dir(old_name)?;
+    if new_name == old_name {
+        return Ok(new_name.to_string());
+    }
     let new_path = themes_dir.join(new_name);
 
-    if !old_path.exists() {
-        return Err(format!("Theme '{}' not found", old_name));
+    if name_is_taken(&themes_dir, new_name) {
+        return Err(Error::ThemeExists(new_name.to_string()));
     }
 
-    if new_path.exists() {
-        return Err(format!("Theme '{}' already exists", new_name));
-    }
-
-    fs::rename(&old_path, &new_path).map_err(|e| format!("Failed to rename theme: {}", e))?;
+    fs::rename(&old_path, &new_path).map_err(|e| Error::io("Failed to rename theme", e))?;
 
     let json_path = new_path.join("omarchist.json");
     if json_path.exists() {
         let content = fs::read_to_string(&json_path)
-            .map_err(|e| format!("Failed to read omarchist.json: {}", e))?;
+            .map_err(|e| Error::io("Failed to read omarchist.json", e))?;
         let mut theme: EditingTheme = serde_json::from_str(&content)
-            .map_err(|e| format!("Failed to parse omarchist.json: {}", e))?;
+            .map_err(|e| Error::json("Failed to parse omarchist.json", e))?;
         theme.name = new_name.to_string();
         theme.modified_at = Utc::now().to_rfc3339();
 
         let updated_content = serde_json::to_string_pretty(&theme)
-            .map_err(|e| format!("Failed to serialize theme data: {}", e))?;
-        fs::write(&json_path, updated_content)
-            .map_err(|e| format!("Failed to write omarchist.json: {}", e))?;
+            .map_err(|e| Error::json("Failed to serialize theme data", e))?;
+        write_atomic(&json_path, updated_content, "omarchist.json")?;
+    }
+
+    Ok(new_name.to_string())
+}
+
+// Pre-Quattro Omarchist marked light themes with an empty `light.mode` file.
+// Omarchy's resolver (`omarchy-theme-color`) now treats that file as a legacy
+// fallback behind the `mode` key in colors.toml, which Omarchist always writes,
+// so the marker is removed on save rather than kept in sync.
+fn remove_legacy_light_mode_file(theme_dir: &Path) -> Result<()> {
+    let light_mode_path = theme_dir.join("light.mode");
+
+    if light_mode_path.exists() {
+        fs::remove_file(&light_mode_path)
+            .map_err(|e| Error::io("Failed to remove legacy light.mode file", e))?;
     }
 
     Ok(())
 }
 
-fn update_light_mode_file(theme_dir: &Path, is_light: bool) -> Result<(), String> {
-    let light_mode_path = theme_dir.join("light.mode");
+#[cfg(test)]
+mod tests {
+    use super::slugify_theme_name;
 
-    if is_light {
-        if !light_mode_path.exists() {
-            fs::write(&light_mode_path, "")
-                .map_err(|e| format!("Failed to create light.mode file: {}", e))?;
-        }
-    } else if light_mode_path.exists() {
-        fs::remove_file(&light_mode_path)
-            .map_err(|e| format!("Failed to remove light.mode file: {}", e))?;
+    #[test]
+    fn slugify_lowercases_and_collapses_separators() {
+        assert_eq!(
+            slugify_theme_name("My Wallpaper (1).png"),
+            "my-wallpaper-1-png"
+        );
+        assert_eq!(slugify_theme_name("IMG_2024  final"), "img-2024-final");
+        assert_eq!(slugify_theme_name("--Tokyo Night--"), "tokyo-night");
+        assert_eq!(slugify_theme_name("café ☕"), "caf");
     }
 
-    Ok(())
+    #[test]
+    fn rename_refuses_a_name_with_nothing_to_keep() {
+        assert!(super::rename_theme("any", "../..").is_err());
+        assert!(super::rename_theme("any", "   ").is_err());
+    }
+
+    #[test]
+    fn slugify_falls_back_when_nothing_survives() {
+        assert_eq!(slugify_theme_name("☕☕"), "custom-theme");
+        assert_eq!(slugify_theme_name(""), "custom-theme");
+    }
 }

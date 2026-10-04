@@ -1,10 +1,15 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct HyprlandConfig {
     pub general: GeneralConfig,
     pub decoration: DecorationConfig,
     pub animations: AnimationsConfig,
+    pub layout: LayoutConfig,
+    pub dwindle: DwindleConfig,
+    pub master: MasterConfig,
+    pub scrolling: ScrollingConfig,
     pub input: InputConfig,
     pub gestures: GesturesConfig,
     pub group: GroupConfig,
@@ -20,6 +25,7 @@ pub struct HyprlandConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GeneralConfig {
     pub border_size: i32,
     pub gaps_in: i32,
@@ -41,9 +47,9 @@ pub struct GeneralConfig {
 impl Default for GeneralConfig {
     fn default() -> Self {
         Self {
-            border_size: 2,
+            border_size: 1,
             gaps_in: 5,
-            gaps_out: 10,
+            gaps_out: 20,
             float_gaps: 0,
             gaps_workspaces: 0,
             layout: "dwindle".to_string(),
@@ -61,6 +67,7 @@ impl Default for GeneralConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct SnapConfig {
     pub enabled: bool,
     pub window_gap: i32,
@@ -82,6 +89,7 @@ impl Default for SnapConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DecorationConfig {
     pub rounding: i32,
     pub rounding_power: f64,
@@ -97,6 +105,8 @@ pub struct DecorationConfig {
     pub border_part_of_window: bool,
     pub blur: BlurConfig,
     pub shadow: ShadowConfig,
+    pub glow: GlowConfig,
+    pub motion_blur: MotionBlurConfig,
 }
 
 impl Default for DecorationConfig {
@@ -116,11 +126,48 @@ impl Default for DecorationConfig {
             border_part_of_window: true,
             blur: BlurConfig::default(),
             shadow: ShadowConfig::default(),
+            glow: GlowConfig::default(),
+            motion_blur: MotionBlurConfig::default(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GlowConfig {
+    pub enabled: bool,
+    pub range: i32,
+    pub render_power: i32,
+}
+
+impl Default for GlowConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            range: 10,
+            render_power: 3,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MotionBlurConfig {
+    pub enabled: bool,
+    pub samples: i32,
+}
+
+impl Default for MotionBlurConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            samples: 7,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BlurConfig {
     pub enabled: bool,
     pub size: i32,
@@ -151,7 +198,7 @@ impl Default for BlurConfig {
             xray: false,
             noise: 0.0117,
             contrast: 0.8916,
-            brightness: 0.8172,
+            brightness: 1.0,
             vibrancy: 0.1696,
             vibrancy_darkness: 0.0,
             special: false,
@@ -164,16 +211,14 @@ impl Default for BlurConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct ShadowConfig {
     pub enabled: bool,
     pub range: i32,
     pub render_power: i32,
     pub sharp: bool,
-    pub ignore_window: bool,
-    pub color: String,
-    pub color_inactive: String,
-    pub offset_x: f64,
-    pub offset_y: f64,
+    /// `[x, y]`, Hyprland's `Vec2`.
+    pub offset: [f64; 2],
     pub scale: f64,
 }
 
@@ -184,17 +229,14 @@ impl Default for ShadowConfig {
             range: 4,
             render_power: 3,
             sharp: false,
-            ignore_window: true,
-            color: "0xee1a1a1a".to_string(),
-            color_inactive: String::new(),
-            offset_x: 0.0,
-            offset_y: 0.0,
+            offset: [0.0, 0.0],
             scale: 1.0,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct AnimationsConfig {
     pub enabled: bool,
     pub workspace_wraparound: bool,
@@ -210,6 +252,128 @@ impl Default for AnimationsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LayoutConfig {
+    /// `[width, height]`; `[0, 0]` is off.
+    pub single_window_aspect_ratio: [f64; 2],
+    pub single_window_aspect_ratio_tolerance: f64,
+}
+
+impl Default for LayoutConfig {
+    fn default() -> Self {
+        Self {
+            single_window_aspect_ratio: [0.0, 0.0],
+            single_window_aspect_ratio_tolerance: 0.1,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DwindleConfig {
+    pub default_split_ratio: f64,
+    pub force_split: i32,
+    pub permanent_direction_override: bool,
+    pub precise_mouse_move: bool,
+    pub preserve_split: bool,
+    pub smart_resizing: bool,
+    pub smart_split: bool,
+    pub special_scale_factor: f64,
+    pub split_bias: i32,
+    pub split_width_multiplier: f64,
+    pub use_active_for_splits: bool,
+}
+
+impl Default for DwindleConfig {
+    fn default() -> Self {
+        Self {
+            default_split_ratio: 1.0,
+            force_split: 0,
+            permanent_direction_override: false,
+            precise_mouse_move: false,
+            preserve_split: false,
+            smart_resizing: true,
+            smart_split: false,
+            special_scale_factor: 1.0,
+            split_bias: 0,
+            split_width_multiplier: 1.0,
+            use_active_for_splits: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MasterConfig {
+    pub allow_small_split: bool,
+    pub always_keep_position: bool,
+    pub center_ignores_reserved: bool,
+    pub center_master_fallback: String,
+    pub drop_at_cursor: bool,
+    pub focus_master_on_close: bool,
+    pub mfact: f64,
+    pub new_on_active: String,
+    pub new_on_top: bool,
+    pub new_status: String,
+    pub orientation: String,
+    pub slave_count_for_center_master: i32,
+    pub smart_resizing: bool,
+    pub special_scale_factor: f64,
+}
+
+impl Default for MasterConfig {
+    fn default() -> Self {
+        Self {
+            allow_small_split: false,
+            always_keep_position: false,
+            center_ignores_reserved: false,
+            center_master_fallback: "left".to_string(),
+            drop_at_cursor: true,
+            focus_master_on_close: false,
+            mfact: 0.55,
+            new_on_active: "none".to_string(),
+            new_on_top: false,
+            new_status: "slave".to_string(),
+            orientation: "left".to_string(),
+            slave_count_for_center_master: 2,
+            smart_resizing: true,
+            special_scale_factor: 1.0,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct ScrollingConfig {
+    pub column_width: f64,
+    pub direction: String,
+    pub explicit_column_widths: String,
+    pub focus_fit_method: i32,
+    pub follow_focus: bool,
+    pub follow_min_visible: f64,
+    pub fullscreen_on_one_column: bool,
+    pub wrap_focus: bool,
+    pub wrap_swapcol: bool,
+}
+
+impl Default for ScrollingConfig {
+    fn default() -> Self {
+        Self {
+            column_width: 0.5,
+            direction: "right".to_string(),
+            explicit_column_widths: "0.333, 0.5, 0.667, 1.0".to_string(),
+            focus_fit_method: 1,
+            follow_focus: true,
+            follow_min_visible: 0.4,
+            fullscreen_on_one_column: true,
+            wrap_focus: true,
+            wrap_swapcol: true,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct InputConfig {
     pub kb_model: String,
     pub kb_layout: String,
@@ -234,6 +398,7 @@ pub struct InputConfig {
     pub natural_scroll: bool,
     pub follow_mouse: i32,
     pub follow_mouse_threshold: f64,
+    pub follow_mouse_shrink: i32,
     pub focus_on_close: i32,
     pub mouse_refocus: bool,
     pub float_switch_override_focus: i32,
@@ -269,6 +434,7 @@ impl Default for InputConfig {
             natural_scroll: false,
             follow_mouse: 1,
             follow_mouse_threshold: 0.0,
+            follow_mouse_shrink: 0,
             focus_on_close: 0,
             mouse_refocus: true,
             float_switch_override_focus: 1,
@@ -281,6 +447,7 @@ impl Default for InputConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct TouchpadConfig {
     pub disable_while_typing: bool,
     pub natural_scroll: bool,
@@ -316,6 +483,7 @@ impl Default for TouchpadConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GesturesConfig {
     pub workspace_swipe_distance: i32,
     pub workspace_swipe_touch: bool,
@@ -329,6 +497,23 @@ pub struct GesturesConfig {
     pub workspace_swipe_forever: bool,
     pub workspace_swipe_use_r: bool,
     pub close_max_timeout: i32,
+    pub scrolling: GestureScrollingConfig,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct GestureScrollingConfig {
+    pub move_snap_cursor: bool,
+    pub move_snap_to_grid: bool,
+}
+
+impl Default for GestureScrollingConfig {
+    fn default() -> Self {
+        Self {
+            move_snap_cursor: true,
+            move_snap_to_grid: true,
+        }
+    }
 }
 
 impl Default for GesturesConfig {
@@ -346,11 +531,13 @@ impl Default for GesturesConfig {
             workspace_swipe_forever: false,
             workspace_swipe_use_r: false,
             close_max_timeout: 1000,
+            scrolling: GestureScrollingConfig::default(),
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GroupConfig {
     pub auto_group: bool,
     pub insert_after_current: bool,
@@ -380,14 +567,24 @@ impl Default for GroupConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct GroupbarConfig {
     pub enabled: bool,
     pub font_family: String,
     pub font_size: i32,
+    pub font_weight_active: String,
+    pub font_weight_inactive: String,
     pub gradients: bool,
+    pub gradient_rounding: i32,
+    pub gradient_rounding_power: f64,
+    pub gradient_round_only_edges: bool,
+    pub round_only_edges: bool,
+    pub gaps_in: i32,
+    pub gaps_out: i32,
     pub height: i32,
     pub indicator_gap: i32,
     pub indicator_height: i32,
+    pub keep_upper_gap: bool,
     pub stacked: bool,
     pub priority: i32,
     pub render_titles: bool,
@@ -396,6 +593,9 @@ pub struct GroupbarConfig {
     pub scrolling: bool,
     pub rounding: i32,
     pub rounding_power: f64,
+    pub blur: bool,
+    pub disable_when_only: bool,
+    pub middle_click_close: bool,
 }
 
 impl Default for GroupbarConfig {
@@ -404,10 +604,19 @@ impl Default for GroupbarConfig {
             enabled: true,
             font_family: String::new(),
             font_size: 8,
+            font_weight_active: "400".to_string(),
+            font_weight_inactive: "400".to_string(),
             gradients: false,
+            gradient_rounding: 2,
+            gradient_rounding_power: 2.0,
+            gradient_round_only_edges: true,
+            round_only_edges: true,
+            gaps_in: 2,
+            gaps_out: 2,
             height: 14,
             indicator_gap: 0,
             indicator_height: 3,
+            keep_upper_gap: true,
             stacked: false,
             priority: 3,
             render_titles: true,
@@ -416,18 +625,21 @@ impl Default for GroupbarConfig {
             scrolling: true,
             rounding: 1,
             rounding_power: 2.0,
+            blur: false,
+            disable_when_only: false,
+            middle_click_close: true,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct MiscConfig {
     pub disable_hyprland_logo: bool,
     pub disable_splash_rendering: bool,
     pub disable_scale_notification: bool,
     pub font_family: String,
     pub force_default_wallpaper: i32,
-    pub vfr: bool,
     pub vrr: i32,
     pub mouse_move_enables_dpms: bool,
     pub key_press_enables_dpms: bool,
@@ -445,7 +657,22 @@ pub struct MiscConfig {
     pub on_focus_under_fullscreen: i32,
     pub exit_window_retains_fullscreen: bool,
     pub initial_workspace_tracking: i32,
+    pub initial_workspace_token_timeout: i32,
     pub middle_click_paste: bool,
+    pub allow_session_lock_restore: bool,
+    pub session_lock_xray: bool,
+    pub session_lock_blur: bool,
+    pub enable_anr_dialog: bool,
+    pub anr_missed_pings: i32,
+    pub render_unfocused_fps: i32,
+    pub lockdead_screen_delay: i32,
+    pub size_limits_tiled: bool,
+    pub splash_font_family: String,
+    pub screencopy_force_8b: bool,
+    pub name_vk_after_proc: bool,
+    pub disable_xdg_env_checks: bool,
+    pub disable_hyprland_guiutils_check: bool,
+    pub disable_watchdog_warning: bool,
 }
 
 impl Default for MiscConfig {
@@ -456,7 +683,6 @@ impl Default for MiscConfig {
             disable_scale_notification: false,
             font_family: "Sans".to_string(),
             force_default_wallpaper: -1,
-            vfr: true,
             vrr: 0,
             mouse_move_enables_dpms: false,
             key_press_enables_dpms: false,
@@ -474,12 +700,28 @@ impl Default for MiscConfig {
             on_focus_under_fullscreen: 2,
             exit_window_retains_fullscreen: false,
             initial_workspace_tracking: 1,
+            initial_workspace_token_timeout: 10,
             middle_click_paste: true,
+            allow_session_lock_restore: false,
+            session_lock_xray: false,
+            session_lock_blur: false,
+            enable_anr_dialog: true,
+            anr_missed_pings: 5,
+            render_unfocused_fps: 15,
+            lockdead_screen_delay: 1000,
+            size_limits_tiled: false,
+            splash_font_family: String::new(),
+            screencopy_force_8b: true,
+            name_vk_after_proc: true,
+            disable_xdg_env_checks: false,
+            disable_hyprland_guiutils_check: false,
+            disable_watchdog_warning: false,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BindsConfig {
     pub pass_mouse_when_bound: bool,
     pub scroll_event_delay: i32,
@@ -505,7 +747,7 @@ impl Default for BindsConfig {
             workspace_back_and_forth: false,
             hide_special_on_workspace_change: false,
             allow_workspace_cycles: false,
-            workspace_center_on: 0,
+            workspace_center_on: 1,
             focus_preferred_method: 0,
             ignore_group_lock: false,
             movefocus_cycles_fullscreen: false,
@@ -519,6 +761,7 @@ impl Default for BindsConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct XWaylandConfig {
     pub enabled: bool,
     pub use_nearest_neighbor: bool,
@@ -538,6 +781,7 @@ impl Default for XWaylandConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct OpenGlConfig {
     pub nvidia_anti_flicker: bool,
 }
@@ -551,18 +795,25 @@ impl Default for OpenGlConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct RenderConfig {
     pub direct_scanout: i32,
     pub expand_undersized_textures: bool,
     pub xp_mode: bool,
     pub ctm_animation: i32,
-    pub cm_fs_passthrough: i32,
     pub cm_enabled: bool,
     pub send_content_type: bool,
     pub cm_auto_hdr: i32,
     pub new_render_scheduling: bool,
     pub non_shader_cm: i32,
-    pub cm_sdr_eotf: i32,
+    pub non_shader_cm_interop: i32,
+    pub cm_sdr_eotf: String,
+    pub commit_timing_enabled: bool,
+    pub icc_vcgt_enabled: bool,
+    pub use_shader_blur_blend: bool,
+    pub use_fp16: i32,
+    pub fp16_sdr_tf: i32,
+    pub keep_unmodified_copy: i32,
 }
 
 impl Default for RenderConfig {
@@ -572,18 +823,25 @@ impl Default for RenderConfig {
             expand_undersized_textures: true,
             xp_mode: false,
             ctm_animation: 2,
-            cm_fs_passthrough: 2,
             cm_enabled: true,
             send_content_type: true,
             cm_auto_hdr: 1,
             new_render_scheduling: false,
             non_shader_cm: 3,
-            cm_sdr_eotf: 0,
+            non_shader_cm_interop: 2,
+            cm_sdr_eotf: "default".to_string(),
+            commit_timing_enabled: true,
+            icc_vcgt_enabled: true,
+            use_shader_blur_blend: false,
+            use_fp16: 2,
+            fp16_sdr_tf: 0,
+            keep_unmodified_copy: 2,
         }
     }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct CursorConfig {
     pub invisible: bool,
     pub sync_gsettings_theme: bool,
@@ -617,7 +875,7 @@ impl Default for CursorConfig {
             no_hardware_cursors: 2,
             no_break_fs_vrr: 2,
             min_refresh_rate: 24,
-            hotspot_padding: 1,
+            hotspot_padding: 0,
             inactive_timeout: 0.0,
             no_warps: false,
             persistent_warps: false,
@@ -630,7 +888,7 @@ impl Default for CursorConfig {
             enable_hyprcursor: true,
             hide_on_key_press: false,
             hide_on_touch: true,
-            hide_on_tablet: true,
+            hide_on_tablet: false,
             use_cpu_buffer: 2,
             warp_back_after_non_mouse_input: false,
             zoom_disable_aa: false,
@@ -639,6 +897,7 @@ impl Default for CursorConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct EcosystemConfig {
     pub no_update_news: bool,
     pub no_donation_nag: bool,
@@ -646,12 +905,18 @@ pub struct EcosystemConfig {
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub struct QuirksConfig {
     pub prefer_hdr: i32,
+    pub skip_non_kms_dmabuf_formats: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(default)]
 pub struct DebugConfig {
+    /// Variable frame rate: render only when something changed. Lives
+    /// under `debug` in Hyprland 0.56 (`misc:vfr` no longer exists).
+    pub vfr: bool,
     pub overlay: bool,
     pub damage_blink: bool,
     pub gl_debugging: bool,
@@ -661,7 +926,6 @@ pub struct DebugConfig {
     pub enable_stdout_logs: bool,
     pub manual_crash: i32,
     pub suppress_errors: bool,
-    pub watchdog_timeout: i32,
     pub disable_scale_checks: bool,
     pub error_limit: i32,
     pub error_position: i32,
@@ -673,6 +937,7 @@ pub struct DebugConfig {
 impl Default for DebugConfig {
     fn default() -> Self {
         Self {
+            vfr: true,
             overlay: false,
             damage_blink: false,
             gl_debugging: false,
@@ -682,7 +947,6 @@ impl Default for DebugConfig {
             enable_stdout_logs: false,
             manual_crash: 0,
             suppress_errors: false,
-            watchdog_timeout: 5,
             disable_scale_checks: false,
             error_limit: 5,
             error_position: 0,

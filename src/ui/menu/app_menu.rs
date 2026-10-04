@@ -13,27 +13,30 @@ actions!(
         Cut,
         RefreshTheme,
         ToggleSidebar,
-        // Keyboard navigation actions
-        NextFocus,
-        PrevFocus,
-        NextItem,
-        PrevItem,
-        ActivateItem,
-        EscapeFocus,
-        SelectNext,
-        SelectPrev,
+        NewTheme,
         // Page navigation shortcuts
         NavigateToThemes,
         NavigateToConfig,
-        NavigateToStatusBar,
+        NavigateToKeybinds,
+        NavigateToFlows,
+        // Title-bar menus and the command palette
+        NewKeybind,
+        NewFlow,
+        NewFlowFromTemplate,
+        ImportFlow,
         // Theme edit actions
         ThemeEditNextTab,
         ThemeEditPrevTab,
         NavigateBack,
     ]
 );
-actions!(appearance, [SwitchToLight, SwitchToDark]);
+actions!(appearance, [SwitchToLight, SwitchToDark, FollowOmarchy]);
 
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = app_menu, no_json)]
 pub struct SelectFont(pub i32);
+
+/// Runs the saved flow with this id from any page.
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = app_menu, no_json)]
+pub struct RunFlow(pub String);

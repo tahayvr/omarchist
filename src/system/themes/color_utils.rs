@@ -3,7 +3,8 @@
 // Parse a #RRGGBB hex string into an (r, g, b) tuple.
 pub fn hex_to_rgb(hex: &str) -> Option<(u8, u8, u8)> {
     let hex = hex.trim_start_matches('#');
-    if hex.len() != 6 {
+    // Byte offsets below need ASCII; a hand-edited file can hold anything.
+    if hex.len() != 6 || !hex.is_ascii() {
         return None;
     }
     let r = u8::from_str_radix(&hex[0..2], 16).ok()?;
@@ -42,7 +43,7 @@ pub fn adjust_brightness(hex: &str, amount: f32) -> String {
 // Shift all channels additively. Positive = lighter, negative = darker.
 pub fn adjust_lightness(hex: &str, amount: f32) -> String {
     let hex_body = hex.trim_start_matches('#');
-    if hex_body.len() < 6 {
+    if hex_body.len() < 6 || !hex_body.is_ascii() {
         return format!("#{}", hex_body);
     }
     let r = u8::from_str_radix(&hex_body[0..2], 16).unwrap_or(0) as f32 / 255.0;
@@ -75,7 +76,7 @@ pub fn with_alpha(hex: &str, alpha_hex: &str) -> String {
 // Returns true if the color's perceived luminance (ITU-R BT.709) is below 0.5.
 pub fn is_dark_color(hex: &str) -> bool {
     let hex = hex.trim_start_matches('#');
-    if hex.len() < 6 {
+    if hex.len() < 6 || !hex.is_ascii() {
         return true;
     }
     let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(0) as f32 / 255.0;
@@ -83,4 +84,39 @@ pub fn is_dark_color(hex: &str) -> bool {
     let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(0) as f32 / 255.0;
     let luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
     luminance < 0.5
+}
+
+// Linear RGB mix of two hex colors: `amount` is the weight of `end` in
+// [0.0, 1.0]. Mirrors `mix_color` in Omarchy's `omarchy-theme-color`, so
+// seeded overrides match what Omarchy's own templates would produce.
+pub fn mix_hex(start: &str, end: &str, amount: f32) -> String {
+    let amount = amount.clamp(0.0, 1.0);
+    let (sr, sg, sb) = hex_to_rgb(start).unwrap_or((0, 0, 0));
+    let (er, eg, eb) = hex_to_rgb(end).unwrap_or((0, 0, 0));
+    let mix = |a: u8, b: u8| (a as f32 * (1.0 - amount) + b as f32 * amount + 0.5) as u8;
+    format!("#{:02x}{:02x}{:02x}", mix(sr, er), mix(sg, eg), mix(sb, eb))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::mix_hex;
+
+    #[test]
+    fn mix_hex_endpoints_and_midpoint() {
+        assert_eq!(mix_hex("#000000", "#ffffff", 0.0), "#000000");
+        assert_eq!(mix_hex("#000000", "#ffffff", 1.0), "#ffffff");
+        assert_eq!(mix_hex("#000000", "#ffffff", 0.5), "#808080");
+    }
+}
+
+#[cfg(test)]
+mod non_ascii_tests {
+    use super::{adjust_lightness, hex_to_rgb, is_dark_color};
+
+    #[test]
+    fn non_ascii_values_never_panic() {
+        assert_eq!(hex_to_rgb("#a€aa"), None);
+        assert_eq!(adjust_lightness("#ff€€", 0.1), "#ff€€");
+        assert!(is_dark_color("#ff€€"));
+    }
 }

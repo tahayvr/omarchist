@@ -1,0 +1,30 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 1
+name = "Battery saver"
+description = "The power-saver profile, a dimmer screen, and the keyboard backlight off."
+icon = "leaf"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "omarchy-powerprofiles-set autodetect power-saver"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-brightness-display 40%"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-brightness-keyboard --no-osd off"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Battery saver"
+body = "Power saver on, screen dimmed"

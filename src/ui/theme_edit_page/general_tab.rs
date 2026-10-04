@@ -1,46 +1,51 @@
-use crate::system::themes::theme_management::{
-    colors_config_from_terminal, rename_theme, save_theme_data, update_colors_toml,
-};
+use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
-use crate::ui::color_utils::hex_to_hsla;
+use crate::ui::focus::FocusableSwitch;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, form_section, help_text, tab_container,
+    error_message, focus_section, form_section, tab_container,
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Colorize, Disableable, Sizable,
+    ActiveTheme, Disableable, Sizable,
     button::Button,
-    color_picker::{ColorPickerEvent, ColorPickerState},
     h_flex,
     input::{Input, InputEvent, InputState},
     label::Label,
-    switch::Switch,
 };
+
+pub enum GeneralTabEvent {
+    /// The theme folder was renamed; every view holding the old name is stale.
+    Renamed(String),
+}
+
+impl EventEmitter<GeneralTabEvent> for GeneralTab {}
 
 pub struct GeneralTab {
     theme_data: EditingTheme,
-    original_theme_name: String, // Used for saving - folder name doesn't change on rename
+    /// Folder name the tab saves to; only a rename changes it.
+    original_theme_name: String,
     name_input: Entity<InputState>,
     author_input: Entity<InputState>,
-    accent_picker: Entity<ColorPickerState>,
     is_saving: bool,
     error_message: Option<String>,
+    /// The entries with a file or bundle of their own, read when the tab is
+    /// shown (not on every render: it stats every override file).
+    scroll: ScrollHandle,
 }
 
 impl GeneralTab {
     pub fn new(
         theme_name: String,
         theme_data: EditingTheme,
+        scroll: &ScrollHandle,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
         // Store the folder name for saving (not the display name from JSON)
         let original_theme_name = theme_name;
 
-        // Extract author value before moving theme_data
         let author_value = theme_data.author.clone().unwrap_or_default();
 
-        // Create input states with current values
         let name_input = cx.new(|cx| InputState::new(window, cx).default_value(&theme_data.name));
 
         let author_input = cx.new(|cx| {
@@ -49,23 +54,16 @@ impl GeneralTab {
                 .default_value(&author_value)
         });
 
-        // Create accent color picker
-        let accent_color =
-            hex_to_hsla(&theme_data.colors.accent).unwrap_or(gpui::rgb(0x33A1FF).into());
-        let accent_picker =
-            cx.new(|cx| ColorPickerState::new(window, cx).default_value(accent_color));
-
         let tab = Self {
             theme_data,
             original_theme_name,
             name_input,
             author_input,
-            accent_picker,
             is_saving: false,
             error_message: None,
+            scroll: scroll.clone(),
         };
 
-        // Subscribe to name input changes
         cx.subscribe_in(
             &tab.name_input,
             window,
@@ -81,7 +79,6 @@ impl GeneralTab {
         )
         .detach();
 
-        // Subscribe to author input changes
         cx.subscribe_in(
             &tab.author_input,
             window,
@@ -99,20 +96,6 @@ impl GeneralTab {
         )
         .detach();
 
-        // Subscribe to accent color picker changes
-        cx.subscribe_in(
-            &tab.accent_picker,
-            window,
-            |this, _picker, event: &ColorPickerEvent, window, cx| {
-                if let ColorPickerEvent::Change(Some(color)) = event {
-                    let hex = color.to_hex();
-                    this.theme_data.colors.accent = hex;
-                    this.save_with_colors_update(window, cx);
-                }
-            },
-        )
-        .detach();
-
         tab
     }
 
@@ -125,7 +108,6 @@ impl GeneralTab {
             return;
         }
 
-        // Don't save if theme name is empty
         if self.original_theme_name.is_empty() {
             self.error_message = Some("Theme name cannot be empty".to_string());
             cx.notify();
@@ -136,55 +118,25 @@ impl GeneralTab {
         self.error_message = None;
         cx.notify();
 
-        // Save theme data using the ORIGINAL theme name (folder name)
-        // The new name is stored in theme_data.name but we save to the original folder
-        match save_theme_data(&self.original_theme_name, &self.theme_data) {
+        // Save using the ORIGINAL theme name (folder name); the display name
+        // lives in theme_data.name. Only this tab's fields are written so a
+        // stale snapshot never overwrites another tab's edits.
+        let (name, author, is_light) = (
+            self.theme_data.name.clone(),
+            self.theme_data.author.clone(),
+            self.theme_data.is_light_theme,
+        );
+        match update_theme(&self.original_theme_name, |theme| {
+            theme.name = name;
+            theme.author = author;
+            theme.is_light_theme = is_light;
+        }) {
             Ok(()) => {
                 self.is_saving = false;
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(e);
-            }
-        }
-
-        cx.notify();
-    }
-
-    fn save_with_colors_update(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        if self.is_saving {
-            return;
-        }
-
-        // Don't save if theme name is empty
-        if self.original_theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
-            return;
-        }
-
-        self.is_saving = true;
-        self.error_message = None;
-        cx.notify();
-
-        // Save theme data
-        match save_theme_data(&self.original_theme_name, &self.theme_data) {
-            Ok(()) => {
-                // Also update colors.toml with new accent color
-                if let Some(ref terminal_config) = self.theme_data.apps.terminal {
-                    let colors = colors_config_from_terminal(
-                        terminal_config,
-                        &self.theme_data.colors.accent,
-                    );
-                    if let Err(e) = update_colors_toml(&self.original_theme_name, &colors) {
-                        self.error_message = Some(format!("Failed to update colors.toml: {}", e));
-                    }
-                }
-                self.is_saving = false;
-            }
-            Err(e) => {
-                self.is_saving = false;
-                self.error_message = Some(e);
+                self.error_message = Some(e.to_string());
             }
         }
 
@@ -196,11 +148,10 @@ impl GeneralTab {
         self.save(window, cx);
     }
 
-    fn rename_theme(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn rename_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let new_name = self.theme_data.name.clone();
         let old_name = self.original_theme_name.clone();
 
-        // Don't rename if names are the same or new name is empty
         if new_name == old_name || new_name.is_empty() {
             return;
         }
@@ -209,17 +160,28 @@ impl GeneralTab {
         self.error_message = None;
         cx.notify();
 
+        let was_applied = crate::system::ui_theme_watcher::get_active_omarchy_theme_name()
+            .as_deref()
+            == Some(old_name.as_str());
         match rename_theme(&old_name, &new_name) {
-            Ok(()) => {
+            Ok(folder) => {
                 self.is_saving = false;
-                // Update the original theme name to the new name
-                self.original_theme_name = new_name.clone();
-                // Also update the header display
-                // TODO: Notify parent that theme name changed
+                self.original_theme_name = folder.clone();
+                self.theme_data.name = folder.clone();
+                self.name_input
+                    .update(cx, |input, cx| input.set_value(folder.clone(), window, cx));
+                if folder != old_name {
+                    // Omarchy still points at the old folder name; move it
+                    // along so Refresh Theme and the switcher keep working.
+                    if was_applied {
+                        crate::ui::theme_apply::apply_theme(folder.clone(), window, cx);
+                    }
+                    cx.emit(GeneralTabEvent::Renamed(folder));
+                }
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(format!("Failed to rename theme: {}", e));
+                self.error_message = Some(format!("Could not rename the theme: {}", e));
             }
         }
 
@@ -232,13 +194,13 @@ impl Render for GeneralTab {
         let is_light = self.theme_data.is_light_theme;
         let _viewport_width = window.viewport_size().width;
 
-        // Check if theme name has changed for rename button
         let current_name = self.name_input.read(cx).value().to_string();
         let can_rename = current_name != self.original_theme_name && !current_name.is_empty();
 
         tab_container()
-            .child(
-                // Theme Name Section with Rename button
+            .child(focus_section(
+                "general-name",
+                &self.scroll,
                 form_section()
                     .child(
                         Label::new("Theme Name")
@@ -265,9 +227,10 @@ impl Render for GeneralTab {
                                     })),
                             ),
                     ),
-            )
-            .child(
-                // Author Section
+            ))
+            .child(focus_section(
+                "general-author",
+                &self.scroll,
                 form_section()
                     .child(
                         Label::new("Author")
@@ -279,37 +242,25 @@ impl Render for GeneralTab {
                             .w_80()
                             .child(Input::new(&self.author_input).cleanable(true)),
                     ),
-            )
-            .child(
-                // Accent Color Section
-                form_section().child(color_picker_with_clipboard(
-                    "accent-color",
-                    "Accent Color",
-                    &self.accent_picker,
-                )),
-            )
-            .child(
-                // Light Mode Toggle Section
-                h_flex()
-                    .gap_4()
-                    .items_center()
-                    .child(Label::new("Light Theme"))
+            ))
+            .child(focus_section(
+                "general-light",
+                &self.scroll,
+                // Labelled like the Name and Author rows above it.
+                form_section()
                     .child(
-                        Switch::new("light-theme-toggle")
+                        Label::new("Light mode")
+                            .text_sm()
+                            .text_color(cx.theme().muted_foreground),
+                    )
+                    .child(
+                        FocusableSwitch::new("light-theme-toggle")
                             .checked(is_light)
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, checked, window, cx| {
+                            .on_change(cx.listener(|this, checked, window, cx| {
                                 this.on_light_mode_toggle(*checked, window, cx);
                             })),
                     ),
-            )
-            .child(
-                // Help Text
-                help_text(
-                    "Themes are in dark mode by default.",
-                    cx.theme().muted_foreground,
-                ),
-            )
+            ))
             .children(
                 self.error_message
                     .as_ref()

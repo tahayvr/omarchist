@@ -1,32 +1,89 @@
-use gpui::{App, AppContext, Application, KeyBinding, WindowOptions};
+use gpui::{App, AppContext, WindowOptions};
 use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
-use omarchist::system::config::waybar_setup;
+use omarchist::system::instance;
+use omarchist::system::omarchy_paths;
 use omarchist::system::ui_theme_watcher;
+use omarchist::ui::app_events::{self, AppEvent, AppEvents};
 use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
-use omarchist::{CombinedAssets, MainTitleBar, MainWindowView};
+use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
+use std::process::ExitCode;
 use std::rc::Rc;
 
-fn cli_args_to_active_page(args: &CliArgs) -> ActivePage {
+/// The page to open: `--view` wins, then the Settings page's startup page
+/// (or the page shown last), then Themes.
+fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
-        Some(ViewOption::System) => ActivePage::SystemMonitor,
         Some(ViewOption::Config) => ActivePage::Configuration,
+        Some(ViewOption::Keybinds) => ActivePage::Keybinds,
+        Some(ViewOption::Flows) => ActivePage::Flows,
         Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,
         Some(ViewOption::Themes) => {
-            // If a theme name is provided, open theme edit page
             if let Some(ref theme_name) = args.theme {
                 ActivePage::ThemeEdit(theme_name.clone())
             } else {
                 ActivePage::Themes
             }
         }
-        None => ActivePage::Themes, // Default page
+        None => {
+            let name = match settings.settings.startup_page.as_str() {
+                "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
+                name => name,
+            };
+            ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
+        }
     }
+}
+
+/// Saves the Settings page's "Look" and applies it: a forced light or dark
+/// mode, or `omarchy` to follow the desktop theme again.
+fn set_theme_mode(mode: &str, cx: &mut App) {
+    let mode = mode.to_string();
+    if let Err(e) = config_setup::update_settings(move |s| s.theme_mode = mode.clone()) {
+        eprintln!("Failed to save the appearance setting: {e}");
+    }
+    ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+    cx.refresh_windows();
+}
+
+/// Answers other launches over the instance socket: brings the window
+/// forward and navigates to the requested page.
+fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App) {
+    let listener = std::sync::Arc::new(listener);
+    cx.spawn(async move |cx| {
+        loop {
+            let accepting = listener.clone();
+            let request = match cx
+                .background_spawn(async move { instance::accept(&accepting) })
+                .await
+            {
+                instance::Accepted::Request(request) => request,
+                // A peer that sent nothing usable must not stop the server,
+                // or every later launch opens another window.
+                instance::Accepted::Rejected => continue,
+                instance::Accepted::Gone => break,
+            };
+            let page = match (request.view.as_deref(), request.theme) {
+                (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
+                (Some(view), _) => ActivePage::from_view_name(view),
+                (None, _) => None,
+            };
+            cx.update(|cx| {
+                if let Some(page) = page {
+                    app_events::emit(cx, AppEvent::Navigate(page));
+                }
+                for window in cx.windows() {
+                    let _ = window.update(cx, |_, window, _| window.activate_window());
+                }
+            });
+        }
+    })
+    .detach();
 }
 
 const THEME_FILE: &str = include_str!("../ui_themes/theme.json");
@@ -63,7 +120,6 @@ fn apply_embedded_themes(cx: &mut App) {
 }
 
 fn load_custom_fonts(cx: &mut App) {
-    // Load the embedded JetBrains Mono font
     let font_data = match cx
         .asset_source()
         .load("fonts/JetBrainsMonoNerdFontMono-Regular.ttf")
@@ -79,168 +135,141 @@ fn load_custom_fonts(cx: &mut App) {
         }
     };
 
-    // Register the font with GPUI's text system
     if let Err(err) = cx.text_system().add_fonts(vec![font_data]) {
         eprintln!("Failed to add font: {}", err);
     }
 }
 
-fn main() {
-    // Parse CLI arguments before starting the application
+fn main() -> ExitCode {
     let cli_args = CliArgs::parse_args();
 
-    let app = Application::new().with_assets(CombinedAssets::new());
+    // Subcommands such as `omarchist flow run` never open the window.
+    if let Some(command) = &cli_args.command {
+        return omarchist::cli::run_command(command);
+    }
+
+    // A running window takes the request instead of a second window opening.
+    let request = instance::OpenRequest {
+        view: cli_args.view.map(|view| view.name().to_string()),
+        theme: cli_args.theme.clone(),
+    };
+    if instance::forward(&request) {
+        return ExitCode::SUCCESS;
+    }
+    // Own the socket before the window exists, so two launches in the same
+    // instant cannot both open a window: the one that loses the bind hands
+    // its request to the winner.
+    let listener = match instance::listen() {
+        instance::Listen::Bound(listener) => Some(listener),
+        instance::Listen::Taken => {
+            if instance::forward(&request) {
+                return ExitCode::SUCCESS;
+            }
+            None
+        }
+        instance::Listen::Unavailable => None,
+    };
+
+    let app = gpui_platform::application().with_assets(CombinedAssets::new());
 
     app.run(move |cx| {
-        // Determine initial page from CLI arguments
-        let initial_page = cli_args_to_active_page(&cli_args);
-
-        // Ensure config directory and settings.json exist
         if let Err(e) = config_setup::ensure_config() {
             eprintln!("Failed to initialize config: {}", e);
         }
+        let settings = config_setup::read_settings().unwrap_or_else(|e| {
+            eprintln!("Failed to read settings: {e}");
+            config_setup::SettingsSchema {
+                version: String::new(),
+                settings: config_setup::SettingsConfig::default(),
+                metadata: config_setup::Metadata::default(),
+            }
+        });
+        let initial_page = cli_args_to_active_page(&cli_args, &settings);
 
-        // Ensure Hyprland config includes omarchist source directive
-        if let Err(e) = hypr_setup::ensure_hypr_source() {
-            eprintln!("Failed to set up Hyprland config: {}", e);
+        // On anything but Quattro the Hyprland hook and the bar plugin
+        // would only damage a config they do not understand; the window
+        // opens and says so instead.
+        let quattro = omarchy_paths::is_quattro_installed();
+        if quattro {
+            match hypr_setup::ensure_hypr_source() {
+                Ok(true) => println!("Added the omarchist require line to hyprland.lua"),
+                Ok(false) => {}
+                Err(e) => eprintln!("Failed to set up Hyprland config: {}", e),
+            }
         }
 
-        // Ensure waybar config directory exists
-        if let Err(e) = waybar_setup::ensure_waybar_config() {
-            eprintln!("Failed to set up waybar config: {}", e);
+        cx.set_global(AppEvents::default());
+        if let Some(listener) = listener {
+            serve_open_requests(listener, cx);
         }
-
+        if settings.settings.bar_widget && quattro {
+            std::thread::spawn(|| {
+                if let Err(e) = omarchist::system::bar_widget::ensure_current() {
+                    eprintln!("Failed to refresh the bar widget: {e}");
+                }
+            });
+        }
+        // Launcher entries and startup hooks name the binary; keep them
+        // pointing at this one.
+        std::thread::spawn(|| {
+            if let Ok(flows) = omarchist::system::flows::store::load_flows()
+                && let Err(e) = omarchist::system::flows::launcher::refresh_all(&flows)
+            {
+                eprintln!("Failed to refresh the flow launcher entries: {e}");
+            }
+        });
         gpui_component::init(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
-        // Apply the omarchy current theme immediately at startup, falling back to embedded theme
         ui_theme_watcher::load_and_apply_omarchy_theme(cx);
-        // Start watching for theme switches
         ui_theme_watcher::spawn_ui_theme_watcher(cx);
 
-        // Load and apply saved font size from settings (after theme change to override default)
-        if let Ok(font_size_str) = config_setup::get_font_size() {
-            let font_size_px = match font_size_str.as_str() {
-                "small" => 14.0,
-                "medium" => 16.0,
-                "large" => 18.0,
-                _ => 16.0,
-            };
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(font_size_px);
-        }
-
+        // The menu's light/dark switch is the Settings page's "Look"; the
+        // page re-reads the file when shown, so the two never disagree.
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
-            gpui_component::Theme::change(gpui_component::ThemeMode::Light, None, cx);
-            cx.refresh_windows();
+            set_theme_mode("light", cx);
         });
         cx.on_action(|_: &app_menu::SwitchToDark, cx: &mut App| {
-            gpui_component::Theme::change(gpui_component::ThemeMode::Dark, None, cx);
-            cx.refresh_windows();
+            set_theme_mode("dark", cx);
+        });
+        cx.on_action(|_: &app_menu::FollowOmarchy, cx: &mut App| {
+            set_theme_mode("omarchy", cx);
         });
         cx.on_action(|_: &app_menu::Quit, cx: &mut App| {
             cx.quit();
         });
         cx.on_action(|action: &app_menu::SelectFont, cx: &mut App| {
-            gpui_component::Theme::global_mut(cx).font_size = gpui::px(action.0 as f32);
-
-            // Map pixel size to font size string and save to settings
             let font_size_str = match action.0 {
                 14 => "small",
                 16 => "medium",
                 18 => "large",
                 _ => "medium",
             };
-
             if let Err(e) = config_setup::update_font_size(font_size_str) {
                 eprintln!("Failed to save font size setting: {}", e);
             }
-
+            ui_theme_watcher::apply_font_size(cx);
             cx.refresh_windows();
         });
         cx.on_action(|_: &app_menu::ToggleSidebar, cx: &mut App| {
-            omarchist::ui::app_view::PENDING_TOGGLE_SIDEBAR.with(|flag| {
-                *flag.borrow_mut() = true;
-            });
-            cx.refresh_windows();
+            app_events::emit(cx, AppEvent::ToggleSidebar);
         });
 
-        cx.bind_keys([
-            KeyBinding::new("ctrl-q", app_menu::Quit, None),
-            KeyBinding::new("ctrl-,", app_menu::NavigateToSettings, None),
-            KeyBinding::new("ctrl-alt-l", app_menu::SwitchToLight, None),
-            KeyBinding::new("ctrl-alt-d", app_menu::SwitchToDark, None),
-            KeyBinding::new("ctrl-z", gpui_component::input::Undo, None),
-            KeyBinding::new("ctrl-shift-z", gpui_component::input::Redo, None),
-            KeyBinding::new("ctrl-x", gpui_component::input::Cut, None),
-            KeyBinding::new("ctrl-c", gpui_component::input::Copy, None),
-            KeyBinding::new("ctrl-v", gpui_component::input::Paste, None),
-            KeyBinding::new("ctrl-r", app_menu::RefreshTheme, None),
-            KeyBinding::new("ctrl-b", app_menu::ToggleSidebar, None),
-            // Global page navigation shortcuts
-            KeyBinding::new("ctrl-1", app_menu::NavigateToThemes, None),
-            KeyBinding::new("ctrl-2", app_menu::NavigateToConfig, None),
-            KeyBinding::new("ctrl-3", app_menu::NavigateToStatusBar, None),
-            // Keyboard navigation bindings - using MainWindow context
-            KeyBinding::new("tab", app_menu::NextFocus, Some("MainWindow")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("MainWindow")),
-            KeyBinding::new("down", app_menu::NextItem, Some("MainWindow")),
-            KeyBinding::new("up", app_menu::PrevItem, Some("MainWindow")),
-            KeyBinding::new("right", app_menu::SelectNext, Some("MainWindow")),
-            KeyBinding::new("left", app_menu::SelectPrev, Some("MainWindow")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("MainWindow")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("MainWindow")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("MainWindow")),
-            // Themes page keyboard navigation
-            KeyBinding::new("down", app_menu::NextItem, Some("ThemesPage")),
-            KeyBinding::new("up", app_menu::PrevItem, Some("ThemesPage")),
-            KeyBinding::new("right", app_menu::SelectNext, Some("ThemesPage")),
-            KeyBinding::new("left", app_menu::SelectPrev, Some("ThemesPage")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("ThemesPage")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("ThemesPage")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("ThemesPage")),
-            KeyBinding::new("tab", app_menu::NextFocus, Some("ThemesPage")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("ThemesPage")),
-            // Status bar page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("StatusBar")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("StatusBar")),
-            KeyBinding::new("right", app_menu::SelectNext, Some("StatusBar")),
-            KeyBinding::new("left", app_menu::SelectPrev, Some("StatusBar")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("StatusBar")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("StatusBar")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("StatusBar")),
-            // Theme edit page navigation
-            KeyBinding::new("right", app_menu::ThemeEditNextTab, Some("ThemeEditPage")),
-            KeyBinding::new("left", app_menu::ThemeEditPrevTab, Some("ThemeEditPage")),
-            KeyBinding::new(
-                "ctrl-right",
-                app_menu::ThemeEditNextTab,
-                Some("ThemeEditPage"),
-            ),
-            KeyBinding::new(
-                "ctrl-left",
-                app_menu::ThemeEditPrevTab,
-                Some("ThemeEditPage"),
-            ),
-            KeyBinding::new("escape", app_menu::NavigateBack, Some("ThemeEditPage")),
-            // Settings page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("SettingsPage")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("SettingsPage")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("SettingsPage")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("SettingsPage")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("SettingsPage")),
-            // About page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("AboutView")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("AboutView")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("AboutView")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("AboutView")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("AboutView")),
-            // Omarchy page keyboard navigation
-            KeyBinding::new("tab", app_menu::NextFocus, Some("OmarchyView")),
-            KeyBinding::new("shift-tab", app_menu::PrevFocus, Some("OmarchyView")),
-            KeyBinding::new("enter", app_menu::ActivateItem, Some("OmarchyView")),
-            KeyBinding::new("space", app_menu::ActivateItem, Some("OmarchyView")),
-            KeyBinding::new("escape", app_menu::EscapeFocus, Some("OmarchyView")),
-        ]);
+        // Never leave Hyprland stuck in the keystroke-recording submap: a
+        // previous instance may have died while recording, a panic must
+        // leave it before the abort, and quitting leaves it too. The
+        // socket is removed on quit so the next launch opens its own window.
+        omarchist::system::keybinds::submap::install_panic_hook();
+        std::thread::spawn(omarchist::system::keybinds::submap::reset_on_startup);
+        cx.on_app_quit(|_cx| {
+            omarchist::system::keybinds::submap::leave_recording_submap();
+            instance::remove_socket();
+            async {}
+        })
+        .detach();
+
+        // Every app shortcut comes from the shortcuts table.
+        cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
 
         cx.spawn(async move |cx| {
             let window_options = WindowOptions {
@@ -251,13 +280,13 @@ fn main() {
                 ..Default::default()
             };
             let window_handle = cx.open_window(window_options, |window, cx| {
-                let title_bar = cx.new(|_| MainTitleBar::new());
+                let title_bar = cx.new(MainTitleBar::new);
+                OmarchyUpdates::start_periodic(title_bar.read(cx).updates().clone(), cx);
                 let main_view =
                     cx.new(|cx| MainWindowView::new(title_bar, initial_page.clone(), window, cx));
                 cx.new(|cx| Root::new(main_view, window, cx))
             })?;
 
-            // Attempt to activate the window after creation
             window_handle.update(cx, |_view, window, _cx| {
                 window.activate_window();
             })?;
@@ -266,4 +295,5 @@ fn main() {
         })
         .detach();
     });
+    ExitCode::SUCCESS
 }

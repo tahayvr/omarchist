@@ -1,18 +1,21 @@
 use std::path::PathBuf;
 
+use gpui::prelude::FluentBuilder;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, button::Button, v_flex};
-use smol;
+use gpui_component::{
+    ActiveTheme, Icon, IconName, Sizable, WindowExt, button::Button, spinner::Spinner, v_flex,
+};
 
 use crate::system::themes::theme_generator::create_theme_from_image;
-use crate::ui::dialogs::create_theme_dialog::{PENDING_REFRESH_THEMES, PENDING_THEME_NAVIGATION};
+use crate::system::themes::utils::dir_to_title;
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::app_view::ActivePage;
+use crate::ui::text::selectable;
 
 pub struct ThemeCreationProgressDialog {
     theme_name: String,
     image_path: PathBuf,
     status_message: String,
-    is_complete: bool,
-    has_error: bool,
     error_message: Option<String>,
 }
 
@@ -21,86 +24,55 @@ impl ThemeCreationProgressDialog {
         Self {
             theme_name,
             image_path,
-            status_message: "Analyzing image...".to_string(),
-            is_complete: false,
-            has_error: false,
+            status_message: "Analyzing image…".to_string(),
             error_message: None,
         }
     }
 
-    pub fn start_creation(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    /// Runs the creation once, off the UI thread. On success the dialog
+    /// closes itself and the editor opens; on failure it shows the error
+    /// and a Close button (the generator removes the half-made folder).
+    fn start_creation(&mut self, cx: &mut Context<Self>) {
         let theme_name = self.theme_name.clone();
         let image_path = self.image_path.clone();
-        let window_handle = window.window_handle();
 
-        // Spawn async task to create theme
         cx.spawn(async move |this, cx| {
-            // Update status to creating structure
-            let _ = window_handle.update(cx, |_view, _window, cx| {
-                let _ = this.update(cx, |this, cx| {
-                    this.status_message = "Creating theme structure...".to_string();
-                    cx.notify();
-                });
-            });
+            let result = cx
+                .background_spawn(async move { create_theme_from_image(&image_path, &theme_name) })
+                .await;
 
-            // Run theme creation in a blocking thread with periodic status updates
-            let result = smol::unblock({
-                let theme_name = theme_name.clone();
-                let image_path = image_path.clone();
-                move || create_theme_from_image(&image_path, &theme_name, None)
-            })
-            .await;
-
-            // Handle result
-            match result {
+            this.update(cx, |this, cx| match result {
                 Ok(created_name) => {
-                    // Store for navigation
-                    PENDING_THEME_NAVIGATION.with(|nav| {
-                        *nav.borrow_mut() = Some(created_name.clone());
-                    });
-                    PENDING_REFRESH_THEMES.with(|refresh| {
-                        *refresh.borrow_mut() = true;
-                    });
-
-                    let _ = window_handle.update(cx, |_view, _window, cx| {
-                        let _ = this.update(cx, |this, cx| {
-                            this.is_complete = true;
-                            this.status_message = format!("Created theme: {}", created_name);
-                            cx.notify();
-                        });
-                    });
-
-                    // Auto-close after a short delay
-                    smol::Timer::after(std::time::Duration::from_secs(1)).await;
-                    let _ = window_handle.update(cx, |_view, window, cx| {
-                        window.close_dialog(cx);
-                    });
+                    this.status_message = format!("Created '{}'", dir_to_title(&created_name));
+                    cx.emit(DialogEvent::Created(created_name));
                 }
                 Err(e) => {
-                    let _ = window_handle.update(cx, |_view, _window, cx| {
-                        let _ = this.update(cx, |this, cx| {
-                            this.has_error = true;
-                            this.error_message = Some(e.clone());
-                            this.status_message = format!("Error: {}", e);
-                            cx.notify();
-                        });
-                    });
+                    this.status_message = e.to_string();
+                    this.error_message = Some(e.to_string());
+                    cx.notify();
                 }
-            }
-
-            Ok::<_, anyhow::Error>(())
+            })
+            .ok();
         })
         .detach();
     }
 
-    fn close(&mut self, window: &mut Window, _cx: &mut Context<Self>) {
-        window.close_dialog(_cx);
+    fn has_error(&self) -> bool {
+        self.error_message.is_some()
     }
 }
+
+/// The theme was created; the opener closes the dialog and opens the editor.
+pub enum DialogEvent {
+    Created(String),
+}
+
+impl EventEmitter<DialogEvent> for ThemeCreationProgressDialog {}
 
 impl Render for ThemeCreationProgressDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
+        let has_error = self.has_error();
 
         v_flex()
             .w(px(400.0))
@@ -108,24 +80,19 @@ impl Render for ThemeCreationProgressDialog {
             .gap_4()
             .items_center()
             .justify_center()
+            .child(if has_error {
+                Icon::new(IconName::TriangleAlert)
+                    .size(px(48.0))
+                    .text_color(theme.red)
+                    .into_any_element()
+            } else {
+                Spinner::new()
+                    .icon(Icon::new(IconName::Loader))
+                    .with_size(px(48.0))
+                    .color(theme.primary)
+                    .into_any_element()
+            })
             .child(
-                // Icon
-                if self.has_error {
-                    Icon::new(IconName::TriangleAlert)
-                        .size(px(48.0))
-                        .text_color(theme.red)
-                } else if self.is_complete {
-                    Icon::new(IconName::Check)
-                        .size(px(48.0))
-                        .text_color(theme.green)
-                } else {
-                    Icon::new(IconName::Loader)
-                        .size(px(48.0))
-                        .text_color(theme.primary)
-                },
-            )
-            .child(
-                // Title
                 div()
                     .text_lg()
                     .font_weight(FontWeight::SEMIBOLD)
@@ -133,29 +100,22 @@ impl Render for ThemeCreationProgressDialog {
                     .child("Creating Theme from Image"),
             )
             .child(
-                // Status message
                 div()
                     .text_sm()
-                    .text_color(if self.has_error {
+                    .text_color(if has_error {
                         theme.red
                     } else {
                         theme.muted_foreground
                     })
-                    .child(self.status_message.clone()),
+                    .child(selectable("status", self.status_message.clone())),
             )
-            .child(
-                // Action buttons (only show when error)
-                if self.has_error {
+            .when(has_error, |this| {
+                this.child(
                     Button::new("close-btn")
                         .label("Close")
-                        .on_click(cx.listener(|this, _event, window, cx| {
-                            this.close(window, cx);
-                        }))
-                        .into_any_element()
-                } else {
-                    div().into_any_element()
-                },
-            )
+                        .on_click(|_, window, cx| window.close_dialog(cx)),
+                )
+            })
     }
 }
 
@@ -165,24 +125,33 @@ pub fn open_theme_creation_progress_dialog(
     window: &mut Window,
     cx: &mut App,
 ) {
-    let theme_name_clone = theme_name.clone();
-    let image_path_clone = image_path.clone();
+    // Created once, here: the dialog builder below runs on every frame, so
+    // anything created inside it would start over each frame.
+    let view = cx.new(|cx| {
+        let mut dialog = ThemeCreationProgressDialog::new(theme_name, image_path);
+        dialog.start_creation(cx);
+        dialog
+    });
+    // Close this dialog (it is the active one: it cannot be dismissed while
+    // running) before opening the editor, so the editor gets focus and no
+    // later close can hit another dialog.
+    window
+        .subscribe(&view, cx, |_, event: &DialogEvent, window, cx| {
+            let DialogEvent::Created(name) = event;
+            window.close_dialog(cx);
+            emit(cx, AppEvent::RefreshThemes);
+            emit(cx, AppEvent::Navigate(ActivePage::ThemeEdit(name.clone())));
+        })
+        .detach();
 
-    window.open_dialog(cx, move |dialog_builder, window, cx| {
-        let dialog = cx.new(|cx| {
-            let mut dialog = ThemeCreationProgressDialog::new(
-                theme_name_clone.clone(),
-                image_path_clone.clone(),
-            );
-            dialog.start_creation(window, cx);
-            dialog
-        });
-
+    window.open_dialog(cx, move |dialog_builder, _, cx| {
+        // Escape only once there is an error to dismiss.
+        let dismissable = view.read(cx).has_error();
         dialog_builder
             .overlay(true)
-            .keyboard(true)
+            .keyboard(dismissable)
             .close_button(false)
             .overlay_closable(false)
-            .child(dialog)
+            .child(view.clone())
     });
 }

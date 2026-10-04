@@ -1,18 +1,14 @@
 use super::parse_colors::{parse_alacritty_toml, parse_colors_toml};
 use super::preview_img::find_preview_image;
 use super::utils::dir_to_title;
+use crate::error::{Error, Result};
 
 use crate::types::themes::{ThemeEntry, ThemeOrigin};
 use std::fs;
 use std::path::{Path, PathBuf};
 
 fn get_system_themes_dir() -> Option<PathBuf> {
-    dirs::home_dir().map(|h| {
-        h.join(".local")
-            .join("share")
-            .join("omarchy")
-            .join("themes")
-    })
+    Some(crate::system::omarchy_paths::system_themes_dir())
 }
 
 fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
@@ -36,20 +32,20 @@ fn load_theme_from_dir(theme_dir: &Path) -> Option<ThemeEntry> {
         origin: ThemeOrigin::System,
         image,
         colors,
+        applied: false,
     })
 }
 
-// Scan `~/.local/share/omarchy/themes/`
-pub fn get_system_themes() -> Result<Vec<ThemeEntry>, String> {
-    let themes_dir = get_system_themes_dir()
-        .ok_or_else(|| "Could not determine system themes directory".to_string())?;
+// Scan `$OMARCHY_PATH/themes/` (default `/usr/share/omarchy/themes/`)
+pub fn get_system_themes() -> Result<Vec<ThemeEntry>> {
+    let themes_dir = get_system_themes_dir().ok_or(Error::UnknownDirectory("system themes"))?;
 
     if !themes_dir.exists() {
         return Ok(Vec::new());
     }
 
     let entries =
-        fs::read_dir(&themes_dir).map_err(|e| format!("Failed to read themes directory: {e}"))?;
+        fs::read_dir(&themes_dir).map_err(|e| Error::io("Failed to read themes directory", e))?;
 
     let mut themes: Vec<ThemeEntry> = entries
         .flatten()

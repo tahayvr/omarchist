@@ -1,575 +1,266 @@
+//! Reads the running compositor's settings with one `hyprctl --batch` of
+//! `j/getoption` calls. The keys and their types come from the model
+//! itself (`HyprlandConfig::default()` flattened to dotted paths), so
+//! adding a setting is adding a field to the model.
+use std::collections::HashMap;
 use std::process::Command;
 
 use serde::Deserialize;
+use serde_json::Value;
 
+use super::baseline::{EMPTY_PLACEHOLDER, flatten, set_path};
 use crate::types::hyprland_config::*;
 
-/// The JSON shape returned by `hyprctl getoption <key> -j`.
-#[derive(Debug, Deserialize)]
+/// One `j/getoption` record. Hyprland reports each option under a
+/// type-specific key: `int`, `float`, `bool`, `str`, `vec2`, and `css` /
+/// `custom` / `gradient` for multi-value options such as gaps.
+#[derive(Debug, Default, Deserialize)]
 struct HyprctlOption {
     #[serde(default)]
     int: Option<i64>,
     #[serde(default)]
     float: Option<f64>,
+    #[serde(rename = "bool", default)]
+    boolean: Option<bool>,
     #[serde(rename = "str", default)]
     string: Option<String>,
     #[serde(default)]
     custom: Option<String>,
+    #[serde(default)]
+    css: Option<String>,
+    #[serde(default)]
+    vec2: Option<[f64; 2]>,
 }
 
-/// Run `hyprctl getoption <key> -j` and parse the result.
-fn get_option(key: &str) -> Option<HyprctlOption> {
-    let output = Command::new("hyprctl")
-        .args(["getoption", key, "-j"])
-        .output()
-        .ok()?;
+#[derive(Debug, Deserialize)]
+struct HyprctlRecord {
+    option: String,
+    #[serde(flatten)]
+    value: HyprctlOption,
+}
 
-    if !output.status.success() {
-        return None;
+/// The `hyprctl` spelling of a model path: colons between the parts.
+pub fn hyprctl_key(path: &str) -> String {
+    path.replace('.', ":")
+}
+
+struct Options(HashMap<String, HyprctlOption>);
+
+impl Options {
+    fn fetch(keys: &[String]) -> Self {
+        let batch = keys
+            .iter()
+            .map(|k| format!("j/getoption {k}"))
+            .collect::<Vec<_>>()
+            .join("; ");
+
+        // Unknown options print "no such option" instead of JSON; parse
+        // whatever came back rather than failing the whole read.
+        match Command::new("hyprctl").args(["--batch", &batch]).output() {
+            Ok(output) => Self::parse(&String::from_utf8_lossy(&output.stdout)),
+            Err(_) => Self(HashMap::new()),
+        }
     }
 
-    serde_json::from_slice(&output.stdout).ok()
-}
-
-fn opt_int(key: &str) -> Option<i64> {
-    get_option(key)?.int
-}
-
-fn opt_bool(key: &str) -> Option<bool> {
-    opt_int(key).map(|v| v != 0)
-}
-
-fn opt_float(key: &str) -> Option<f64> {
-    get_option(key)?.float
-}
-
-fn opt_str(key: &str) -> Option<String> {
-    get_option(key)?.string
-}
-
-/// For options like `gaps_in` / `gaps_out` that return `"custom": "5 5 5 5"`,
-/// we just take the first token as a single i32 value.
-fn opt_custom_first_int(key: &str) -> Option<i32> {
-    let opt = get_option(key)?;
-    // May come back as `custom` or sometimes as `int`
-    if let Some(i) = opt.int {
-        return Some(i as i32);
+    fn parse(text: &str) -> Self {
+        Self(
+            text.lines()
+                .filter_map(|line| serde_json::from_str::<HyprctlRecord>(line.trim()).ok())
+                .map(|record| (record.option, record.value))
+                .collect(),
+        )
     }
-    let raw = opt.custom?;
-    raw.split_whitespace().next()?.parse::<i32>().ok()
+
+    fn get(&self, key: &str) -> Option<&HyprctlOption> {
+        self.0.get(key)
+    }
+
+    /// The option's value in the shape of `default`, which says what type
+    /// the model expects: bools also accept ints, integers also take the
+    /// first number of a css list (`gaps_in` is `"5 5 5 5"`), floats also
+    /// accept ints, and unset strings (`[[EMPTY]]`) are empty.
+    fn value(&self, key: &str, default: &Value) -> Option<Value> {
+        let opt = self.get(key)?;
+        match default {
+            Value::Bool(_) => opt.boolean.or(opt.int.map(|v| v != 0)).map(Value::Bool),
+            Value::Number(n) if n.is_i64() => opt
+                .int
+                .or_else(|| {
+                    let raw = opt.css.as_deref().or(opt.custom.as_deref())?;
+                    raw.split_whitespace().next()?.parse::<i64>().ok()
+                })
+                .map(Value::from),
+            Value::Number(_) => opt.float.or(opt.int.map(|v| v as f64)).map(Value::from),
+            Value::String(_) => opt.string.as_ref().map(|s| {
+                Value::String(if s == EMPTY_PLACEHOLDER {
+                    String::new()
+                } else {
+                    s.clone()
+                })
+            }),
+            Value::Array(_) => opt
+                .vec2
+                .map(|[x, y]| Value::Array(vec![Value::from(x), Value::from(y)])),
+            _ => None,
+        }
+    }
 }
 
-/// Read as many Hyprland settings as possible from the running compositor via
-/// `hyprctl getoption` and return them as a [`HyprlandConfig`].
+/// Every option the model has, as `hyprctl` names it.
+pub fn option_keys() -> Vec<String> {
+    let defaults = serde_json::to_value(HyprlandConfig::default()).unwrap_or(Value::Null);
+    flatten(&defaults)
+        .keys()
+        .map(|path| hyprctl_key(path))
+        .collect()
+}
+
+/// Read as many Hyprland settings as possible from the running compositor and
+/// return them as a [`HyprlandConfig`].
 ///
 /// Only the fields that can be retrieved are overridden; everything else
 /// keeps its `Default` value so we always return a fully-populated struct.
 pub fn read_from_hyprctl() -> HyprlandConfig {
-    let mut cfg = HyprlandConfig::default();
+    read_from_options(&Options::fetch(&option_keys()))
+}
 
-    // ── general ──────────────────────────────────────────────────────────────
-    if let Some(v) = opt_int("general:border_size") {
-        cfg.general.border_size = v as i32;
+fn read_from_options(opts: &Options) -> HyprlandConfig {
+    let mut value = serde_json::to_value(HyprlandConfig::default()).unwrap_or(Value::Null);
+    for (path, default) in flatten(&value) {
+        if let Some(read) = opts.value(&hyprctl_key(&path), &default) {
+            set_path(&mut value, &path, read);
+        }
     }
-    if let Some(v) = opt_custom_first_int("general:gaps_in") {
-        cfg.general.gaps_in = v;
-    }
-    if let Some(v) = opt_custom_first_int("general:gaps_out") {
-        cfg.general.gaps_out = v;
-    }
-    if let Some(v) = opt_custom_first_int("general:gaps_workspaces") {
-        cfg.general.gaps_workspaces = v;
-    }
-    if let Some(v) = opt_str("general:layout") {
-        cfg.general.layout = v;
-    }
-    if let Some(v) = opt_bool("general:no_focus_fallback") {
-        cfg.general.no_focus_fallback = v;
-    }
-    if let Some(v) = opt_bool("general:resize_on_border") {
-        cfg.general.resize_on_border = v;
-    }
-    if let Some(v) = opt_int("general:extend_border_grab_area") {
-        cfg.general.extend_border_grab_area = v as i32;
-    }
-    if let Some(v) = opt_bool("general:hover_icon_on_border") {
-        cfg.general.hover_icon_on_border = v;
-    }
-    if let Some(v) = opt_bool("general:allow_tearing") {
-        cfg.general.allow_tearing = v;
-    }
-    if let Some(v) = opt_int("general:resize_corner") {
-        cfg.general.resize_corner = v as i32;
-    }
-    if let Some(v) = opt_bool("general:modal_parent_blocking") {
-        cfg.general.modal_parent_blocking = v;
-    }
+    serde_json::from_value(value).unwrap_or_default()
+}
 
-    // general:snap
-    if let Some(v) = opt_bool("general:snap:enabled") {
-        cfg.general.snap.enabled = v;
-    }
-    if let Some(v) = opt_int("general:snap:window_gap") {
-        cfg.general.snap.window_gap = v as i32;
-    }
-    if let Some(v) = opt_int("general:snap:monitor_gap") {
-        cfg.general.snap.monitor_gap = v as i32;
-    }
-    if let Some(v) = opt_bool("general:snap:border_overlap") {
-        cfg.general.snap.border_overlap = v;
-    }
-    if let Some(v) = opt_bool("general:snap:respect_gaps") {
-        cfg.general.snap.respect_gaps = v;
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const SAMPLE: &str = r#"{"option": "general:border_size", "int": 3, "set": true }
+
+
+{"option": "general:gaps_in", "css": "7 7 7 7", "set": true }
+
+
+{"option": "general:resize_on_border", "bool": true, "set": true }
+
+
+{"option": "decoration:active_opacity", "float": 0.950000, "set": true }
+
+
+{"option": "general:layout", "str": "master", "set": true }
+{"option": "input:accel_profile", "str": "[[EMPTY]]", "set": true }
+{"option": "decoration:shadow:offset", "vec2": [1,2], "set": false }
+{"option": "input:follow_mouse", "int": 2, "set": true }
+{"option": "misc:vrr", "int": 1, "set": true }
+no such option
+"#;
+
+    #[test]
+    fn read_from_options_reads_every_value_type_and_skips_noise() {
+        let cfg = read_from_options(&Options::parse(SAMPLE));
+        let defaults = HyprlandConfig::default();
+        assert_eq!(cfg.general.border_size, 3);
+        assert_eq!(cfg.general.gaps_in, 7, "first number of a css list");
+        assert!(cfg.general.resize_on_border);
+        assert_eq!(cfg.decoration.active_opacity, 0.95);
+        assert_eq!(cfg.general.layout, "master");
+        assert_eq!(cfg.decoration.shadow.offset, [1.0, 2.0]);
+        assert_eq!(cfg.input.follow_mouse, 2);
+        assert_eq!(cfg.misc.vrr, 1);
+        assert_eq!(
+            cfg.general.gaps_out, defaults.general.gaps_out,
+            "unread keys keep defaults"
+        );
     }
 
-    // ── decoration ───────────────────────────────────────────────────────────
-    if let Some(v) = opt_int("decoration:rounding") {
-        cfg.decoration.rounding = v as i32;
-    }
-    if let Some(v) = opt_float("decoration:rounding_power") {
-        cfg.decoration.rounding_power = v;
-    }
-    if let Some(v) = opt_float("decoration:active_opacity") {
-        cfg.decoration.active_opacity = v;
-    }
-    if let Some(v) = opt_float("decoration:inactive_opacity") {
-        cfg.decoration.inactive_opacity = v;
-    }
-    if let Some(v) = opt_float("decoration:fullscreen_opacity") {
-        cfg.decoration.fullscreen_opacity = v;
-    }
-    if let Some(v) = opt_bool("decoration:dim_inactive") {
-        cfg.decoration.dim_inactive = v;
-    }
-    if let Some(v) = opt_float("decoration:dim_strength") {
-        cfg.decoration.dim_strength = v;
-    }
-    if let Some(v) = opt_float("decoration:dim_special") {
-        cfg.decoration.dim_special = v;
-    }
-    if let Some(v) = opt_float("decoration:dim_around") {
-        cfg.decoration.dim_around = v;
-    }
-    if let Some(v) = opt_bool("decoration:border_part_of_window") {
-        cfg.decoration.border_part_of_window = v;
-    }
-    if let Some(v) = opt_bool("decoration:dim_modal") {
-        cfg.decoration.dim_modal = v;
+    #[test]
+    fn unset_strings_read_as_empty_not_the_placeholder() {
+        let cfg = read_from_options(&Options::parse(SAMPLE));
+        assert_eq!(cfg.input.accel_profile, "");
     }
 
-    // decoration:blur
-    if let Some(v) = opt_bool("decoration:blur:enabled") {
-        cfg.decoration.blur.enabled = v;
+    #[test]
+    fn option_keys_are_unique_and_colon_separated() {
+        let keys = option_keys();
+        let unique: std::collections::HashSet<_> = keys.iter().collect();
+        assert_eq!(unique.len(), keys.len());
+        assert!(keys.contains(&"input:touchpad:tap_to_click".to_string()));
+        assert!(keys.iter().all(|k| !k.contains('.')));
     }
-    if let Some(v) = opt_int("decoration:blur:size") {
-        cfg.decoration.blur.size = v as i32;
-    }
-    if let Some(v) = opt_int("decoration:blur:passes") {
-        cfg.decoration.blur.passes = v as i32;
-    }
-    if let Some(v) = opt_bool("decoration:blur:ignore_opacity") {
-        cfg.decoration.blur.ignore_opacity = v;
-    }
-    if let Some(v) = opt_bool("decoration:blur:new_optimizations") {
-        cfg.decoration.blur.new_optimizations = v;
-    }
-    if let Some(v) = opt_bool("decoration:blur:xray") {
-        cfg.decoration.blur.xray = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:noise") {
-        cfg.decoration.blur.noise = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:contrast") {
-        cfg.decoration.blur.contrast = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:brightness") {
-        cfg.decoration.blur.brightness = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:vibrancy") {
-        cfg.decoration.blur.vibrancy = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:vibrancy_darkness") {
-        cfg.decoration.blur.vibrancy_darkness = v;
-    }
-    if let Some(v) = opt_bool("decoration:blur:special") {
-        cfg.decoration.blur.special = v;
-    }
-    if let Some(v) = opt_bool("decoration:blur:popups") {
-        cfg.decoration.blur.popups = v;
-    }
-    if let Some(v) = opt_float("decoration:blur:popups_ignorealpha") {
-        cfg.decoration.blur.popups_ignorealpha = v;
+}
+
+#[cfg(test)]
+pub(crate) mod defaults_audit {
+    //! `HyprlandConfig::default()` is what an overridden key resets to when
+    //! no Lua file sets it, so it must match Hyprland's own defaults, and
+    //! every key must be an option Hyprland knows. This compares the whole
+    //! model against `hyprctl descriptions`, and is skipped where no
+    //! compositor is running.
+    use std::collections::HashMap;
+    use std::process::Command;
+
+    use serde_json::Value;
+
+    use super::EMPTY_PLACEHOLDER;
+    use crate::system::hyprland_config::baseline::{flatten, values_equal};
+    use crate::types::hyprland_config::HyprlandConfig;
+
+    /// `hyprctl descriptions` for every option, keyed by the model's
+    /// spelling (dots, underscores), or `None` without a compositor.
+    pub(crate) fn described_options() -> Option<HashMap<String, Value>> {
+        let output = Command::new("hyprctl")
+            .args(["descriptions", "-j"])
+            .output()
+            .ok()?;
+        let described = serde_json::from_slice::<Vec<Value>>(&output.stdout).ok()?;
+        Some(
+            described
+                .into_iter()
+                .filter_map(|option| {
+                    let name = option["name"].as_str()?;
+                    Some((name.replace(':', ".").replace('-', "_"), option))
+                })
+                .collect(),
+        )
     }
 
-    // decoration:shadow
-    if let Some(v) = opt_bool("decoration:shadow:enabled") {
-        cfg.decoration.shadow.enabled = v;
+    #[test]
+    fn rust_defaults_match_hyprland_descriptions() {
+        let Some(described) = described_options() else {
+            eprintln!("skipping: no hyprctl");
+            return;
+        };
+        let defaults = serde_json::to_value(HyprlandConfig::default()).unwrap();
+        let mut mismatches = Vec::new();
+        for (path, ours) in flatten(&defaults) {
+            let Some(option) = described.get(&path) else {
+                mismatches.push(format!("{path}: not a Hyprland option"));
+                continue;
+            };
+            let theirs = match &option["default"] {
+                // `gaps_in` and friends describe as "5 5 5 5"; the model keeps one number.
+                Value::String(s) if ours.is_number() => s
+                    .split_whitespace()
+                    .next()
+                    .and_then(|t| t.parse::<f64>().ok())
+                    .map(Value::from),
+                Value::String(s) if s == EMPTY_PLACEHOLDER => Some(Value::String(String::new())),
+                other => Some(other.clone()),
+            };
+            if !theirs.as_ref().is_some_and(|t| values_equal(&ours, t)) {
+                mismatches.push(format!(
+                    "{path}: model {ours}, Hyprland {}",
+                    option["default"]
+                ));
+            }
+        }
+        assert!(
+            mismatches.is_empty(),
+            "defaults differ:\n{}",
+            mismatches.join("\n")
+        );
     }
-    if let Some(v) = opt_int("decoration:shadow:range") {
-        cfg.decoration.shadow.range = v as i32;
-    }
-    if let Some(v) = opt_int("decoration:shadow:render_power") {
-        cfg.decoration.shadow.render_power = v as i32;
-    }
-    if let Some(v) = opt_bool("decoration:shadow:sharp") {
-        cfg.decoration.shadow.sharp = v;
-    }
-    if let Some(v) = opt_bool("decoration:shadow:ignore_window") {
-        cfg.decoration.shadow.ignore_window = v;
-    }
-    if let Some(v) = opt_float("decoration:shadow:offset_x") {
-        cfg.decoration.shadow.offset_x = v;
-    }
-    if let Some(v) = opt_float("decoration:shadow:offset_y") {
-        cfg.decoration.shadow.offset_y = v;
-    }
-    if let Some(v) = opt_float("decoration:shadow:scale") {
-        cfg.decoration.shadow.scale = v;
-    }
-
-    // ── animations ───────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("animations:enabled") {
-        cfg.animations.enabled = v;
-    }
-    if let Some(v) = opt_bool("animations:workspace_wraparound") {
-        cfg.animations.workspace_wraparound = v;
-    }
-
-    // ── input ────────────────────────────────────────────────────────────────
-    if let Some(v) = opt_str("input:kb_model") {
-        cfg.input.kb_model = v;
-    }
-    if let Some(v) = opt_str("input:kb_layout") {
-        cfg.input.kb_layout = v;
-    }
-    if let Some(v) = opt_str("input:kb_variant") {
-        cfg.input.kb_variant = v;
-    }
-    if let Some(v) = opt_str("input:kb_options") {
-        cfg.input.kb_options = v;
-    }
-    if let Some(v) = opt_str("input:kb_rules") {
-        cfg.input.kb_rules = v;
-    }
-    if let Some(v) = opt_bool("input:numlock_by_default") {
-        cfg.input.numlock_by_default = v;
-    }
-    if let Some(v) = opt_bool("input:resolve_binds_by_sym") {
-        cfg.input.resolve_binds_by_sym = v;
-    }
-    if let Some(v) = opt_int("input:repeat_rate") {
-        cfg.input.repeat_rate = v as i32;
-    }
-    if let Some(v) = opt_int("input:repeat_delay") {
-        cfg.input.repeat_delay = v as i32;
-    }
-    if let Some(v) = opt_float("input:sensitivity") {
-        cfg.input.sensitivity = v;
-    }
-    if let Some(v) = opt_str("input:accel_profile") {
-        cfg.input.accel_profile = v;
-    }
-    if let Some(v) = opt_bool("input:force_no_accel") {
-        cfg.input.force_no_accel = v;
-    }
-    if let Some(v) = opt_int("input:rotation") {
-        cfg.input.rotation = v as i32;
-    }
-    if let Some(v) = opt_bool("input:left_handed") {
-        cfg.input.left_handed = v;
-    }
-    if let Some(v) = opt_str("input:scroll_method") {
-        cfg.input.scroll_method = v;
-    }
-    if let Some(v) = opt_int("input:scroll_button") {
-        cfg.input.scroll_button = v as i32;
-    }
-    if let Some(v) = opt_bool("input:scroll_button_lock") {
-        cfg.input.scroll_button_lock = v;
-    }
-    if let Some(v) = opt_float("input:scroll_factor") {
-        cfg.input.scroll_factor = v;
-    }
-    if let Some(v) = opt_bool("input:natural_scroll") {
-        cfg.input.natural_scroll = v;
-    }
-    if let Some(v) = opt_int("input:follow_mouse") {
-        cfg.input.follow_mouse = v as i32;
-    }
-    if let Some(v) = opt_float("input:follow_mouse_threshold") {
-        cfg.input.follow_mouse_threshold = v;
-    }
-    if let Some(v) = opt_int("input:focus_on_close") {
-        cfg.input.focus_on_close = v as i32;
-    }
-    if let Some(v) = opt_bool("input:mouse_refocus") {
-        cfg.input.mouse_refocus = v;
-    }
-    if let Some(v) = opt_int("input:float_switch_override_focus") {
-        cfg.input.float_switch_override_focus = v as i32;
-    }
-    if let Some(v) = opt_bool("input:special_fallthrough") {
-        cfg.input.special_fallthrough = v;
-    }
-    if let Some(v) = opt_int("input:off_window_axis_events") {
-        cfg.input.off_window_axis_events = v as i32;
-    }
-    if let Some(v) = opt_int("input:emulate_discrete_scroll") {
-        cfg.input.emulate_discrete_scroll = v as i32;
-    }
-
-    // input:touchpad
-    if let Some(v) = opt_bool("input:touchpad:disable_while_typing") {
-        cfg.input.touchpad.disable_while_typing = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:natural_scroll") {
-        cfg.input.touchpad.natural_scroll = v;
-    }
-    if let Some(v) = opt_float("input:touchpad:scroll_factor") {
-        cfg.input.touchpad.scroll_factor = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:middle_button_emulation") {
-        cfg.input.touchpad.middle_button_emulation = v;
-    }
-    if let Some(v) = opt_str("input:touchpad:tap_button_map") {
-        cfg.input.touchpad.tap_button_map = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:clickfinger_behavior") {
-        cfg.input.touchpad.clickfinger_behavior = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:tap_to_click") {
-        cfg.input.touchpad.tap_to_click = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:tap_and_drag") {
-        cfg.input.touchpad.tap_and_drag = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:flip_x") {
-        cfg.input.touchpad.flip_x = v;
-    }
-    if let Some(v) = opt_bool("input:touchpad:flip_y") {
-        cfg.input.touchpad.flip_y = v;
-    }
-
-    // ── gestures ─────────────────────────────────────────────────────────────
-    if let Some(v) = opt_int("gestures:workspace_swipe_distance") {
-        cfg.gestures.workspace_swipe_distance = v as i32;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_touch") {
-        cfg.gestures.workspace_swipe_touch = v;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_invert") {
-        cfg.gestures.workspace_swipe_invert = v;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_touch_invert") {
-        cfg.gestures.workspace_swipe_touch_invert = v;
-    }
-    if let Some(v) = opt_int("gestures:workspace_swipe_min_speed_to_force") {
-        cfg.gestures.workspace_swipe_min_speed_to_force = v as i32;
-    }
-    if let Some(v) = opt_float("gestures:workspace_swipe_cancel_ratio") {
-        cfg.gestures.workspace_swipe_cancel_ratio = v;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_create_new") {
-        cfg.gestures.workspace_swipe_create_new = v;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_direction_lock") {
-        cfg.gestures.workspace_swipe_direction_lock = v;
-    }
-    if let Some(v) = opt_int("gestures:workspace_swipe_direction_lock_threshold") {
-        cfg.gestures.workspace_swipe_direction_lock_threshold = v as i32;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_forever") {
-        cfg.gestures.workspace_swipe_forever = v;
-    }
-    if let Some(v) = opt_bool("gestures:workspace_swipe_use_r") {
-        cfg.gestures.workspace_swipe_use_r = v;
-    }
-
-    // ── misc ─────────────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("misc:disable_hyprland_logo") {
-        cfg.misc.disable_hyprland_logo = v;
-    }
-    if let Some(v) = opt_bool("misc:disable_splash_rendering") {
-        cfg.misc.disable_splash_rendering = v;
-    }
-    if let Some(v) = opt_str("misc:font_family") {
-        cfg.misc.font_family = v;
-    }
-    if let Some(v) = opt_int("misc:force_default_wallpaper") {
-        cfg.misc.force_default_wallpaper = v as i32;
-    }
-    if let Some(v) = opt_bool("misc:vfr") {
-        cfg.misc.vfr = v;
-    }
-    if let Some(v) = opt_int("misc:vrr") {
-        cfg.misc.vrr = v as i32;
-    }
-    if let Some(v) = opt_bool("misc:mouse_move_enables_dpms") {
-        cfg.misc.mouse_move_enables_dpms = v;
-    }
-    if let Some(v) = opt_bool("misc:key_press_enables_dpms") {
-        cfg.misc.key_press_enables_dpms = v;
-    }
-    if let Some(v) = opt_bool("misc:always_follow_on_dnd") {
-        cfg.misc.always_follow_on_dnd = v;
-    }
-    if let Some(v) = opt_bool("misc:layers_hog_keyboard_focus") {
-        cfg.misc.layers_hog_keyboard_focus = v;
-    }
-    if let Some(v) = opt_bool("misc:animate_manual_resizes") {
-        cfg.misc.animate_manual_resizes = v;
-    }
-    if let Some(v) = opt_bool("misc:animate_mouse_windowdragging") {
-        cfg.misc.animate_mouse_windowdragging = v;
-    }
-    if let Some(v) = opt_bool("misc:disable_autoreload") {
-        cfg.misc.disable_autoreload = v;
-    }
-    if let Some(v) = opt_bool("misc:enable_swallow") {
-        cfg.misc.enable_swallow = v;
-    }
-    if let Some(v) = opt_str("misc:swallow_regex") {
-        cfg.misc.swallow_regex = v;
-    }
-    if let Some(v) = opt_str("misc:swallow_exception_regex") {
-        cfg.misc.swallow_exception_regex = v;
-    }
-    if let Some(v) = opt_bool("misc:focus_on_activate") {
-        cfg.misc.focus_on_activate = v;
-    }
-    if let Some(v) = opt_bool("misc:mouse_move_focuses_monitor") {
-        cfg.misc.mouse_move_focuses_monitor = v;
-    }
-    if let Some(v) = opt_bool("misc:close_special_on_empty") {
-        cfg.misc.close_special_on_empty = v;
-    }
-    if let Some(v) = opt_int("misc:on_focus_under_fullscreen") {
-        cfg.misc.on_focus_under_fullscreen = v as i32;
-    }
-    if let Some(v) = opt_bool("misc:exit_window_retains_fullscreen") {
-        cfg.misc.exit_window_retains_fullscreen = v;
-    }
-    if let Some(v) = opt_int("misc:initial_workspace_tracking") {
-        cfg.misc.initial_workspace_tracking = v as i32;
-    }
-    if let Some(v) = opt_bool("misc:middle_click_paste") {
-        cfg.misc.middle_click_paste = v;
-    }
-
-    // ── binds ────────────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("binds:pass_mouse_when_bound") {
-        cfg.binds.pass_mouse_when_bound = v;
-    }
-    if let Some(v) = opt_int("binds:scroll_event_delay") {
-        cfg.binds.scroll_event_delay = v as i32;
-    }
-    if let Some(v) = opt_bool("binds:workspace_back_and_forth") {
-        cfg.binds.workspace_back_and_forth = v;
-    }
-    if let Some(v) = opt_bool("binds:hide_special_on_workspace_change") {
-        cfg.binds.hide_special_on_workspace_change = v;
-    }
-    if let Some(v) = opt_bool("binds:allow_workspace_cycles") {
-        cfg.binds.allow_workspace_cycles = v;
-    }
-    if let Some(v) = opt_int("binds:workspace_center_on") {
-        cfg.binds.workspace_center_on = v as i32;
-    }
-    if let Some(v) = opt_int("binds:focus_preferred_method") {
-        cfg.binds.focus_preferred_method = v as i32;
-    }
-    if let Some(v) = opt_bool("binds:ignore_group_lock") {
-        cfg.binds.ignore_group_lock = v;
-    }
-    if let Some(v) = opt_bool("binds:movefocus_cycles_fullscreen") {
-        cfg.binds.movefocus_cycles_fullscreen = v;
-    }
-    if let Some(v) = opt_bool("binds:movefocus_cycles_groupfirst") {
-        cfg.binds.movefocus_cycles_groupfirst = v;
-    }
-    if let Some(v) = opt_bool("binds:disable_keybind_grabbing") {
-        cfg.binds.disable_keybind_grabbing = v;
-    }
-    if let Some(v) = opt_bool("binds:window_direction_monitor_fallback") {
-        cfg.binds.window_direction_monitor_fallback = v;
-    }
-    if let Some(v) = opt_bool("binds:allow_pin_fullscreen") {
-        cfg.binds.allow_pin_fullscreen = v;
-    }
-    if let Some(v) = opt_int("binds:drag_threshold") {
-        cfg.binds.drag_threshold = v as i32;
-    }
-
-    // ── cursor ───────────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("cursor:invisible") {
-        cfg.cursor.invisible = v;
-    }
-    if let Some(v) = opt_bool("cursor:sync_gsettings_theme") {
-        cfg.cursor.sync_gsettings_theme = v;
-    }
-    if let Some(v) = opt_float("cursor:inactive_timeout") {
-        cfg.cursor.inactive_timeout = v;
-    }
-    if let Some(v) = opt_bool("cursor:no_warps") {
-        cfg.cursor.no_warps = v;
-    }
-    if let Some(v) = opt_bool("cursor:persistent_warps") {
-        cfg.cursor.persistent_warps = v;
-    }
-    if let Some(v) = opt_float("cursor:zoom_factor") {
-        cfg.cursor.zoom_factor = v;
-    }
-    if let Some(v) = opt_bool("cursor:zoom_rigid") {
-        cfg.cursor.zoom_rigid = v;
-    }
-    if let Some(v) = opt_bool("cursor:enable_hyprcursor") {
-        cfg.cursor.enable_hyprcursor = v;
-    }
-    if let Some(v) = opt_bool("cursor:hide_on_key_press") {
-        cfg.cursor.hide_on_key_press = v;
-    }
-    if let Some(v) = opt_bool("cursor:hide_on_touch") {
-        cfg.cursor.hide_on_touch = v;
-    }
-    if let Some(v) = opt_bool("cursor:hide_on_tablet") {
-        cfg.cursor.hide_on_tablet = v;
-    }
-    if let Some(v) = opt_bool("cursor:warp_back_after_non_mouse_input") {
-        cfg.cursor.warp_back_after_non_mouse_input = v;
-    }
-
-    // ── xwayland ─────────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("xwayland:enabled") {
-        cfg.xwayland.enabled = v;
-    }
-    if let Some(v) = opt_bool("xwayland:use_nearest_neighbor") {
-        cfg.xwayland.use_nearest_neighbor = v;
-    }
-    if let Some(v) = opt_bool("xwayland:force_zero_scaling") {
-        cfg.xwayland.force_zero_scaling = v;
-    }
-
-    // ── opengl ───────────────────────────────────────────────────────────────
-    if let Some(v) = opt_bool("opengl:nvidia_anti_flicker") {
-        cfg.opengl.nvidia_anti_flicker = v;
-    }
-
-    // ── render ───────────────────────────────────────────────────────────────
-    if let Some(v) = opt_int("render:direct_scanout") {
-        cfg.render.direct_scanout = v as i32;
-    }
-    if let Some(v) = opt_bool("render:expand_undersized_textures") {
-        cfg.render.expand_undersized_textures = v;
-    }
-    if let Some(v) = opt_bool("render:xp_mode") {
-        cfg.render.xp_mode = v;
-    }
-    if let Some(v) = opt_bool("render:cm_enabled") {
-        cfg.render.cm_enabled = v;
-    }
-    if let Some(v) = opt_bool("render:new_render_scheduling") {
-        cfg.render.new_render_scheduling = v;
-    }
-
-    cfg
 }

@@ -6,5 +6,5 @@ Icon=omarchist
 Terminal=false
 Type=Application
 Categories=Settings;
-Keywords=theme;waybar;hyprland;omarchy;
+Keywords=theme;hyprland;omarchy;
 StartupWMClass=omarchist

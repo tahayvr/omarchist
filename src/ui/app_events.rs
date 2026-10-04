@@ -1,0 +1,55 @@
+use std::cell::RefCell;
+
+use gpui::{App, AsyncApp, BorrowAppContext, Global};
+
+use crate::ui::app_view::ActivePage;
+
+// Requests that components without a handle to the main window (dialogs,
+// theme cards, the title bar, background tasks) send to it.
+//
+// Producers call `emit` / `emit_async`, which updates the `AppEvents` global
+// and thereby notifies its observers. `MainWindowView` registers one such
+// observer in its constructor and drains the queue there, so nothing has
+// to poll flags from `render`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum AppEvent {
+    Navigate(ActivePage),
+    RefreshThemes,
+    ToggleSidebar,
+    ReloadUiTheme,
+}
+
+#[derive(Default)]
+pub struct AppEvents {
+    // Interior mutability so an observer can drain the queue through an
+    // immutable `cx.global()` read. Draining via `update_global` would
+    // notify the observer again and loop forever.
+    queue: RefCell<Vec<AppEvent>>,
+}
+
+impl Global for AppEvents {}
+
+impl AppEvents {
+    pub fn has_pending(cx: &App) -> bool {
+        cx.try_global::<AppEvents>()
+            .is_some_and(|events| !events.queue.borrow().is_empty())
+    }
+
+    pub fn drain(cx: &App) -> Vec<AppEvent> {
+        cx.try_global::<AppEvents>()
+            .map(|events| events.queue.take())
+            .unwrap_or_default()
+    }
+}
+
+pub fn emit(cx: &mut App, event: AppEvent) {
+    if !cx.has_global::<AppEvents>() {
+        cx.set_global(AppEvents::default());
+    }
+    cx.update_global::<AppEvents, _>(|events, _| events.queue.borrow_mut().push(event));
+}
+
+// For background tasks.
+pub fn emit_async(cx: &AsyncApp, event: AppEvent) {
+    cx.update_global::<AppEvents, _>(|events, _| events.queue.borrow_mut().push(event));
+}

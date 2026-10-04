@@ -1,3 +1,4 @@
+use crate::error::{Error, Result};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
@@ -46,7 +47,7 @@ layout switching continuation line
   altwin:meta_alt Left Alt is Meta key
 ";
 
-pub fn load_keyboard_catalog() -> Result<KeyboardCatalog, String> {
+pub fn load_keyboard_catalog() -> Result<KeyboardCatalog> {
     match parse_keyboard_catalog_from_path(Path::new(SYSTEM_BASE_LST)) {
         Ok(catalog)
             if !catalog.models.is_empty()
@@ -72,7 +73,7 @@ pub fn load_keyboard_catalog() -> Result<KeyboardCatalog, String> {
     }
 }
 
-fn fallback_keyboard_catalog() -> Result<KeyboardCatalog, String> {
+fn fallback_keyboard_catalog() -> Result<KeyboardCatalog> {
     parse_keyboard_catalog(FALLBACK_RULES).map_err(|err| {
         eprintln!(
             "Bundled fallback keyboard catalog failed to parse (this should not happen): {}",
@@ -82,17 +83,20 @@ fn fallback_keyboard_catalog() -> Result<KeyboardCatalog, String> {
     })
 }
 
-fn parse_keyboard_catalog_from_path(path: &Path) -> Result<KeyboardCatalog, String> {
+fn parse_keyboard_catalog_from_path(path: &Path) -> Result<KeyboardCatalog> {
     if !path.exists() {
-        return Err(format!("File not found: {}", path.display()));
+        return Err(Error::Invalid(format!(
+            "File not found: {}",
+            path.display()
+        )));
     }
 
     let contents = fs::read_to_string(path)
-        .map_err(|e| format!("Failed to read {}: {}", path.display(), e))?;
+        .map_err(|e| Error::io(format!("Failed to read {}", path.display()), e))?;
     parse_keyboard_catalog(&contents)
 }
 
-fn parse_keyboard_catalog(contents: &str) -> Result<KeyboardCatalog, String> {
+fn parse_keyboard_catalog(contents: &str) -> Result<KeyboardCatalog> {
     enum Section {
         None,
         Models,

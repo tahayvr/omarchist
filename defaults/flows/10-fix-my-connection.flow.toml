@@ -1,0 +1,30 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 1
+name = "Fix my connection"
+description = "Turns Wi-Fi, Bluetooth, and audio off and on again."
+icon = "wrench"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "omarchy-restart-wifi"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-restart-bluetooth"
+wait = true
+
+[[step]]
+type = "exec"
+command = "omarchy-restart-audio"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Connections restarted"
+body = "Wi-Fi, Bluetooth, and audio are back up"

@@ -1,11 +1,10 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::App;
-use gpui_component::{Theme, ThemeConfig};
+use gpui_component::{Theme, ThemeConfig, ThemeMode};
 use smol::Timer;
 
 use crate::system::themes::color_utils::{
@@ -14,30 +13,10 @@ use crate::system::themes::color_utils::{
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
-thread_local! {
-    pub static PENDING_UI_THEME_RELOAD: RefCell<bool> = const { RefCell::new(false) };
-}
-
-// the omarchy current theme directory:
-// `~/.config/omarchy/current/theme/`
-fn get_omarchy_current_theme_dir() -> Option<PathBuf> {
-    let home = dirs::home_dir()?;
-    Some(
-        home.join(".config")
-            .join("omarchy")
-            .join("current")
-            .join("theme"),
-    )
-}
-
-// `~/.config/omarchy/current/theme.name`
-fn get_active_omarchy_theme_name() -> Option<String> {
-    let home = dirs::home_dir()?;
-    let name_file = home
-        .join(".config")
-        .join("omarchy")
-        .join("current")
-        .join("theme.name");
+/// `~/.local/state/omarchy/current/theme.name`: the folder name of the
+/// theme Omarchy runs.
+pub fn get_active_omarchy_theme_name() -> Option<String> {
+    let name_file = crate::system::omarchy_paths::current_theme_name_file()?;
     let name = std::fs::read_to_string(&name_file).ok()?;
     let trimmed = name.trim().to_string();
     if trimmed.is_empty() {
@@ -47,9 +26,9 @@ fn get_active_omarchy_theme_name() -> Option<String> {
     }
 }
 
-// `~/.config/omarchy/current/theme/colors.toml`
+// `~/.local/state/omarchy/current/theme/colors.toml`
 fn get_colors_toml_path() -> Option<PathBuf> {
-    Some(get_omarchy_current_theme_dir()?.join("colors.toml"))
+    Some(crate::system::omarchy_paths::current_theme_dir()?.join("colors.toml"))
 }
 
 fn parse_colors_toml(path: &PathBuf) -> Option<HashMap<String, String>> {
@@ -337,7 +316,8 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
     })
 }
 
-// Loads the omarchy current theme from `colors.toml` and applies it to the UI.
+// Loads the omarchy current theme from `colors.toml` and applies it to the UI,
+// then the look the Settings page forces, if any.
 pub fn load_and_apply_omarchy_theme(cx: &mut App) {
     let theme_name = get_active_omarchy_theme_name().unwrap_or_else(|| "omarchy".to_string());
     if let Some(colors_path) = get_colors_toml_path()
@@ -354,29 +334,89 @@ pub fn load_and_apply_omarchy_theme(cx: &mut App) {
         Theme::change(mode, None, cx);
     }
     // If omarchy theme is unavailable, the embedded theme stays in effect.
+    apply_forced_mode(cx);
 }
 
-// Check the omarchy current theme directory every second.
+/// The Settings page can force light or dark regardless of the desktop
+/// theme (`theme_mode`); `omarchy` follows the theme. Every `Theme::change`
+/// re-applies the theme's own `font.size`, so the user's size is put back
+/// afterwards.
+pub fn apply_forced_mode(cx: &mut App) {
+    match crate::system::config::config_setup::settings()
+        .theme_mode
+        .as_str()
+    {
+        "light" => Theme::change(ThemeMode::Light, None, cx),
+        "dark" => Theme::change(ThemeMode::Dark, None, cx),
+        _ => {}
+    }
+    apply_font_size(cx);
+}
+
+/// The text size the Settings page holds, in pixels.
+pub fn font_size_px(size: &str) -> f32 {
+    match size {
+        "small" => 14.0,
+        "large" => 18.0,
+        _ => 16.0,
+    }
+}
+
+/// Applies the saved font size over whatever the theme config carries.
+pub fn apply_font_size(cx: &mut App) {
+    let size = crate::system::config::config_setup::settings().font_size;
+    Theme::global_mut(cx).font_size = gpui::px(font_size_px(&size));
+}
+
+/// The modification time of the user's themes folder: a theme created,
+/// renamed, installed or deleted by anything (the CLI, `omarchy theme
+/// install`, a file manager) changes it.
+fn user_themes_dir_modified() -> Option<std::time::SystemTime> {
+    let dir = crate::system::omarchy_paths::user_themes_dir()?;
+    std::fs::metadata(dir).and_then(|m| m.modified()).ok()
+}
+
+/// When the running theme's `colors.toml` last changed: editing the
+/// applied theme in the Designer and re-applying it rewrite the file
+/// without changing the theme's name.
+fn current_colors_modified() -> Option<std::time::SystemTime> {
+    let path = get_colors_toml_path()?;
+    std::fs::metadata(path).and_then(|m| m.modified()).ok()
+}
+
+// Check the omarchy current theme every second: a switch (or a re-apply
+// of the same theme) reloads the app's own look and moves the "Applied"
+// marker; a change to the themes folder refreshes the Themes page.
 pub fn spawn_ui_theme_watcher(cx: &mut App) {
     cx.spawn(async move |cx| {
         let mut last_theme_name: Option<String> = get_active_omarchy_theme_name();
+        let mut last_dir_modified = user_themes_dir_modified();
+        let mut last_colors_modified = current_colors_modified();
 
         loop {
             Timer::after(POLL_INTERVAL).await;
 
-            // Stop the loop if the app has shut down.
-            if cx.update(|_| {}).is_err() {
-                break;
-            }
-
             let current_theme_name = get_active_omarchy_theme_name();
+            let dir_modified = user_themes_dir_modified();
+            let colors_modified = current_colors_modified();
 
-            if current_theme_name != last_theme_name {
+            if current_theme_name != last_theme_name || colors_modified != last_colors_modified {
                 last_theme_name = current_theme_name;
-                PENDING_UI_THEME_RELOAD.with(|flag| {
-                    *flag.borrow_mut() = true;
-                });
-                let _ = cx.refresh();
+                last_colors_modified = colors_modified;
+                crate::ui::app_events::emit_async(
+                    cx,
+                    crate::ui::app_events::AppEvent::ReloadUiTheme,
+                );
+                crate::ui::app_events::emit_async(
+                    cx,
+                    crate::ui::app_events::AppEvent::RefreshThemes,
+                );
+            } else if dir_modified != last_dir_modified {
+                last_dir_modified = dir_modified;
+                crate::ui::app_events::emit_async(
+                    cx,
+                    crate::ui::app_events::AppEvent::RefreshThemes,
+                );
             }
         }
     })

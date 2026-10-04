@@ -4,17 +4,8 @@ outline: deep
 
 # Sharing Themes
 
-Theme sharing lets you export and import custom themes as `.omarchy` files. This feature is currently under development.
+Exporting and importing themes from the app is not available yet.
 
-::: info Coming Soon
-The import and export functionality is not yet available. Check back in a future release.
-:::
+To share a theme today, copy its folder from `~/.config/omarchy/themes/`. A copied folder works on any Omarchy Quattro machine.
 
-## Planned Features
-
-- **Export**: Save themes as `.omarchy` files for sharing.
-- **Import**: Import themes from `.omarchy` or `.json` files.
-- **Validation**: Automatic validation of imported theme files.
-- **Conflict Resolution**: Handle duplicate theme names on import.
-
-You can still create and edit custom themes today. Themes are saved in `~/.config/omarchy/themes/` and you can share them manually by copying the theme folders.
+If you share a theme as a git repository, people install it with `omarchy theme install`.
