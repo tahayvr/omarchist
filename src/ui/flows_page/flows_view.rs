@@ -19,7 +19,7 @@ use crate::system::flows::runner::run_in_thread;
 use crate::system::flows::store::{
     BrokenFlow, delete_flow, existing_ids, load_flows_with_broken, save_new_flow,
 };
-use crate::system::flows::templates::{Template, templates};
+use crate::system::flows::templates::{Template, save_user_template, templates};
 use crate::system::flows::{Flow, run_command_id, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -90,6 +90,10 @@ pub struct ExportFlow(pub usize);
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = flows, no_json)]
 pub struct FlowHistory(pub usize);
+
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct FlowAsTemplate(pub usize);
 
 /// When each flow last ran and how it ended, keyed by flow id.
 fn last_runs(flows: &[Flow]) -> HashMap<String, LastRun> {
@@ -591,6 +595,10 @@ impl FlowsView {
                                     .dropdown_menu(move |menu, _, _| {
                                         menu.menu("Run history", Box::new(FlowHistory(filtered_ix)))
                                             .menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
+                                            .menu(
+                                                "Save as template",
+                                                Box::new(FlowAsTemplate(filtered_ix)),
+                                            )
                                             .menu("Export…", Box::new(ExportFlow(filtered_ix)))
                                             .separator()
                                             .menu("Delete", Box::new(DeleteFlow(filtered_ix)))
@@ -812,6 +820,17 @@ impl Render for FlowsView {
             }))
             .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
                 this.export(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &FlowAsTemplate, window, cx| {
+                if let Some(flow) = this.flow_at(action.0) {
+                    let message = match save_user_template(flow) {
+                        Ok(false) => format!("Saved '{}' as a template", flow.name),
+                        Ok(true) => format!("Updated the template '{}'", flow.name),
+                        Err(e) => format!("Could not save the template: {e}"),
+                    };
+                    window.push_notification(message, cx);
+                    this.refresh(cx);
+                }
             }))
             .on_action(cx.listener(|this, action: &FlowHistory, window, cx| {
                 if let Some(flow) = this.flow_at(action.0) {

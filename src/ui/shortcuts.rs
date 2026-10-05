@@ -9,6 +9,7 @@ use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::flows_page::history_dialog::history_nav;
 use crate::ui::flows_page::step_builder::step_vars;
 use crate::ui::flows_page::step_picker::step_picker_nav;
+use crate::ui::flows_page::templates_view::templates_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::keybinds_page::keystroke_input;
@@ -1112,6 +1113,21 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowTemplatesPage"),
         FLOWS,
         "Back to Flows"
+    ),
+    // Escape in the search box clears it; once empty, it goes back.
+    shortcut!(
+        "escape",
+        templates_nav::ClearSearch,
+        Some("TemplatesSearch > Input"),
+        FLOWS,
+        "Clear the template search"
+    ),
+    shortcut!(
+        "delete",
+        templates_nav::DeleteTemplate,
+        Some("UserTemplate"),
+        FLOWS,
+        "Delete your template"
     ),
     shortcut!(
         "ctrl-s",

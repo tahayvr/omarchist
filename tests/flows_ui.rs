@@ -1687,3 +1687,70 @@ fn changes_to_the_flow_are_undone_and_redone(cx: &mut TestAppContext) {
     assert_eq!(can(cx), (true, false));
     assert!(edited_flow(cx, &view).triggers.launcher);
 }
+
+// MARK: Templates of your own
+
+use omarchist::system::flows::templates::template;
+use omarchist::ui::flows_page::flow_edit_view::flow_edit_nav::SaveAsTemplate;
+
+#[gpui_kit::test]
+fn a_flow_becomes_a_template_and_the_template_can_be_deleted(cx: &mut TestAppContext) {
+    let toml = THREE_STEPS
+        .replace("ui-three-steps", "ui-keeper")
+        .replace("UI three steps", "UI keeper");
+    assert!(
+        toml.contains("UI keeper"),
+        "the test flow is named in its file"
+    );
+    write_flow("ui-keeper", &toml);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-keeper".into()));
+
+    with(cx, handle, |window, cx| {
+        window.dispatch_action(Box::new(SaveAsTemplate), cx);
+    });
+    settle(cx, handle);
+    let saved = template("user:ui-keeper").expect("the template was written");
+    assert!(saved.flow.id.is_empty(), "a template has no id");
+    assert_eq!(saved.flow.steps, edited_flow(cx, &view).steps);
+
+    // The Templates page lists it first, under the search.
+    with(cx, handle, |window, cx| {
+        window.clear_notifications(cx);
+        omarchist::ui::app_events::emit(
+            cx,
+            omarchist::ui::app_events::AppEvent::Navigate(ActivePage::FlowTemplates),
+        );
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("templates-search").focused(), Some(true));
+        window.input("ui keeper", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find(("user-template", 0usize)).visible());
+        assert!(
+            window.try_find(("built-in-template", 0usize)).is_none(),
+            "the search narrows both groups"
+        );
+        window.click(("template-delete", 0usize), cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("confirm-dialog").visible());
+        window.click("confirm-ok", cx);
+    });
+    settle(cx, handle);
+    assert!(template("user:ui-keeper").is_none());
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find(("user-template", 0usize)).is_none());
+        assert!(window.find("templates-none").visible());
+        // Escape clears the search, and the built-in ones are back.
+        window.press("escape", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(window.find(("built-in-template", 0usize)).visible());
+    });
+    common::assert_page(cx, &view, ActivePage::FlowTemplates);
+}

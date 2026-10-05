@@ -165,6 +165,8 @@ pub fn template_card(
         .flex_1()
         .min_w(px(240.))
         .h_auto()
+        // A short card in a row of taller ones keeps its text at the top.
+        .items_start()
         .p_4()
         .cursor_pointer()
         .child(

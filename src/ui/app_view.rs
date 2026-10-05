@@ -340,7 +340,7 @@ impl MainWindowView {
                 // the page reloads on every visit.
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
-                    let view = cx.new(TemplatesView::new);
+                    let view = cx.new(|cx| TemplatesView::new(window, cx));
                     self.flow_templates_root =
                         Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
                     self.flow_templates_view = Some(view);

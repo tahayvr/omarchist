@@ -9,7 +9,7 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 <img src="/images/flows-light.webp" alt="Flows page" class="screenshot light-only">
 <img src="/images/flows-dark.webp" alt="Flows page" class="screenshot dark-only">
 
-Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates, exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
+Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates it, saves it as a [template](#your-own-templates), exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
 **New flow** starts a blank flow. **Templates**, next to it, opens the starter flows and your own templates. Its arrow offers **From scratch**, **From template**, and **Import flow**. The **Flows** menu in the title bar has the same three from any page, plus **Run** for every saved flow.
 
@@ -67,7 +67,7 @@ A flow can be given something to work on: words on the command line, piped text,
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships thirty built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow to start new flows from. Omarchist ships thirty built-in ones, and you can keep your own. **Templates** on the Flows page opens them all; picking one opens it in the editor as a new, unsaved flow. Type in the search box to find one by its name or description.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -104,6 +104,14 @@ A template is a flow file without an id. Omarchist ships thirty built-in ones; y
 | **Archive files** | Packs the files you start it on into one archive in your home folder. Made for the **Files menu**. |
 | **Low battery** | Switches to power saver, dims the screen, and tells you. Made for the battery [automation](/flows/automations). |
 | **Headphones on** | Sets a comfortable volume when your headphones connect. Made for the Bluetooth automation. |
+
+### Your own templates
+
+To keep a flow as a template, choose **Save as template** from the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu of the editor or of the flow's card. The template takes the flow's steps, name, description, and icon. It leaves out the keybind, the launcher entry, and the automations, which belong to the flow you made it from.
+
+Your templates appear first on the Templates page, under **Yours**. Saving a flow of the same name again updates the template. The trash button on a template, or <kbd>Delete</kbd> with the keyboard on it, removes it; flows you made from it stay.
+
+Templates are `<name>.flow.toml` files in `~/.config/omarchist/templates/`, the same format as a [shared flow](#sharing-flows), so you can also copy an exported flow there.
 
 The templates that change settings set things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 

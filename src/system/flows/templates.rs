@@ -8,8 +8,8 @@ use std::path::PathBuf;
 use crate::assets::DefaultAssets;
 use crate::error::{Error, Result};
 
-use super::share::SHARED_SUFFIX;
-use super::{Flow, is_slug, parse_flow};
+use super::share::{SHARED_SUFFIX, export_toml};
+use super::{Flow, is_slug, parse_flow, slug};
 
 const BUILT_IN_DIR: &str = "flows/";
 /// Keys of user templates start with this, so they never collide with a
@@ -66,6 +66,48 @@ pub fn template(key: &str) -> Option<Template> {
             user_template(&path).ok()
         }
         None => built_in_templates().into_iter().find(|t| t.key == key),
+    }
+}
+
+/// Saves `flow` as one of the user's templates, in a file named after
+/// it, and says whether a template of that name was there already: saving
+/// under the same name again is how a template is updated. Like a shared
+/// file, a template carries no id and no triggers.
+pub fn save_user_template(flow: &Flow) -> Result<bool> {
+    save_template_in(&user_templates_dir()?, flow)
+}
+
+fn save_template_in(dir: &std::path::Path, flow: &Flow) -> Result<bool> {
+    flow.validate_content()?;
+    let stem = slug(&flow.name);
+    if stem.is_empty() {
+        return Err(Error::Invalid(
+            "A template's name needs a letter or a digit".to_string(),
+        ));
+    }
+    fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create the templates folder", e))?;
+    let path = dir.join(format!("{stem}{SHARED_SUFFIX}"));
+    let replaced = path.exists();
+    crate::system::fs::write_atomic(&path, export_toml(flow)?, "the template")?;
+    Ok(replaced)
+}
+
+/// Deletes one of the user's templates by its key. A built-in one cannot
+/// be deleted: it is part of the program.
+pub fn delete_user_template(key: &str) -> Result<()> {
+    delete_template_in(&user_templates_dir()?, key)
+}
+
+fn delete_template_in(dir: &std::path::Path, key: &str) -> Result<()> {
+    let stem = key
+        .strip_prefix(USER_KEY_PREFIX)
+        .filter(|stem| is_slug(stem))
+        .ok_or_else(|| Error::Invalid("Only your own templates can be deleted".to_string()))?;
+    let path = dir.join(format!("{stem}{SHARED_SUFFIX}"));
+    match fs::remove_file(path) {
+        Ok(()) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
+        Err(e) => Err(Error::io("Failed to delete the template", e)),
     }
 }
 
@@ -190,6 +232,39 @@ mod tests {
                 .validate_content()
                 .unwrap_or_else(|e| panic!("template {} is invalid: {e}", template.key));
         }
+    }
+
+    #[test]
+    fn a_flow_saved_as_a_template_loses_its_id_and_triggers() {
+        let dir = std::env::temp_dir().join(format!("omarchist-templates-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let mut flow = Flow::new("morning".into(), "Morning Start!".into());
+        flow.steps = vec![super::super::Step::new(super::super::StepKind::Wait {
+            ms: 5,
+        })];
+        flow.triggers.launcher = true;
+
+        assert!(!save_template_in(&dir, &flow).unwrap());
+        let path = dir.join("morning-start.flow.toml");
+        let template = user_template(&path).unwrap();
+        assert_eq!(template.key, "user:morning-start");
+        assert!(template.flow.id.is_empty());
+        assert_eq!(template.flow.triggers, Default::default());
+        assert_eq!(template.flow.steps, flow.steps);
+        // Saving under the same name again replaces it.
+        assert!(save_template_in(&dir, &flow).unwrap());
+
+        // Only a key of the user's own names a file to delete.
+        assert!(delete_template_in(&dir, "morning-start").is_err());
+        assert!(delete_template_in(&dir, "user:../morning-start").is_err());
+        assert!(path.exists());
+        delete_template_in(&dir, "user:morning-start").unwrap();
+        assert!(!path.exists());
+        delete_template_in(&dir, "user:morning-start").unwrap();
+
+        flow.name = "***".into();
+        assert!(save_template_in(&dir, &flow).is_err());
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]

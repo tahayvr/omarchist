@@ -29,7 +29,7 @@ use crate::system::flows::share::Imported;
 use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
 };
-use crate::system::flows::templates::template;
+use crate::system::flows::templates::{save_user_template, template};
 use crate::system::flows::{
     Flow, ICONS, InputFallback, OnError, Step, StepKind, StepPath, unique_id, vars,
 };
@@ -92,6 +92,7 @@ pub mod flow_edit_nav {
             TestStep,
             Undo,
             Redo,
+            SaveAsTemplate,
             Export,
         ]
     );
@@ -635,6 +636,23 @@ impl FlowEditPage {
         }
         let name = self.name.read(cx).value().trim().to_string();
         open_history_dialog(&self.flow.id, &name, window, cx);
+    }
+
+    /// Keeps the flow as it is in the editor, saved or not, as a template
+    /// of the user's own.
+    fn save_as_template(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let flow = self.current(cx);
+        if flow.name.is_empty() {
+            window.push_notification("Give the flow a name first", cx);
+            self.focus_entry(window, cx);
+            return;
+        }
+        let message = match save_user_template(&flow) {
+            Ok(false) => format!("Saved '{}' as a template", flow.name),
+            Ok(true) => format!("Updated the template '{}'", flow.name),
+            Err(e) => format!("Could not save the template: {e}"),
+        };
+        window.push_notification(message, cx);
     }
 
     // MARK: Sharing
@@ -1235,7 +1253,10 @@ impl FlowEditPage {
                     .icon(Icon::new(Icon::empty()).path("icons/ellipsis-vertical.svg"))
                     .tooltip("More")
                     .cursor_pointer()
-                    .dropdown_menu(|menu, _, _| menu.menu("Export…", Box::new(Export))),
+                    .dropdown_menu(|menu, _, _| {
+                        menu.menu("Save as template", Box::new(SaveAsTemplate))
+                            .menu("Export…", Box::new(Export))
+                    }),
             )
     }
 
@@ -1607,6 +1628,11 @@ impl Render for FlowEditPage {
             .on_action(cx.listener(|this, _: &Export, window, cx| this.export(window, cx)))
             .on_action(
                 cx.listener(|this, _: &ShowHistory, window, cx| this.show_history(window, cx)),
+            )
+            .on_action(
+                cx.listener(|this, _: &SaveAsTemplate, window, cx| {
+                    this.save_as_template(window, cx)
+                }),
             )
             .on_action(cx.listener(|this, _: &Undo, window, cx| this.undo(false, window, cx)))
             .on_action(cx.listener(|this, _: &Redo, window, cx| this.undo(true, window, cx)))
