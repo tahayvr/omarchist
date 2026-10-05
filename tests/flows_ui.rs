@@ -1614,3 +1614,76 @@ fn a_step_alone_fails_on_a_value_typed_for_it(cx: &mut TestAppContext) {
         assert!(window.try_find(("step-result", 1usize)).is_none());
     });
 }
+
+// MARK: Undo
+
+#[gpui_kit::test]
+fn changes_to_the_flow_are_undone_and_redone(cx: &mut TestAppContext) {
+    write_flow("ui-three-steps", THREE_STEPS);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-three-steps".into()));
+    let original = edited_flow(cx, &view);
+    let editor = common::editor(cx, &view);
+    let can = |cx: &mut TestAppContext| cx.update(|cx| editor.read(cx).can_undo_redo());
+    assert_eq!(can(cx), (false, false));
+
+    // Three changes: a step removed, a step switched off, a switch.
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 2usize), cx);
+        window.press("delete", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 1usize), cx);
+        window.press("space", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| window.click("flow-on-error", cx));
+    settle(cx, handle);
+    let changed = edited_flow(cx, &view);
+    assert_eq!(changed.steps.len(), 2);
+    assert!(!changed.steps[0].enabled);
+    assert_ne!(changed.on_error, original.on_error);
+
+    // Back one at a time, newest first.
+    assert_eq!(can(cx), (true, false));
+    with(cx, handle, |window, cx| window.press("ctrl-z", cx));
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(flow.on_error, original.on_error);
+    assert!(!flow.steps[0].enabled);
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-z", cx);
+        window.press("ctrl-z", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(edited_flow(cx, &view), original);
+    with(cx, handle, |window, _| {
+        assert!(window.find(("flow-step", 3usize)).visible());
+    });
+    assert_eq!(can(cx), (false, true));
+    assert!(
+        !cx.update(|cx| editor.read(cx).is_dirty(cx)),
+        "back at what was saved, nothing is unsaved"
+    );
+
+    // And forward again, by the button and by the key.
+    with(cx, handle, |window, cx| window.click("flow-redo", cx));
+    settle(cx, handle);
+    assert_eq!(edited_flow(cx, &view).steps.len(), 2);
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-shift-z", cx);
+        window.press("ctrl-y", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(edited_flow(cx, &view), changed);
+
+    // A new change after an undo leaves nothing to redo.
+    with(cx, handle, |window, cx| window.press("ctrl-z", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click("flow-trigger-launcher", cx)
+    });
+    settle(cx, handle);
+    assert_eq!(can(cx), (true, false));
+    assert!(edited_flow(cx, &view).triggers.launcher);
+}

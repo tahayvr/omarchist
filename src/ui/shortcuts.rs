@@ -1149,6 +1149,27 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Run history"
     ),
     shortcut!(
+        "ctrl-z",
+        flow_edit_nav::Undo,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Undo a change to the flow"
+    ),
+    shortcut!(
+        "ctrl-shift-z",
+        flow_edit_nav::Redo,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Redo"
+    ),
+    shortcut!(
+        "ctrl-y",
+        flow_edit_nav::Redo,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Redo"
+    ),
+    shortcut!(
         "up",
         flow_edit_nav::StepUp,
         Some("FlowSteps"),

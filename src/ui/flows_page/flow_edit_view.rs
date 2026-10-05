@@ -54,6 +54,7 @@ use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::flows_page::test_step_dialog::{
     TestStepDialog, TestStepEvent, open_test_step_dialog,
 };
+use crate::ui::flows_page::undo::UndoStack;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybind_dialog::{
@@ -89,6 +90,8 @@ pub mod flow_edit_nav {
             ExpandStep,
             ShowHistory,
             TestStep,
+            Undo,
+            Redo,
             Export,
         ]
     );
@@ -134,6 +137,8 @@ pub struct FlowEditPage {
     baseline: Flow,
     /// The user chose to leave without saving; nothing counts as unsaved.
     discarded: bool,
+    /// The changes that can be taken back.
+    undo: UndoStack,
     name: Entity<InputState>,
     description: Entity<InputState>,
     icon_focus: FocusHandle,
@@ -228,6 +233,9 @@ impl FlowEditPage {
                     cx.notify();
                 }
             }),
+            // Every change to the flow ends in a notify, so looking at the
+            // flow here records each as one step to undo.
+            cx.observe_self(|this, _| this.undo.track(&this.flow)),
         ];
 
         let mut page = Self {
@@ -236,6 +244,7 @@ impl FlowEditPage {
             rounds: HashMap::new(),
             collapsed: HashSet::new(),
             selected_bounds: Rc::new(Cell::new(Bounds::default())),
+            undo: UndoStack::new(&flow),
             flow,
             baseline,
             discarded: false,
@@ -505,6 +514,26 @@ impl FlowEditPage {
             }
         })
         .detach();
+    }
+
+    /// Whether there is a change to take back, and one to make again.
+    pub fn can_undo_redo(&self) -> (bool, bool) {
+        (self.undo.can_undo(), self.undo.can_redo())
+    }
+
+    /// Takes the last change to the flow back, or makes it again.
+    fn undo(&mut self, redo: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refuse_while_running(window, cx) {
+            return;
+        }
+        let changed = if redo {
+            self.undo.redo(&mut self.flow)
+        } else {
+            self.undo.undo(&mut self.flow)
+        };
+        if changed {
+            self.touch_steps(cx);
+        }
     }
 
     /// Stops the run after the current step; a command being waited for
@@ -1134,6 +1163,34 @@ impl FlowEditPage {
                         )
                     }),
             )
+            .child(
+                h_flex()
+                    .gap_0p5()
+                    .child(
+                        Button::new("flow-undo")
+                            .ghost()
+                            .compact()
+                            .disabled(!self.undo.can_undo())
+                            .icon(Icon::new(Icon::empty()).path("icons/undo-2.svg"))
+                            .tooltip_with_action("Undo", &Undo, Some(KEY_CONTEXT))
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.undo(false, window, cx)),
+                            ),
+                    )
+                    .child(
+                        Button::new("flow-redo")
+                            .ghost()
+                            .compact()
+                            .disabled(!self.undo.can_redo())
+                            .icon(Icon::new(Icon::empty()).path("icons/redo-2.svg"))
+                            .tooltip_with_action("Redo", &Redo, Some(KEY_CONTEXT))
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.undo(true, window, cx)),
+                            ),
+                    ),
+            )
             .when(!self.is_new(), |this| {
                 this.child(
                     Button::new("flow-history")
@@ -1551,6 +1608,8 @@ impl Render for FlowEditPage {
             .on_action(
                 cx.listener(|this, _: &ShowHistory, window, cx| this.show_history(window, cx)),
             )
+            .on_action(cx.listener(|this, _: &Undo, window, cx| this.undo(false, window, cx)))
+            .on_action(cx.listener(|this, _: &Redo, window, cx| this.undo(true, window, cx)))
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| this.add_step(window, cx)))
             .child(self.render_header(cx))
