@@ -28,7 +28,10 @@ Give the flow a name, a description, and an icon, then press **Add step** (<kbd>
 | **Flow** | Another flow, run to completion first. A flow cannot run itself. |
 | **Command** | Any shell command. |
 | **Wait** | Pauses for a number of milliseconds (up to ten minutes), for example to let a window appear. |
-| **Notify** | Shows a desktop notification. |
+| **Notify** | Shows a desktop notification, which can copy or open something when you click it. |
+| **Ask for text**, **Choose from a list**, **Confirm**, **Pick a file**, **Pick a folder** | Stops and asks you. See [Steps that ask](/flows/asking). |
+
+**Add step** opens a list of every kind of step, grouped and searchable: type a few letters and press <kbd>Enter</kbd>, or move with the arrow keys. **Change** in a step's form goes back to the list.
 
 A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
 
@@ -54,7 +57,7 @@ The id comes from the flow's name and never changes, so renaming a flow breaks n
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships fourteen built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow file without an id. Omarchist ships eighteen built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -75,6 +78,10 @@ A template is a flow file without an id. Omarchist ships fourteen built-in ones;
 | **Daily note** | Opens today's note (`~/Notes/<date>.md`) in your editor, creating it the first time. |
 | **Clipboard log** | Adds what you copied to `~/clipboard-log.txt`, with the date and time, and shows it. |
 | **Where am I** | Shows the app, window and workspace you are on. |
+| **Quick note** | Asks for a line and adds it to `~/Notes/inbox.md`. Click the notification to open the file. Uses [steps that ask](/flows/asking). |
+| **Close an app** | Lists the apps that are open and closes the one you pick, after you confirm. |
+| **Wallpaper from a file** | Lets you pick a picture and sets it as your wallpaper. |
+| **Empty the trash** | Asks first, then empties the trash. |
 
 Each built-in template sets things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 
@@ -121,7 +128,7 @@ title = "Focus mode"
 body = "Everything else can wait"
 ```
 
-- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
-- `format` is the file layout version. Omarchist writes format 1 unless the flow uses variables, which need format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
+- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), `flow` (`id`), and the [steps that ask](/flows/asking#in-the-flow-file). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
+- `format` is the file layout version. Omarchist writes format 1 unless the flow uses something newer (variables, steps that ask), which needs format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
 - `[meta]` is optional: `author`, `version`, `homepage`, `tags`, `requires` (programs the flow expects), and `source` (the URL it was imported from).
 - A file without an `id` takes its file name as the id, so `night-shift.toml` or `night-shift.flow.toml` copied in just works.

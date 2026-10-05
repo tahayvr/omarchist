@@ -1,4 +1,5 @@
-//! The dialog that adds or edits one step of a flow.
+//! The dialog that adds or edits one step of a flow. Adding starts on the
+//! list of step types; picking one shows its form.
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -9,6 +10,7 @@ use gpui_component::{
 
 use crate::system::flows::StepKind;
 use crate::ui::flows_page::step_builder::{StepBuilder, StepBuilderEvent};
+use crate::ui::flows_page::step_picker::{StepPicker, StepPickerEvent};
 use crate::ui::focus;
 use crate::ui::text::selectable;
 
@@ -25,12 +27,22 @@ pub enum StepDialogEvent {
     Cancel,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Stage {
+    /// Choosing what kind of step to add.
+    Pick,
+    /// Filling in the step.
+    Form,
+}
+
 pub struct StepDialog {
     mode: StepDialogMode,
+    stage: Stage,
+    picker: Entity<StepPicker>,
     builder: Entity<StepBuilder>,
     error: Option<String>,
     body_focus: FocusHandle,
-    _subscription: Subscription,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl EventEmitter<StepDialogEvent> for StepDialog {}
@@ -47,21 +59,70 @@ impl StepDialog {
     ) -> Self {
         let builder =
             cx.new(|cx| StepBuilder::new(initial, output, saved, exclude_flow, window, cx));
-        let subscription = cx.subscribe(&builder, |this, _, event: &StepBuilderEvent, cx| {
-            let StepBuilderEvent::Changed = event;
-            this.error = None;
-            cx.notify();
-        });
+        let picker = cx.new(|cx| StepPicker::new(window, cx));
+        let subscriptions = vec![
+            cx.subscribe_in(
+                &builder,
+                window,
+                |this, _, event: &StepBuilderEvent, window, cx| match event {
+                    StepBuilderEvent::Changed => {
+                        this.error = None;
+                        cx.notify();
+                    }
+                    StepBuilderEvent::ChangeType => {
+                        this.stage = Stage::Pick;
+                        this.error = None;
+                        this.picker
+                            .update(cx, |picker, cx| picker.focus_search(window, cx));
+                        cx.notify();
+                    }
+                },
+            ),
+            cx.subscribe_in(
+                &picker,
+                window,
+                |this, _, event: &StepPickerEvent, window, cx| {
+                    let StepPickerEvent::Picked(choice) = event;
+                    this.stage = Stage::Form;
+                    this.builder.update(cx, |builder, cx| {
+                        builder.set_choice(*choice, window, cx);
+                        builder.focus_first(window, cx);
+                    });
+                    cx.notify();
+                },
+            ),
+        ];
         Self {
             mode,
+            stage: match mode {
+                StepDialogMode::Add => Stage::Pick,
+                StepDialogMode::Edit(_) => Stage::Form,
+            },
+            picker,
             builder,
             error: None,
             body_focus: cx.focus_handle(),
-            _subscription: subscription,
+            _subscriptions: subscriptions,
+        }
+    }
+
+    /// Puts the keyboard where the dialog starts: the search box when
+    /// adding, the step's first field when editing.
+    fn focus_start(&self, window: &mut Window, cx: &mut App) {
+        match self.stage {
+            Stage::Pick => self
+                .picker
+                .update(cx, |picker, cx| picker.focus_search(window, cx)),
+            Stage::Form => self
+                .builder
+                .update(cx, |builder, cx| builder.focus_first(window, cx)),
         }
     }
 
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.stage == Stage::Pick {
+            return;
+        }
         let builder = self.builder.read(cx);
         match builder
             .step(cx)
@@ -86,6 +147,7 @@ impl Render for StepDialog {
             StepDialogMode::Add => "Add step",
             StepDialogMode::Edit(_) => "Save step",
         };
+        let picking = self.stage == Stage::Pick;
         let view = cx.entity();
         focus::dialog_body("step-dialog", &self.body_focus, move |window, cx| {
             view.update(cx, |this, cx| this.save(window, cx));
@@ -93,7 +155,11 @@ impl Render for StepDialog {
         .child(
             v_flex()
                 .gap_4()
-                .child(self.builder.clone())
+                .child(if picking {
+                    self.picker.clone().into_any_element()
+                } else {
+                    self.builder.clone().into_any_element()
+                })
                 .when_some(self.error.clone(), |this, error| {
                     this.child(
                         div()
@@ -122,14 +188,18 @@ impl Render for StepDialog {
                                     window.close_dialog(cx);
                                 })),
                         )
-                        .child(
-                            Button::new("step-save")
-                                .primary()
-                                .small()
-                                .label(save_label)
-                                .cursor_pointer()
-                                .on_click(cx.listener(|this, _, window, cx| this.save(window, cx))),
-                        ),
+                        .when(!picking, |this| {
+                            this.child(
+                                Button::new("step-save")
+                                    .primary()
+                                    .small()
+                                    .label(save_label)
+                                    .cursor_pointer()
+                                    .on_click(
+                                        cx.listener(|this, _, window, cx| this.save(window, cx)),
+                                    ),
+                            )
+                        }),
                 ),
         )
     }
@@ -152,7 +222,6 @@ pub fn open_step_dialog(
     let dialog =
         cx.new(|cx| StepDialog::new(mode, initial, output, saved, exclude_flow, window, cx));
     let view = dialog.clone();
-    let body_focus = dialog.read(cx).body_focus.clone();
     window.open_dialog(cx, move |d, window, _| {
         let on_close_view = view.clone();
         d.title(title)
@@ -166,6 +235,9 @@ pub fn open_step_dialog(
             })
             .child(view.clone())
     });
-    focus::focus_first_in(&body_focus, window, cx);
+    let start = dialog.clone();
+    window.on_next_frame(move |window, cx| {
+        start.update(cx, |dialog, cx| dialog.focus_start(window, cx));
+    });
     dialog
 }

@@ -7,32 +7,38 @@ use std::time::{Duration, Instant};
 
 use crate::error::{Error, Result};
 
+use super::prompt::{Desktop, Prompter};
 use super::store::load_flow;
 use super::vars::Vars;
-use super::{Flow, MAX_DEPTH, OnError, Step, StepKind};
+use super::{Flow, MAX_DEPTH, OnClick, OnError, Step, StepKind, StepPath};
+
+/// How one step ended.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum StepStatus {
+    /// With what the step produced, when it produces anything.
+    Done(Option<String>),
+    Failed(String),
+    /// The person dismissed a prompt, which ends the flow without an error.
+    Cancelled,
+}
 
 /// Progress of one top-level run. Nested flows report as a single step of
 /// their parent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunEvent {
-    Started {
-        index: usize,
-    },
-    Finished {
-        index: usize,
-        error: Option<String>,
-        /// What the step produced, when it produces anything.
-        output: Option<String>,
-    },
+    Started { path: StepPath },
+    Finished { path: StepPath, status: StepStatus },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Outcome {
     /// Steps that ran (enabled ones, up to where the flow stopped).
     pub ran: usize,
-    pub failures: Vec<(usize, String)>,
+    pub failures: Vec<(StepPath, String)>,
     /// The step the flow stopped at, when `OnError::Stop` cut it short.
-    pub stopped_at: Option<usize>,
+    pub stopped_at: Option<StepPath>,
+    /// A prompt was dismissed, so the flow ended early on purpose.
+    pub cancelled: bool,
     /// The output of the last step that produced one; what a nested flow
     /// hands back to the step that ran it.
     pub last_output: Option<String>,
@@ -45,13 +51,14 @@ impl Outcome {
 
     /// One line for a toast or the command line.
     pub fn summary(&self, flow: &Flow) -> String {
-        match (self.failures.as_slice(), self.stopped_at) {
+        match (self.failures.as_slice(), &self.stopped_at) {
+            ([], _) if self.cancelled => format!("Flow '{}' cancelled", flow.name),
             ([], _) => format!("Flow '{}' finished", flow.name),
-            ([(index, error)], Some(_)) => {
+            ([(path, error)], Some(_)) => {
                 format!(
                     "Flow '{}' stopped at step {}: {error}",
                     flow.name,
-                    index + 1
+                    flow.step_number(path)
                 )
             }
             (failures, _) => format!(
@@ -116,7 +123,37 @@ impl Cancel {
     pub fn is_cancelled(&self) -> bool {
         self.stop.load(Ordering::SeqCst)
     }
+
+    /// Names the child a Stop should kill. A Stop that came before the pid
+    /// was known killed nothing, so it is applied now.
+    pub(crate) fn watch(&self, pid: u32) {
+        self.child.store(pid, Ordering::SeqCst);
+        if self.is_cancelled() {
+            self.kill_child();
+        }
+    }
+
+    pub(crate) fn unwatch(&self) {
+        self.child.store(0, Ordering::SeqCst);
+    }
 }
+
+/// Why a flow ends before its last step.
+enum Halt {
+    Failed(String),
+    /// A prompt was dismissed.
+    Cancelled,
+}
+
+impl From<Error> for Halt {
+    fn from(error: Error) -> Self {
+        Halt::Failed(error.to_string())
+    }
+}
+
+/// The choices a `confirm` step offers.
+const CONTINUE: &str = "Continue";
+const CANCEL: &str = "Cancel";
 
 /// How long a command that is not waited for gets to fail before it counts
 /// as started: enough for `sh` to report a missing program.
@@ -129,6 +166,8 @@ pub struct Runner<'a> {
     cancel: Cancel,
     /// How long a command that is not waited for gets to fail.
     start_grace: Duration,
+    /// Answers the steps that ask.
+    prompter: &'a dyn Prompter,
 }
 
 impl<'a> Runner<'a> {
@@ -139,6 +178,7 @@ impl<'a> Runner<'a> {
             quiet,
             cancel: Cancel::new(),
             start_grace: START_GRACE,
+            prompter: &Desktop,
         }
     }
 
@@ -148,7 +188,15 @@ impl<'a> Runner<'a> {
             quiet,
             cancel: Cancel::new(),
             start_grace: START_GRACE,
+            prompter: &Desktop,
         }
+    }
+
+    /// Answers the steps that ask through `prompter` instead of the
+    /// desktop's menus.
+    pub fn prompter(mut self, prompter: &'a dyn Prompter) -> Self {
+        self.prompter = prompter;
+        self
     }
 
     /// A longer grace for tests on a loaded machine.
@@ -182,32 +230,44 @@ impl<'a> Runner<'a> {
             if !step.enabled {
                 continue;
             }
+            let path: StepPath = vec![index];
             if self.cancel.is_cancelled() {
-                outcome.stopped_at = Some(index);
+                outcome.stopped_at = Some(path);
                 break;
             }
-            on_event(RunEvent::Started { index });
-            let result = self
-                .run_step(step, &mut vars, stack)
-                .map_err(|e| e.to_string());
+            on_event(RunEvent::Started { path: path.clone() });
+            let result = self.run_step(step, &mut vars, stack);
             outcome.ran += 1;
-            let output = result.as_ref().ok().cloned().flatten();
-            if let Some(output) = &output {
-                if let Some(name) = &step.output {
-                    vars.set(name, output);
+            let status = match result {
+                Ok(output) => {
+                    if let Some(output) = &output {
+                        if let Some(name) = &step.output {
+                            vars.set(name, output);
+                        }
+                        outcome.last_output = Some(output.clone());
+                    }
+                    StepStatus::Done(output)
                 }
-                outcome.last_output = Some(output.clone());
-            }
+                Err(Halt::Cancelled) => StepStatus::Cancelled,
+                Err(Halt::Failed(error)) => StepStatus::Failed(error),
+            };
             on_event(RunEvent::Finished {
-                index,
-                error: result.as_ref().err().cloned(),
-                output,
+                path: path.clone(),
+                status: status.clone(),
             });
-            if let Err(error) = result {
-                outcome.failures.push((index, error));
-                if flow.on_error == OnError::Stop {
-                    outcome.stopped_at = Some(index);
+            match status {
+                StepStatus::Done(_) => {}
+                StepStatus::Cancelled => {
+                    outcome.cancelled = true;
+                    outcome.stopped_at = Some(path);
                     break;
+                }
+                StepStatus::Failed(error) => {
+                    outcome.failures.push((path.clone(), error));
+                    if flow.on_error == OnError::Stop {
+                        outcome.stopped_at = Some(path);
+                        break;
+                    }
                 }
             }
         }
@@ -221,18 +281,90 @@ impl<'a> Runner<'a> {
         step: &Step,
         vars: &mut Vars,
         stack: &mut Vec<String>,
-    ) -> Result<Option<String>> {
+    ) -> std::result::Result<Option<String>, Halt> {
         match &step.kind {
             StepKind::Exec { command, wait } => {
                 let (command, env) = vars.shell(command)?;
-                self.exec(&command, &env, *wait)
+                Ok(self.exec(&command, &env, *wait)?)
             }
-            StepKind::Lua { expr } => dispatch(&vars.lua(expr)?).map(|()| None),
-            StepKind::Wait { ms } => self.wait(Duration::from_millis(*ms)).map(|()| None),
-            StepKind::Notify { title, body } => {
-                notify(&vars.text(title)?, &vars.text(body)?).map(|()| None)
+            StepKind::Lua { expr } => {
+                dispatch(&vars.lua(expr)?)?;
+                Ok(None)
+            }
+            StepKind::Wait { ms } => {
+                self.wait(Duration::from_millis(*ms))?;
+                Ok(None)
+            }
+            StepKind::Notify {
+                title,
+                body,
+                on_click,
+                target,
+            } => {
+                let title = vars.text(title)?;
+                let body = vars.text(body)?;
+                let click = match on_click {
+                    Some(action) => {
+                        let target = vars.text(target)?;
+                        // Without a target the notification acts on what
+                        // it shows.
+                        let target = [target, body.clone(), title.clone()]
+                            .into_iter()
+                            .find(|t| !t.trim().is_empty())
+                            .unwrap_or_default();
+                        Some((*action, target.trim().to_string()))
+                    }
+                    None => None,
+                };
+                notify(&title, &body, click)?;
+                Ok(None)
             }
             StepKind::Flow { id } => self.run_flow_step(id, stack),
+            StepKind::Ask { prompt } => {
+                let prompt = vars.text(prompt)?;
+                self.prompter
+                    .ask(&prompt, &self.cancel)?
+                    .map(Some)
+                    .ok_or(Halt::Cancelled)
+            }
+            StepKind::Choose {
+                prompt,
+                options,
+                from,
+            } => {
+                let prompt = vars.text(prompt)?;
+                let options = if options.iter().any(|o| !o.trim().is_empty()) {
+                    options
+                        .iter()
+                        .map(|o| vars.text(o))
+                        .collect::<Result<Vec<String>>>()?
+                } else {
+                    vars.text(from)?.lines().map(str::to_string).collect()
+                };
+                let options = super::prompt::menu_options(&options);
+                if options.is_empty() {
+                    return Err(Halt::Failed("There is nothing to choose from".to_string()));
+                }
+                self.prompter
+                    .choose(&prompt, &options, &self.cancel)?
+                    .map(Some)
+                    .ok_or(Halt::Cancelled)
+            }
+            StepKind::Confirm { prompt } => {
+                let prompt = vars.text(prompt)?;
+                let options = [CONTINUE.to_string(), CANCEL.to_string()];
+                match self.prompter.choose(&prompt, &options, &self.cancel)? {
+                    Some(answer) if answer == CONTINUE => Ok(None),
+                    _ => Err(Halt::Cancelled),
+                }
+            }
+            StepKind::Pick { prompt, folder } => {
+                let prompt = vars.text(prompt)?;
+                self.prompter
+                    .pick(&prompt, *folder)?
+                    .map(Some)
+                    .ok_or(Halt::Cancelled)
+            }
         }
     }
 
@@ -282,15 +414,11 @@ impl<'a> Runner<'a> {
             .map_err(|e| Error::io("Could not start the command", e))?;
 
         if wait {
-            self.cancel.child.store(child.id(), Ordering::SeqCst);
-            // A Stop that came before the pid was known killed nothing.
-            if self.cancel.is_cancelled() {
-                self.cancel.kill_child();
-            }
+            self.cancel.watch(child.id());
             let output = child
                 .wait_with_output()
                 .map_err(|e| Error::io("Could not wait for the command", e));
-            self.cancel.child.store(0, Ordering::SeqCst);
+            self.cancel.unwatch();
             let output = output?;
             if self.cancel.is_cancelled() {
                 return Err(Error::Invalid("Stopped".to_string()));
@@ -339,15 +467,19 @@ impl<'a> Runner<'a> {
     }
 
     /// Runs a nested flow; its output is the output of its last step that
-    /// produced one.
-    fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> Result<Option<String>> {
+    /// produced one. A prompt dismissed inside it ends this flow too.
+    fn run_flow_step(
+        &self,
+        id: &str,
+        stack: &mut Vec<String>,
+    ) -> std::result::Result<Option<String>, Halt> {
         if stack.iter().any(|s| s == id) {
-            return Err(Error::Invalid(format!(
+            return Err(Halt::Failed(format!(
                 "Flow '{id}' is already running further up this flow"
             )));
         }
         if stack.len() >= MAX_DEPTH {
-            return Err(Error::Invalid(format!(
+            return Err(Halt::Failed(format!(
                 "Flows are nested more than {MAX_DEPTH} deep"
             )));
         }
@@ -355,10 +487,12 @@ impl<'a> Runner<'a> {
         stack.push(nested.id.clone());
         let outcome = self.run_nested(&nested, stack, &mut |_| {});
         stack.pop();
-        if outcome.is_ok() {
+        if outcome.cancelled {
+            Err(Halt::Cancelled)
+        } else if outcome.is_ok() {
             Ok(outcome.last_output)
         } else {
-            Err(Error::Invalid(outcome.summary(&nested)))
+            Err(Halt::Failed(outcome.summary(&nested)))
         }
     }
 }
@@ -424,13 +558,42 @@ fn dispatch(expr: &str) -> Result<()> {
     }
 }
 
-fn notify(title: &str, body: &str) -> Result<()> {
-    let mut cmd = Command::new("notify-send");
-    // `--` keeps a title such as "-t 5 minutes" from being read as options.
-    cmd.args(["-a", "Omarchist", "--", title.trim()]);
-    if !body.trim().is_empty() {
-        cmd.arg(body.trim());
-    }
+/// A plain notification goes through `notify-send`. One that does
+/// something when clicked goes through Omarchy's own sender, whose
+/// `--exec` takes the click command as separate words, so the target is
+/// only ever one argument of it.
+fn notify(title: &str, body: &str, click: Option<(OnClick, String)>) -> Result<()> {
+    let mut cmd = match &click {
+        None => {
+            let mut cmd = Command::new("notify-send");
+            // `--` keeps a title such as "-t 5 minutes" from being read as options.
+            cmd.args(["-a", "Omarchist", "--", title.trim()]);
+            if !body.trim().is_empty() {
+                cmd.arg(body.trim());
+            }
+            cmd
+        }
+        Some((action, target)) => {
+            let mut cmd = Command::new("omarchy-notification-send");
+            cmd.args(["--app-name", "Omarchist", "-u", "normal"]);
+            // The script reads a leading dash as one of its options.
+            let title = title.trim();
+            if title.starts_with('-') {
+                cmd.arg(format!("\u{200b}{title}"));
+            } else {
+                cmd.arg(title);
+            }
+            if !body.trim().is_empty() {
+                cmd.arg(body.trim());
+            }
+            cmd.arg("--exec");
+            match action {
+                OnClick::Copy => cmd.args(["wl-copy", "--", target]),
+                OnClick::Open => cmd.args(["xdg-open", &expand_home(target)]),
+            };
+            cmd
+        }
+    };
     let status = cmd
         .stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -440,7 +603,17 @@ fn notify(title: &str, body: &str) -> Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(Error::Invalid("notify-send failed".to_string()))
+        Err(Error::Invalid(
+            "The notification could not be sent".to_string(),
+        ))
+    }
+}
+
+/// `~/notes` as a full path; `xdg-open` gets no shell to expand it.
+fn expand_home(target: &str) -> String {
+    match (target.strip_prefix("~/"), dirs::home_dir()) {
+        (Some(rest), Some(home)) => home.join(rest).display().to_string(),
+        _ => target.to_string(),
     }
 }
 
@@ -449,6 +622,7 @@ mod tests {
     use super::*;
     use crate::error::Error;
     use crate::system::flows::Step;
+    use crate::system::flows::prompt::Prompter;
 
     /// A waited-for command, so its exit status reaches the outcome.
     fn exec(command: &str) -> Step {
@@ -474,16 +648,15 @@ mod tests {
         flow.steps = vec![exec("true"), exec("exit 3"), exec("true")];
         let (outcome, seen) = events(&flow, &no_flows);
         assert_eq!(outcome.ran, 2);
-        assert_eq!(outcome.stopped_at, Some(1));
+        assert_eq!(outcome.stopped_at, Some(vec![1]));
         assert_eq!(outcome.failures.len(), 1);
         assert!(outcome.failures[0].1.contains("status 3"));
         assert_eq!(seen.len(), 4);
         assert_eq!(
             seen[3],
             RunEvent::Finished {
-                index: 1,
-                error: Some("The command exited with status 3".into()),
-                output: None,
+                path: vec![1],
+                status: StepStatus::Failed("The command exited with status 3".into()),
             }
         );
         assert!(outcome.summary(&flow).contains("stopped at step 2"));
@@ -508,9 +681,8 @@ mod tests {
         // The value arrived intact (13 bytes), never run as a command.
         assert_eq!(outcome.last_output.as_deref().map(str::trim), Some("13"));
         assert!(seen.contains(&RunEvent::Finished {
-            index: 0,
-            error: None,
-            output: Some("a b; $(false)".into()),
+            path: vec![0],
+            status: StepStatus::Done(Some("a b; $(false)".into())),
         }));
     }
 
@@ -573,7 +745,7 @@ mod tests {
         assert_eq!(outcome.failures.len(), 1);
         assert!(
             seen.iter()
-                .all(|e| !matches!(e, RunEvent::Started { index: 1 }))
+                .all(|e| *e != RunEvent::Started { path: vec![1] })
         );
         assert!(outcome.summary(&flow).contains("1 failed step"));
     }
@@ -597,7 +769,7 @@ mod tests {
         let runner = Runner::with_loader(&no_flows, true).start_grace(Duration::from_secs(1));
         let outcome = runner.run(&flow, &mut |_| {});
         assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
-        assert_eq!(outcome.failures[0].0, 0);
+        assert_eq!(outcome.failures[0].0, vec![0]);
         assert!(
             outcome.failures[0].1.contains("not found"),
             "{}",
@@ -637,7 +809,7 @@ mod tests {
         let outcome = runner.run(&flow, &mut |_| {});
         assert!(started.elapsed() < Duration::from_secs(4));
         assert_eq!(outcome.ran, 1);
-        assert_eq!(outcome.stopped_at, Some(0));
+        assert_eq!(outcome.stopped_at, Some(vec![0]));
         assert!(outcome.failures[0].1.contains("Stopped"));
 
         let mut flow = Flow::new("w".into(), "W".into());
@@ -648,6 +820,207 @@ mod tests {
             .cancellable(cancel)
             .run(&flow, &mut |_| {});
         assert_eq!(outcome.ran, 0);
+    }
+
+    /// Answers from a script instead of the desktop: `None` dismisses.
+    struct Scripted {
+        answers: std::sync::Mutex<Vec<Option<String>>>,
+        asked: std::sync::Mutex<Vec<String>>,
+    }
+
+    impl Scripted {
+        fn new(answers: &[Option<&str>]) -> Self {
+            Self {
+                answers: std::sync::Mutex::new(
+                    answers
+                        .iter()
+                        .rev()
+                        .map(|a| a.map(str::to_string))
+                        .collect(),
+                ),
+                asked: std::sync::Mutex::new(Vec::new()),
+            }
+        }
+
+        fn next(&self, what: String) -> Result<Option<String>> {
+            self.asked.lock().unwrap().push(what);
+            Ok(self.answers.lock().unwrap().pop().flatten())
+        }
+
+        fn asked(&self) -> Vec<String> {
+            self.asked.lock().unwrap().clone()
+        }
+    }
+
+    impl Prompter for Scripted {
+        fn ask(&self, prompt: &str, _: &Cancel) -> Result<Option<String>> {
+            self.next(format!("ask {prompt}"))
+        }
+
+        fn choose(&self, prompt: &str, options: &[String], _: &Cancel) -> Result<Option<String>> {
+            self.next(format!("choose {prompt}: {}", options.join("|")))
+        }
+
+        fn pick(&self, prompt: &str, folder: bool) -> Result<Option<String>> {
+            self.next(format!("pick {prompt} folder={folder}"))
+        }
+    }
+
+    #[test]
+    fn answers_become_outputs_for_later_steps() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(
+                Step::new(StepKind::Ask {
+                    prompt: "Name?".into(),
+                }),
+                "name",
+            ),
+            saving(
+                Step::new(StepKind::Choose {
+                    prompt: "Size for {{name}}".into(),
+                    options: vec!["Small".into(), "Large".into()],
+                    from: String::new(),
+                }),
+                "size",
+            ),
+            saving(exec("printf 'a\\nb\\n'"), "lines"),
+            saving(
+                Step::new(StepKind::Choose {
+                    prompt: "Line".into(),
+                    options: Vec::new(),
+                    from: "{{lines}}".into(),
+                }),
+                "line",
+            ),
+            saving(
+                Step::new(StepKind::Pick {
+                    prompt: String::new(),
+                    folder: true,
+                }),
+                "dir",
+            ),
+            Step::new(StepKind::Confirm {
+                prompt: "Go?".into(),
+            }),
+            exec("test \"{{name}} {{size}} {{line}} {{dir}}\" = 'Ada Large b /tmp'"),
+        ];
+        let prompts = Scripted::new(&[
+            Some("Ada"),
+            Some("Large"),
+            Some("b"),
+            Some("/tmp"),
+            Some("Continue"),
+        ]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert!(!outcome.cancelled);
+        assert_eq!(outcome.ran, 7);
+        assert_eq!(
+            prompts.asked(),
+            vec![
+                "ask Name?",
+                "choose Size for Ada: Small|Large",
+                "choose Line: a|b",
+                "pick  folder=true",
+                "choose Go?: Continue|Cancel",
+            ]
+        );
+    }
+
+    #[test]
+    fn dismissing_a_prompt_ends_the_flow_without_a_failure() {
+        for cancelled_step in [
+            Step::new(StepKind::Ask {
+                prompt: "Name?".into(),
+            }),
+            Step::new(StepKind::Confirm {
+                prompt: "Go?".into(),
+            }),
+        ] {
+            let mut flow = Flow::new("t".into(), "T".into());
+            flow.steps = vec![exec("true"), cancelled_step, exec("exit 7")];
+            let prompts = Scripted::new(&[None]);
+            let mut seen = Vec::new();
+            let outcome = Runner::with_loader(&no_flows, true)
+                .prompter(&prompts)
+                .run(&flow, &mut |e| seen.push(e));
+            assert!(outcome.is_ok(), "a dismissed prompt is not a failure");
+            assert!(outcome.cancelled);
+            assert_eq!(outcome.ran, 2, "the step after the prompt never ran");
+            assert_eq!(
+                seen.last(),
+                Some(&RunEvent::Finished {
+                    path: vec![1],
+                    status: StepStatus::Cancelled,
+                })
+            );
+            assert_eq!(outcome.summary(&flow), "Flow 'T' cancelled");
+        }
+    }
+
+    #[test]
+    fn a_confirm_answered_cancel_ends_the_flow() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            Step::new(StepKind::Confirm {
+                prompt: "Go?".into(),
+            }),
+            exec("exit 7"),
+        ];
+        let prompts = Scripted::new(&[Some("Cancel")]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.cancelled && outcome.is_ok());
+    }
+
+    #[test]
+    fn a_prompt_dismissed_in_a_nested_flow_ends_the_parent_too() {
+        let mut child = Flow::new("child".into(), "Child".into());
+        child.steps = vec![Step::new(StepKind::Ask {
+            prompt: "Name?".into(),
+        })];
+        let load = move |id: &str| -> Result<Flow> {
+            if id == "child" {
+                Ok(child.clone())
+            } else {
+                Err(Error::Invalid(format!("no flow {id}")))
+            }
+        };
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            Step::new(StepKind::Flow { id: "child".into() }),
+            exec("exit 7"),
+        ];
+        let prompts = Scripted::new(&[None]);
+        let outcome = Runner::with_loader(&load, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.cancelled && outcome.is_ok());
+        assert_eq!(outcome.ran, 1);
+    }
+
+    #[test]
+    fn choosing_from_an_empty_list_fails_the_step() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(exec("true"), "nothing"),
+            Step::new(StepKind::Choose {
+                prompt: "Pick".into(),
+                options: Vec::new(),
+                from: "{{nothing}}".into(),
+            }),
+        ];
+        let prompts = Scripted::new(&[]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert_eq!(outcome.failures.len(), 1);
+        assert!(outcome.failures[0].1.contains("nothing to choose"));
+        assert!(prompts.asked().is_empty());
     }
 
     #[test]
@@ -669,7 +1042,7 @@ mod tests {
         ];
         let (outcome, _) = events(&outer, &loader);
         assert_eq!(outcome.failures.len(), 1);
-        assert_eq!(outcome.failures[0].0, 1);
+        assert_eq!(outcome.failures[0].0, vec![1]);
         assert!(outcome.failures[0].1.contains("already running"));
 
         outer.steps = vec![Step::new(StepKind::Flow {

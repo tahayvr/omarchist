@@ -14,6 +14,7 @@ Two kinds of step produce output:
 | --- | --- |
 | **Command** with **Wait until it finishes** on | What the command prints (its standard output). |
 | **Flow** | The output of the last step in that flow that produced one. |
+| **Ask for text**, **Choose from a list**, **Pick a file**, **Pick a folder** | Your answer. See [Steps that ask](/flows/asking). |
 
 Edit the step and type a name in **Save output as**, for example `url`. The step list shows the name next to the step as a small token.
 
@@ -21,10 +22,11 @@ A name starts with a letter and can contain letters, digits, spaces, `-` and `_`
 
 ## Use a variable
 
-Type `{{name}}` in a step's text field, or pick a variable from the **Insert** row under the fields: with the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. Outside the text field, Omarchist shows each variable as a token with its name, such as **Clipboard** or **url**. You can use variables in:
+Type `{{name}}` in a step's text field, or pick a variable from the **Insert** row under the fields; it goes where your cursor was. With the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. Outside the text field, Omarchist shows each variable as a token with its name, such as **Clipboard** or **url**. You can use variables in:
 
 - a **Command**, **Terminal**, or **Web app** step,
-- a **Notify** step's title and message,
+- a **Notify** step's title, message, and what it copies or opens,
+- the question of a step that asks, and the options of **Choose from a list**,
 - a **Window** step, inside a quoted value.
 
 A step can use the built-in variables and any name a step **before** it saves. If you move or delete steps so that a step uses a name nothing before it saves, the step list warns you, and the flow cannot be saved until you fix it.

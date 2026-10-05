@@ -1,17 +1,22 @@
-//! The controls that assemble one flow step: the keybind action builder's
-//! kinds plus the flow-only Wait and Notify.
+//! The form that assembles one flow step. The keybind action builder
+//! edits the kinds a keybind can also run (apps, Omarchy and window
+//! actions, flows, commands); the flow-only kinds have their forms here.
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, Sizable,
+    ActiveTheme, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState, NumberInput},
+    input::{Input, InputEvent, InputState, NumberInput, Position, Textarea, TextareaState},
     v_flex,
 };
 
-use crate::system::flows::{StepKind, format_duration, vars};
+use gpui_kit::TestSupportExt;
+
+use crate::system::flows::{OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::action::{Action, ActionKind};
+use crate::ui::flows_page::step_picker::icon_tile;
+use crate::ui::flows_page::step_types::StepChoice;
 use crate::ui::flows_page::var_token;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
@@ -20,6 +25,8 @@ use crate::ui::text::selectable;
 
 pub enum StepBuilderEvent {
     Changed,
+    /// Back to the list of step types.
+    ChangeType,
 }
 
 /// The row of variables a step can use: one tab stop, arrows pick, Enter
@@ -30,66 +37,77 @@ pub mod step_vars {
     gpui::actions!(step_vars, [Prev, Next, Insert]);
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum StepChoice {
-    Action(ActionKind),
-    Wait,
-    Notify,
-}
-
-impl StepChoice {
-    pub const ALL: [StepChoice; 9] = [
-        StepChoice::Action(ActionKind::App),
-        StepChoice::Action(ActionKind::WebApp),
-        StepChoice::Action(ActionKind::Terminal),
-        StepChoice::Action(ActionKind::Omarchy),
-        StepChoice::Action(ActionKind::Window),
-        StepChoice::Action(ActionKind::Flow),
-        StepChoice::Action(ActionKind::Command),
-        StepChoice::Wait,
-        StepChoice::Notify,
-    ];
-
-    fn label(self) -> &'static str {
-        match self {
-            StepChoice::Action(kind) => kind.label(),
-            StepChoice::Wait => "Wait",
-            StepChoice::Notify => "Notify",
-        }
-    }
-
-    fn icon_path(self) -> &'static str {
-        match self {
-            StepChoice::Action(kind) => kind.icon_path(),
-            StepChoice::Wait => "icons/hourglass.svg",
-            StepChoice::Notify => "icons/bell.svg",
-        }
-    }
-}
-
 /// Ten minutes: long enough for anything a flow waits for.
 const MAX_WAIT_MS: u64 = 600_000;
 
 const WAIT_PRESETS: [u64; 4] = [500, 1000, 2000, 5000];
 
+/// One [`StepBuilder::segmented`] row: its choices, the current one, and
+/// what picking another does.
+struct Segmented<'a, T> {
+    id: &'static str,
+    handle: &'a FocusHandle,
+    choices: Vec<(T, &'static str)>,
+    current: T,
+    set: fn(&mut StepBuilder, T, &mut Context<StepBuilder>),
+}
+
+/// A text field of the form that takes `{{variables}}`.
+#[derive(Clone)]
+enum Field {
+    Line(Entity<InputState>),
+    Area(Entity<TextareaState>),
+}
+
+impl Field {
+    /// Puts `text` where the cursor was and gives the field the keyboard.
+    fn insert(&self, text: &str, window: &mut Window, cx: &mut App) {
+        match self {
+            Field::Line(input) => input.update(cx, |input, cx| {
+                input.insert(text.to_string(), window, cx);
+                input.focus(window, cx);
+            }),
+            Field::Area(input) => input.update(cx, |input, cx| {
+                input.insert(text.to_string(), window, cx);
+                input.focus(window, cx);
+            }),
+        }
+    }
+}
+
 pub struct StepBuilder {
     choice: StepChoice,
-    kind_focus: FocusHandle,
     action: Entity<ActionBuilder>,
     /// Wait for the command to exit before the next step.
     wait: bool,
     wait_ms: Entity<InputState>,
     notify_title: Entity<InputState>,
     notify_body: Entity<InputState>,
+    notify_target: Entity<InputState>,
+    on_click: Option<OnClick>,
+    click_focus: FocusHandle,
+    /// The question of an Ask, Choose or Confirm step, and the title of a
+    /// file chooser.
+    prompt: Entity<InputState>,
+    /// A Choose step's options, one per line.
+    options: Entity<TextareaState>,
+    /// A Choose step's list as text to split into lines.
+    from: Entity<InputState>,
+    /// Whether the Choose step takes its list from `from`.
+    from_variable: bool,
+    source_focus: FocusHandle,
     /// "Save output as": the name later steps use as `{{name}}`.
     output_name: Entity<InputState>,
     /// What this step can use: built-ins, then names earlier steps save.
     variables: Vec<String>,
-    /// The notification field a variable goes into: the one last focused.
-    notify_body_last: bool,
+    /// Names earlier steps save, which a default name must not repeat.
+    saved: Vec<String>,
+    /// The field a picked variable goes into: the one focused last.
+    target: Option<Field>,
     variables_focus: FocusHandle,
     /// The variable the keyboard is on in the row.
     variable_ix: usize,
+    back_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -115,20 +133,41 @@ impl StepBuilder {
                 builder.exclude_flow(id, window, cx);
             }
         });
-        let choice = match initial {
-            Some(StepKind::Wait { .. }) => StepChoice::Wait,
-            Some(StepKind::Notify { .. }) => StepChoice::Notify,
-            _ => StepChoice::Action(action.read(cx).kind()),
-        };
+        let choice = initial
+            .and_then(StepChoice::of)
+            .unwrap_or_else(|| StepChoice::Action(action.read(cx).kind()));
         let wait = matches!(initial, Some(StepKind::Exec { wait: true, .. }));
-        let (wait_value, title_value, body_value) = match initial {
-            Some(StepKind::Wait { ms }) => (ms.to_string(), String::new(), String::new()),
-            Some(StepKind::Notify { title, body }) => {
-                (String::from("1000"), title.clone(), body.clone())
+
+        let mut wait_value = String::from("1000");
+        let (mut title, mut body, mut target, mut on_click) =
+            (String::new(), String::new(), String::new(), None);
+        let (mut prompt, mut options, mut from) = (String::new(), String::new(), String::new());
+        match initial {
+            Some(StepKind::Wait { ms }) => wait_value = ms.to_string(),
+            Some(StepKind::Notify {
+                title: t,
+                body: b,
+                on_click: c,
+                target: g,
+            }) => {
+                (title, body, target, on_click) = (t.clone(), b.clone(), g.clone(), *c);
             }
-            _ => (String::from("1000"), String::new(), String::new()),
-        };
-        let text = |window: &mut Window, cx: &mut Context<Self>, placeholder: &str, value: &str| {
+            Some(StepKind::Ask { prompt: p }) | Some(StepKind::Confirm { prompt: p }) => {
+                prompt = p.clone()
+            }
+            Some(StepKind::Pick { prompt: p, .. }) => prompt = p.clone(),
+            Some(StepKind::Choose {
+                prompt: p,
+                options: o,
+                from: f,
+            }) => {
+                (prompt, options, from) = (p.clone(), o.join("\n"), f.clone());
+            }
+            _ => {}
+        }
+        let from_variable = options.trim().is_empty() && !from.trim().is_empty();
+
+        let line = |window: &mut Window, cx: &mut Context<Self>, placeholder: &str, value: &str| {
             cx.new(|cx| {
                 InputState::new(window, cx)
                     .placeholder(placeholder.to_string())
@@ -145,9 +184,17 @@ impl StepBuilder {
                 .min(1.)
                 .max(MAX_WAIT_MS as f64)
         });
-        let notify_title = text(window, cx, "Title", &title_value);
-        let notify_body = text(window, cx, "Message (optional)", &body_value);
-        let output_name = text(window, cx, "Name, such as url", output.unwrap_or_default());
+        let notify_title = line(window, cx, "Title", &title);
+        let notify_body = line(window, cx, "Message (optional)", &body);
+        let notify_target = line(window, cx, "The message", &target);
+        let prompt = line(window, cx, "", &prompt);
+        let from = line(window, cx, "Text with one option per line", &from);
+        let options = cx.new(|cx| {
+            TextareaState::new(window, cx)
+                .placeholder("One option per line")
+                .default_value(options)
+        });
+        let output_name = line(window, cx, "Name, such as url", output.unwrap_or_default());
         let variables: Vec<String> = vars::BUILTINS
             .iter()
             .map(|(name, _)| name.to_string())
@@ -162,7 +209,7 @@ impl StepBuilder {
                 this.changed(cx);
             },
         )];
-        for input in [&wait_ms, &notify_title, &notify_body, &output_name] {
+        for input in [&wait_ms, &output_name] {
             subscriptions.push(cx.subscribe_in(
                 input,
                 window,
@@ -173,42 +220,122 @@ impl StepBuilder {
                 },
             ));
         }
-
-        for (input, body) in [(&notify_title, false), (&notify_body, true)] {
+        // Fields that take variables remember being focused, so a variable
+        // picked from the row lands in the one the person was typing in.
+        for input in [&notify_title, &notify_body, &notify_target, &prompt, &from] {
+            let field = Field::Line(input.clone());
             subscriptions.push(cx.subscribe_in(
                 input,
                 window,
-                move |this, _, event: &InputEvent, _window, _cx| {
-                    if matches!(event, InputEvent::Focus) {
-                        this.notify_body_last = body;
-                    }
+                move |this, _, event: &InputEvent, _window, cx| match event {
+                    InputEvent::Change => this.changed(cx),
+                    InputEvent::Focus => this.target = Some(field.clone()),
+                    _ => {}
                 },
             ));
         }
+        let field = Field::Area(options.clone());
+        subscriptions.push(cx.subscribe_in(
+            &options,
+            window,
+            move |this, _, event: &InputEvent, _window, cx| match event {
+                InputEvent::Change => this.changed(cx),
+                InputEvent::Focus => this.target = Some(field.clone()),
+                _ => {}
+            },
+        ));
 
         Self {
             choice,
-            kind_focus: focus::tab_stop(cx),
             action,
             wait,
             wait_ms,
             notify_title,
             notify_body,
+            notify_target,
+            on_click,
+            click_focus: focus::tab_stop(cx),
+            prompt,
+            options,
+            from,
+            from_variable,
+            source_focus: focus::tab_stop(cx),
             output_name,
             variables,
-            notify_body_last: false,
+            saved: saved.to_vec(),
+            target: None,
             variables_focus: focus::tab_stop(cx),
             variable_ix: 0,
+            back_focus: focus::tab_stop(cx),
             _subscriptions: subscriptions,
         }
     }
 
-    /// Whether the step being built produces output to save: a command
-    /// the flow waits for, or another flow.
+    pub fn choice(&self) -> StepChoice {
+        self.choice
+    }
+
+    /// Switches the form to `choice`, as picked from the list of step
+    /// types. A kind whose answer is its whole point starts with a name to
+    /// save it under.
+    pub fn set_choice(&mut self, choice: StepChoice, window: &mut Window, cx: &mut Context<Self>) {
+        self.choice = choice;
+        self.target = None;
+        if let StepChoice::Action(kind) = choice {
+            self.action
+                .update(cx, |builder, cx| builder.set_kind(kind, cx));
+        }
+        if let Some(base) = choice.default_output()
+            && self.output_name.read(cx).value().trim().is_empty()
+        {
+            let name = (1..)
+                .map(|n| {
+                    if n == 1 {
+                        base.to_string()
+                    } else {
+                        format!("{base} {n}")
+                    }
+                })
+                .find(|name| !self.saved.contains(name))
+                .unwrap_or_else(|| base.to_string());
+            self.output_name
+                .update(cx, |input, cx| input.set_value(name, window, cx));
+        }
+        self.changed(cx);
+    }
+
+    /// Puts the keyboard on the form's first control, past the Change
+    /// button, with the caret after any text already there.
+    pub fn focus_first(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let field = match self.choice {
+            StepChoice::Notify => &self.notify_title,
+            StepChoice::Ask
+            | StepChoice::Choose
+            | StepChoice::Confirm
+            | StepChoice::PickFile
+            | StepChoice::PickFolder => &self.prompt,
+            StepChoice::Wait => &self.wait_ms,
+            StepChoice::Action(_) => {
+                self.back_focus.focus(window, cx);
+                window.on_next_frame(|window, cx| window.focus_next(cx));
+                return;
+            }
+        };
+        field.update(cx, |input, cx| {
+            let end = input.value().encode_utf16().count() as u32;
+            input.set_cursor_position(Position::new(0, end), window, cx);
+        });
+    }
+
+    /// Whether the step being built produces output to save.
     fn produces_output(&self) -> bool {
         match self.choice {
             StepChoice::Action(ActionKind::Command) => self.wait,
             StepChoice::Action(ActionKind::Flow) => true,
+            StepChoice::Ask
+            | StepChoice::Choose
+            | StepChoice::PickFile
+            | StepChoice::PickFolder => true,
             _ => false,
         }
     }
@@ -227,8 +354,8 @@ impl StepBuilder {
         }
         if vars::is_builtin(&name) {
             return Err(format!(
-                "{{{{{}}}}} is a built-in variable; pick another name",
-                vars::normalize(&name)
+                "{} is a built-in variable; pick another name",
+                var_token::describe(&name).0
             ));
         }
         Ok(Some(vars::normalize(&name)))
@@ -237,62 +364,42 @@ impl StepBuilder {
     /// Whether the current kind has a text field a variable can go into.
     fn takes_variables(&self, cx: &App) -> bool {
         match self.choice {
-            StepChoice::Notify => true,
             StepChoice::Action(_) => self.action.read(cx).accepts_variables(),
             StepChoice::Wait => false,
+            _ => true,
+        }
+    }
+
+    /// The field a variable goes into when none was focused yet.
+    fn default_target(&self) -> Option<Field> {
+        match self.choice {
+            StepChoice::Notify => Some(Field::Line(self.notify_title.clone())),
+            StepChoice::Choose if self.from_variable => Some(Field::Line(self.from.clone())),
+            StepChoice::Ask
+            | StepChoice::Choose
+            | StepChoice::Confirm
+            | StepChoice::PickFile
+            | StepChoice::PickFolder => Some(Field::Line(self.prompt.clone())),
+            _ => None,
         }
     }
 
     fn insert_variable(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         let text = format!("{{{{{name}}}}}");
-        match self.choice {
-            StepChoice::Notify => {
-                let input = if self.notify_body_last {
-                    self.notify_body.clone()
-                } else {
-                    self.notify_title.clone()
-                };
-                input.update(cx, |input, cx| {
-                    let current = input.value().to_string();
-                    let sep = if current.is_empty() || current.ends_with(' ') {
-                        ""
-                    } else {
-                        " "
-                    };
-                    input.set_value(format!("{current}{sep}{text}"), window, cx);
-                    input.focus(window, cx);
-                });
-                self.changed(cx);
-            }
-            StepChoice::Action(_) => self
-                .action
-                .update(cx, |builder, cx| builder.append_to_field(&text, window, cx)),
-            StepChoice::Wait => {}
+        if let StepChoice::Action(_) = self.choice {
+            self.action
+                .update(cx, |builder, cx| builder.insert_in_field(&text, window, cx));
+            return;
+        }
+        if let Some(field) = self.target.clone().or_else(|| self.default_target()) {
+            field.insert(&text, window, cx);
+            self.changed(cx);
         }
     }
 
     fn changed(&mut self, cx: &mut Context<Self>) {
         cx.emit(StepBuilderEvent::Changed);
         cx.notify();
-    }
-
-    fn set_choice(&mut self, choice: StepChoice, cx: &mut Context<Self>) {
-        if self.choice == choice {
-            return;
-        }
-        self.choice = choice;
-        if let StepChoice::Action(kind) = choice {
-            self.action
-                .update(cx, |builder, cx| builder.set_kind(kind, cx));
-        }
-        self.changed(cx);
-    }
-
-    fn cycle_choice(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let all = StepChoice::ALL;
-        let ix = all.iter().position(|c| *c == self.choice).unwrap_or(0) as isize;
-        let next = (ix + delta).rem_euclid(all.len() as isize) as usize;
-        self.set_choice(all[next], cx);
     }
 
     fn wait_value(&self, cx: &App) -> Result<u64, String> {
@@ -308,17 +415,26 @@ impl StepBuilder {
     }
 
     /// The step the controls currently describe, or why they don't: a
-    /// field that is not filled in, or a `{{name}}` this step cannot use.
+    /// field that is not filled in, or a variable this step cannot use.
     pub fn step(&self, cx: &App) -> Result<StepKind, String> {
         let kind = self.kind(cx)?;
         for name in kind.references() {
             if !self.variables.contains(&name) {
                 return Err(format!(
-                    "{{{{{name}}}}} is not a variable here: no earlier step saves it"
+                    "Nothing before this step saves {}",
+                    var_token::describe(&name).0
                 ));
             }
         }
         Ok(kind)
+    }
+
+    fn question(&self, cx: &App) -> Result<String, String> {
+        let prompt = self.prompt.read(cx).value().trim().to_string();
+        if prompt.is_empty() {
+            return Err("Enter the question".into());
+        }
+        Ok(prompt)
     }
 
     fn kind(&self, cx: &App) -> Result<StepKind, String> {
@@ -343,72 +459,155 @@ impl StepBuilder {
                 Ok(StepKind::Notify {
                     title,
                     body: self.notify_body.read(cx).value().trim().to_string(),
+                    on_click: self.on_click,
+                    target: match self.on_click {
+                        Some(_) => self.notify_target.read(cx).value().trim().to_string(),
+                        None => String::new(),
+                    },
                 })
             }
+            StepChoice::Ask => Ok(StepKind::Ask {
+                prompt: self.question(cx)?,
+            }),
+            StepChoice::Confirm => Ok(StepKind::Confirm {
+                prompt: self.question(cx)?,
+            }),
+            StepChoice::Choose => {
+                let prompt = self.question(cx)?;
+                if self.from_variable {
+                    let from = self.from.read(cx).value().trim().to_string();
+                    if from.is_empty() {
+                        return Err("Pick the variable that holds the options".into());
+                    }
+                    return Ok(StepKind::Choose {
+                        prompt,
+                        options: Vec::new(),
+                        from,
+                    });
+                }
+                let options: Vec<String> = self
+                    .options
+                    .read(cx)
+                    .value()
+                    .lines()
+                    .map(|line| line.trim().to_string())
+                    .filter(|line| !line.is_empty())
+                    .collect();
+                if options.is_empty() {
+                    return Err("Enter the options, one per line".into());
+                }
+                Ok(StepKind::Choose {
+                    prompt,
+                    options,
+                    from: String::new(),
+                })
+            }
+            StepChoice::PickFile | StepChoice::PickFolder => Ok(StepKind::Pick {
+                prompt: self.prompt.read(cx).value().trim().to_string(),
+                folder: self.choice == StepChoice::PickFolder,
+            }),
         }
     }
 
     // MARK: Render
 
-    fn render_choices(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let focused = self.kind_focus.is_focused(window);
-        let ring = focus::focus_border(focused, cx.theme().transparent, cx);
-        let border = cx.theme().border;
+    fn label(text: &'static str) -> Div {
+        div().text_sm().child(text)
+    }
+
+    fn field(label: &'static str, control: impl IntoElement) -> Div {
+        v_flex().gap_1().child(Self::label(label)).child(control)
+    }
+
+    /// The step's kind, with the way back to the list of kinds.
+    fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let info = self.choice.info();
+        let _ = window;
         h_flex()
-            .id("step-kinds")
-            .key_context(FILTERS_CONTEXT)
-            .track_focus(&self.kind_focus)
-            .on_action(
-                cx.listener(|this, _: &keybinds_nav::FilterPrev, _, cx| this.cycle_choice(-1, cx)),
+            .gap_2()
+            .items_center()
+            .child(icon_tile(info.icon, info.group.accent(cx), px(28.), cx))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .font_weight(FontWeight::MEDIUM)
+                    .truncate()
+                    .child(info.label),
             )
-            .on_action(
-                cx.listener(|this, _: &keybinds_nav::FilterNext, _, cx| this.cycle_choice(1, cx)),
-            )
-            .rounded(cx.theme().radius)
-            .border_1()
-            .border_color(ring)
-            .p_0p5()
-            .gap_1()
-            .flex_wrap()
-            .children(
-                StepChoice::ALL
-                    .iter()
-                    .enumerate()
-                    .flat_map(|(ix, &choice)| {
-                        let button = Button::new(("step-kind", ix))
-                            .icon(Icon::new(Icon::empty()).path(choice.icon_path()))
-                            .label(choice.label())
-                            .small()
-                            .tab_stop(false)
-                            .cursor_pointer();
-                        let button = if self.choice == choice {
-                            button.primary()
-                        } else {
-                            button.ghost()
-                        };
-                        let button =
-                            button
-                                .on_click(cx.listener(move |this, _, _window, cx| {
-                                    this.set_choice(choice, cx)
-                                }))
-                                .into_any_element();
-                        // A thin divider separates the actions from the flow-only kinds.
-                        let divider =
-                            (choice == StepChoice::Action(ActionKind::Command)).then(|| {
-                                div()
-                                    .w(px(1.))
-                                    .h_5()
-                                    .mx_1()
-                                    .self_center()
-                                    .bg(border)
-                                    .into_any_element()
-                            });
-                        std::iter::once(button).chain(divider)
-                    }),
+            .child(
+                Button::new("step-change-type")
+                    .ghost()
+                    .xsmall()
+                    .label("Change")
+                    .track_focus(&self.back_focus)
+                    .cursor_pointer()
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(StepBuilderEvent::ChangeType))),
             )
     }
 
-    fn render_body(&self, cx: &mut Context<Self>) -> AnyElement {
+    /// A row of exclusive choices that is one tab stop; the arrow keys
+    /// move the choice.
+    fn segmented<T: Copy + PartialEq + 'static>(
+        &self,
+        row: Segmented<T>,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> impl IntoElement {
+        let Segmented {
+            id,
+            handle,
+            choices,
+            current,
+            set,
+        } = row;
+        let focused = handle.is_focused(window);
+        let ring = focus::focus_border(focused, cx.theme().transparent, cx);
+        let values: Vec<T> = choices.iter().map(|(value, _)| *value).collect();
+        let cycle = move |this: &mut Self, delta: isize, cx: &mut Context<Self>| {
+            let ix = values.iter().position(|v| *v == current).unwrap_or(0) as isize;
+            let next = (ix + delta).rem_euclid(values.len() as isize) as usize;
+            set(this, values[next], cx);
+        };
+        let (prev, next) = (cycle.clone(), cycle);
+        // Wrapped so the row is as wide as its choices, not the form.
+        h_flex().child(
+            h_flex()
+                .id(id)
+                .test_support()
+                .key_context(FILTERS_CONTEXT)
+                .track_focus(handle)
+                .on_action(
+                    cx.listener(move |this, _: &keybinds_nav::FilterPrev, _, cx| {
+                        prev(this, -1, cx)
+                    }),
+                )
+                .on_action(
+                    cx.listener(move |this, _: &keybinds_nav::FilterNext, _, cx| next(this, 1, cx)),
+                )
+                .rounded(cx.theme().radius)
+                .border_1()
+                .border_color(ring)
+                .p_0p5()
+                .gap_1()
+                .flex_wrap()
+                .children(choices.into_iter().enumerate().map(|(ix, (value, label))| {
+                    let button = Button::new((id, ix))
+                        .label(label)
+                        .small()
+                        .tab_stop(false)
+                        .cursor_pointer();
+                    let button = if value == current {
+                        button.primary()
+                    } else {
+                        button.ghost()
+                    };
+                    button.on_click(cx.listener(move |this, _, _, cx| set(this, value, cx)))
+                })),
+        )
+    }
+
+    fn render_body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         match self.choice {
             StepChoice::Action(kind) => v_flex()
                 .gap_2()
@@ -467,52 +666,120 @@ impl StepBuilder {
                     )
                     .into_any_element()
             }
-            StepChoice::Notify => v_flex()
-                .gap_2()
-                .child(Input::new(&self.notify_title).small())
-                .child(Input::new(&self.notify_body).small())
+            StepChoice::Notify => {
+                let clicked = self.on_click;
+                v_flex()
+                    .gap_3()
+                    .child(Self::field(
+                        "Title",
+                        Input::new(&self.notify_title).id("notify-title").small(),
+                    ))
+                    .child(Self::field(
+                        "Message",
+                        Input::new(&self.notify_body).id("notify-body").small(),
+                    ))
+                    .child(Self::field(
+                        "When clicked",
+                        self.segmented(
+                            Segmented {
+                                id: "notify-click",
+                                handle: &self.click_focus,
+                                choices: vec![
+                                    (None, "Nothing"),
+                                    (Some(OnClick::Copy), "Copy"),
+                                    (Some(OnClick::Open), "Open"),
+                                ],
+                                current: clicked,
+                                set: |this, value, cx| {
+                                    this.on_click = value;
+                                    this.changed(cx);
+                                },
+                            },
+                            window,
+                            cx,
+                        ),
+                    ))
+                    .when_some(clicked, |this, action| {
+                        this.child(Self::field(
+                            match action {
+                                OnClick::Copy => "What to copy",
+                                OnClick::Open => "What to open",
+                            },
+                            Input::new(&self.notify_target).id("notify-target").small(),
+                        ))
+                    })
+                    .into_any_element()
+            }
+            StepChoice::Ask | StepChoice::Confirm => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Question",
+                    Input::new(&self.prompt).id("step-prompt").small(),
+                ))
+                .into_any_element(),
+            StepChoice::PickFile | StepChoice::PickFolder => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Title",
+                    Input::new(&self.prompt).id("step-prompt").small(),
+                ))
+                .into_any_element(),
+            StepChoice::Choose => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Question",
+                    Input::new(&self.prompt).id("step-prompt").small(),
+                ))
+                .child(Self::field(
+                    "Options",
+                    self.segmented(
+                        Segmented {
+                            id: "choose-source",
+                            handle: &self.source_focus,
+                            choices: vec![(false, "A list"), (true, "From a variable")],
+                            current: self.from_variable,
+                            set: |this, value, cx| {
+                                this.from_variable = value;
+                                this.target = None;
+                                this.changed(cx);
+                            },
+                        },
+                        window,
+                        cx,
+                    ),
+                ))
+                .child(if self.from_variable {
+                    Input::new(&self.from)
+                        .id("step-from")
+                        .small()
+                        .into_any_element()
+                } else {
+                    div()
+                        .id("step-options")
+                        .test_support()
+                        .child(Textarea::new(&self.options).h(px(112.)))
+                        .into_any_element()
+                })
                 .into_any_element(),
         }
     }
 
-    fn render_preview(&self, cx: &App) -> Option<AnyElement> {
+    /// Why the form is not a step yet. The action builder shows its own.
+    fn render_problem(&self, cx: &App) -> Option<AnyElement> {
         if matches!(self.choice, StepChoice::Action(_)) {
-            // The action builder draws its own preview.
             return None;
         }
-        let theme = cx.theme();
-        let row = h_flex().gap_2().items_start().text_xs();
-        Some(match self.step(cx) {
-            Ok(step) => row
-                .child(
-                    div()
-                        .flex_shrink_0()
-                        .text_color(theme.muted_foreground)
-                        .child("Step"),
-                )
-                .child(
-                    div()
-                        .min_w_0()
-                        .px_2()
-                        .py_0p5()
-                        .rounded(theme.radius)
-                        .bg(theme.secondary)
-                        .child(var_token::rich_text("step-preview", &step.text(), cx)),
-                )
+        let message = self.step(cx).err()?;
+        Some(
+            div()
+                .text_xs()
+                .text_color(cx.theme().muted_foreground)
+                .child(selectable("step-problem", message))
                 .into_any_element(),
-            Err(message) => row
-                .child(
-                    div()
-                        .text_color(theme.muted_foreground)
-                        .child(selectable("step-preview-message", message)),
-                )
-                .into_any_element(),
-        })
+        )
     }
-}
 
-impl StepBuilder {
-    /// The variables this step can use, as buttons that insert them.
+    /// The variables this step can use, as tokens that insert them.
     fn render_variables(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.takes_variables(cx) {
             return None;
@@ -558,7 +825,8 @@ impl StepBuilder {
                     let current = row_focused && ix == self.variable_ix;
                     let ring = focus::focus_border(current, theme.transparent, cx);
                     div()
-                        .id(("step-variable", ix))
+                        .id(ElementId::Name(format!("step-variable-{name}").into()))
+                        .test_support()
                         .rounded(theme.radius)
                         .border_1()
                         .border_color(ring)
@@ -586,7 +854,11 @@ impl StepBuilder {
                 .items_center()
                 .flex_wrap()
                 .child(div().text_sm().child("Save output as"))
-                .child(div().w_48().child(Input::new(&self.output_name).small()))
+                .child(
+                    div()
+                        .w_48()
+                        .child(Input::new(&self.output_name).id("step-output-name").small()),
+                )
                 .when_some(self.output_name(cx).err(), |this, error| {
                     this.child(
                         div()
@@ -603,11 +875,11 @@ impl StepBuilder {
 impl Render for StepBuilder {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
-            .gap_2()
-            .child(self.render_choices(window, cx))
-            .child(self.render_body(cx))
+            .gap_3()
+            .child(self.render_header(window, cx))
+            .child(self.render_body(window, cx))
             .children(self.render_variables(window, cx))
             .children(self.render_output(cx))
-            .children(self.render_preview(cx))
+            .children(self.render_problem(cx))
     }
 }

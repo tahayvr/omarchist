@@ -1,0 +1,27 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Quick note"
+description = "Asks for a line and adds it to your notes inbox. Click the notification to open the file."
+icon = "message-square"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "ask"
+prompt = "Note"
+output = "note"
+
+[[step]]
+type = "exec"
+command = "mkdir -p ~/Notes && printf '%s %s  %s\\n' {{date}} {{time}} {{note}} >> ~/Notes/inbox.md"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Noted"
+body = "{{note}}"
+on_click = "open"
+target = "~/Notes/inbox.md"

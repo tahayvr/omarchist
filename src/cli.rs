@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::shell::theme_sh_commands::apply_theme;
-use crate::system::flows::runner::{RunEvent, Runner};
+use crate::system::flows::runner::{RunEvent, Runner, StepStatus};
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_new_flow};
 use crate::system::flows::unique_id;
@@ -232,17 +232,25 @@ pub fn run_command(command: &Command) -> ExitCode {
             );
             let mut ran = 0;
             let outcome = Runner::new(false).run(&flow, &mut |event| match event {
-                RunEvent::Started { index } => {
+                RunEvent::Started { path } => {
                     ran += 1;
-                    println!("[{ran}/{total}] {}", flow.steps[index].kind.text());
+                    if let Some(step) = path.first().and_then(|ix| flow.steps.get(*ix)) {
+                        println!("[{ran}/{total}] {}", step.kind.text());
+                    }
                 }
                 RunEvent::Finished {
-                    error: Some(error), ..
+                    status: StepStatus::Failed(error),
+                    ..
                 } => eprintln!("      failed: {error}"),
                 RunEvent::Finished { .. } => {}
             });
             let summary = outcome.summary(&flow);
-            if outcome.is_ok() {
+            if outcome.cancelled && outcome.is_ok() {
+                // Dismissing a prompt is the person's choice, not a failure,
+                // and needs no notification.
+                println!("{summary}");
+                ExitCode::SUCCESS
+            } else if outcome.is_ok() {
                 println!("{summary}");
                 if crate::system::config::config_setup::settings().notify_flows {
                     notify::send(

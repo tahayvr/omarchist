@@ -12,6 +12,7 @@ use crate::system::keybinds::overrides::is_dsp_call;
 use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod launcher;
+pub mod prompt;
 pub mod requirements;
 pub mod runner;
 pub mod share;
@@ -25,10 +26,14 @@ pub const DEFAULT_ICON: &str = "workflow";
 /// written with the lowest format that can hold it ([`Flow::required_format`]),
 /// so flows that use nothing new stay readable by older builds.
 pub const FORMAT: u32 = 2;
-/// Format 2 added saved outputs and `{{variable}}` references.
+/// Format 2 added saved outputs, `{{variable}}` references, and the steps
+/// that ask (`ask`, `choose`, `confirm`, `pick`, a notification's click).
 pub const FORMAT_VARIABLES: u32 = 2;
 /// Nesting deeper than this is treated as a mistake rather than run.
 pub const MAX_DEPTH: usize = 8;
+
+/// Where a step sits in a flow: its index among the flow's steps.
+pub type StepPath = Vec<usize>;
 
 /// The comment at the top of every flow file Omarchist writes (saved
 /// flows, exports, and the built-in templates), so a file found on its own
@@ -204,10 +209,7 @@ impl Step {
 
     /// Whether the step produces output a later step can use.
     pub fn has_output(&self) -> bool {
-        matches!(
-            self.kind,
-            StepKind::Exec { wait: true, .. } | StepKind::Flow { .. }
-        )
+        self.kind.has_output()
     }
 }
 
@@ -226,28 +228,133 @@ pub enum StepKind {
     Lua { expr: String },
     /// Pauses the flow.
     Wait { ms: u64 },
-    /// A desktop notification.
+    /// A desktop notification. With `on_click`, clicking it copies or opens
+    /// `target` (the message when there is no target, else the title).
     Notify {
         title: String,
         #[serde(default, skip_serializing_if = "String::is_empty")]
         body: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        on_click: Option<OnClick>,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        target: String,
     },
     /// Runs another flow to completion.
     Flow { id: String },
+    /// Asks for a line of text in Omarchy's menu; the answer is the output.
+    Ask { prompt: String },
+    /// Offers a list in Omarchy's menu; the pick is the output. The list is
+    /// `options`, or the lines of `from` when there are none.
+    Choose {
+        prompt: String,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        options: Vec<String>,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        from: String,
+    },
+    /// Continue or Cancel in Omarchy's menu; Cancel ends the flow quietly.
+    Confirm { prompt: String },
+    /// A file chooser; the path picked is the output.
+    Pick {
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        prompt: String,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        folder: bool,
+    },
 }
 
+/// What clicking a notification does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum OnClick {
+    /// Puts the target on the clipboard.
+    Copy,
+    /// Opens the target: a link, a file, or a folder.
+    Open,
+}
+
+impl OnClick {
+    pub const ALL: [OnClick; 2] = [OnClick::Copy, OnClick::Open];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            OnClick::Copy => "Copy",
+            OnClick::Open => "Open",
+        }
+    }
+}
+
+/// The most options a `choose` step offers; a longer list is cut.
+pub const MAX_OPTIONS: usize = 500;
+
 impl StepKind {
+    /// A plain notification.
+    pub fn notify(title: impl Into<String>, body: impl Into<String>) -> Self {
+        StepKind::Notify {
+            title: title.into(),
+            body: body.into(),
+            on_click: None,
+            target: String::new(),
+        }
+    }
+
     /// Every `{{name}}` the step uses, in the texts it fills in.
     pub fn references(&self) -> Vec<String> {
         match self {
             StepKind::Exec { command, .. } => vars::names_in(command),
             StepKind::Lua { expr } => vars::names_in(expr),
-            StepKind::Notify { title, body } => {
+            StepKind::Notify {
+                title,
+                body,
+                target,
+                ..
+            } => {
                 let mut names = vars::names_in(title);
                 names.extend(vars::names_in(body));
+                names.extend(vars::names_in(target));
+                names
+            }
+            StepKind::Ask { prompt } | StepKind::Confirm { prompt } => vars::names_in(prompt),
+            StepKind::Pick { prompt, .. } => vars::names_in(prompt),
+            StepKind::Choose {
+                prompt,
+                options,
+                from,
+            } => {
+                let mut names = vars::names_in(prompt);
+                for option in options {
+                    names.extend(vars::names_in(option));
+                }
+                names.extend(vars::names_in(from));
                 names
             }
             StepKind::Wait { .. } | StepKind::Flow { .. } => Vec::new(),
+        }
+    }
+
+    /// Whether the step produces output a later step can use: a command
+    /// the flow waits for (its stdout), a nested flow (its last output),
+    /// and the steps that ask (the answer).
+    pub fn has_output(&self) -> bool {
+        matches!(
+            self,
+            StepKind::Exec { wait: true, .. }
+                | StepKind::Flow { .. }
+                | StepKind::Ask { .. }
+                | StepKind::Choose { .. }
+                | StepKind::Pick { .. }
+        )
+    }
+
+    /// Whether the step exists only since format 2.
+    fn needs_format_2(&self) -> bool {
+        match self {
+            StepKind::Ask { .. }
+            | StepKind::Choose { .. }
+            | StepKind::Confirm { .. }
+            | StepKind::Pick { .. } => true,
+            StepKind::Notify { on_click, .. } => on_click.is_some(),
+            _ => false,
         }
     }
 
@@ -260,6 +367,22 @@ impl StepKind {
             StepKind::Wait { ms } => format!("wait {}", format_duration(*ms)),
             StepKind::Notify { title, .. } => format!("notify \"{title}\""),
             StepKind::Flow { id } => run_command(id),
+            StepKind::Ask { prompt } => format!("ask \"{prompt}\""),
+            StepKind::Choose {
+                prompt,
+                options,
+                from,
+            } => {
+                if options.is_empty() {
+                    format!("choose \"{prompt}\" from {from}")
+                } else {
+                    format!("choose \"{prompt}\": {}", options.join(", "))
+                }
+            }
+            StepKind::Confirm { prompt } => format!("confirm \"{prompt}\""),
+            StepKind::Pick { folder, .. } => {
+                format!("pick a {}", if *folder { "folder" } else { "file" })
+            }
         }
     }
 
@@ -314,13 +437,19 @@ impl Flow {
     }
 
     /// The lowest format that holds this flow: 2 once a step saves an
-    /// output or uses a variable, 1 otherwise.
+    /// output, uses a variable, or is one of the kinds format 2 added, 1
+    /// otherwise.
     pub fn required_format(&self) -> u32 {
-        let uses_variables = self
-            .steps
-            .iter()
-            .any(|s| s.output.is_some() || !s.kind.references().is_empty());
-        if uses_variables { FORMAT_VARIABLES } else { 1 }
+        let uses_format_2 = self.steps.iter().any(|s| {
+            s.output.is_some() || !s.kind.references().is_empty() || s.kind.needs_format_2()
+        });
+        if uses_format_2 { FORMAT_VARIABLES } else { 1 }
+    }
+
+    /// The number messages and the editor show for the step at `path`,
+    /// counting from 1.
+    pub fn step_number(&self, path: &[usize]) -> usize {
+        path.first().map_or(0, |index| index + 1)
     }
 
     /// Names saved by the steps before `index`, in order, without repeats.
@@ -385,8 +514,8 @@ impl Flow {
                 }
                 if !step.has_output() {
                     return Err(Error::Invalid(format!(
-                        "Step {}: only a command the flow waits for, or another flow, has \
-                         output to save",
+                        "Step {}: this step has no output to save (a command needs \
+                         `wait = true`)",
                         index + 1
                     )));
                 }
@@ -428,6 +557,39 @@ impl Flow {
                 }
                 StepKind::Flow { id } if id == &self.id => {
                     return Err(Error::Invalid("A flow cannot run itself".to_string()));
+                }
+                StepKind::Ask { prompt } | StepKind::Confirm { prompt }
+                    if prompt.trim().is_empty() =>
+                {
+                    return Err(Error::Invalid(format!(
+                        "Step {}: a question is missing",
+                        index + 1
+                    )));
+                }
+                StepKind::Choose {
+                    prompt,
+                    options,
+                    from,
+                } => {
+                    if prompt.trim().is_empty() {
+                        return Err(Error::Invalid(format!(
+                            "Step {}: a question is missing",
+                            index + 1
+                        )));
+                    }
+                    let listed = options.iter().any(|o| !o.trim().is_empty());
+                    if !listed && from.trim().is_empty() {
+                        return Err(Error::Invalid(format!(
+                            "Step {}: there is nothing to choose from",
+                            index + 1
+                        )));
+                    }
+                    if options.len() > MAX_OPTIONS {
+                        return Err(Error::Invalid(format!(
+                            "Step {}: at most {MAX_OPTIONS} options",
+                            index + 1
+                        )));
+                    }
                 }
                 _ => {}
             }
@@ -755,10 +917,7 @@ mod tests {
                 Step::new(StepKind::Lua {
                     expr: "hl.dsp.focus({ workspace = \"2\" })".into(),
                 }),
-                Step::new(StepKind::Notify {
-                    title: "Ready".into(),
-                    body: String::new(),
-                }),
+                Step::new(StepKind::notify("Ready", "")),
                 Step::new(StepKind::Flow { id: "other".into() }),
             ],
             ..Flow::new("morning".into(), "Morning".into())

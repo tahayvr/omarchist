@@ -1,0 +1,31 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Close an app"
+description = "Lists the apps that are open and closes the one you pick, after you confirm."
+icon = "target"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+requires = ["jq"]
+
+[[step]]
+type = "exec"
+command = "hyprctl clients -j | jq -r '.[].class' | sort -u"
+wait = true
+output = "open apps"
+
+[[step]]
+type = "choose"
+prompt = "Close which app?"
+from = "{{open apps}}"
+output = "choice"
+
+[[step]]
+type = "confirm"
+prompt = "Close {{choice}}?"
+
+[[step]]
+type = "lua"
+expr = 'hl.dsp.window.close({ window = "class:{{choice}}" })'

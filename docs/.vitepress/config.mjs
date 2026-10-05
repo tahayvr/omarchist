@@ -110,6 +110,7 @@ export default defineConfig({
         items: [
           { text: "Flows", link: "/flows/" },
           { text: "Variables", link: "/flows/variables" },
+          { text: "Steps That Ask", link: "/flows/asking" },
           { text: "Templates", link: "/flows/#templates" },
           { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],

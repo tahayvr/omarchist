@@ -1,0 +1,23 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Empty the trash"
+description = "Asks first, then empties the trash."
+icon = "flame"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "confirm"
+prompt = "Empty the trash?"
+
+[[step]]
+type = "exec"
+command = "gio trash --empty"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Trash emptied"

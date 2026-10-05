@@ -608,20 +608,14 @@ impl ActionBuilder {
         self.variable_target().is_some()
     }
 
-    /// Appends `text` (a `{{variable}}`) to the current kind's text field
-    /// and focuses it with the cursor after the insertion.
-    pub fn append_to_field(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+    /// Puts `text` (a `{{variable}}`) where the cursor was in the current
+    /// kind's text field and gives the field the keyboard.
+    pub fn insert_in_field(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(input) = self.variable_target().cloned() else {
             return;
         };
         input.update(cx, |input, cx| {
-            let current = input.value().to_string();
-            let sep = if current.is_empty() || current.ends_with(' ') {
-                ""
-            } else {
-                " "
-            };
-            input.set_value(format!("{current}{sep}{text}"), window, cx);
+            input.insert(text.to_string(), window, cx);
             input.focus(window, cx);
         });
         self.changed(cx);

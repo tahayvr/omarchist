@@ -4,12 +4,13 @@
 use std::path::PathBuf;
 
 use gpui::*;
-use gpui_component::Icon;
+use gpui_component::{ActiveTheme, Icon};
 
 use crate::system::apps::DesktopApp;
-use crate::system::flows::{Flow, StepKind, format_duration};
+use crate::system::flows::{Flow, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::action::{Action, ActionKind, program_name};
+use crate::ui::flows_page::step_types::{StepChoice, StepGroup};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepIcon {
@@ -39,7 +40,52 @@ impl StepIcon {
 pub struct StepSummary {
     pub icon: StepIcon,
     pub title: String,
+    /// The line under the title; empty when the title says it all.
     pub detail: String,
+    /// The group the step belongs to, which colours its icon.
+    pub group: StepGroup,
+}
+
+impl StepSummary {
+    /// The step's icon on a square tinted with its group's colour; an
+    /// installed app's own icon is drawn as it is.
+    pub fn tile(&self, size: Pixels, cx: &App) -> AnyElement {
+        match &self.icon {
+            StepIcon::Image(_) => div()
+                .size(size)
+                .flex_shrink_0()
+                .flex()
+                .items_center()
+                .justify_center()
+                .child(self.icon.render(size * 0.86))
+                .into_any_element(),
+            StepIcon::Path(_) => {
+                let accent = self.group.accent(cx);
+                div()
+                    .size(size)
+                    .flex_shrink_0()
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(cx.theme().radius)
+                    .bg(accent.opacity(0.16))
+                    .text_color(accent)
+                    .child(self.icon.render(size * 0.58))
+                    .into_any_element()
+            }
+        }
+    }
+}
+
+/// `Ask "Name?"`, without the quotes when the text holds a variable: they
+/// read oddly around a token.
+fn quoted(verb: &str, text: &str) -> String {
+    let text = text.trim();
+    if vars::references(text).is_empty() {
+        format!("{verb} \"{text}\"")
+    } else {
+        format!("{verb} {text}")
+    }
 }
 
 /// Names and icons the summaries can draw on.
@@ -68,28 +114,77 @@ impl SummaryContext<'_> {
             StepKind::Wait { ms } => StepSummary {
                 icon: StepIcon::Path("icons/hourglass.svg"),
                 title: format!("Wait {}", format_duration(*ms)),
-                detail,
+                detail: String::new(),
+                group: StepGroup::Flow,
             },
-            StepKind::Notify { title, body } => StepSummary {
-                icon: StepIcon::Path("icons/bell.svg"),
-                // Quotes read oddly around a variable token, so a title that
-                // uses one goes without them.
-                title: if crate::system::flows::vars::references(title).is_empty() {
-                    format!("Notify \"{}\"", title.trim())
-                } else {
-                    format!("Notify {}", title.trim())
-                },
-                detail: if body.trim().is_empty() {
-                    detail
-                } else {
-                    body.trim().to_string()
-                },
-            },
+            StepKind::Notify {
+                title,
+                body,
+                on_click,
+                ..
+            } => {
+                let mut detail = body.trim().to_string();
+                if let Some(action) = on_click {
+                    if !detail.is_empty() {
+                        detail.push_str(" · ");
+                    }
+                    detail.push_str(match action {
+                        OnClick::Copy => "click to copy",
+                        OnClick::Open => "click to open",
+                    });
+                }
+                StepSummary {
+                    icon: StepIcon::Path("icons/bell.svg"),
+                    title: quoted("Notify", title),
+                    detail,
+                    group: StepGroup::Ask,
+                }
+            }
             StepKind::Flow { id } => StepSummary {
                 icon: StepIcon::Path(ActionKind::Flow.icon_path()),
                 title: format!("Run flow {}", self.flow_name(id)),
                 detail,
+                group: StepGroup::Flow,
             },
+            StepKind::Ask { prompt } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Ask.info().icon),
+                title: quoted("Ask", prompt),
+                detail: String::new(),
+                group: StepGroup::Ask,
+            },
+            StepKind::Confirm { prompt } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Confirm.info().icon),
+                title: quoted("Confirm", prompt),
+                detail: String::new(),
+                group: StepGroup::Ask,
+            },
+            StepKind::Choose {
+                prompt,
+                options,
+                from,
+            } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Choose.info().icon),
+                title: quoted("Choose", prompt),
+                detail: if options.is_empty() {
+                    format!("from {}", from.trim())
+                } else {
+                    options.join(", ")
+                },
+                group: StepGroup::Ask,
+            },
+            StepKind::Pick { prompt, folder } => {
+                let choice = if *folder {
+                    StepChoice::PickFolder
+                } else {
+                    StepChoice::PickFile
+                };
+                StepSummary {
+                    icon: StepIcon::Path(choice.info().icon),
+                    title: choice.info().label.to_string(),
+                    detail: prompt.trim().to_string(),
+                    group: StepGroup::Ask,
+                }
+            }
         }
     }
 
@@ -99,6 +194,7 @@ impl SummaryContext<'_> {
                 icon: StepIcon::Path(ActionKind::Window.icon_path()),
                 title: "Hyprland dispatcher".to_string(),
                 detail,
+                group: StepGroup::Desktop,
             };
         };
         match &action {
@@ -114,6 +210,7 @@ impl SummaryContext<'_> {
                         .unwrap_or(StepIcon::Path(ActionKind::App.icon_path())),
                     title: format!("{} {name}", if *focus { "Open or focus" } else { "Open" }),
                     detail,
+                    group: StepGroup::Apps,
                 }
             }
             Action::WebApp { url, focus, .. } => {
@@ -129,27 +226,32 @@ impl SummaryContext<'_> {
                         .unwrap_or(StepIcon::Path(ActionKind::WebApp.icon_path())),
                     title: format!("{} {name}", if *focus { "Open or focus" } else { "Open" }),
                     detail,
+                    group: StepGroup::Apps,
                 }
             }
             Action::Terminal { .. } => StepSummary {
                 icon: StepIcon::Path(ActionKind::Terminal.icon_path()),
                 title: format!("Run {} in a terminal", action.summary().unwrap_or_default()),
                 detail,
+                group: StepGroup::Apps,
             },
             Action::Flow(id) => StepSummary {
                 icon: StepIcon::Path(ActionKind::Flow.icon_path()),
                 title: format!("Run flow {}", self.flow_name(id)),
                 detail,
+                group: StepGroup::Flow,
             },
             Action::Command(_) => StepSummary {
                 icon: StepIcon::Path(ActionKind::Command.icon_path()),
                 title: "Run a command".to_string(),
                 detail,
+                group: StepGroup::Script,
             },
             Action::Omarchy(_) | Action::Window(_) => StepSummary {
                 icon: StepIcon::Path(action.kind().icon_path()),
                 title: action.summary().unwrap_or_default(),
                 detail,
+                group: StepGroup::Desktop,
             },
         }
     }
@@ -218,6 +320,26 @@ mod tests {
 
         let wait = ctx.summarize(&StepKind::Wait { ms: 1500 });
         assert_eq!(wait.title, "Wait 1.5 s");
+        assert_eq!(wait.detail, "");
+
+        let ask = ctx.summarize(&StepKind::Ask {
+            prompt: "Name?".into(),
+        });
+        assert_eq!(ask.title, "Ask \"Name?\"");
+        let choose = ctx.summarize(&StepKind::Choose {
+            prompt: "Size for {{name}}".into(),
+            options: vec!["Small".into(), "Large".into()],
+            from: String::new(),
+        });
+        assert_eq!(choose.title, "Choose Size for {{name}}");
+        assert_eq!(choose.detail, "Small, Large");
+        let notify = ctx.summarize(&StepKind::Notify {
+            title: "Uploaded".into(),
+            body: "{{url}}".into(),
+            on_click: Some(super::OnClick::Open),
+            target: String::new(),
+        });
+        assert_eq!(notify.detail, "{{url}} · click to open");
 
         let omarchy = ctx.summarize(&StepKind::Exec {
             command: "omarchy-launch-browser".into(),

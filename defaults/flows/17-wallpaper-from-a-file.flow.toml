@@ -1,0 +1,20 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Wallpaper from a file"
+description = "Lets you pick a picture and sets it as your wallpaper."
+icon = "palette"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "pick"
+prompt = "Pick a wallpaper"
+output = "picture"
+
+[[step]]
+type = "exec"
+command = "omarchy-theme-bg-set {{picture}}"
+wait = true

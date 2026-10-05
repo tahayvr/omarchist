@@ -4,7 +4,9 @@ pub mod flows_view;
 pub mod share_ui;
 pub mod step_builder;
 pub mod step_dialog;
+pub mod step_picker;
 pub mod step_summary;
+pub mod step_types;
 pub mod templates_view;
 pub mod var_token;
 

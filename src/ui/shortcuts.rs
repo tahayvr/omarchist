@@ -7,6 +7,7 @@ use crate::ui::config_page::config_view::config_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::flows_page::step_builder::step_vars;
+use crate::ui::flows_page::step_picker::step_picker_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::keybinds_page::keystroke_input;
@@ -803,6 +804,70 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("StepVariables"),
         DIALOGS,
         "Insert the variable"
+    ),
+    // The list of step types in the Add step dialog.
+    shortcut!(
+        "down",
+        step_picker_nav::FocusGrid,
+        Some("StepPickerSearch > Input"),
+        DIALOGS,
+        "From the step search to the list"
+    ),
+    shortcut!(
+        "left",
+        step_picker_nav::Left,
+        Some("StepPicker"),
+        DIALOGS,
+        "Previous step type"
+    ),
+    shortcut!(
+        "right",
+        step_picker_nav::Right,
+        Some("StepPicker"),
+        DIALOGS,
+        "Next step type"
+    ),
+    shortcut!(
+        "up",
+        step_picker_nav::Up,
+        Some("StepPicker"),
+        DIALOGS,
+        "Step type above"
+    ),
+    shortcut!(
+        "down",
+        step_picker_nav::Down,
+        Some("StepPicker"),
+        DIALOGS,
+        "Step type below"
+    ),
+    shortcut!(
+        "home",
+        step_picker_nav::First,
+        Some("StepPicker"),
+        DIALOGS,
+        "First step type"
+    ),
+    shortcut!(
+        "end",
+        step_picker_nav::Last,
+        Some("StepPicker"),
+        DIALOGS,
+        "Last step type"
+    ),
+    shortcut!(
+        "enter",
+        step_picker_nav::Pick,
+        Some("StepPicker"),
+        DIALOGS,
+        "Add the highlighted step type"
+    ),
+    shortcut!(
+        "space",
+        step_picker_nav::Pick,
+        Some("StepPicker"),
+        DIALOGS,
+        "Add the highlighted step type"
     ),
     // The action builder's kind and direction strips (in the keybind and
     // flow step dialogs) cycle with the arrow keys.

@@ -16,10 +16,12 @@ use gpui_component::{
     v_flex,
 };
 
+use gpui_kit::TestSupportExt;
+
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::requirements::{missing_programs, program_of};
-use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner};
+use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner, StepStatus};
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
@@ -94,6 +96,8 @@ enum StepState {
     Done(Option<String>),
     /// Why, shown under the step until the next run or edit.
     Failed(String),
+    /// A prompt was dismissed here, which ended the run.
+    Cancelled,
 }
 
 /// Progress from the runner thread, tagged with the run it belongs to so
@@ -255,7 +259,7 @@ impl FlowEditPage {
     }
 
     /// The flow with the current name and description.
-    fn current(&self, cx: &App) -> Flow {
+    pub fn current(&self, cx: &App) -> Flow {
         let mut flow = self.flow.clone();
         flow.name = self.name.read(cx).value().trim().to_string();
         flow.description = self.description.read(cx).value().trim().to_string();
@@ -378,20 +382,17 @@ impl FlowEditPage {
             return;
         }
         match event {
-            Some(RunEvent::Started { index }) => {
-                if let Some(state) = self.step_states.get_mut(index) {
+            Some(RunEvent::Started { path }) => {
+                if let Some(state) = path.first().and_then(|ix| self.step_states.get_mut(*ix)) {
                     *state = StepState::Running;
                 }
             }
-            Some(RunEvent::Finished {
-                index,
-                error,
-                output,
-            }) => {
-                if let Some(state) = self.step_states.get_mut(index) {
-                    *state = match error {
-                        Some(error) => StepState::Failed(error),
-                        None => StepState::Done(output),
+            Some(RunEvent::Finished { path, status }) => {
+                if let Some(state) = path.first().and_then(|ix| self.step_states.get_mut(*ix)) {
+                    *state = match status {
+                        StepStatus::Done(output) => StepState::Done(output),
+                        StepStatus::Failed(error) => StepState::Failed(error),
+                        StepStatus::Cancelled => StepState::Cancelled,
                     };
                 }
             }
@@ -886,13 +887,13 @@ impl FlowEditPage {
                 v_flex()
                     .gap_1()
                     .child(Self::label("Name"))
-                    .child(Input::new(&self.name).small()),
+                    .child(Input::new(&self.name).id("flow-name").small()),
             )
             .child(
                 v_flex()
                     .gap_1()
                     .child(Self::label("Description"))
-                    .child(Input::new(&self.description).small()),
+                    .child(Input::new(&self.description).id("flow-description").small()),
             )
             .children(self.render_meta(cx))
             .child(
@@ -1121,10 +1122,18 @@ impl FlowEditPage {
                     .text_color(theme.danger)
                     .into_any_element(),
             ),
+            StepState::Cancelled => Some(
+                Icon::new(Icon::empty())
+                    .path("icons/ban.svg")
+                    .size_4()
+                    .text_color(theme.muted_foreground)
+                    .into_any_element(),
+            ),
         };
 
         h_flex()
             .id(("flow-step", ix))
+            .test_support()
             .gap_3()
             .items_center()
             .p_3()
@@ -1164,8 +1173,8 @@ impl FlowEditPage {
             .child(
                 div()
                     .flex_shrink_0()
-                    .opacity(if step.enabled { 1. } else { 0.5 })
-                    .child(summary.icon.render(px(20.))),
+                    .opacity(if step.enabled { 1. } else { 0.4 })
+                    .child(summary.tile(px(28.), cx)),
             )
             .child(
                 v_flex()
@@ -1210,23 +1219,25 @@ impl FlowEditPage {
                                 )
                             }),
                     )
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            // Reviewing an import: every character counts.
-                            .when(
-                                self.import_origin.is_none()
-                                    && crate::system::flows::vars::references(&summary.detail)
-                                        .is_empty(),
-                                |this| this.truncate(),
-                            )
-                            .child(var_token::rich_text(
-                                &format!("step-detail-{ix}"),
-                                &summary.detail,
-                                cx,
-                            )),
-                    )
+                    .when(!summary.detail.is_empty(), |this| {
+                        this.child(
+                            div()
+                                .text_xs()
+                                .text_color(theme.muted_foreground)
+                                // Reviewing an import: every character counts.
+                                .when(
+                                    self.import_origin.is_none()
+                                        && crate::system::flows::vars::references(&summary.detail)
+                                            .is_empty(),
+                                    |this| this.truncate(),
+                                )
+                                .child(var_token::rich_text(
+                                    &format!("step-detail-{ix}"),
+                                    &summary.detail,
+                                    cx,
+                                )),
+                        )
+                    })
                     .when_some(missing_program, |this, program| {
                         this.child(
                             h_flex()
@@ -1244,6 +1255,8 @@ impl FlowEditPage {
                     .when_some(unknown, |this, message| {
                         this.child(
                             h_flex()
+                                .id(("step-unknown-variable", ix))
+                                .test_support()
                                 .gap_1()
                                 .items_center()
                                 .text_xs()
@@ -1255,6 +1268,8 @@ impl FlowEditPage {
                     .when_some(produced, |this, produced| {
                         this.child(
                             h_flex()
+                                .id(("step-result", ix))
+                                .test_support()
                                 .gap_2()
                                 .items_center()
                                 .min_w_0()
@@ -1280,6 +1295,8 @@ impl FlowEditPage {
                     .when_some(failure, |this, error| {
                         this.child(
                             div()
+                                .id(("step-failure", ix))
+                                .test_support()
                                 .text_xs()
                                 .text_color(theme.danger)
                                 .child(selectable(("step-error", ix), error)),
@@ -1366,6 +1383,7 @@ impl FlowEditPage {
         let count = self.flow.steps.len();
         let mut list = v_flex()
             .id("flow-steps")
+            .test_support()
             .key_context(STEPS_CONTEXT)
             .track_focus(&self.steps_focus)
             .rounded(theme.radius)

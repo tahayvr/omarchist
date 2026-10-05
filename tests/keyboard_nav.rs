@@ -1,54 +1,21 @@
 // Headless keyboard-navigation tests: the production `Root` and
 // `MainWindowView` in a headless window, driven through gpui-kit's
 // `TestWindowExt`.
+mod common;
+
 use std::time::Duration;
 
-use gpui_kit::component::{Root, WindowExt};
+use common::{assert_page, open};
+use gpui_kit::component::WindowExt;
 use gpui_kit::test::{TestAppContextExt, TestWindowExt};
-use gpui_kit::{AppContext, Entity, TestAppContext, WindowHandle, px, size};
-use omarchist::ui::app_events::AppEvents;
-use omarchist::{ActivePage, MainTitleBar, MainWindowView};
+use gpui_kit::{AppContext, TestAppContext};
+use omarchist::ActivePage;
 
 /// The sidebar page list's test target (`SidebarNav` in `app_view.rs`).
 const SIDEBAR: &str = "sidebar-nav";
 /// Dialog bodies' test targets (`dialog_body` in `focus.rs`).
 const SHORTCUTS_DIALOG: &str = "shortcuts-dialog";
 const CREATE_THEME_DIALOG: &str = "create-theme-dialog";
-
-fn open(cx: &mut TestAppContext, page: ActivePage) -> (WindowHandle<Root>, Entity<MainWindowView>) {
-    cx.update(|cx| {
-        cx.set_global(AppEvents::default());
-        gpui_kit::init(cx);
-        cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
-    });
-    let mut main_view = None;
-    let handle = cx.open_window(size(px(1280.), px(800.)), |window, cx| {
-        let title_bar = cx.new(MainTitleBar::new);
-        let view = cx.new(|cx| MainWindowView::new(title_bar, page, window, cx));
-        main_view = Some(view.clone());
-        Root::new(view, window, cx)
-    });
-    cx.update_window(handle.into(), |_, window, cx| window.render_frame(cx))
-        .unwrap();
-    // Startup can raise notifications that depend on the machine (no
-    // Omarchy 4 on a CI runner, so its themes cannot be read either). Every
-    // test starts without them: let them land, dismiss them, and run the
-    // fake clock past the closing animation that removes them.
-    cx.run_until_parked();
-    cx.update_window(handle.into(), |_, window, cx| {
-        window.clear_notifications(cx)
-    })
-    .unwrap();
-    cx.executor().advance_clock(Duration::from_secs(5));
-    cx.run_until_parked();
-    cx.update_window(handle.into(), |_, window, cx| window.render_frame(cx))
-        .unwrap();
-    (handle, main_view.expect("main view created"))
-}
-
-fn assert_page(cx: &mut TestAppContext, view: &Entity<MainWindowView>, page: ActivePage) {
-    cx.update(|cx| assert_eq!(*view.read(cx).active_page(), page));
-}
 
 #[gpui_kit::test]
 fn ctrl_number_switches_pages(cx: &mut TestAppContext) {

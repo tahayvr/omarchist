@@ -276,7 +276,12 @@ fn main() -> ExitCode {
                 titlebar: Some(TitleBar::title_bar_options()),
                 focus: true,
                 show: true,
-                app_id: Some("omarchist".into()),
+                // The headless test harness runs a second, sandboxed
+                // instance under a class of its own, so its window rules
+                // and keys never reach the user's window.
+                app_id: Some(
+                    std::env::var("OMARCHIST_APP_ID").unwrap_or_else(|_| "omarchist".into()),
+                ),
                 ..Default::default()
             };
             let window_handle = cx.open_window(window_options, |window, cx| {

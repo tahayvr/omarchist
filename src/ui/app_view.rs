@@ -414,6 +414,11 @@ impl MainWindowView {
     }
 
     /// The page currently shown.
+    /// The flow editor while it is the page on screen.
+    pub fn flow_editor(&self) -> Option<Entity<FlowEditPage>> {
+        self.flow_edit_view.clone()
+    }
+
     pub fn active_page(&self) -> &ActivePage {
         &self.active_page
     }

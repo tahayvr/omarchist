@@ -71,19 +71,8 @@ pub fn step_strip(flow: &Flow, summaries: &SummaryContext, cx: &App) -> impl Int
         let summary = summaries.summarize(&step.kind);
         row = row.child(
             div()
-                .size_6()
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(theme.radius)
-                .bg(theme.secondary)
-                .text_color(if step.enabled {
-                    theme.foreground
-                } else {
-                    theme.muted_foreground
-                })
-                .opacity(if step.enabled { 1. } else { 0.5 })
-                .child(summary.icon.render(px(14.))),
+                .opacity(if step.enabled { 1. } else { 0.4 })
+                .child(summary.tile(px(24.), cx)),
         );
         if ix + 1 < count {
             row = row.child(
