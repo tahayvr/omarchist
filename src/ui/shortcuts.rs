@@ -6,6 +6,7 @@ use gpui::{Action, KeyBinding};
 use crate::ui::config_page::config_view::config_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
+use crate::ui::flows_page::step_builder::step_vars;
 use crate::ui::focus::{self, dialog, tab_strip};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 use crate::ui::keybinds_page::keystroke_input;
@@ -773,6 +774,35 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("Input"),
         GLOBAL,
         "Redo in a text field"
+    ),
+    // The variables a flow step can use, in the step dialog.
+    shortcut!(
+        "left",
+        step_vars::Prev,
+        Some("StepVariables"),
+        DIALOGS,
+        "Previous variable"
+    ),
+    shortcut!(
+        "right",
+        step_vars::Next,
+        Some("StepVariables"),
+        DIALOGS,
+        "Next variable"
+    ),
+    shortcut!(
+        "enter",
+        step_vars::Insert,
+        Some("StepVariables"),
+        DIALOGS,
+        "Insert the variable"
+    ),
+    shortcut!(
+        "space",
+        step_vars::Insert,
+        Some("StepVariables"),
+        DIALOGS,
+        "Insert the variable"
     ),
     // The action builder's kind and direction strips (in the keybind and
     // flow step dialogs) cycle with the arrow keys.

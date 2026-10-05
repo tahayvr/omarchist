@@ -8,14 +8,22 @@ use std::time::{Duration, Instant};
 use crate::error::{Error, Result};
 
 use super::store::load_flow;
-use super::{Flow, MAX_DEPTH, OnError, StepKind};
+use super::vars::Vars;
+use super::{Flow, MAX_DEPTH, OnError, Step, StepKind};
 
 /// Progress of one top-level run. Nested flows report as a single step of
 /// their parent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunEvent {
-    Started { index: usize },
-    Finished { index: usize, error: Option<String> },
+    Started {
+        index: usize,
+    },
+    Finished {
+        index: usize,
+        error: Option<String>,
+        /// What the step produced, when it produces anything.
+        output: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -25,6 +33,9 @@ pub struct Outcome {
     pub failures: Vec<(usize, String)>,
     /// The step the flow stopped at, when `OnError::Stop` cut it short.
     pub stopped_at: Option<usize>,
+    /// The output of the last step that produced one; what a nested flow
+    /// hands back to the step that ran it.
+    pub last_output: Option<String>,
 }
 
 impl Outcome {
@@ -165,6 +176,8 @@ impl<'a> Runner<'a> {
         on_event: &mut dyn FnMut(RunEvent),
     ) -> Outcome {
         let mut outcome = Outcome::default();
+        // Each flow, nested ones included, has its own variables.
+        let mut vars = Vars::new();
         for (index, step) in flow.steps.iter().enumerate() {
             if !step.enabled {
                 continue;
@@ -174,11 +187,21 @@ impl<'a> Runner<'a> {
                 break;
             }
             on_event(RunEvent::Started { index });
-            let result = self.run_step(&step.kind, stack).map_err(|e| e.to_string());
+            let result = self
+                .run_step(step, &mut vars, stack)
+                .map_err(|e| e.to_string());
             outcome.ran += 1;
+            let output = result.as_ref().ok().cloned().flatten();
+            if let Some(output) = &output {
+                if let Some(name) = &step.output {
+                    vars.set(name, output);
+                }
+                outcome.last_output = Some(output.clone());
+            }
             on_event(RunEvent::Finished {
                 index,
                 error: result.as_ref().err().cloned(),
+                output,
             });
             if let Err(error) = result {
                 outcome.failures.push((index, error));
@@ -191,12 +214,24 @@ impl<'a> Runner<'a> {
         outcome
     }
 
-    fn run_step(&self, kind: &StepKind, stack: &mut Vec<String>) -> Result<()> {
-        match kind {
-            StepKind::Exec { command, wait } => self.exec(command, *wait),
-            StepKind::Lua { expr } => dispatch(expr),
-            StepKind::Wait { ms } => self.wait(Duration::from_millis(*ms)),
-            StepKind::Notify { title, body } => notify(title, body),
+    /// Runs one step with its references filled in, and returns its
+    /// output if it produces one.
+    fn run_step(
+        &self,
+        step: &Step,
+        vars: &mut Vars,
+        stack: &mut Vec<String>,
+    ) -> Result<Option<String>> {
+        match &step.kind {
+            StepKind::Exec { command, wait } => {
+                let (command, env) = vars.shell(command)?;
+                self.exec(&command, &env, *wait)
+            }
+            StepKind::Lua { expr } => dispatch(&vars.lua(expr)?).map(|()| None),
+            StepKind::Wait { ms } => self.wait(Duration::from_millis(*ms)).map(|()| None),
+            StepKind::Notify { title, body } => {
+                notify(&vars.text(title)?, &vars.text(body)?).map(|()| None)
+            }
             StepKind::Flow { id } => self.run_flow_step(id, stack),
         }
     }
@@ -225,7 +260,10 @@ impl<'a> Runner<'a> {
     /// in place) so it outlives the flow and Omarchist, but still gets a
     /// moment to fail: `sh` reporting a missing program exits at once, and
     /// that must not show as a green tick.
-    fn exec(&self, command: &str, wait: bool) -> Result<()> {
+    /// A waited command's stdout is its output, also printed when the run
+    /// is not quiet (the command line). `env` holds the values its
+    /// `{{references}}` expand to.
+    fn exec(&self, command: &str, env: &[(String, String)], wait: bool) -> Result<Option<String>> {
         let mut cmd = if wait {
             let mut cmd = Command::new("sh");
             cmd.args(["-c", command]);
@@ -236,11 +274,8 @@ impl<'a> Runner<'a> {
             cmd
         };
         cmd.stdin(Stdio::null());
-        cmd.stdout(if self.quiet || !wait {
-            Stdio::null()
-        } else {
-            Stdio::inherit()
-        });
+        cmd.envs(env.iter().map(|(k, v)| (k, v)));
+        cmd.stdout(if wait { Stdio::piped() } else { Stdio::null() });
         cmd.stderr(Stdio::piped());
         let mut child = cmd
             .spawn()
@@ -260,7 +295,15 @@ impl<'a> Runner<'a> {
             if self.cancel.is_cancelled() {
                 return Err(Error::Invalid("Stopped".to_string()));
             }
-            return exit_result(output.status, &output.stderr);
+            exit_result(output.status, &output.stderr)?;
+            let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+            if !self.quiet && !stdout.is_empty() {
+                print!("{stdout}");
+                if !stdout.ends_with('\n') {
+                    println!();
+                }
+            }
+            return Ok(Some(stdout));
         }
 
         let deadline = Instant::now() + self.start_grace;
@@ -272,9 +315,9 @@ impl<'a> Runner<'a> {
                         let _ = pipe.read_to_end(&mut stderr);
                     }
                     return if status.success() {
-                        Ok(())
+                        Ok(None)
                     } else {
-                        exit_result(status, &stderr)
+                        exit_result(status, &stderr).map(|()| None)
                     };
                 }
                 Ok(None) if Instant::now() < deadline => {
@@ -292,10 +335,12 @@ impl<'a> Runner<'a> {
             }
             let _ = child.wait();
         });
-        Ok(())
+        Ok(None)
     }
 
-    fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> Result<()> {
+    /// Runs a nested flow; its output is the output of its last step that
+    /// produced one.
+    fn run_flow_step(&self, id: &str, stack: &mut Vec<String>) -> Result<Option<String>> {
         if stack.iter().any(|s| s == id) {
             return Err(Error::Invalid(format!(
                 "Flow '{id}' is already running further up this flow"
@@ -311,7 +356,7 @@ impl<'a> Runner<'a> {
         let outcome = self.run_nested(&nested, stack, &mut |_| {});
         stack.pop();
         if outcome.is_ok() {
-            Ok(())
+            Ok(outcome.last_output)
         } else {
             Err(Error::Invalid(outcome.summary(&nested)))
         }
@@ -437,10 +482,76 @@ mod tests {
             seen[3],
             RunEvent::Finished {
                 index: 1,
-                error: Some("The command exited with status 3".into())
+                error: Some("The command exited with status 3".into()),
+                output: None,
             }
         );
         assert!(outcome.summary(&flow).contains("stopped at step 2"));
+    }
+
+    fn saving(step: Step, name: &str) -> Step {
+        Step {
+            output: Some(name.into()),
+            ..step
+        }
+    }
+
+    #[test]
+    fn a_saved_output_reaches_later_steps_as_plain_text() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(exec("printf '%s' 'a b; $(false)'"), "text"),
+            saving(exec("printf '%s' {{text}} | wc -c"), "length"),
+        ];
+        let (outcome, seen) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        // The value arrived intact (13 bytes), never run as a command.
+        assert_eq!(outcome.last_output.as_deref().map(str::trim), Some("13"));
+        assert!(seen.contains(&RunEvent::Finished {
+            index: 0,
+            error: None,
+            output: Some("a b; $(false)".into()),
+        }));
+    }
+
+    #[test]
+    fn a_nested_flow_hands_back_its_last_output() {
+        let mut child = Flow::new("child".into(), "Child".into());
+        child.steps = vec![exec("echo from-child")];
+        let load = move |id: &str| -> Result<Flow> {
+            if id == "child" {
+                Ok(child.clone())
+            } else {
+                Err(Error::Invalid(format!("no flow {id}")))
+            }
+        };
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(Step::new(StepKind::Flow { id: "child".into() }), "got"),
+            exec("test {{got}} = from-child"),
+        ];
+        let outcome = Runner::with_loader(&load, true).run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+    }
+
+    #[test]
+    fn a_name_whose_step_did_not_run_fails_the_step() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.on_error = OnError::Continue;
+        flow.steps = vec![
+            Step {
+                enabled: false,
+                ..saving(exec("echo x"), "x")
+            },
+            exec("echo {{x}}"),
+        ];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1);
+        assert!(
+            outcome.failures[0].1.contains("{{x}}"),
+            "{}",
+            outcome.failures[0].1
+        );
     }
 
     #[test]

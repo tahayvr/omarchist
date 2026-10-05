@@ -88,7 +88,9 @@ pub enum FlowEditSource {
 enum StepState {
     Idle,
     Running,
-    Done,
+    /// With what the step produced, shown under it until the next run or
+    /// edit.
+    Done(Option<String>),
     /// Why, shown under the step until the next run or edit.
     Failed(String),
 }
@@ -380,11 +382,15 @@ impl FlowEditPage {
                     *state = StepState::Running;
                 }
             }
-            Some(RunEvent::Finished { index, error }) => {
+            Some(RunEvent::Finished {
+                index,
+                error,
+                output,
+            }) => {
                 if let Some(state) = self.step_states.get_mut(index) {
                     *state = match error {
                         Some(error) => StepState::Failed(error),
-                        None => StepState::Done,
+                        None => StepState::Done(output),
                     };
                 }
             }
@@ -461,22 +467,42 @@ impl FlowEditPage {
             StepDialogMode::Edit(ix) => self.flow.steps.get(ix).map(|s| s.kind.clone()),
             StepDialogMode::Add => None,
         };
+        let output = match mode {
+            StepDialogMode::Edit(ix) => self.flow.steps.get(ix).and_then(|s| s.output.clone()),
+            StepDialogMode::Add => None,
+        };
+        // A step can use what the steps before it save.
+        let saved = self.flow.outputs_before(match mode {
+            StepDialogMode::Edit(ix) => ix,
+            StepDialogMode::Add => self.flow.steps.len(),
+        });
         let exclude = (!self.is_new()).then(|| self.flow.id.clone());
-        let dialog = open_step_dialog(mode, initial.as_ref(), exclude.as_deref(), window, cx);
+        let dialog = open_step_dialog(
+            mode,
+            initial.as_ref(),
+            output.as_deref(),
+            &saved,
+            exclude.as_deref(),
+            window,
+            cx,
+        );
         let subscription = cx.subscribe_in(
             &dialog,
             window,
             |this, _, event: &StepDialogEvent, window, cx| {
                 this.step_dialog = None;
                 match event {
-                    StepDialogEvent::Save(StepDialogMode::Add, kind) => {
-                        this.flow.steps.push(Step::new(kind.clone()));
+                    StepDialogEvent::Save(StepDialogMode::Add, kind, output) => {
+                        let mut step = Step::new(kind.clone());
+                        step.output = output.clone();
+                        this.flow.steps.push(step);
                         this.selected_step = Some(this.flow.steps.len() - 1);
                         this.touch_steps(cx);
                     }
-                    StepDialogEvent::Save(StepDialogMode::Edit(ix), kind) => {
+                    StepDialogEvent::Save(StepDialogMode::Edit(ix), kind, output) => {
                         if let Some(step) = this.flow.steps.get_mut(*ix) {
                             step.kind = kind.clone();
+                            step.output = output.clone();
                         }
                         this.touch_steps(cx);
                     }
@@ -1048,10 +1074,43 @@ impl FlowEditPage {
             StepState::Failed(error) => Some(error.clone()),
             _ => None,
         };
+        // The first line of what the step produced, so a run shows what its
+        // variables will hold.
+        let produced = match &state {
+            StepState::Done(Some(output)) => {
+                let first = output.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
+                let more = output.lines().filter(|l| !l.trim().is_empty()).count() > 1;
+                Some(if first.is_empty() {
+                    "(no output)".to_string()
+                } else if more {
+                    format!("{first} …")
+                } else {
+                    first.to_string()
+                })
+            }
+            _ => None,
+        };
+        // A move or delete can leave a step using a name nothing before it
+        // saves; saving the flow refuses that, so point at the step now.
+        let known = self.flow.outputs_before(ix);
+        let unknown: Vec<String> = step
+            .kind
+            .references()
+            .into_iter()
+            .filter(|n| !crate::system::flows::vars::is_builtin(n) && !known.contains(n))
+            .collect();
+        let unknown = (!unknown.is_empty()).then(|| {
+            let names: Vec<String> = unknown.iter().map(|n| format!("{{{{{n}}}}}")).collect();
+            format!("Uses {}, which no earlier step saves", names.join(", "))
+        });
+        let saves = step
+            .output
+            .as_ref()
+            .map(|name| format!("{{{{{}}}}}", crate::system::flows::vars::normalize(name)));
         let state_icon: Option<AnyElement> = match state {
             StepState::Idle => None,
             StepState::Running => Some(Spinner::new().small().into_any_element()),
-            StepState::Done => Some(
+            StepState::Done(_) => Some(
                 Icon::new(Icon::empty())
                     .path("icons/circle-check.svg")
                     .size_4()
@@ -1117,16 +1176,37 @@ impl FlowEditPage {
                     .min_w_0()
                     .gap_0p5()
                     .child(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::MEDIUM)
-                            .truncate()
-                            .text_color(if step.enabled {
-                                theme.foreground
-                            } else {
-                                theme.muted_foreground
-                            })
-                            .child(selectable(("step-title", ix), summary.title)),
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .min_w_0()
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::MEDIUM)
+                                    .truncate()
+                                    .text_color(if step.enabled {
+                                        theme.foreground
+                                    } else {
+                                        theme.muted_foreground
+                                    })
+                                    .child(selectable(("step-title", ix), summary.title)),
+                            )
+                            .when_some(saves, |this, saves| {
+                                this.child(
+                                    div()
+                                        .flex_shrink_0()
+                                        .px_1p5()
+                                        .rounded(theme.radius)
+                                        .bg(theme.primary.opacity(0.12))
+                                        .text_color(theme.primary)
+                                        .text_xs()
+                                        .child(selectable(
+                                            ("step-saves", ix),
+                                            format!("→ {saves}"),
+                                        )),
+                                )
+                            }),
                     )
                     .child(
                         div()
@@ -1148,6 +1228,26 @@ impl FlowEditPage {
                                     ("step-missing", ix),
                                     format!("{program} is not installed"),
                                 )),
+                        )
+                    })
+                    .when_some(unknown, |this, message| {
+                        this.child(
+                            h_flex()
+                                .gap_1()
+                                .items_center()
+                                .text_xs()
+                                .text_color(theme.warning)
+                                .child(Icon::new(IconName::TriangleAlert).size_3())
+                                .child(selectable(("step-unknown-var", ix), message)),
+                        )
+                    })
+                    .when_some(produced, |this, produced| {
+                        this.child(
+                            div()
+                                .text_xs()
+                                .truncate()
+                                .text_color(theme.success)
+                                .child(selectable(("step-output", ix), produced)),
                         )
                     })
                     .when_some(failure, |this, error| {

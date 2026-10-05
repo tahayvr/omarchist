@@ -17,11 +17,16 @@ pub mod runner;
 pub mod share;
 pub mod store;
 pub mod templates;
+pub mod vars;
 
 pub const DEFAULT_ICON: &str = "workflow";
-/// The flow file format this build reads and writes. A file declaring a
-/// higher one is refused; a lower one goes through [`migrate`] on read.
-pub const FORMAT: u32 = 1;
+/// The newest flow file format this build reads. A file declaring a higher
+/// one is refused; a lower one goes through [`migrate`] on read. A flow is
+/// written with the lowest format that can hold it ([`Flow::required_format`]),
+/// so flows that use nothing new stay readable by older builds.
+pub const FORMAT: u32 = 2;
+/// Format 2 added saved outputs and `{{variable}}` references.
+pub const FORMAT_VARIABLES: u32 = 2;
 /// Nesting deeper than this is treated as a mistake rather than run.
 pub const MAX_DEPTH: usize = 8;
 
@@ -119,8 +124,9 @@ pub fn parse_flow(content: &str) -> Result<Flow> {
     Ok(migrate(flow))
 }
 
-/// Brings a flow read from an older format up to [`FORMAT`]. Nothing has
-/// changed shape yet, so this only stamps the current format.
+/// Brings a flow read from an older format up to [`FORMAT`]. Format 2 only
+/// added fields, so this only stamps the current format; writing picks the
+/// lowest format again ([`Flow::required_format`]).
 fn migrate(mut flow: Flow) -> Flow {
     flow.format = FORMAT;
     flow
@@ -172,6 +178,11 @@ pub struct Step {
     pub kind: StepKind,
     #[serde(default = "enabled_default", skip_serializing_if = "is_true")]
     pub enabled: bool,
+    /// Saves the step's output under this name for later steps, as
+    /// `{{name}}`. Only steps that produce output take one: a command the
+    /// flow waits for (its stdout) and a nested flow (its last output).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub output: Option<String>,
 }
 
 fn enabled_default() -> bool {
@@ -187,7 +198,16 @@ impl Step {
         Self {
             kind,
             enabled: true,
+            output: None,
         }
+    }
+
+    /// Whether the step produces output a later step can use.
+    pub fn has_output(&self) -> bool {
+        matches!(
+            self.kind,
+            StepKind::Exec { wait: true, .. } | StepKind::Flow { .. }
+        )
     }
 }
 
@@ -217,6 +237,20 @@ pub enum StepKind {
 }
 
 impl StepKind {
+    /// Every `{{name}}` the step uses, in the texts it fills in.
+    pub fn references(&self) -> Vec<String> {
+        match self {
+            StepKind::Exec { command, .. } => vars::names_in(command),
+            StepKind::Lua { expr } => vars::names_in(expr),
+            StepKind::Notify { title, body } => {
+                let mut names = vars::names_in(title);
+                names.extend(vars::names_in(body));
+                names
+            }
+            StepKind::Wait { .. } | StepKind::Flow { .. } => Vec::new(),
+        }
+    }
+
     /// The literal thing the step does: the command, the dispatcher
     /// expression, the pause, the notification title, or the flow id.
     pub fn text(&self) -> String {
@@ -272,9 +306,35 @@ impl Flow {
     /// The flow as a file, in the layout the store and exports use, under
     /// a comment that says what the file is.
     pub fn to_toml(&self) -> Result<String> {
-        let body = toml::to_string_pretty(self)
+        let mut flow = self.clone();
+        flow.format = self.required_format();
+        let body = toml::to_string_pretty(&flow)
             .map_err(|e| Error::Invalid(format!("Failed to serialize flow: {e}")))?;
         Ok(format!("{FILE_HEADER}{body}"))
+    }
+
+    /// The lowest format that holds this flow: 2 once a step saves an
+    /// output or uses a variable, 1 otherwise.
+    pub fn required_format(&self) -> u32 {
+        let uses_variables = self
+            .steps
+            .iter()
+            .any(|s| s.output.is_some() || !s.kind.references().is_empty());
+        if uses_variables { FORMAT_VARIABLES } else { 1 }
+    }
+
+    /// Names saved by the steps before `index`, in order, without repeats.
+    pub fn outputs_before(&self, index: usize) -> Vec<String> {
+        let mut names: Vec<String> = Vec::new();
+        for step in self.steps.iter().take(index) {
+            if let Some(name) = &step.output {
+                let name = vars::normalize(name);
+                if !names.contains(&name) {
+                    names.push(name);
+                }
+            }
+        }
+        names
     }
 
     /// The command that runs this flow from anywhere.
@@ -307,7 +367,52 @@ impl Flow {
                 "A flow's name cannot contain line breaks".to_string(),
             ));
         }
-        for step in &self.steps {
+        for (index, step) in self.steps.iter().enumerate() {
+            if let Some(name) = &step.output {
+                if !vars::is_name(name) {
+                    return Err(Error::Invalid(format!(
+                        "Step {}: '{name}' cannot be a variable name (a letter, then letters, \
+                         digits, spaces, - or _)",
+                        index + 1
+                    )));
+                }
+                if vars::is_builtin(name) {
+                    return Err(Error::Invalid(format!(
+                        "Step {}: {{{{{}}}}} is a built-in variable; pick another name",
+                        index + 1,
+                        vars::normalize(name)
+                    )));
+                }
+                if !step.has_output() {
+                    return Err(Error::Invalid(format!(
+                        "Step {}: only a command the flow waits for, or another flow, has \
+                         output to save",
+                        index + 1
+                    )));
+                }
+            }
+            let known = self.outputs_before(index);
+            for name in step.kind.references() {
+                if !vars::is_builtin(&name) && !known.contains(&name) {
+                    return Err(Error::Invalid(format!(
+                        "Step {} uses {{{{{name}}}}}, which no earlier step saves",
+                        index + 1
+                    )));
+                }
+            }
+            if let StepKind::Lua { expr } = &step.kind
+                && !step.kind.references().is_empty()
+            {
+                // The guard below checks the text as written; a reference must
+                // also sit inside a string so its value is escaped there.
+                let mut probe = vars::Vars::new();
+                for name in step.kind.references() {
+                    probe.set(&name, "x");
+                }
+                probe
+                    .lua(expr)
+                    .map_err(|e| Error::Invalid(format!("Step {}: {e}", index + 1)))?;
+            }
             match &step.kind {
                 StepKind::Exec { command, .. } if command.trim().is_empty() => {
                     return Err(Error::Invalid("A command step is empty".to_string()));
@@ -612,6 +717,7 @@ mod tests {
             Step {
                 kind: StepKind::Wait { ms: 500 },
                 enabled: false,
+                output: None,
             },
             Step::new(StepKind::Exec {
                 command: "omarchy-launch-editor".into(),
@@ -644,6 +750,7 @@ mod tests {
                 Step {
                     kind: StepKind::Wait { ms: 500 },
                     enabled: false,
+                    output: None,
                 },
                 Step::new(StepKind::Lua {
                     expr: "hl.dsp.focus({ workspace = \"2\" })".into(),
@@ -714,6 +821,103 @@ mod tests {
         assert!(bad_id.validate().is_err());
         let no_name = Flow::new("ok".into(), " ".into());
         assert!(no_name.validate().is_err());
+    }
+}
+
+#[cfg(test)]
+mod variable_tests {
+    use super::{Flow, Step, StepKind, parse_flow};
+
+    fn command(text: &str, wait: bool) -> Step {
+        Step::new(StepKind::Exec {
+            command: text.into(),
+            wait,
+        })
+    }
+
+    fn saving(step: Step, name: &str) -> Step {
+        Step {
+            output: Some(name.into()),
+            ..step
+        }
+    }
+
+    fn flow(steps: Vec<Step>) -> Flow {
+        let mut flow = Flow::new("f".into(), "F".into());
+        flow.steps = steps;
+        flow
+    }
+
+    #[test]
+    fn a_reference_needs_an_earlier_step_or_a_builtin() {
+        let ok = flow(vec![
+            saving(command("echo hi", true), "greeting"),
+            command("notify-send {{greeting}} {{date}}", false),
+        ]);
+        assert!(ok.validate().is_ok(), "{:?}", ok.validate());
+
+        let later = flow(vec![
+            command("echo {{greeting}}", false),
+            saving(command("echo hi", true), "greeting"),
+        ]);
+        let error = later.validate().unwrap_err().to_string();
+        assert!(
+            error.contains("Step 1") && error.contains("{{greeting}}"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn only_steps_with_output_can_save_it_and_names_are_checked() {
+        assert!(
+            flow(vec![saving(command("echo hi", false), "x")])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            flow(vec![saving(command("echo hi", true), "2x")])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            flow(vec![saving(command("echo hi", true), "clipboard")])
+                .validate()
+                .is_err()
+        );
+        assert!(
+            flow(vec![saving(
+                Step::new(StepKind::Flow { id: "other".into() }),
+                "x"
+            )])
+            .validate()
+            .is_ok()
+        );
+    }
+
+    #[test]
+    fn a_hyprland_reference_must_sit_inside_a_string() {
+        let quoted = flow(vec![Step::new(StepKind::Lua {
+            expr: "hl.dsp.focus({ workspace = \"{{workspace}}\" })".into(),
+        })]);
+        assert!(quoted.validate().is_ok(), "{:?}", quoted.validate());
+        let bare = flow(vec![Step::new(StepKind::Lua {
+            expr: "hl.dsp.focus({ workspace = {{workspace}} })".into(),
+        })]);
+        assert!(bare.validate().is_err());
+    }
+
+    #[test]
+    fn a_flow_without_variables_stays_format_1() {
+        let plain = flow(vec![command("echo hi", false)]);
+        assert!(plain.to_toml().unwrap().contains("format = 1\n"));
+        let with = flow(vec![saving(command("echo hi", true), "x")]);
+        let text = with.to_toml().unwrap();
+        assert!(text.contains("format = 2\n"), "{text}");
+        assert!(text.contains("output = \"x\""), "{text}");
+        assert_eq!(
+            parse_flow(&text).unwrap().steps[0].output.as_deref(),
+            Some("x")
+        );
     }
 }
 

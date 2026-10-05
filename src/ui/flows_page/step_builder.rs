@@ -10,7 +10,7 @@ use gpui_component::{
     v_flex,
 };
 
-use crate::system::flows::{StepKind, format_duration};
+use crate::system::flows::{StepKind, format_duration, vars};
 use crate::system::keybinds::action::{Action, ActionKind};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
@@ -19,6 +19,14 @@ use crate::ui::text::selectable;
 
 pub enum StepBuilderEvent {
     Changed,
+}
+
+/// The row of variables a step can use: one tab stop, arrows pick, Enter
+/// or Space inserts.
+pub const VARIABLES_CONTEXT: &str = "StepVariables";
+
+pub mod step_vars {
+    gpui::actions!(step_vars, [Prev, Next, Insert]);
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +80,15 @@ pub struct StepBuilder {
     wait_ms: Entity<InputState>,
     notify_title: Entity<InputState>,
     notify_body: Entity<InputState>,
+    /// "Save output as": the name later steps use as `{{name}}`.
+    output_name: Entity<InputState>,
+    /// What this step can use: built-ins, then names earlier steps save.
+    variables: Vec<String>,
+    /// The notification field a variable goes into: the one last focused.
+    notify_body_last: bool,
+    variables_focus: FocusHandle,
+    /// The variable the keyboard is on in the row.
+    variable_ix: usize,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -79,8 +96,12 @@ impl EventEmitter<StepBuilderEvent> for StepBuilder {}
 
 impl StepBuilder {
     /// `exclude_flow` keeps the flow being edited out of the Flow picker.
+    /// `output` is the name the step saves its output under; `saved` the
+    /// names earlier steps save, which this one may use.
     pub fn new(
         initial: Option<&StepKind>,
+        output: Option<&str>,
+        saved: &[String],
         exclude_flow: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -125,6 +146,12 @@ impl StepBuilder {
         });
         let notify_title = text(window, cx, "Title", &title_value);
         let notify_body = text(window, cx, "Message (optional)", &body_value);
+        let output_name = text(window, cx, "Name, such as url", output.unwrap_or_default());
+        let variables: Vec<String> = vars::BUILTINS
+            .iter()
+            .map(|(name, _)| name.to_string())
+            .chain(saved.iter().cloned())
+            .collect();
 
         let mut subscriptions = vec![cx.subscribe_in(
             &action,
@@ -134,13 +161,25 @@ impl StepBuilder {
                 this.changed(cx);
             },
         )];
-        for input in [&wait_ms, &notify_title, &notify_body] {
+        for input in [&wait_ms, &notify_title, &notify_body, &output_name] {
             subscriptions.push(cx.subscribe_in(
                 input,
                 window,
                 |this, _, event: &InputEvent, _window, cx| {
                     if matches!(event, InputEvent::Change) {
                         this.changed(cx);
+                    }
+                },
+            ));
+        }
+
+        for (input, body) in [(&notify_title, false), (&notify_body, true)] {
+            subscriptions.push(cx.subscribe_in(
+                input,
+                window,
+                move |this, _, event: &InputEvent, _window, _cx| {
+                    if matches!(event, InputEvent::Focus) {
+                        this.notify_body_last = body;
                     }
                 },
             ));
@@ -154,7 +193,82 @@ impl StepBuilder {
             wait_ms,
             notify_title,
             notify_body,
+            output_name,
+            variables,
+            notify_body_last: false,
+            variables_focus: focus::tab_stop(cx),
+            variable_ix: 0,
             _subscriptions: subscriptions,
+        }
+    }
+
+    /// Whether the step being built produces output to save: a command
+    /// the flow waits for, or another flow.
+    fn produces_output(&self) -> bool {
+        match self.choice {
+            StepChoice::Action(ActionKind::Command) => self.wait,
+            StepChoice::Action(ActionKind::Flow) => true,
+            _ => false,
+        }
+    }
+
+    /// The name to save the output under, if any, or why it cannot be one.
+    pub fn output_name(&self, cx: &App) -> Result<Option<String>, String> {
+        if !self.produces_output() {
+            return Ok(None);
+        }
+        let name = self.output_name.read(cx).value().trim().to_string();
+        if name.is_empty() {
+            return Ok(None);
+        }
+        if !vars::is_name(&name) {
+            return Err(
+                "A name starts with a letter, then letters, digits, spaces, - or _".to_string(),
+            );
+        }
+        if vars::is_builtin(&name) {
+            return Err(format!(
+                "{{{{{}}}}} is a built-in variable; pick another name",
+                vars::normalize(&name)
+            ));
+        }
+        Ok(Some(vars::normalize(&name)))
+    }
+
+    /// Whether the current kind has a text field a variable can go into.
+    fn takes_variables(&self, cx: &App) -> bool {
+        match self.choice {
+            StepChoice::Notify => true,
+            StepChoice::Action(_) => self.action.read(cx).accepts_variables(),
+            StepChoice::Wait => false,
+        }
+    }
+
+    fn insert_variable(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let text = format!("{{{{{name}}}}}");
+        match self.choice {
+            StepChoice::Notify => {
+                let input = if self.notify_body_last {
+                    self.notify_body.clone()
+                } else {
+                    self.notify_title.clone()
+                };
+                input.update(cx, |input, cx| {
+                    let current = input.value().to_string();
+                    let sep = if current.is_empty() || current.ends_with(' ') {
+                        ""
+                    } else {
+                        " "
+                    };
+                    input.set_value(format!("{current}{sep}{text}"), window, cx);
+                    input.focus(window, cx);
+                });
+                self.changed(cx);
+            }
+            StepChoice::Action(_) => self
+                .action
+                .update(cx, |builder, cx| builder.append_to_field(&text, window, cx)),
+            StepChoice::Wait => {}
         }
     }
 
@@ -194,8 +308,21 @@ impl StepBuilder {
         }
     }
 
-    /// The step the controls currently describe, or why they don't.
+    /// The step the controls currently describe, or why they don't: a
+    /// field that is not filled in, or a `{{name}}` this step cannot use.
     pub fn step(&self, cx: &App) -> Result<StepKind, String> {
+        let kind = self.kind(cx)?;
+        for name in kind.references() {
+            if !self.variables.contains(&name) {
+                return Err(format!(
+                    "{{{{{name}}}}} is not a variable here: no earlier step saves it"
+                ));
+            }
+        }
+        Ok(kind)
+    }
+
+    fn kind(&self, cx: &App) -> Result<StepKind, String> {
         match self.choice {
             StepChoice::Action(_) => {
                 let builder = self.action.read(cx);
@@ -407,12 +534,112 @@ impl StepBuilder {
     }
 }
 
+impl StepBuilder {
+    /// The variables this step can use, as buttons that insert them.
+    fn render_variables(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        if !self.takes_variables(cx) {
+            return None;
+        }
+        let theme = cx.theme();
+        let builtins = vars::BUILTINS.len();
+        let row_focused = self.variables_focus.is_focused(window);
+        let ring = focus::focus_border(row_focused, theme.transparent, cx);
+        let count = self.variables.len();
+        Some(
+            h_flex()
+                .id("step-variables")
+                .key_context(VARIABLES_CONTEXT)
+                .track_focus(&self.variables_focus)
+                .on_action(cx.listener(move |this, _: &step_vars::Prev, _, cx| {
+                    this.variable_ix = (this.variable_ix + count - 1) % count.max(1);
+                    cx.notify();
+                }))
+                .on_action(cx.listener(move |this, _: &step_vars::Next, _, cx| {
+                    this.variable_ix = (this.variable_ix + 1) % count.max(1);
+                    cx.notify();
+                }))
+                .on_action(cx.listener(|this, _: &step_vars::Insert, window, cx| {
+                    if let Some(name) = this.variables.get(this.variable_ix).cloned() {
+                        this.insert_variable(&name, window, cx);
+                    }
+                }))
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(ring)
+                .p_0p5()
+                .gap_1()
+                .flex_wrap()
+                .items_center()
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(theme.muted_foreground)
+                        .mr_1()
+                        .child("Insert"),
+                )
+                .children(self.variables.iter().enumerate().map(|(ix, name)| {
+                    let name = name.clone();
+                    let tooltip = vars::BUILTINS
+                        .iter()
+                        .find(|(b, _)| *b == name)
+                        .map(|(_, what)| what.to_string())
+                        .unwrap_or_else(|| "Saved by an earlier step".to_string());
+                    let button = Button::new(("step-variable", ix))
+                        .label(format!("{{{{{name}}}}}"))
+                        .xsmall()
+                        .tab_stop(false)
+                        .tooltip(tooltip)
+                        .cursor_pointer();
+                    // Names earlier steps save stand out from the built-ins.
+                    let button = if row_focused && ix == self.variable_ix {
+                        button.primary()
+                    } else if ix >= builtins {
+                        button.outline()
+                    } else {
+                        button.ghost()
+                    };
+                    button.on_click(cx.listener(move |this, _, window, cx| {
+                        this.insert_variable(&name, window, cx)
+                    }))
+                }))
+                .into_any_element(),
+        )
+    }
+
+    /// "Save output as", for a step that produces output.
+    fn render_output(&self, cx: &App) -> Option<AnyElement> {
+        if !self.produces_output() {
+            return None;
+        }
+        let theme = cx.theme();
+        Some(
+            h_flex()
+                .gap_2()
+                .items_center()
+                .flex_wrap()
+                .child(div().text_sm().child("Save output as"))
+                .child(div().w_48().child(Input::new(&self.output_name).small()))
+                .when_some(self.output_name(cx).err(), |this, error| {
+                    this.child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.danger)
+                            .child(selectable("output-name-error", error)),
+                    )
+                })
+                .into_any_element(),
+        )
+    }
+}
+
 impl Render for StepBuilder {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         v_flex()
             .gap_2()
             .child(self.render_choices(window, cx))
             .child(self.render_body(cx))
+            .children(self.render_variables(window, cx))
+            .children(self.render_output(cx))
             .children(self.render_preview(cx))
     }
 }

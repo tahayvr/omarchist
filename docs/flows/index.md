@@ -32,6 +32,8 @@ Give the flow a name, a description, and an icon, then press **Add step** (<kbd>
 
 A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
 
+A step can pass what it produced to later steps: save its output under a name and use it as `{{name}}`. See [Variables](/flows/variables).
+
 A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install.
 
 **Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
@@ -115,7 +117,7 @@ title = "Focus mode"
 body = "Everything else can wait"
 ```
 
-- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). `enabled = false` skips a step.
-- `format` is the file layout version. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
+- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), and `flow` (`id`). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
+- `format` is the file layout version. Omarchist writes format 1 unless the flow uses variables, which need format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
 - `[meta]` is optional: `author`, `version`, `homepage`, `tags`, `requires` (programs the flow expects), and `source` (the URL it was imported from).
 - A file without an `id` takes its file name as the id, so `night-shift.toml` or `night-shift.flow.toml` copied in just works.

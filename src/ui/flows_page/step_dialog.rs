@@ -20,7 +20,8 @@ pub enum StepDialogMode {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepDialogEvent {
-    Save(StepDialogMode, StepKind),
+    /// The step and the name it saves its output under.
+    Save(StepDialogMode, StepKind, Option<String>),
     Cancel,
 }
 
@@ -38,11 +39,14 @@ impl StepDialog {
     pub fn new(
         mode: StepDialogMode,
         initial: Option<&StepKind>,
+        output: Option<&str>,
+        saved: &[String],
         exclude_flow: Option<&str>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        let builder = cx.new(|cx| StepBuilder::new(initial, exclude_flow, window, cx));
+        let builder =
+            cx.new(|cx| StepBuilder::new(initial, output, saved, exclude_flow, window, cx));
         let subscription = cx.subscribe(&builder, |this, _, event: &StepBuilderEvent, cx| {
             let StepBuilderEvent::Changed = event;
             this.error = None;
@@ -58,9 +62,13 @@ impl StepDialog {
     }
 
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.builder.read(cx).step(cx) {
-            Ok(step) => {
-                cx.emit(StepDialogEvent::Save(self.mode, step));
+        let builder = self.builder.read(cx);
+        match builder
+            .step(cx)
+            .and_then(|step| Ok((step, builder.output_name(cx)?)))
+        {
+            Ok((step, output)) => {
+                cx.emit(StepDialogEvent::Save(self.mode, step, output));
                 window.close_dialog(cx);
             }
             Err(error) => {
@@ -131,6 +139,8 @@ impl Render for StepDialog {
 pub fn open_step_dialog(
     mode: StepDialogMode,
     initial: Option<&StepKind>,
+    output: Option<&str>,
+    saved: &[String],
     exclude_flow: Option<&str>,
     window: &mut Window,
     cx: &mut App,
@@ -139,7 +149,8 @@ pub fn open_step_dialog(
         StepDialogMode::Add => "Add step",
         StepDialogMode::Edit(_) => "Edit step",
     };
-    let dialog = cx.new(|cx| StepDialog::new(mode, initial, exclude_flow, window, cx));
+    let dialog =
+        cx.new(|cx| StepDialog::new(mode, initial, output, saved, exclude_flow, window, cx));
     let view = dialog.clone();
     let body_focus = dialog.read(cx).body_focus.clone();
     window.open_dialog(cx, move |d, window, _| {

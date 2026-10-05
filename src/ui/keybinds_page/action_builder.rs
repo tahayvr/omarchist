@@ -592,6 +592,41 @@ impl ActionBuilder {
         self.kind
     }
 
+    /// The text field a flow step's `{{variable}}` goes into for the
+    /// current kind, if it has one.
+    fn variable_target(&self) -> Option<&Entity<InputState>> {
+        match self.kind {
+            ActionKind::Command => Some(&self.command),
+            ActionKind::Terminal => Some(&self.terminal_command),
+            ActionKind::WebApp => Some(&self.webapp_url),
+            _ => None,
+        }
+    }
+
+    /// Whether the current kind has a field a variable can go into.
+    pub fn accepts_variables(&self) -> bool {
+        self.variable_target().is_some()
+    }
+
+    /// Appends `text` (a `{{variable}}`) to the current kind's text field
+    /// and focuses it with the cursor after the insertion.
+    pub fn append_to_field(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(input) = self.variable_target().cloned() else {
+            return;
+        };
+        input.update(cx, |input, cx| {
+            let current = input.value().to_string();
+            let sep = if current.is_empty() || current.ends_with(' ') {
+                ""
+            } else {
+                " "
+            };
+            input.set_value(format!("{current}{sep}{text}"), window, cx);
+            input.focus(window, cx);
+        });
+        self.changed(cx);
+    }
+
     pub fn set_kind_strip(&mut self, shown: bool, cx: &mut Context<Self>) {
         self.kind_strip = shown;
         cx.notify();
