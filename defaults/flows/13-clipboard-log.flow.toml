@@ -1,0 +1,20 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Clipboard log"
+description = "Adds what you copied to a running log, with the date and time."
+icon = "pen-tool"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "printf '%s %s  %s\\n' {{date}} {{time}} {{clipboard}} >> ~/clipboard-log.txt"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Saved to your clipboard log"
+body = "{{clipboard}}"

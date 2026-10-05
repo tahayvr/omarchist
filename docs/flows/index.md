@@ -54,7 +54,7 @@ The id comes from the flow's name and never changes, so renaming a flow breaks n
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships ten built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow file without an id. Omarchist ships fourteen built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -71,6 +71,10 @@ A template is a flow file without an id. Omarchist ships ten built-in ones; your
 | **Wind down** | Turns on the night light, dims the screen to 30%, and lowers the volume to 20%. |
 | **Battery saver** | Switches to the power-saver profile, dims the screen to 40%, and turns off the keyboard backlight. |
 | **Fix my connection** | Restarts Wi-Fi, Bluetooth, and audio. |
+| **Search selection** | Searches the web for the text you have selected. Uses [variables](/flows/variables). |
+| **Daily note** | Opens today's note (`~/Notes/<date>.md`) in your editor, creating it the first time. |
+| **Clipboard log** | Adds what you copied to `~/clipboard-log.txt`, with the date and time, and shows it. |
+| **Where am I** | Shows the app, window and workspace you are on. |
 
 Each built-in template sets things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 

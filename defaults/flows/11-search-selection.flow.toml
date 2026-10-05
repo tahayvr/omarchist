@@ -1,0 +1,20 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Search selection"
+description = "Searches the web for the text you have selected."
+icon = "globe"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "printf '%s' {{selection}} | jq -sRr @uri"
+wait = true
+output = "query"
+
+[[step]]
+type = "exec"
+command = 'omarchy-launch-webapp "https://duckduckgo.com/?q={{query}}"'

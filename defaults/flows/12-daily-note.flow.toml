@@ -1,0 +1,20 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Daily note"
+description = "Opens today's note in your editor, creating it the first time."
+icon = "book"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "mkdir -p ~/Notes && touch ~/Notes/{{date}}.md && echo ~/Notes/{{date}}.md"
+wait = true
+output = "note"
+
+[[step]]
+type = "exec"
+command = "omarchy-launch-editor {{note}}"

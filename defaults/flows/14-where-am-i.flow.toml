@@ -1,0 +1,15 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Where am I"
+description = "Tells you the app, window and workspace you are on."
+icon = "target"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "notify"
+title = "{{app}} on workspace {{workspace}}"
+body = "{{window}}"
