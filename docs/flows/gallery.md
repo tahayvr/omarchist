@@ -6,6 +6,9 @@ outline: deep
 
 The **Gallery** is where people share flows. Browse it from inside Omarchist, read what a flow does, and install it in two clicks. Every flow in it was read by a reviewer before it was listed.
 
+<img src="/images/gallery-light.webp" alt="The Gallery" class="screenshot light-only">
+<img src="/images/gallery-dark.webp" alt="The Gallery" class="screenshot dark-only">
+
 Open it with **Gallery** on the Flows page, with **Flows → Gallery** in the title bar, or from the command palette. Browsing needs no account.
 
 ## Find a flow
@@ -19,6 +22,9 @@ A card shows the flow's icon and name, who made it, the icons of its steps, and 
 ## Read it first
 
 Click a card to see the flow before you take it:
+
+<img src="/images/gallery-detail-light.webp" alt="A flow in the Gallery" class="screenshot light-only">
+<img src="/images/gallery-detail-dark.webp" alt="A flow in the Gallery" class="screenshot dark-only">
 
 | Part | What it tells you |
 | --- | --- |

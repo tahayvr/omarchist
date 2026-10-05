@@ -6,6 +6,9 @@ outline: deep
 
 Omarchist keeps the last 50 runs of every flow, whatever started them. When a keybind did nothing or an automation ran while you were away, the history says what happened.
 
+<img src="/images/flow-history-light.webp" alt="A flow's run history" class="screenshot light-only">
+<img src="/images/flow-history-dark.webp" alt="A flow's run history" class="screenshot dark-only">
+
 ## See a flow's runs
 
 - In the editor, press the **Run history** button next to **Run** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd>).

@@ -33,6 +33,9 @@ Give the flow a name, a description, and an icon, then press **Add step** (<kbd>
 | **If**, **Repeat**, **Repeat with each**, **Choose from a menu**, **Stop this flow** | Decides what runs, and how often. See [If, Repeat, and menus](/flows/logic). |
 | **Set the volume**, **Copy to the clipboard**, **Take a screenshot**, and about thirty more | Ready-made actions with a form instead of a command. See [Ready-made actions](/flows/actions). |
 
+<img src="/images/add-step-light.webp" alt="The list of step types" class="screenshot light-only">
+<img src="/images/add-step-dark.webp" alt="The list of step types" class="screenshot dark-only">
+
 **Add step** opens a list of every kind of step, grouped and searchable: type a few letters and press <kbd>Enter</kbd>, or move with the arrow keys. The row under the search narrows the list to one group. **Change** in a step's form goes back to the list.
 
 A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows move it up and down. **Keep going when a step fails** lets the rest of the flow run after an error.

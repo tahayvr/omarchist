@@ -54,7 +54,9 @@ Search and change every Hyprland keybind on your system. Record a combination th
 
 ### Flows
 
-String actions together, like Shortcuts on a Mac: open apps, switch workspaces, wait, notify. Run a flow from a keybind, the app launcher, at startup, or anywhere with `omarchist flow run <name>`. Start from a template, and share flows as `.flow.toml` files.
+String actions together, like Shortcuts on a Mac. A flow can open apps, change settings, ask you something, pass what one step produced to the next, decide with If, and repeat. Run it from a keybind, the app launcher, the Files menu, at startup, or anywhere with `omarchist flow run <name>`, or let an automation start it: at a time, when an app opens, when the charger is unplugged.
+
+Start from a template or from the Gallery, where people share flows that reviewers have read. Installing one shows you every step before anything is saved.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="screenshots/flow-editor-dark.webp">
