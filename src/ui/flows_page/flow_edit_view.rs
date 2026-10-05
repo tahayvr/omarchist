@@ -19,10 +19,13 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::config::config_setup::settings;
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::automations::Event;
+use crate::system::flows::catalog;
 use crate::system::flows::history::{self, Recorder};
 use crate::system::flows::requirements::missing_programs;
+use crate::system::flows::risks;
 use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner, StepStatus};
 use crate::system::flows::service;
 use crate::system::flows::share::Imported;
@@ -44,7 +47,9 @@ use crate::ui::flows_page::automation_dialog::{
     AutomationDialog, AutomationDialogEvent, EventKind, open_automation_dialog,
 };
 use crate::ui::flows_page::flow_card::icon_tile;
+use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
+use crate::ui::flows_page::publish_dialog::open_publish_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
@@ -93,6 +98,7 @@ pub mod flow_edit_nav {
             Undo,
             Redo,
             SaveAsTemplate,
+            Publish,
             Export,
         ]
     );
@@ -106,6 +112,9 @@ pub enum FlowEditSource {
     New(Option<String>),
     /// A flow from a file or URL, shown for review before its first save.
     Imported(Box<Imported>),
+    /// The saved flow with this id, taking the steps of a newer version
+    /// from the gallery, shown for review before it is saved over.
+    Update(String, Box<Imported>),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -181,6 +190,11 @@ pub struct FlowEditPage {
     pub(super) scroll: ScrollHandle,
     /// Where an imported flow came from, shown until it is saved.
     pub(super) import_origin: Option<String>,
+    /// What an update from the gallery brought, shown until it is saved.
+    update_note: Option<String>,
+    /// What the gallery says about this flow, when it came from there:
+    /// its entry, its install count, and whether its author is verified.
+    gallery: Option<(catalog::Entry, u64, bool)>,
     /// Programs the flow needs that are not on this machine.
     pub(super) missing: Vec<String>,
     _subscriptions: Vec<Subscription>,
@@ -206,8 +220,40 @@ impl FlowEditPage {
                 .map(|t| t.flow)
                 .unwrap_or_else(|| Flow::new(String::new(), String::new())),
             FlowEditSource::Imported(imported) => imported.flow.clone(),
+            FlowEditSource::Update(id, _) => match load_flow(id) {
+                Ok(flow) => flow,
+                Err(e) => {
+                    window.push_notification(format!("Could not read the flow: {e}"), cx);
+                    emit(cx, AppEvent::Navigate(ActivePage::Flows));
+                    Flow::new(String::new(), String::new())
+                }
+            },
         };
+        // What is saved stays the baseline, so an update shows as unsaved
+        // and is one change to undo.
         let baseline = flow.clone();
+        let undo = UndoStack::new(&flow);
+        let mut flow = flow;
+        let mut update_note = None;
+        if let FlowEditSource::Update(_, imported) = &source
+            && !flow.id.is_empty()
+        {
+            // The new version brings what the flow does; the name, the
+            // icon and what starts it are this machine's and stay.
+            let new = &imported.flow;
+            flow.steps = new.steps.clone();
+            flow.description = new.description.clone();
+            flow.on_error = new.on_error;
+            flow.input = new.input;
+            flow.meta = new.meta.clone();
+            update_note = Some(match catalog::source_of(new) {
+                Some((_, version)) => format!(
+                    "These are the steps of version {version} from {}. Check them before you save.",
+                    imported.origin
+                ),
+                None => "These steps are new. Check them before you save.".to_string(),
+            });
+        }
         let import_origin = match &source {
             FlowEditSource::Imported(imported) => Some(imported.origin.clone()),
             _ => None,
@@ -245,10 +291,12 @@ impl FlowEditPage {
             rounds: HashMap::new(),
             collapsed: HashSet::new(),
             selected_bounds: Rc::new(Cell::new(Bounds::default())),
-            undo: UndoStack::new(&flow),
+            undo,
             flow,
             baseline,
             discarded: false,
+            update_note,
+            gallery: None,
             name,
             description,
             icon_focus: focus::tab_stop(cx),
@@ -300,12 +348,22 @@ impl FlowEditPage {
                         load_flows(),
                         scan_keybinds(),
                         service::is_enabled(),
+                        catalog::cached(),
                     )
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let (apps, flows, scan, service_on) = loaded;
+                let (apps, flows, scan, service_on, gallery) = loaded;
                 this.service_on = service_on;
+                // The copy of the gallery kept from the last visit says
+                // whether this flow has an update or was pulled.
+                this.gallery = gallery.and_then(|gallery| {
+                    let (slug, _) = catalog::source_of(&this.flow)?;
+                    let entry = gallery.index.entry(&slug)?.clone();
+                    let installs = gallery.installs.get(&slug).copied().unwrap_or(0);
+                    let verified = gallery.index.is_verified(&entry.author);
+                    Some((entry, installs, verified))
+                });
                 this.apps = apps;
                 this.flows = flows.unwrap_or_default();
                 if let Ok(scan) = scan {
@@ -362,6 +420,15 @@ impl FlowEditPage {
                 // ask to discard the flow that was just saved.
                 self.flow = flow.clone();
                 self.baseline = flow.clone();
+                self.update_note = None;
+                // A first save of a flow from the gallery is an install.
+                if was_new
+                    && let Some((slug, version)) = catalog::source_of(&flow)
+                    && settings().gallery_count_installs
+                {
+                    cx.background_spawn(async move { catalog::count_install(&slug, version) })
+                        .detach();
+                }
                 cx.notify();
                 if was_new {
                     // Reopen under the new id so triggers can refer to it.
@@ -1084,8 +1151,12 @@ impl FlowEditPage {
         if !meta.homepage.is_empty() {
             parts.push(meta.homepage.clone());
         }
-        if !meta.source.is_empty() {
-            parts.push(format!("imported from {}", meta.source));
+        match catalog::source_of(&self.flow) {
+            Some(_) => parts.insert(0, "From the gallery".to_string()),
+            None if !meta.source.is_empty() => {
+                parts.push(format!("imported from {}", meta.source));
+            }
+            None => {}
         }
         if parts.is_empty() {
             return None;
@@ -1099,12 +1170,157 @@ impl FlowEditPage {
     }
 
     fn render_import_banner(&self, cx: &App) -> Option<impl IntoElement> {
-        let origin = self.import_origin.as_ref()?;
-        Some(warning_banner(
-            "import-banner",
-            format!("Imported from {origin}. Check every step before you save."),
-            cx,
-        ))
+        let text = match (&self.import_origin, &self.update_note) {
+            (Some(origin), _) => {
+                format!("Imported from {origin}. Check every step before you save.")
+            }
+            (None, Some(note)) => note.clone(),
+            (None, None) => return None,
+        };
+        Some(warning_banner("import-banner", text, cx))
+    }
+
+    /// Whether somebody else's steps are on screen, waiting to be saved.
+    pub(super) fn reviewing(&self) -> bool {
+        self.import_origin.is_some() || self.update_note.is_some()
+    }
+
+    /// What a reader should know about the steps under review: the ones
+    /// that run as administrator, delete, download code, and the like.
+    fn render_risks(&self, cx: &App) -> Option<impl IntoElement> {
+        if !self.reviewing() {
+            return None;
+        }
+        let found = risks::risks(&self.flow);
+        if found.is_empty() {
+            return None;
+        }
+        let theme = cx.theme();
+        Some(
+            v_flex()
+                .id("import-risks")
+                .test_support()
+                .gap_1()
+                .px_3()
+                .py_2()
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(theme.border)
+                .children(found.into_iter().enumerate().map(|(ix, risk)| {
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .text_sm()
+                        .child(
+                            Icon::new(Icon::empty())
+                                .path("icons/shield-alert.svg")
+                                .size_4()
+                                .flex_shrink_0()
+                                .text_color(if risk.level == risks::Level::Danger {
+                                    theme.danger
+                                } else {
+                                    theme.warning
+                                }),
+                        )
+                        .child(selectable(
+                            ("import-risk", ix),
+                            format!("Step {}: {}", risk.step, risk.what),
+                        ))
+                })),
+        )
+    }
+
+    /// For a flow from the gallery: that a newer version is there, or that
+    /// it was pulled.
+    fn render_gallery_standing(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (entry, installs, verified) = self.gallery.clone()?;
+        // Under review, the update is what is on screen already.
+        if self.reviewing() {
+            return None;
+        }
+        let index = catalog::Index {
+            flows: vec![entry.clone()],
+            ..catalog::Index::default()
+        };
+        let (_, version) = catalog::source_of(&self.flow)?;
+        match catalog::standing(&self.flow, &index)? {
+            catalog::Standing::Pulled(reason) => Some(
+                warning_banner(
+                    "gallery-pulled",
+                    if reason.is_empty() {
+                        "This flow was pulled from the gallery.".to_string()
+                    } else {
+                        format!("This flow was pulled from the gallery: {reason}")
+                    },
+                    cx,
+                )
+                .into_any_element(),
+            ),
+            catalog::Standing::Update(newer) => Some(
+                h_flex()
+                    .gap_3()
+                    .items_center()
+                    .px_3()
+                    .py_2()
+                    .rounded(cx.theme().radius)
+                    .border_1()
+                    .border_color(cx.theme().border)
+                    .text_sm()
+                    .child(
+                        Icon::new(Icon::empty())
+                            .path("icons/circle-arrow-up.svg")
+                            .size_4()
+                            .text_color(cx.theme().primary),
+                    )
+                    .child(div().flex_1().child(selectable(
+                        "gallery-update-text",
+                        format!("Version {newer} is in the gallery"),
+                    )))
+                    .child(
+                        Button::new("flow-gallery-update")
+                            .outline()
+                            .small()
+                            .label("See what changes")
+                            .cursor_pointer()
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                open_gallery_detail(
+                                    entry.clone(),
+                                    installs,
+                                    verified,
+                                    Some(Installed {
+                                        id: this.flow.id.clone(),
+                                        version,
+                                    }),
+                                    window,
+                                    cx,
+                                );
+                            })),
+                    )
+                    .into_any_element(),
+            ),
+            _ => None,
+        }
+    }
+
+    /// Opens the dialog that makes the flow ready for the gallery.
+    fn publish(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let flow = self.current(cx);
+        if flow.name.is_empty() {
+            window.push_notification("Give the flow a name first", cx);
+            self.focus_entry(window, cx);
+            return;
+        }
+        cx.spawn_in(window, async move |this, cx| {
+            // The gallery as last seen tells a new flow from a new version.
+            let index = cx
+                .background_spawn(async { catalog::cached().map(|gallery| gallery.index) })
+                .await;
+            this.update_in(cx, |_, window, cx| {
+                open_publish_dialog(flow, index, window, cx);
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Programs from `meta.requires` that are missing; command steps show
@@ -1256,6 +1472,7 @@ impl FlowEditPage {
                     .dropdown_menu(|menu, _, _| {
                         menu.menu("Save as template", Box::new(SaveAsTemplate))
                             .menu("Export…", Box::new(Export))
+                            .menu("Publish to the gallery…", Box::new(Publish))
                     }),
             )
     }
@@ -1634,12 +1851,15 @@ impl Render for FlowEditPage {
                     this.save_as_template(window, cx)
                 }),
             )
+            .on_action(cx.listener(|this, _: &Publish, window, cx| this.publish(window, cx)))
             .on_action(cx.listener(|this, _: &Undo, window, cx| this.undo(false, window, cx)))
             .on_action(cx.listener(|this, _: &Redo, window, cx| this.undo(true, window, cx)))
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| this.add_step(window, cx)))
             .child(self.render_header(cx))
             .children(self.render_import_banner(cx))
+            .children(self.render_risks(cx))
+            .children(self.render_gallery_standing(cx))
             .children(self.render_requirements_banner(cx))
             .child(
                 div()

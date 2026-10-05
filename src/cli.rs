@@ -6,6 +6,7 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::shell::theme_sh_commands::apply_theme;
+use crate::system::flows::catalog;
 use crate::system::flows::history::{self, Recorder};
 use crate::system::flows::runner::{Cancel, RunEvent, Runner, StepStatus};
 use crate::system::flows::running;
@@ -88,6 +89,34 @@ pub enum Command {
         /// Remove without asking
         #[arg(short, long)]
         yes: bool,
+    },
+    /// Tools for the repository behind the gallery; what its CI runs
+    #[command(hide = true)]
+    Catalog {
+        #[command(subcommand)]
+        action: CatalogCommand,
+    },
+}
+
+#[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
+pub enum CatalogCommand {
+    /// Build the index and the versioned flow files from a checkout
+    Build {
+        /// The catalog repository's folder (it holds `flows/`)
+        repo: PathBuf,
+        /// Where to write `v1/index.json` and `v1/flows/`
+        #[arg(short, long)]
+        out: PathBuf,
+        /// The index being replaced, to carry dates forward and refuse a
+        /// flow that changed without a new version
+        #[arg(long)]
+        previous: Option<PathBuf>,
+    },
+    /// Make a signing key: prints the public key, writes the private one
+    NewKey {
+        /// The file to write the private key to
+        #[arg(short, long)]
+        out: PathBuf,
     },
 }
 
@@ -247,6 +276,7 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: ThemeCommand::FromImage { image, name, apply },
         } => theme_from_image(image, name.as_deref(), *apply),
         Command::Uninstall { yes } => uninstall(*yes),
+        Command::Catalog { action } => catalog_command(action),
         Command::Automations { action } => automations(action),
         Command::Flow {
             action: FlowCommand::Export { name, output },
@@ -538,6 +568,74 @@ fn export(name: &str, output: Option<&PathBuf>) -> ExitCode {
     }
 }
 
+fn catalog_command(action: &CatalogCommand) -> ExitCode {
+    let result = match action {
+        CatalogCommand::Build {
+            repo,
+            out,
+            previous,
+        } => build_catalog(repo, out, previous.as_deref()),
+        CatalogCommand::NewKey { out } => new_catalog_key(out),
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
+        }
+    }
+}
+
+/// The name of the variable the catalog's CI keeps its private key in.
+const SIGNING_KEY_VARIABLE: &str = "OMARCHIST_CATALOG_SIGNING_KEY";
+
+fn build_catalog(repo: &Path, out: &Path, previous: Option<&Path>) -> crate::error::Result<()> {
+    use crate::error::Error;
+    let previous: Option<catalog::Index> = match previous {
+        Some(path) => {
+            let text = std::fs::read_to_string(path)
+                .map_err(|e| Error::io("Failed to read the previous index", e))?;
+            Some(catalog::read_published(text.as_bytes())?)
+        }
+        None => None,
+    };
+    let now = chrono::Utc::now();
+    let index = catalog::build(
+        repo,
+        out,
+        previous.as_ref(),
+        &now.format("%Y-%m-%d").to_string(),
+        now.timestamp().max(0) as u64,
+    )?;
+    println!("{} flows in the index.", index.flows.len());
+    let key = std::env::var(SIGNING_KEY_VARIABLE)
+        .ok()
+        .filter(|key| !key.trim().is_empty());
+    catalog::write_index(out, &index, key.as_deref())?;
+    match &key {
+        Some(key) => println!("Signed with the key {}.", catalog::public_key_of(key)?),
+        None => println!("Not signed: {SIGNING_KEY_VARIABLE} is not set."),
+    }
+    Ok(())
+}
+
+fn new_catalog_key(out: &Path) -> crate::error::Result<()> {
+    use crate::error::Error;
+    use std::os::unix::fs::OpenOptionsExt;
+    let (private, public) = catalog::new_key()?;
+    // Never over a key that exists: losing one orphans the catalog.
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(out)
+        .and_then(|mut file| file.write_all(private.as_bytes()))
+        .map_err(|e| Error::io(format!("Failed to write {}", out.display()), e))?;
+    println!("Private key: {} (keep it secret)", out.display());
+    println!("Public key:  {public}");
+    Ok(())
+}
+
 /// Shows what the flow would do and saves it only after a yes, because a
 /// flow is a list of commands from someone else.
 fn import(source: &str, yes: bool) -> ExitCode {
@@ -568,6 +666,13 @@ fn import(source: &str, yes: bool) -> ExitCode {
     }
     if !flow.meta.requires.is_empty() {
         println!("Needs: {}", flow.meta.requires.join(", "));
+    }
+    let risks = crate::system::flows::risks::risks(flow);
+    if !risks.is_empty() {
+        println!("Worth knowing:");
+        for risk in &risks {
+            println!("  Step {}: {}", risk.step, risk.what);
+        }
     }
     if !yes {
         if !std::io::stdin().is_terminal() {

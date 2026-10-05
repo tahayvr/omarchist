@@ -1,5 +1,5 @@
 {
-	"version": "1.2.0",
+	"version": "1.3.0",
 	"settings": {
 		"font_size": "small",
 		"auto_apply_theme": false,
@@ -9,7 +9,9 @@
 		"update_check_hours": 6,
 		"notify_updates": false,
 		"notify_flows": false,
-		"bar_widget": false
+		"bar_widget": false,
+		"gallery_count_installs": true,
+		"gallery_author": ""
 	},
 	"metadata": {
 		"created_at": "{{CREATED_AT}}",

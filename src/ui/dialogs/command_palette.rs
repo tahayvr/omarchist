@@ -98,6 +98,11 @@ fn groups() -> Vec<Group> {
                     app_menu::NewFlowFromTemplate,
                 ),
                 entry(
+                    "Gallery",
+                    &["browse", "shared", "catalog", "community", "download"],
+                    app_menu::OpenGallery,
+                ),
+                entry(
                     "Import flow",
                     &["open", "file", "share"],
                     app_menu::ImportFlow,

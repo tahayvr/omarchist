@@ -66,6 +66,6 @@ See [Flows](/flows/) for what a flow is and [Sharing flows](/flows/#sharing-flow
 2. The bar widget, taken off the bar and deleted from `~/.config/omarchy/plugins`.
 3. The service that runs [automations](/flows/automations), stopped and removed.
 4. Every flow's launcher entry, icon, startup hook, and Files menu script.
-5. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates), `~/.local/share/omarchist`, and `~/.local/state/omarchist` (the flows' run history).
+5. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates), `~/.local/share/omarchist`, `~/.local/state/omarchist` (the flows' run history), and `~/.cache/omarchist` (the copy of the Gallery).
 
 It prints that list and asks first; `--yes` skips the question. Quit Omarchist before you run it, because a running window would write its files back on the next save. Themes you made stay in `~/.config/omarchy/themes`. Remove the package afterwards with `sudo pacman -R omarchist-bin`.

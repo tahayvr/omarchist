@@ -713,7 +713,7 @@ impl FlowEditPage {
                                 .text_color(theme.muted_foreground)
                                 // Reviewing an import: every character counts.
                                 .when(
-                                    self.import_origin.is_none()
+                                    !self.reviewing()
                                         && vars::references(&summary.detail).is_empty(),
                                     |this| this.truncate(),
                                 )

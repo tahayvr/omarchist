@@ -14,6 +14,7 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::flows::catalog::{self, Catalog, Standing};
 use crate::system::flows::history;
 use crate::system::flows::runner::run_in_thread;
 use crate::system::flows::store::{
@@ -30,10 +31,12 @@ use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
     LastRun, icon_tile, last_run, step_count_label, step_strip, template_card, trigger_chips,
 };
+use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, import_flow_path};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
+use crate::ui::menu::app_menu;
 use crate::ui::text::selectable;
 
 const KEY_CONTEXT: &str = "FlowsPage";
@@ -95,6 +98,10 @@ pub struct FlowHistory(pub usize);
 #[action(namespace = flows, no_json)]
 pub struct FlowAsTemplate(pub usize);
 
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct FlowInGallery(pub usize);
+
 /// When each flow last ran and how it ended, keyed by flow id.
 fn last_runs(flows: &[Flow]) -> HashMap<String, LastRun> {
     flows
@@ -133,6 +140,9 @@ pub struct FlowsView {
     chords: HashMap<String, Chord>,
     /// Read with the flows, and again after a run from this page.
     last_runs: HashMap<String, LastRun>,
+    /// The copy of the gallery kept from the last look, for the flows
+    /// installed from it: an update, or word that one was pulled.
+    gallery: Option<Catalog>,
     apps: Vec<DesktopApp>,
     /// For the empty state's cards; reloaded with the flows.
     templates: Vec<Template>,
@@ -170,6 +180,7 @@ impl FlowsView {
             filtered: Vec::new(),
             chords: HashMap::new(),
             last_runs: HashMap::new(),
+            gallery: None,
             apps: Vec::new(),
             templates: Vec::new(),
             broken: Vec::new(),
@@ -201,13 +212,30 @@ impl FlowsView {
                         .as_ref()
                         .map(|(flows, _)| last_runs(flows))
                         .unwrap_or_default();
-                    (flows, runs, scan_keybinds(), installed_apps(), templates())
+                    // Only someone who installed from the gallery has a
+                    // reason to hear from it.
+                    let from_gallery = flows.as_ref().is_ok_and(|(flows, _)| {
+                        flows.iter().any(|flow| catalog::source_of(flow).is_some())
+                    });
+                    let gallery = from_gallery.then(catalog::cached).flatten();
+                    let look = from_gallery && catalog::is_stale();
+                    (
+                        flows,
+                        runs,
+                        scan_keybinds(),
+                        installed_apps(),
+                        templates(),
+                        gallery,
+                        look,
+                    )
                 })
                 .await;
+            let look = loaded.6;
             this.update(cx, |this, cx| {
-                let (flows, runs, scan, apps, templates) = loaded;
+                let (flows, runs, scan, apps, templates, gallery, _) = loaded;
                 this.templates = templates;
                 this.last_runs = runs;
+                this.gallery = gallery;
                 match flows {
                     Ok((flows, broken)) => {
                         this.flows = flows;
@@ -222,8 +250,53 @@ impl FlowsView {
                 this.apply_filter(cx);
             })
             .ok();
+            // At most once a day, and after the page is up: the network
+            // may take its time.
+            if look && let Ok(gallery) = cx.background_spawn(async { catalog::load() }).await {
+                this.update(cx, |this, cx| {
+                    this.gallery = Some(gallery);
+                    cx.notify();
+                })
+                .ok();
+            }
         })
         .detach();
+    }
+
+    /// What the gallery says about a flow installed from it.
+    fn standing(&self, flow: &Flow) -> Option<Standing> {
+        catalog::standing(flow, &self.gallery.as_ref()?.index)
+    }
+
+    /// Opens the gallery's page of a flow installed from it.
+    fn show_in_gallery(&mut self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(flow) = self.flow_at(filtered_ix) else {
+            return;
+        };
+        let Some((slug, version)) = catalog::source_of(flow) else {
+            return;
+        };
+        // Without a copy of the gallery there is nothing to show yet; its
+        // page fetches one.
+        let Some(gallery) = &self.gallery else {
+            emit(cx, AppEvent::Navigate(ActivePage::FlowGallery));
+            return;
+        };
+        let Some(entry) = gallery.index.entry(&slug) else {
+            window.push_notification("The gallery no longer lists this flow", cx);
+            return;
+        };
+        open_gallery_detail(
+            entry.clone(),
+            gallery.installs.get(&slug).copied().unwrap_or(0),
+            gallery.index.is_verified(&entry.author),
+            Some(Installed {
+                id: flow.id.clone(),
+                version,
+            }),
+            window,
+            cx,
+        );
     }
 
     fn apply_filter(&mut self, cx: &mut Context<Self>) {
@@ -442,6 +515,17 @@ impl FlowsView {
                     ),
             )
             .child(div().flex_1())
+            .child(
+                Button::new("browse-gallery")
+                    .icon(Icon::new(Icon::empty()).path("icons/store.svg"))
+                    .label("Gallery")
+                    .outline()
+                    .small()
+                    .cursor_pointer()
+                    .on_click(|_, window, cx| {
+                        window.dispatch_action(Box::new(app_menu::OpenGallery), cx)
+                    }),
+            )
             .when(show_new, |this| {
                 this.child(
                     Button::new("browse-templates")
@@ -473,6 +557,7 @@ impl FlowsView {
                         .dropdown_menu(|menu, _, _| {
                             menu.menu("From scratch", Box::new(NewFlow))
                                 .menu("From template", Box::new(BrowseTemplates))
+                                .menu("From the gallery", Box::new(app_menu::OpenGallery))
                                 .menu("Import flow", Box::new(ImportFlow))
                         }),
                 )
@@ -496,6 +581,7 @@ impl FlowsView {
             flow.description.trim().to_string()
         };
         let on_click_ix = filtered_ix;
+        let from_gallery = catalog::source_of(flow).is_some();
 
         v_flex()
             .id(("flow-card", filtered_ix))
@@ -593,8 +679,19 @@ impl FlowsView {
                                     )
                                     .cursor_pointer()
                                     .dropdown_menu(move |menu, _, _| {
-                                        menu.menu("Run history", Box::new(FlowHistory(filtered_ix)))
-                                            .menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
+                                        let menu = menu.menu(
+                                            "Run history",
+                                            Box::new(FlowHistory(filtered_ix)),
+                                        );
+                                        let menu = if from_gallery {
+                                            menu.menu(
+                                                "Show in the gallery",
+                                                Box::new(FlowInGallery(filtered_ix)),
+                                            )
+                                        } else {
+                                            menu
+                                        };
+                                        menu.menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
                                             .menu(
                                                 "Save as template",
                                                 Box::new(FlowAsTemplate(filtered_ix)),
@@ -612,7 +709,12 @@ impl FlowsView {
                     .gap_2()
                     .items_end()
                     .justify_between()
-                    .child(trigger_chips(flow, self.chords.get(&flow.id), cx))
+                    .child(trigger_chips(
+                        flow,
+                        self.chords.get(&flow.id),
+                        self.standing(flow).as_ref(),
+                        cx,
+                    ))
                     .children(
                         self.last_runs
                             .get(&flow.id)
@@ -831,6 +933,9 @@ impl Render for FlowsView {
                     window.push_notification(message, cx);
                     this.refresh(cx);
                 }
+            }))
+            .on_action(cx.listener(|this, action: &FlowInGallery, window, cx| {
+                this.show_in_gallery(action.0, window, cx);
             }))
             .on_action(cx.listener(|this, action: &FlowHistory, window, cx| {
                 if let Some(flow) = this.flow_at(action.0) {

@@ -50,6 +50,10 @@ thiserror = "2"
 xkbcommon = { version = "0.8", default-features = false }
 toml = "1.1.6"
 signal-hook = "0.4.5"
+ring = "0.17"
+sha2 = "0.10"
+hex = "0.4"
+percent-encoding = "2"
 
 [dev-dependencies]
 # Headless UI tests under tests/.

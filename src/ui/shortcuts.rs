@@ -6,6 +6,7 @@ use gpui::{Action, KeyBinding};
 use crate::ui::config_page::config_view::config_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
+use crate::ui::flows_page::gallery_view::gallery_nav;
 use crate::ui::flows_page::history_dialog::history_nav;
 use crate::ui::flows_page::step_builder::step_vars;
 use crate::ui::flows_page::step_picker::step_picker_nav;
@@ -1121,6 +1122,27 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("TemplatesSearch > Input"),
         FLOWS,
         "Clear the template search"
+    ),
+    shortcut!(
+        "escape",
+        app_menu::NavigateBack,
+        Some("FlowGalleryPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "alt-left",
+        app_menu::NavigateBack,
+        Some("FlowGalleryPage"),
+        FLOWS,
+        "Back to Flows"
+    ),
+    shortcut!(
+        "escape",
+        gallery_nav::ClearSearch,
+        Some("GallerySearch > Input"),
+        FLOWS,
+        "Clear the gallery search"
     ),
     shortcut!(
         "delete",

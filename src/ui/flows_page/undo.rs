@@ -1,8 +1,8 @@
 //! Undo and redo for the flow editor. One step back is one change to what
 //! the editor holds outside its text fields: the steps, the icon, the
-//! switches, and what starts the flow. The name and description are text
+//! switches, what starts the flow, and where it came from. The name and description are text
 //! fields with an undo of their own.
-use crate::system::flows::{Flow, InputFallback, OnError, Step, Triggers};
+use crate::system::flows::{Flow, InputFallback, Meta, OnError, Step, Triggers};
 
 /// How many changes can be taken back.
 const LIMIT: usize = 100;
@@ -15,6 +15,9 @@ struct Snapshot {
     on_error: OnError,
     input: InputFallback,
     triggers: Triggers,
+    /// Changed only by an update from the gallery, which must go back
+    /// whole: old steps under a new version would hide the update.
+    meta: Meta,
 }
 
 impl Snapshot {
@@ -25,6 +28,7 @@ impl Snapshot {
             on_error: flow.on_error,
             input: flow.input,
             triggers: flow.triggers.clone(),
+            meta: flow.meta.clone(),
         }
     }
 
@@ -35,6 +39,7 @@ impl Snapshot {
             && self.on_error == flow.on_error
             && self.input == flow.input
             && self.triggers == flow.triggers
+            && self.meta == flow.meta
     }
 
     fn apply(self, flow: &mut Flow) {
@@ -43,6 +48,7 @@ impl Snapshot {
         flow.on_error = self.on_error;
         flow.input = self.input;
         flow.triggers = self.triggers;
+        flow.meta = self.meta;
     }
 }
 

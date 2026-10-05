@@ -14,11 +14,13 @@ use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod actions;
 pub mod automations;
+pub mod catalog;
 pub mod condition;
 pub mod history;
 pub mod launcher;
 pub mod prompt;
 pub mod requirements;
+pub mod risks;
 pub mod runner;
 pub mod running;
 pub mod service;
@@ -116,9 +118,16 @@ pub struct Meta {
     /// Programs the flow expects to find on the machine.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<String>,
-    /// The URL the flow was imported from, when it came from one.
+    /// The URL the flow was imported from, when it came from one, or
+    /// `catalog:<slug>@<version>` for a flow installed from the gallery.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub source: String,
+    /// Where the gallery files the flow: one of `catalog::CATEGORIES`.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub category: String,
+    /// The license the flow is shared under, as an SPDX id.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub license: String,
 }
 
 impl Meta {
@@ -639,6 +648,87 @@ impl StepKind {
         }
     }
 
+    /// The step's `type` as its file writes it, with the action's id for
+    /// a ready-made action (`action:volume.set`): enough to draw the
+    /// step's icon without the step.
+    pub fn type_tag(&self) -> String {
+        match self {
+            StepKind::Exec { .. } => "exec".into(),
+            StepKind::Lua { .. } => "lua".into(),
+            StepKind::Wait { .. } => "wait".into(),
+            StepKind::Notify { .. } => "notify".into(),
+            StepKind::Flow { .. } => "flow".into(),
+            StepKind::Ask { .. } => "ask".into(),
+            StepKind::Choose { .. } => "choose".into(),
+            StepKind::Confirm { .. } => "confirm".into(),
+            StepKind::Pick { .. } => "pick".into(),
+            StepKind::If { .. } => "if".into(),
+            StepKind::Repeat { .. } => "repeat".into(),
+            StepKind::Each { .. } => "each".into(),
+            StepKind::Menu { .. } => "menu".into(),
+            StepKind::Stop => "stop".into(),
+            StepKind::Action { action, .. } => format!("action:{action}"),
+        }
+    }
+
+    /// An empty step of the type a [`type_tag`](Self::type_tag) names:
+    /// what the gallery draws a flow's icons from before it has the flow.
+    pub fn from_type_tag(tag: &str) -> Option<StepKind> {
+        if let Some(action) = tag.strip_prefix("action:") {
+            return Some(StepKind::Action {
+                action: action.to_string(),
+                args: actions::Args::default(),
+            });
+        }
+        Some(match tag {
+            "exec" => StepKind::Exec {
+                command: String::new(),
+                wait: false,
+            },
+            "lua" => StepKind::Lua {
+                expr: String::new(),
+            },
+            "wait" => StepKind::Wait { ms: 0 },
+            "notify" => StepKind::notify("", ""),
+            "flow" => StepKind::flow(""),
+            "ask" => StepKind::Ask {
+                prompt: String::new(),
+            },
+            "choose" => StepKind::Choose {
+                prompt: String::new(),
+                options: Vec::new(),
+                from: String::new(),
+            },
+            "confirm" => StepKind::Confirm {
+                prompt: String::new(),
+            },
+            "pick" => StepKind::Pick {
+                prompt: String::new(),
+                folder: false,
+            },
+            "if" => StepKind::If {
+                condition: Condition::default(),
+                not: false,
+                then: Vec::new(),
+                otherwise: Vec::new(),
+            },
+            "repeat" => StepKind::Repeat {
+                times: 1,
+                steps: Vec::new(),
+            },
+            "each" => StepKind::Each {
+                items: String::new(),
+                steps: Vec::new(),
+            },
+            "menu" => StepKind::Menu {
+                prompt: String::new(),
+                choices: Vec::new(),
+            },
+            "stop" => StepKind::Stop,
+            _ => return None,
+        })
+    }
+
     /// The literal thing the step does: the command, the dispatcher
     /// expression, the pause, the notification title, or the flow id.
     pub fn text(&self) -> String {
@@ -743,7 +833,11 @@ impl Flow {
         let uses_format_2 = self.walk().iter().any(|(_, s)| {
             s.output.is_some() || !s.kind.references().is_empty() || s.kind.needs_format_2()
         });
+        // Omarchist 2.0.0 refuses a key it does not know, so a file with
+        // the gallery's metadata is marked as needing a newer one.
+        let gallery_meta = !self.meta.category.is_empty() || !self.meta.license.is_empty();
         if uses_format_2
+            || gallery_meta
             || !self.input.is_none()
             || self.triggers.files
             || !self.triggers.automations.is_empty()
@@ -1432,6 +1526,31 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn a_type_tag_names_an_empty_step_of_the_same_type() {
+        for tag in [
+            "exec",
+            "lua",
+            "wait",
+            "notify",
+            "flow",
+            "ask",
+            "choose",
+            "confirm",
+            "pick",
+            "if",
+            "repeat",
+            "each",
+            "menu",
+            "stop",
+            "action:volume.set",
+        ] {
+            let kind = StepKind::from_type_tag(tag).unwrap_or_else(|| panic!("{tag}"));
+            assert_eq!(kind.type_tag(), tag);
+        }
+        assert!(StepKind::from_type_tag("teleport").is_none());
+    }
 
     #[test]
     fn slugs_and_unique_ids() {

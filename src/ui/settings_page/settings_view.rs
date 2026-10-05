@@ -475,6 +475,15 @@ impl Render for SettingsView {
                     cx,
                 )
                 .into_any_element(),
+                self.render_switch(
+                    "gallery-count-installs",
+                    "Count My Installs in the Gallery",
+                    "Saving a flow from the gallery sends the flow's name, and nothing about you",
+                    s.gallery_count_installs,
+                    |s, v| s.gallery_count_installs = v,
+                    cx,
+                )
+                .into_any_element(),
                 self.render_row(
                     "automations",
                     "Run Automations in the Background",

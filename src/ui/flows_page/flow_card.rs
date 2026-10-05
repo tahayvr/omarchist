@@ -4,6 +4,7 @@ use gpui::*;
 use gpui_component::{ActiveTheme, Icon, Sizable, button::Button, h_flex, tag::Tag, v_flex};
 use gpui_kit::TestSupportExt;
 
+use crate::system::flows::catalog::{self, Standing};
 use crate::system::flows::history::{self, RunResult};
 use crate::system::flows::{Flow, icon_path};
 use crate::system::keybinds::chord::Chord;
@@ -32,7 +33,12 @@ pub fn icon_tile(icon: &str, size: Pixels, cx: &App) -> impl IntoElement {
 
 /// How the flow can be started: its chord, launcher, and startup tags, or
 /// a note that only the command runs it.
-pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoElement {
+pub fn trigger_chips(
+    flow: &Flow,
+    chord: Option<&Chord>,
+    standing: Option<&Standing>,
+    cx: &App,
+) -> impl IntoElement {
     let theme = cx.theme();
     let mut row = h_flex().gap_2().flex_wrap().items_center();
     let mut any = false;
@@ -66,7 +72,15 @@ pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoE
         }));
         any = true;
     }
-    if !flow.meta.source.is_empty() {
+    if catalog::source_of(flow).is_some() {
+        // From the gallery, and what the gallery says about it since.
+        row = row.child(match standing {
+            Some(Standing::Update(_)) => Tag::primary().small().child("Update"),
+            Some(Standing::Pulled(_)) => Tag::danger().small().child("Pulled"),
+            _ => Tag::secondary().small().child("Gallery"),
+        });
+        any = true;
+    } else if !flow.meta.source.is_empty() {
         row = row.child(Tag::warning().small().child("Imported"));
         any = true;
     }

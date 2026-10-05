@@ -1754,3 +1754,265 @@ fn a_flow_becomes_a_template_and_the_template_can_be_deleted(cx: &mut TestAppCon
     });
     common::assert_page(cx, &view, ActivePage::FlowTemplates);
 }
+
+// MARK: The gallery
+
+use omarchist::system::flows::catalog;
+use omarchist::system::flows::store::load_flow;
+use omarchist::ui::flows_page::flow_edit_view::flow_edit_nav::Publish;
+
+/// The Gallery page with the tests' gallery loaded.
+fn open_gallery(
+    cx: &mut TestAppContext,
+) -> (
+    gpui_kit::WindowHandle<gpui_kit::component::Root>,
+    gpui_kit::Entity<omarchist::MainWindowView>,
+) {
+    common::gallery();
+    let (handle, view) = open(cx, ActivePage::FlowGallery);
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find(("gallery-card", 0usize)).is_some()
+    });
+    (handle, view)
+}
+
+/// The slugs the Gallery page lists, in its order.
+fn listed(
+    cx: &mut TestAppContext,
+    view: &gpui_kit::Entity<omarchist::MainWindowView>,
+) -> Vec<String> {
+    cx.update(|cx| {
+        let gallery = view.read(cx).flow_gallery().expect("the gallery page");
+        gallery
+            .read(cx)
+            .shown()
+            .iter()
+            .map(|entry| entry.slug.clone())
+            .collect()
+    })
+}
+
+#[gpui_kit::test]
+fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
+    let (handle, view) = open_gallery(cx);
+    // The most installed first.
+    assert_eq!(listed(cx, &view), vec!["pause", "breathe", "careful"]);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("gallery-search").focused(), Some(true));
+        assert!(window.find(("gallery-card", 2usize)).visible());
+        assert!(window.try_find("gallery-notice").is_none());
+        // Only the categories that hold a flow are offered.
+        assert!(window.find("gallery-filter-focus").visible());
+        assert!(window.try_find("gallery-filter-web").is_none());
+        window.click("gallery-sort-newest", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(listed(cx, &view), vec!["breathe", "careful", "pause"]);
+
+    with(cx, handle, |window, cx| {
+        window.click("gallery-filter-focus", cx)
+    });
+    settle(cx, handle);
+    assert_eq!(listed(cx, &view), vec!["pause"]);
+    // The arrow keys move through the filters, and round again.
+    with(cx, handle, |window, cx| window.press("left", cx));
+    settle(cx, handle);
+    assert_eq!(listed(cx, &view).len(), 3);
+
+    // The search reads names, descriptions and authors.
+    with(cx, handle, |window, cx| {
+        window.click("gallery-search", cx);
+        window.input("grace", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(listed(cx, &view), vec!["breathe", "careful"]);
+    with(cx, handle, |window, cx| window.input(" nothing", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("gallery-none").visible());
+        window.press("escape", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(listed(cx, &view).len(), 3);
+    common::assert_page(cx, &view, ActivePage::FlowGallery);
+    // Escape in the empty box leaves.
+    with(cx, handle, |window, cx| window.press("escape", cx));
+    settle(cx, handle);
+    common::assert_page(cx, &view, ActivePage::Flows);
+}
+
+#[gpui_kit::test]
+fn a_gallery_flow_is_installed_through_the_review_screen(cx: &mut TestAppContext) {
+    let (handle, view) = open_gallery(cx);
+    // "Careful" is the last card: the least installed, by name.
+    with(cx, handle, |window, cx| {
+        window.click(("gallery-card", 2usize), cx)
+    });
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("gallery-detail-risks").is_some()
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.find("gallery-detail").visible());
+        assert!(window.find("gallery-detail-needs").visible());
+        assert_eq!(
+            window.find("gallery-detail-list").focused(),
+            Some(true),
+            "the steps have the keyboard, to scroll through"
+        );
+    });
+    // Ctrl+Enter is the dialog's main button once the steps are fetched.
+    wait_real(cx, handle, Duration::from_secs(10), |window, cx| {
+        window.press("ctrl-enter", cx);
+        window.try_find("gallery-detail").is_none()
+    });
+    settle(cx, handle);
+
+    // Nothing is saved: the flow is in the editor, to be read first.
+    let flow = edited_flow(cx, &view);
+    assert!(flow.id.is_empty());
+    assert_eq!(flow.meta.source, "catalog:careful@1");
+    assert!(load_flow("careful").is_err());
+    with(cx, handle, |window, cx| {
+        assert!(
+            window.find("import-risks").visible(),
+            "the step that runs as administrator is pointed out"
+        );
+        window.press("ctrl-s", cx);
+    });
+    settle(cx, handle);
+    let saved = load_flow("careful").expect("saved after the review");
+    assert_eq!(catalog::source_of(&saved), Some(("careful".to_string(), 1)));
+    assert!(saved.triggers.is_empty());
+    std::fs::remove_file(common::home().join(".config/omarchist/flows/careful.toml")).unwrap();
+}
+
+#[gpui_kit::test]
+fn an_update_from_the_gallery_is_one_change_to_undo(cx: &mut TestAppContext) {
+    common::gallery();
+    // Installed as version 1, which waited a second and said nothing.
+    write_flow(
+        "ui-pause",
+        r#"
+format = 2
+id = "ui-pause"
+name = "My pause"
+icon = "moon"
+
+[meta]
+author = "ada"
+version = "1"
+source = "catalog:pause@1"
+category = "Focus"
+license = "CC0-1.0"
+
+[triggers]
+launcher = true
+
+[[step]]
+type = "wait"
+ms = 1000
+"#,
+    );
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-pause".into()));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click("flow-gallery-update", cx)
+    });
+    // The dialog compares the saved steps with the new version's.
+    wait_real(cx, handle, Duration::from_secs(10), |window, cx| {
+        window.press("ctrl-enter", cx);
+        window.try_find("gallery-detail").is_none()
+    });
+    settle(cx, handle);
+
+    let editor = common::editor(cx, &view);
+    let updated = edited_flow(cx, &view);
+    assert_eq!(waits(&updated), vec![500]);
+    assert_eq!(updated.steps.len(), 2);
+    assert_eq!(updated.meta.source, "catalog:pause@2");
+    // What is this machine's stays.
+    assert_eq!(
+        (updated.id.as_str(), updated.name.as_str()),
+        ("ui-pause", "My pause")
+    );
+    assert_eq!(updated.icon, "moon");
+    assert!(updated.triggers.launcher);
+    assert!(cx.update(|cx| editor.read(cx).is_dirty(cx)));
+    assert_eq!(
+        waits(&load_flow("ui-pause").unwrap()),
+        vec![1000],
+        "not saved yet"
+    );
+
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("flow-gallery-update").is_none());
+        window.click("flow-steps", cx);
+        window.press("ctrl-z", cx);
+    });
+    settle(cx, handle);
+    let back = edited_flow(cx, &view);
+    assert_eq!(waits(&back), vec![1000]);
+    assert_eq!(back.meta.source, "catalog:pause@1");
+}
+
+#[gpui_kit::test]
+fn publishing_makes_the_flow_ready_and_hands_it_to_github(cx: &mut TestAppContext) {
+    common::gallery();
+    let toml = THREE_STEPS
+        .replace("ui-three-steps", "ui-shared")
+        .replace("UI three steps", "UI shared");
+    write_flow("ui-shared", &toml);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-shared".into()));
+    with(cx, handle, |window, cx| {
+        window.click("flow-description", cx);
+        window.input("Three steps, shared by a test.", cx);
+        window.dispatch_action(Box::new(Publish), cx);
+    });
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("publish-dialog").is_some()
+    });
+    settle(cx, handle);
+
+    // Without the license, nothing leaves.
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("publish-author").focused(), Some(true));
+        window.input("ada", cx);
+        window.click("publish-category-text", cx);
+        window.click("publish-tags", cx);
+        window.input("Test, sharing", cx);
+        window.click("publish-submit", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("publish-error").visible());
+        window.click("publish-license", cx);
+        window.click("publish-submit", cx);
+    });
+    settle(cx, handle);
+
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("publish-dialog").is_none());
+    });
+    let url = cx.opened_url().expect("GitHub opens in the browser");
+    assert!(
+        url.starts_with(
+            "https://github.com/tahayvr/omarchist-flows/new/main?filename=flows%2Fui%2Dshared%2Eflow%2Etoml"
+        ),
+        "{url}"
+    );
+    let copied = cx
+        .read_from_clipboard()
+        .and_then(|item| item.text())
+        .expect("the flow's text is on the clipboard");
+    let report = catalog::check_text("ui-shared.flow.toml", &copied, true);
+    assert!(report.ok, "{:?}", report.errors);
+    assert_eq!(report.author, "ada");
+    assert_eq!(report.category, "Text");
+    assert_eq!(report.tags, vec!["test", "sharing"]);
+    assert!(
+        !copied.contains("ui-shared\""),
+        "the id stays on this machine"
+    );
+    // The flow in the editor is as it was.
+    assert!(edited_flow(cx, &view).meta.author.is_empty());
+}

@@ -10,7 +10,8 @@ use std::time::{Duration, Instant};
 use gpui_kit::component::{Root, WindowExt};
 use gpui_kit::test::TestWindowExt;
 use gpui_kit::{App, AppContext, Entity, TestAppContext, Window, WindowHandle, px, size};
-use omarchist::system::flows::Flow;
+use omarchist::system::flows::catalog;
+use omarchist::system::flows::{Flow, Step, StepKind};
 use omarchist::ui::app_events::AppEvents;
 use omarchist::ui::flows_page::FlowEditPage;
 use omarchist::{ActivePage, MainTitleBar, MainWindowView};
@@ -33,8 +34,94 @@ pub fn home() -> &'static PathBuf {
             std::env::set_var("XDG_CONFIG_HOME", dir.join(".config"));
             std::env::set_var("XDG_STATE_HOME", dir.join(".local/state"));
             std::env::set_var("XDG_CACHE_HOME", dir.join(".cache"));
+            // The gallery is a folder in the test home, signed with a key
+            // made for the tests: no test reaches the network.
+            std::env::set_var(
+                "OMARCHIST_CATALOG_URL",
+                format!("file://{}", dir.join("catalog/out").display()),
+            );
+            std::env::set_var("OMARCHIST_CATALOG_KEY", GALLERY_PUBLIC_KEY);
         }
         dir
+    })
+}
+
+/// A signing key made with openssl for the tests only.
+const GALLERY_KEY: &str = "-----BEGIN PRIVATE KEY-----\n\
+    MC4CAQAwBQYDK2VwBCIEIPscK1MVSSz6HWpY5OpocH/dNRNHrxyJ5ZC4Ip7uQRSr\n\
+    -----END PRIVATE KEY-----\n";
+const GALLERY_PUBLIC_KEY: &str = "K0NttSSLCqz20brnxyb65tQZqYgyikGooBUKRqoeNxs=";
+
+/// A flow as the gallery's repository holds it.
+fn gallery_flow(
+    name: &str,
+    author: &str,
+    version: u32,
+    category: &str,
+    steps: Vec<Step>,
+) -> String {
+    let mut flow = Flow::new(String::new(), name.to_string());
+    flow.description = format!("{name}, a flow for the tests.");
+    flow.meta.author = author.to_string();
+    flow.meta.version = version.to_string();
+    flow.meta.category = category.to_string();
+    flow.meta.license = catalog::LICENSE.to_string();
+    flow.steps = steps;
+    flow.to_toml().expect("a gallery flow")
+}
+
+/// Publishes the tests' gallery, once per test binary, and keeps a copy
+/// as a visit to the Gallery page would. Three flows: `pause` (version 2,
+/// by the verified ada, featured, the most installed), `breathe`, and
+/// `careful`, which runs a command as administrator and is never run.
+pub fn gallery() -> &'static catalog::Index {
+    static GALLERY: OnceLock<catalog::Index> = OnceLock::new();
+    GALLERY.get_or_init(|| {
+        let repo = home().join("catalog/repo");
+        let out = home().join("catalog/out");
+        std::fs::create_dir_all(repo.join("flows")).expect("gallery repo");
+        let wait = |ms: u64| Step::new(StepKind::Wait { ms });
+        let write = |slug: &str, text: String| {
+            std::fs::write(repo.join("flows").join(format!("{slug}.flow.toml")), text)
+                .expect("a gallery flow file");
+        };
+        write(
+            "pause",
+            gallery_flow(
+                "Pause",
+                "ada",
+                2,
+                "Focus",
+                vec![wait(500), Step::new(StepKind::notify("Back", "Go on"))],
+            ),
+        );
+        write(
+            "breathe",
+            gallery_flow("Breathe", "grace", 1, "Media", vec![wait(900)]),
+        );
+        write(
+            "careful",
+            gallery_flow(
+                "Careful",
+                "grace",
+                1,
+                "System",
+                vec![Step::new(StepKind::Exec {
+                    command: "sudo -n true".into(),
+                    wait: true,
+                })],
+            ),
+        );
+        std::fs::write(repo.join("featured.txt"), "pause\n").expect("featured");
+        std::fs::write(repo.join("verified.txt"), "ada\n").expect("verified");
+        let index = catalog::build(&repo, &out, None, "2026-10-05", 100).expect("the gallery");
+        catalog::write_index(&out, &index, Some(GALLERY_KEY)).expect("the signed index");
+        std::fs::write(
+            out.join("v1/installs.json"),
+            r#"{"pause": 1200, "breathe": 3}"#,
+        )
+        .expect("install counts");
+        catalog::load().expect("the gallery loads").index
     })
 }
 

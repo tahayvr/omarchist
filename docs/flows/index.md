@@ -11,7 +11,7 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 
 Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates it, saves it as a [template](#your-own-templates), exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-**New flow** starts a blank flow. **Templates**, next to it, opens the starter flows and your own templates. Its arrow offers **From scratch**, **From template**, and **Import flow**. The **Flows** menu in the title bar has the same three from any page, plus **Run** for every saved flow.
+**New flow** starts a blank flow. **Templates**, next to it, opens the starter flows and your own templates. **Gallery** opens the flows other people shared; see [Gallery](/flows/gallery). Its arrow offers **From scratch**, **From template**, **From the gallery**, and **Import flow**. The **Flows** menu in the title bar has the same from any page, plus **Run** for every saved flow.
 
 ## Building a flow
 
@@ -120,7 +120,9 @@ The templates that change settings set things to a state rather than flipping th
 - **Export** from a card's menu, the editor's menu (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>), or `omarchist flow export`. The file leaves out the id and everything under **Run it from**, automations included, which belong to your machine.
 - **Import** with **Import flow**, by dropping a `.flow.toml` file onto the Flows page, or with `omarchist flow import <file or https URL>`.
 
-An imported flow opens in the editor with a note showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and it runs them as you. The command line prints the steps and asks before saving.
+To share with everyone, publish the flow to the [Gallery](/flows/gallery#publish-a-flow).
+
+An imported flow opens in the editor with a note showing where it came from, and a list of the steps worth a closer look: the ones that run as administrator, delete files, or run downloaded code. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and it runs them as you. The command line prints the steps and asks before saving.
 
 ## Flow files
 

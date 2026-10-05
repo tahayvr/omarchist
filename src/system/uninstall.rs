@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::error::{Error, Result};
 use crate::system::bar_widget;
 use crate::system::config::hypr_setup;
-use crate::system::flows::{history, launcher, service, store};
+use crate::system::flows::{catalog, history, launcher, service, store};
 use crate::system::fs::write_atomic;
 use crate::system::omarchy_paths::user_hyprland_config_dir;
 
@@ -33,6 +33,8 @@ pub enum Step {
     DataDir(PathBuf),
     /// Delete `~/.local/state/omarchist` (the flows' run history).
     StateDir(PathBuf),
+    /// Delete `~/.cache/omarchist` (the copy of the gallery).
+    CacheDir(PathBuf),
 }
 
 impl Step {
@@ -51,7 +53,10 @@ impl Step {
             Step::FlowTriggers { name, .. } => {
                 format!("Remove what starts the flow \"{name}\" (launcher, startup, file manager)")
             }
-            Step::ConfigDir(path) | Step::DataDir(path) | Step::StateDir(path) => {
+            Step::ConfigDir(path)
+            | Step::DataDir(path)
+            | Step::StateDir(path)
+            | Step::CacheDir(path) => {
                 format!("Delete {}", path.display())
             }
         }
@@ -106,6 +111,13 @@ pub fn plan() -> Vec<Step> {
     {
         steps.push(Step::StateDir(dir));
     }
+    // The gallery's folder is `omarchist/catalog`; the app's own is above it.
+    if let Ok(dir) = catalog::cache_dir()
+        && let Some(dir) = dir.parent()
+        && dir.is_dir()
+    {
+        steps.push(Step::CacheDir(dir.to_path_buf()));
+    }
     steps
 }
 
@@ -125,7 +137,9 @@ pub fn run(step: &Step) -> Result<()> {
         }
         Step::AutomationsService(_) => service::disable(),
         Step::FlowTriggers { id, .. } => launcher::remove_triggers(id),
-        Step::ConfigDir(dir) | Step::DataDir(dir) | Step::StateDir(dir) => remove_dir(dir),
+        Step::ConfigDir(dir) | Step::DataDir(dir) | Step::StateDir(dir) | Step::CacheDir(dir) => {
+            remove_dir(dir)
+        }
     }
 }
 
