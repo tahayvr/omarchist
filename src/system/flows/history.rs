@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::{Error, Result};
 
-use super::runner::{Outcome, RunEvent, StepStatus};
+use super::runner::{Outcome, RunEvent, STOPPED, StepStatus};
 use super::{Flow, StepPath};
 
 /// Runs kept per flow.
@@ -166,7 +166,16 @@ impl Recorder {
 
     /// The finished record. `stopped` says the run was ended from outside
     /// (the Stop button, `omarchist flow stop`).
-    pub fn finish(self, flow: &Flow, outcome: &Outcome, stopped: bool) -> Run {
+    pub fn finish(mut self, flow: &Flow, outcome: &Outcome, stopped: bool) -> Run {
+        if stopped {
+            // The step the stop cut short did not fail; it was stopped.
+            for step in &mut self.steps {
+                if step.result == StepResult::Failed && step.detail == STOPPED {
+                    step.result = StepResult::Cancelled;
+                    step.detail.clear();
+                }
+            }
+        }
         let result = if stopped {
             RunResult::Stopped
         } else if !outcome.is_ok() {
@@ -399,9 +408,18 @@ mod tests {
                 .result,
             RunResult::Cancelled
         );
-        let stopped = Recorder::new(&flow, "x").finish(&flow, &outcome, true);
+        let mut recorder = Recorder::new(&flow, "x");
+        recorder.event(&RunEvent::Started { path: vec![0] });
+        recorder.event(&RunEvent::Finished {
+            path: vec![0],
+            status: StepStatus::Failed(STOPPED.into()),
+        });
+        let stopped = recorder.finish(&flow, &outcome, true);
         assert_eq!(stopped.result, RunResult::Stopped);
         assert_eq!(stopped.summary, "Flow 'Demo' stopped");
+        // The step that was cut short is not listed as a failure.
+        assert_eq!(stopped.steps[0].result, StepResult::Cancelled);
+        assert_eq!(stopped.steps[0].detail, "");
     }
 
     #[test]

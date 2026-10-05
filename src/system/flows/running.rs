@@ -1,5 +1,5 @@
-//! The flows that are running now, so the bar widget and the Flows page
-//! can show them and stop them. Every `omarchist flow run` leaves a small
+//! The flows that are running now, so the bar widget and `omarchist flow
+//! stop` can show them and stop them. Every `omarchist flow run` leaves a small
 //! file in `$XDG_RUNTIME_DIR/omarchist/runs/` for as long as it runs; the
 //! runtime directory is cleared at logout, and a file whose process is
 //! gone is ignored and removed.
@@ -56,10 +56,18 @@ pub fn register(flow: &Flow, trigger: &str) -> Option<Registered> {
     Some(Registered(path))
 }
 
-/// Whether `pid` is still an Omarchist process. A pid can be reused by
-/// something else after a crash, so the name is checked too.
+/// Whether `pid` is still a run of a flow. A pid can be reused after a
+/// crash, by anything, Omarchist's own window included, and `stop` sends
+/// it a signal: so its command line must say `flow run`.
 fn alive(pid: u32) -> bool {
-    fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|name| name.trim() == "omarchist")
+    fs::read(format!("/proc/{pid}/cmdline")).is_ok_and(|cmdline| is_flow_run(&cmdline))
+}
+
+/// Whether a NUL-separated command line is `… flow run …`.
+fn is_flow_run(cmdline: &[u8]) -> bool {
+    let args: Vec<&[u8]> = cmdline.split(|byte| *byte == 0).collect();
+    args.windows(2)
+        .any(|pair| pair[0] == b"flow" && pair[1] == b"run")
 }
 
 /// Every run in progress, oldest first.
@@ -99,4 +107,23 @@ pub fn stop(id: &str) -> usize {
             .status();
     }
     runs.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_flow_run;
+
+    #[test]
+    fn only_a_flow_run_is_a_run() {
+        assert!(is_flow_run(b"/usr/bin/omarchist\0flow\0run\0morning\0"));
+        assert!(is_flow_run(
+            b"omarchist\0flow\0run\0morning\0--trigger\0Bar\0"
+        ));
+        // The window, the service, and anything a reused pid may be.
+        assert!(!is_flow_run(b"/usr/bin/omarchist\0--view\0flows\0"));
+        assert!(!is_flow_run(b"omarchist\0automations\0run\0"));
+        assert!(!is_flow_run(b"omarchist\0flow\0list\0--json\0"));
+        assert!(!is_flow_run(b"bash\0-c\0flow run\0"));
+        assert!(!is_flow_run(b""));
+    }
 }

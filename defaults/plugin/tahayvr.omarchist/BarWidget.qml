@@ -1,5 +1,6 @@
 // Omarchist's bar widget: a row of buttons that open Omarchist on a page,
-// the user's flows to run, and the installed version. Installed and kept up to date by Omarchist
+// the user's flows to run (or stop, while one runs), and the installed
+// version. Installed and kept up to date by Omarchist
 // itself (Settings > Bar), which writes the path of its binary into the
 // `command` file next to this one.
 //
@@ -20,6 +21,8 @@ Panel {
     readonly property string icon: root.setting("icon", "\u{f0843}")
     readonly property string pluginDir: Quickshell.env("HOME") + "/.config/omarchy/plugins/tahayvr.omarchist"
     readonly property string flowsDir: Quickshell.env("HOME") + "/.config/omarchist/flows"
+    // Every `omarchist flow run` keeps a file here for as long as it runs.
+    readonly property string runsDir: Quickshell.env("XDG_RUNTIME_DIR") + "/omarchist/runs"
     // The binary Omarchist was started from; `omarchist` until the file loads.
     property string command: "omarchist"
 
@@ -29,8 +32,12 @@ Panel {
 
     // "2.0.0" from `omarchist --version`.
     property string version: ""
-    // [{ id, name, icon, glyph, steps }] from `omarchist flow list --json`
+    // [{ id, name, icon, glyph, steps, running }] from `omarchist flow list --json`
     property var flows: []
+    readonly property var runningFlows: root.flows.filter(function (flow) { return flow.running === true })
+    readonly property string barTooltip: root.runningFlows.length === 0 ? "Omarchist"
+        : root.runningFlows.length === 1 ? "Omarchist · " + root.runningFlows[0].name + " is running"
+        : "Omarchist · " + root.runningFlows.length + " flows are running"
     readonly property var views: [
         { label: "Themes", view: "themes", glyph: "\u{f03d8}", font: "" },
         { label: "Configuration", view: "config", glyph: "\u{f0493}", font: "" },
@@ -52,7 +59,14 @@ Panel {
         if (!listProc.running) listProc.running = true
         if (!versionProc.running) versionProc.running = true
     }
-    function runFlow(id) { close(); Util.execArgv([root.command, "flow", "run", id]) }
+    // `--trigger` names the bar in the flow's run history.
+    function runFlow(id) { close(); Util.execArgv([root.command, "flow", "run", id, "--trigger", "Bar"]) }
+    // The panel stays open, so the row is seen going back to idle.
+    function stopFlow(id) { Util.execArgv([root.command, "flow", "stop", id]) }
+    function activateFlow(flow) {
+        if (flow.running === true) root.stopFlow(flow.id)
+        else root.runFlow(flow.id)
+    }
     function openView(view) {
         close()
         Util.execArgv(view === "" ? [root.command] : [root.command, "--view", view])
@@ -75,7 +89,7 @@ Panel {
     function activateCursor() {
         if (!root.cursorActive) return
         if (root.section === "views") root.openView(root.views[root.viewIndex].view)
-        else if (root.flows[root.flowIndex]) root.runFlow(root.flows[root.flowIndex].id)
+        else if (root.flows[root.flowIndex]) root.activateFlow(root.flows[root.flowIndex])
     }
 
     function hoverView(index) {
@@ -167,6 +181,14 @@ Panel {
                   root.flowsDir]
         stdout: SplitParser { onRead: function (_) { debounce.restart() } }
     }
+    // A flow that starts or ends, whatever started it, shows up at once.
+    Process {
+        running: true
+        command: ["bash", "-c",
+                  "mkdir -p \"$0\"; exec inotifywait -m -q -e create,delete,move --format %f \"$0\"",
+                  root.runsDir]
+        stdout: SplitParser { onRead: function (_) { debounce.restart() } }
+    }
     Timer { id: debounce; interval: 200; onTriggered: root.refresh() }
 
     BarIconButton {
@@ -174,7 +196,9 @@ Panel {
         anchors.fill: parent
         bar: root.bar
         text: root.icon
-        tooltipText: root.opened ? "" : "Omarchist"
+        // Tinted while a flow runs, like Omarchy's own indicators.
+        active: root.runningFlows.length > 0
+        tooltipText: root.opened ? "" : root.barTooltip
         onPressed: function (mouseButton) {
             if (mouseButton === Qt.RightButton) root.openView("")
             else root.toggle()
@@ -301,10 +325,13 @@ Panel {
                                     required property int index
                                     readonly property bool hasFocus: root.cursorActive && root.section === "flows"
                                                                      && root.flowIndex === index
+                                    readonly property bool running: modelData.running === true
 
                                     width: parent.width
                                     height: Style.space(40)
                                     hasCursor: hasFocus
+                                    // A running flow stands out as the selected row does.
+                                    current: running
                                     foreground: root.fg
 
                                     Text {
@@ -342,8 +369,9 @@ Panel {
                                         Text {
                                             width: parent.width
                                             textFormat: Text.PlainText
-                                            text: (row.modelData.steps === 1 ? "1 step" : row.modelData.steps + " steps").toUpperCase()
-                                            color: root.dim
+                                            text: row.running ? "RUNNING"
+                                                : (row.modelData.steps === 1 ? "1 step" : row.modelData.steps + " steps").toUpperCase()
+                                            color: row.running ? root.fg : root.dim
                                             font.family: root.face
                                             font.pixelSize: Style.font.caption
                                             font.bold: true
@@ -357,9 +385,10 @@ Panel {
                                         anchors.rightMargin: Style.space(12)
                                         anchors.verticalCenter: parent.verticalCenter
                                         textFormat: Text.PlainText
-                                        text: "\u{f040a}"
+                                        // Play, or stop while the flow runs.
+                                        text: row.running ? "\u{f04db}" : "\u{f040a}"
                                         color: root.fg
-                                        opacity: row.hasFocus ? 1 : 0
+                                        opacity: row.hasFocus || row.running ? 1 : 0
                                         font.family: root.face
                                         font.pixelSize: Style.font.title
                                         Behavior on opacity { NumberAnimation { duration: 80 } }
@@ -371,12 +400,12 @@ Panel {
                                         hoverEnabled: true
                                         cursorShape: Qt.PointingHandCursor
                                         onContainsMouseChanged: if (containsMouse) root.hoverFlow(row.index)
-                                        onClicked: root.runFlow(row.modelData.id)
+                                        onClicked: root.activateFlow(row.modelData)
                                     }
 
                                     PanelToolTip {
                                         visible: rowMouse.containsMouse
-                                        text: "Run " + row.modelData.name
+                                        text: (row.running ? "Stop " : "Run ") + row.modelData.name
                                         fontFamily: root.face
                                     }
                                 }

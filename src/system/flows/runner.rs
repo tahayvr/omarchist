@@ -200,6 +200,9 @@ impl From<Error> for Halt {
     }
 }
 
+/// What a step that was cut short from outside fails with.
+pub(crate) const STOPPED: &str = "Stopped";
+
 /// The choices a `confirm` step offers.
 const CONTINUE: &str = "Continue";
 const CANCEL: &str = "Cancel";
@@ -667,7 +670,7 @@ impl<'a> Runner<'a> {
         let deadline = Instant::now() + total;
         while Instant::now() < deadline {
             if self.cancel.is_cancelled() {
-                return Err(Error::Invalid("Stopped".to_string()));
+                return Err(Error::Invalid(STOPPED.to_string()));
             }
             std::thread::sleep(slice.min(deadline.saturating_duration_since(Instant::now())));
         }
@@ -714,7 +717,7 @@ impl<'a> Runner<'a> {
             self.cancel.unwatch();
             let output = output?;
             if self.cancel.is_cancelled() {
-                return Err(Error::Invalid("Stopped".to_string()));
+                return Err(Error::Invalid(STOPPED.to_string()));
             }
             exit_result(output.status, &output.stderr)?;
             let stdout = String::from_utf8_lossy(&output.stdout).into_owned();

@@ -22,7 +22,7 @@ Each run says what started it, when, and how long it took. Open a run to see eve
 | **Cancelled** | You dismissed a question the flow asked. |
 | **Stopped** | The run was ended from outside: **Stop** in the editor, `omarchist flow stop`, or logging out. |
 
-What started a run reads as **Keybind**, **Launcher**, **Startup**, **Files menu**, **Terminal**, **Script**, **Editor**, **Omarchist** (a card or the title bar menu), or the automation's own words, such as *At 09:00 on weekdays*.
+What started a run reads as **Keybind**, **Launcher**, **Startup**, **Files menu**, **Bar** (the [bar widget](/configuring/bar-widget)), **Terminal**, **Script**, **Editor**, **Omarchist** (a card or the title bar menu), or the automation's own words, such as *At 09:00 on weekdays*.
 
 | Key | Does |
 | --- | --- |
@@ -34,7 +34,7 @@ What started a run reads as **Keybind**, **Launcher**, **Startup**, **Files menu
 
 ## Stop a running flow
 
-**Stop** in the editor ends the run you started there. To end a flow that something else started, use its name or id:
+**Stop** in the editor ends the run you started there. The [bar widget](/configuring/bar-widget) shows every flow that is running, with a stop button. From a terminal, use the flow's name or id:
 
 ```bash
 omarchist flow stop morning-start
