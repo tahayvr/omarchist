@@ -12,6 +12,7 @@ use gpui_component::{
 
 use crate::system::flows::{StepKind, format_duration, vars};
 use crate::system::keybinds::action::{Action, ActionKind};
+use crate::ui::flows_page::var_token;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
@@ -222,9 +223,7 @@ impl StepBuilder {
             return Ok(None);
         }
         if !vars::is_name(&name) {
-            return Err(
-                "A name starts with a letter, then letters, digits, spaces, - or _".to_string(),
-            );
+            return Err("Use a letter first, then letters, digits, spaces, - or _".to_string());
         }
         if vars::is_builtin(&name) {
             return Err(format!(
@@ -409,38 +408,27 @@ impl StepBuilder {
             )
     }
 
-    fn hint(id: &'static str, text: &'static str, cx: &App) -> Div {
-        div()
-            .text_xs()
-            .text_color(cx.theme().muted_foreground)
-            .child(selectable(id, text))
-    }
-
     fn render_body(&self, cx: &mut Context<Self>) -> AnyElement {
         match self.choice {
             StepChoice::Action(kind) => v_flex()
                 .gap_2()
                 .child(self.action.clone())
-                .when(kind != ActionKind::Window && kind != ActionKind::Flow, |this| {
-                    this.child(
-                        div().text_sm().child(
-                            FocusableSwitch::new("step-wait")
-                                .label("Wait until it finishes")
-                                .checked(self.wait)
-                                .on_change(cx.listener(|this, checked, _window, cx| {
-                                    this.wait = *checked;
-                                    this.changed(cx);
-                                })),
-                        ),
-                    )
-                    .child(Self::hint(
-                        "wait-hint",
-                        "Off, the command is started and the flow moves on, which is what \
-                         opening an app needs. On, the flow waits for it to exit and treats \
-                         a failure as the step failing.",
-                        cx,
-                    ))
-                })
+                .when(
+                    kind != ActionKind::Window && kind != ActionKind::Flow,
+                    |this| {
+                        this.child(
+                            div().text_sm().child(
+                                FocusableSwitch::new("step-wait")
+                                    .label("Wait until it finishes")
+                                    .checked(self.wait)
+                                    .on_change(cx.listener(|this, checked, _window, cx| {
+                                        this.wait = *checked;
+                                        this.changed(cx);
+                                    })),
+                            ),
+                        )
+                    },
+                )
                 .into_any_element(),
             StepChoice::Wait => {
                 let current = self.wait_value(cx).ok();
@@ -477,23 +465,12 @@ impl StepBuilder {
                                 }))
                             })),
                     )
-                    .child(Self::hint(
-                        "delay-hint",
-                        "Gives the previous step time to finish, such as a window appearing \
-                         before the next step moves it.",
-                        cx,
-                    ))
                     .into_any_element()
             }
             StepChoice::Notify => v_flex()
                 .gap_2()
                 .child(Input::new(&self.notify_title).small())
                 .child(Input::new(&self.notify_body).small())
-                .child(Self::hint(
-                    "notify-hint",
-                    "Shows a desktop notification, handy as the last step so you know the flow ran.",
-                    cx,
-                ))
                 .into_any_element(),
         }
     }
@@ -520,7 +497,7 @@ impl StepBuilder {
                         .py_0p5()
                         .rounded(theme.radius)
                         .bg(theme.secondary)
-                        .child(selectable("step-preview", step.text())),
+                        .child(var_token::rich_text("step-preview", &step.text(), cx)),
                 )
                 .into_any_element(),
             Err(message) => row
@@ -541,7 +518,6 @@ impl StepBuilder {
             return None;
         }
         let theme = cx.theme();
-        let builtins = vars::BUILTINS.len();
         let row_focused = self.variables_focus.is_focused(window);
         let ring = focus::focus_border(row_focused, theme.transparent, cx);
         let count = self.variables.len();
@@ -579,28 +555,20 @@ impl StepBuilder {
                 )
                 .children(self.variables.iter().enumerate().map(|(ix, name)| {
                     let name = name.clone();
-                    let tooltip = vars::BUILTINS
-                        .iter()
-                        .find(|(b, _)| *b == name)
-                        .map(|(_, what)| what.to_string())
-                        .unwrap_or_else(|| "Saved by an earlier step".to_string());
-                    let button = Button::new(("step-variable", ix))
-                        .label(format!("{{{{{name}}}}}"))
-                        .xsmall()
-                        .tab_stop(false)
-                        .tooltip(tooltip)
-                        .cursor_pointer();
-                    // Names earlier steps save stand out from the built-ins.
-                    let button = if row_focused && ix == self.variable_ix {
-                        button.primary()
-                    } else if ix >= builtins {
-                        button.outline()
-                    } else {
-                        button.ghost()
-                    };
-                    button.on_click(cx.listener(move |this, _, window, cx| {
-                        this.insert_variable(&name, window, cx)
-                    }))
+                    let current = row_focused && ix == self.variable_ix;
+                    let ring = focus::focus_border(current, theme.transparent, cx);
+                    div()
+                        .id(("step-variable", ix))
+                        .rounded(theme.radius)
+                        .border_1()
+                        .border_color(ring)
+                        .p_px()
+                        .cursor_pointer()
+                        .hover(|this| this.opacity(0.8))
+                        .child(var_token::token(&name, cx).text_xs())
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.insert_variable(&name, window, cx)
+                        }))
                 }))
                 .into_any_element(),
         )

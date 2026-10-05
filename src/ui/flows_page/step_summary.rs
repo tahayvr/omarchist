@@ -72,7 +72,13 @@ impl SummaryContext<'_> {
             },
             StepKind::Notify { title, body } => StepSummary {
                 icon: StepIcon::Path("icons/bell.svg"),
-                title: format!("Notify \"{}\"", title.trim()),
+                // Quotes read oddly around a variable token, so a title that
+                // uses one goes without them.
+                title: if crate::system::flows::vars::references(title).is_empty() {
+                    format!("Notify \"{}\"", title.trim())
+                } else {
+                    format!("Notify {}", title.trim())
+                },
                 detail: if body.trim().is_empty() {
                     detail
                 } else {

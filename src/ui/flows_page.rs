@@ -6,6 +6,7 @@ pub mod step_builder;
 pub mod step_dialog;
 pub mod step_summary;
 pub mod templates_view;
+pub mod var_token;
 
 pub use flow_edit_view::{FlowEditPage, FlowEditSource};
 pub use flows_view::FlowsView;

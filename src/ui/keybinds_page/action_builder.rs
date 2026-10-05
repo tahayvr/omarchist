@@ -913,7 +913,7 @@ impl ActionBuilder {
                     .when_some(carried, |this, (app, _)| {
                         this.child(Self::hint(
                             "app-carried-hint",
-                            format!("Currently launches `{}`, which has no menu entry.", app.exec),
+                            format!("Not in the app menu: {}", app.exec),
                             cx,
                         ))
                     })
@@ -958,11 +958,6 @@ impl ActionBuilder {
             ActionKind::Terminal => v_flex()
                 .gap_2()
                 .child(Input::new(&self.terminal_command).small())
-                .child(Self::hint(
-                    "terminal-hint",
-                    "Opens a terminal window running the command, the way Omarchy launches btop or lazydocker.",
-                    cx,
-                ))
                 .child(self.focus_switch(
                     "action-terminal-focus",
                     self.terminal_focus,
@@ -991,19 +986,25 @@ impl ActionBuilder {
                             .menu_max_h(px(320.))
                             .small(),
                     )
-                    .when_some(self.kept_lua.as_ref().filter(|_| self.window.is_none()), |this, expr| {
-                        this.child(
-                            v_flex().gap_1().child(Self::hint("kept-lua-hint", "Currently runs this Hyprland dispatcher, which the builder cannot edit. Choosing an action replaces it.", cx)).child(
-                                div()
-                                    .px_2()
-                                    .py_1()
-                                    .rounded(theme.radius)
-                                    .bg(theme.secondary)
-                                    .text_xs()
-                                    .child(selectable("kept-lua", expr.clone())),
-                            ),
-                        )
-                    })
+                    .when_some(
+                        self.kept_lua.as_ref().filter(|_| self.window.is_none()),
+                        |this, expr| {
+                            this.child(
+                                v_flex()
+                                    .gap_1()
+                                    .child(Self::hint("kept-lua-hint", "Current action", cx))
+                                    .child(
+                                        div()
+                                            .px_2()
+                                            .py_1()
+                                            .rounded(theme.radius)
+                                            .bg(theme.secondary)
+                                            .text_xs()
+                                            .child(selectable("kept-lua", expr.clone())),
+                                    ),
+                            )
+                        },
+                    )
                     .when(param == Some(WindowParam::Direction), |this| {
                         this.child(
                             v_flex()
@@ -1013,7 +1014,10 @@ impl ActionBuilder {
                         )
                     })
                     .when(
-                        matches!(param, Some(WindowParam::Workspace | WindowParam::WorkspaceMove)),
+                        matches!(
+                            param,
+                            Some(WindowParam::Workspace | WindowParam::WorkspaceMove)
+                        ),
                         |this| {
                             this.child(
                                 v_flex().gap_1().child(Self::label("Workspace", cx)).child(
@@ -1080,24 +1084,13 @@ impl ActionBuilder {
                         .menu_max_h(px(320.))
                         .small(),
                 )
-                .child(Self::hint(
-                    "flow-hint",
-                    if self.flows.is_empty() {
-                        "Create a flow on the Flows page first: a sequence of actions that runs from one keybind."
-                    } else {
-                        "Runs every step of the flow, the same as the Run button on the Flows page."
-                    },
-                    cx,
-                ))
+                .when(self.flows.is_empty(), |this| {
+                    this.child(Self::hint("flow-hint", "No flows yet", cx))
+                })
                 .into_any_element(),
             ActionKind::Command => v_flex()
                 .gap_2()
                 .child(Input::new(&self.command).small())
-                .child(Self::hint(
-                    "command-hint",
-                    "Runs through Hyprland's exec dispatcher, so shell syntax such as || works.",
-                    cx,
-                ))
                 .into_any_element(),
         }
     }
@@ -1123,7 +1116,12 @@ impl ActionBuilder {
                         .py_0p5()
                         .rounded(theme.radius)
                         .bg(theme.secondary)
-                        .child(selectable("preview-cmd", dispatcher.text().to_string())),
+                        // A flow step's {{variables}} show as tokens.
+                        .child(crate::ui::flows_page::var_token::rich_text(
+                            "preview-cmd",
+                            dispatcher.text(),
+                            cx,
+                        )),
                 ),
             Err(message) => row.child(
                 div()

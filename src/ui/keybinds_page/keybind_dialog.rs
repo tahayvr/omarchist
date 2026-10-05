@@ -447,12 +447,9 @@ impl KeybindDialog {
     fn render_action(&self, cx: &App) -> AnyElement {
         let theme = cx.theme();
         match &self.builder {
-            Some(builder) => self.render_field(
-                "Action",
-                None,
-                builder.clone().into_any_element(),
-                cx,
-            ),
+            Some(builder) => {
+                self.render_field("Action", None, builder.clone().into_any_element(), cx)
+            }
             None => self.render_field(
                 "Action",
                 None,
@@ -461,7 +458,7 @@ impl KeybindDialog {
                     .text_color(theme.muted_foreground)
                     .child(selectable(
                         "lua-action",
-                        "Runs a Lua function from Omarchy's config. Its keys cannot be changed here, but the keybind can be disabled.",
+                        "Runs a Lua function; the keys cannot be changed",
                     ))
                     .into_any_element(),
                 cx,
@@ -560,72 +557,67 @@ impl Render for KeybindDialog {
             view.update(cx, |this, cx| this.on_save(cx));
         })
         .child(
-        v_flex()
-            .gap_4()
-            .when(rebindable, |this| {
-                this.child(self.render_field(
-                    "Keys",
-                    None,
-                    self.recorder.clone().into_any_element(),
-                    cx,
-                ))
+            v_flex()
+                .gap_4()
+                .when(rebindable, |this| {
+                    this.child(self.render_field(
+                        "Keys",
+                        None,
+                        self.recorder.clone().into_any_element(),
+                        cx,
+                    ))
+                    .child(self.render_field(
+                        "Or type the keys",
+                        None,
+                        Input::new(&self.keys_text).into_any_element(),
+                        cx,
+                    ))
+                })
+                .when(!rebindable, |this| {
+                    // A Lua-function bind cannot be re-emitted, so its keys are
+                    // shown, not recorded.
+                    let chips = match self.chord.as_ref().or(self.original().map(|b| &b.chord)) {
+                        Some(chord) => chord_chips(chord, true, cx),
+                        None => div().into_any_element(),
+                    };
+                    this.child(self.render_field("Keys", None, chips, cx))
+                })
+                .when_some(self.chord_error.clone(), |this, error| {
+                    this.child(
+                        div()
+                            .text_xs()
+                            .text_color(theme.danger)
+                            .child(selectable("chord-error", error)),
+                    )
+                })
                 .child(self.render_field(
-                    "Or type the keys",
-                    Some(
-                        "Omarchy syntax: modifiers SUPER, SHIFT, CTRL, ALT joined with +, then a key name such as K, RETURN, comma, F9, XF86AudioMute, mouse:272 or code:10"
-                            .to_string(),
-                    ),
-                    Input::new(&self.keys_text).into_any_element(),
+                    "Description",
+                    None,
+                    Input::new(&self.description).into_any_element(),
                     cx,
                 ))
-            })
-            .when(!rebindable, |this| {
-                // A Lua-function bind cannot be re-emitted, so its keys are
-                // shown, not recorded.
-                let chips = match self.chord.as_ref().or(self.original().map(|b| &b.chord)) {
-                    Some(chord) => chord_chips(chord, true, cx),
-                    None => div().into_any_element(),
-                };
-                this.child(self.render_field("Keys", None, chips, cx))
-            })
-            .when_some(self.chord_error.clone(), |this, error| {
-                this.child(
-                    div()
-                        .text_xs()
-                        .text_color(theme.danger)
-                        .child(selectable("chord-error", error)),
-                )
-            })
-            .child(self.render_field(
-                "Description",
-                None,
-                Input::new(&self.description).into_any_element(),
-                cx,
-            ))
-            .child(self.render_action(cx))
-            .when(!self.conflicts.is_empty(), |this| {
-                let list = self.conflicts.join(", ");
-                let text = format!(
-                    "These keys are already used by: {list}. Hyprland runs every keybind on a chord, so all of them would fire.{}",
-                    if self.confirm_pending {
-                        " Press Save again to keep both."
-                    } else {
-                        ""
-                    }
-                );
-                this.child(self.render_notice("conflicts-notice", text, theme.warning, cx))
-            })
-            .when(!self.lost_siblings.is_empty(), |this| {
-                let list = self.lost_siblings.join(", ");
-                let text = format!(
-                    "Changing this keybind also removes {list} from the same keys, and those run Lua functions that cannot be restored."
-                );
-                this.child(self.render_notice("lost-siblings-notice", text, theme.warning, cx))
-            })
-            .when_some(self.error.clone(), |this, error| {
-                this.child(self.render_notice("error-notice", error, theme.danger, cx))
-            })
-            .child(self.render_footer(cx)),
+                .child(self.render_action(cx))
+                .when(!self.conflicts.is_empty(), |this| {
+                    let list = self.conflicts.join(", ");
+                    let text = format!(
+                        "Also bound to {list}.{}",
+                        if self.confirm_pending {
+                            " Save again to keep both."
+                        } else {
+                            ""
+                        }
+                    );
+                    this.child(self.render_notice("conflicts-notice", text, theme.warning, cx))
+                })
+                .when(!self.lost_siblings.is_empty(), |this| {
+                    let list = self.lost_siblings.join(", ");
+                    let text = format!("Also removes {list}, which cannot be restored.");
+                    this.child(self.render_notice("lost-siblings-notice", text, theme.warning, cx))
+                })
+                .when_some(self.error.clone(), |this, error| {
+                    this.child(self.render_notice("error-notice", error, theme.danger, cx))
+                })
+                .child(self.render_footer(cx)),
         )
     }
 }

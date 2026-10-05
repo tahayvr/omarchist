@@ -39,6 +39,7 @@ use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
 };
 use crate::ui::flows_page::step_summary::SummaryContext;
+use crate::ui::flows_page::var_token;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybind_dialog::{
@@ -1081,7 +1082,7 @@ impl FlowEditPage {
                 let first = output.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
                 let more = output.lines().filter(|l| !l.trim().is_empty()).count() > 1;
                 Some(if first.is_empty() {
-                    "(no output)".to_string()
+                    "Nothing printed".to_string()
                 } else if more {
                     format!("{first} …")
                 } else {
@@ -1100,13 +1101,9 @@ impl FlowEditPage {
             .filter(|n| !crate::system::flows::vars::is_builtin(n) && !known.contains(n))
             .collect();
         let unknown = (!unknown.is_empty()).then(|| {
-            let names: Vec<String> = unknown.iter().map(|n| format!("{{{{{n}}}}}")).collect();
-            format!("Uses {}, which no earlier step saves", names.join(", "))
+            let names: Vec<String> = unknown.iter().map(|n| var_token::describe(n).0).collect();
+            format!("Nothing earlier saves {}", names.join(", "))
         });
-        let saves = step
-            .output
-            .as_ref()
-            .map(|name| format!("{{{{{}}}}}", crate::system::flows::vars::normalize(name)));
         let state_icon: Option<AnyElement> = match state {
             StepState::Idle => None,
             StepState::Running => Some(Spinner::new().small().into_any_element()),
@@ -1190,21 +1187,26 @@ impl FlowEditPage {
                                     } else {
                                         theme.muted_foreground
                                     })
-                                    .child(selectable(("step-title", ix), summary.title)),
+                                    .child(var_token::rich_text(
+                                        &format!("step-title-{ix}"),
+                                        &summary.title,
+                                        cx,
+                                    )),
                             )
-                            .when_some(saves, |this, saves| {
+                            .when_some(step.output.clone(), |this, name| {
                                 this.child(
-                                    div()
+                                    h_flex()
                                         .flex_shrink_0()
-                                        .px_1p5()
-                                        .rounded(theme.radius)
-                                        .bg(theme.primary.opacity(0.12))
-                                        .text_color(theme.primary)
+                                        .gap_1()
+                                        .items_center()
                                         .text_xs()
-                                        .child(selectable(
-                                            ("step-saves", ix),
-                                            format!("→ {saves}"),
-                                        )),
+                                        .text_color(theme.muted_foreground)
+                                        .child(
+                                            Icon::new(Icon::empty())
+                                                .path("icons/arrow-down.svg")
+                                                .size_3(),
+                                        )
+                                        .child(var_token::token(&name, cx)),
                                 )
                             }),
                     )
@@ -1213,8 +1215,17 @@ impl FlowEditPage {
                             .text_xs()
                             .text_color(theme.muted_foreground)
                             // Reviewing an import: every character counts.
-                            .when(self.import_origin.is_none(), |this| this.truncate())
-                            .child(selectable(("step-detail", ix), summary.detail)),
+                            .when(
+                                self.import_origin.is_none()
+                                    && crate::system::flows::vars::references(&summary.detail)
+                                        .is_empty(),
+                                |this| this.truncate(),
+                            )
+                            .child(var_token::rich_text(
+                                &format!("step-detail-{ix}"),
+                                &summary.detail,
+                                cx,
+                            )),
                     )
                     .when_some(missing_program, |this, program| {
                         this.child(
@@ -1243,11 +1254,27 @@ impl FlowEditPage {
                     })
                     .when_some(produced, |this, produced| {
                         this.child(
-                            div()
+                            h_flex()
+                                .gap_2()
+                                .items_center()
+                                .min_w_0()
                                 .text_xs()
-                                .truncate()
-                                .text_color(theme.success)
-                                .child(selectable(("step-output", ix), produced)),
+                                .child(
+                                    div()
+                                        .flex_shrink_0()
+                                        .px_1p5()
+                                        .rounded(theme.radius)
+                                        .bg(theme.success.opacity(0.14))
+                                        .text_color(theme.success)
+                                        .child("Result"),
+                                )
+                                .child(
+                                    div()
+                                        .min_w_0()
+                                        .truncate()
+                                        .text_color(theme.foreground)
+                                        .child(selectable(("step-output", ix), produced)),
+                                ),
                         )
                     })
                     .when_some(failure, |this, error| {

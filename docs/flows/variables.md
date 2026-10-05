@@ -15,13 +15,13 @@ Two kinds of step produce output:
 | **Command** with **Wait until it finishes** on | What the command prints (its standard output). |
 | **Flow** | The output of the last step in that flow that produced one. |
 
-Edit the step and type a name in **Save output as**, for example `url`. The step list shows the name next to the step, as **→ {{url}}**.
+Edit the step and type a name in **Save output as**, for example `url`. The step list shows the name next to the step as a small token.
 
 A name starts with a letter and can contain letters, digits, spaces, `-` and `_`, up to 32 characters. Case does not matter: `{{URL}}` and `{{url}}` are the same variable. Output is cut at 64 KB, and the trailing line break a command prints is dropped.
 
 ## Use a variable
 
-Type `{{name}}` in a step, or press a variable under the step's fields to add it. You can use variables in:
+Type `{{name}}` in a step's text field, or pick a variable from the **Insert** row under the fields: with the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. Outside the text field, Omarchist shows each variable as a token with its name, such as **Clipboard** or **url**. You can use variables in:
 
 - a **Command**, **Terminal**, or **Web app** step,
 - a **Notify** step's title and message,
@@ -69,6 +69,6 @@ Bind it to a key and select some text: the first step turns the selection into a
 
 ## When you run the flow
 
-**Run** in the editor shows each step's output under the step, so you can see what a variable will hold. From the command line, `omarchist flow run` prints each command's output.
+**Run** in the editor shows each step's output under the step, marked **Result**, so you can see what a variable will hold. From the command line, `omarchist flow run` prints each command's output.
 
 Flows that save outputs or use variables are written as file format 2. Omarchist 2.0.0 cannot open them; update Omarchist on every machine that runs your shared flows.

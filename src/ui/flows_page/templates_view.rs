@@ -6,7 +6,7 @@ use gpui_component::{ActiveTheme, button::Button, h_flex, v_flex};
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::Flow;
-use crate::system::flows::templates::{Template, templates, user_templates_dir};
+use crate::system::flows::templates::{Template, templates};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::flows_page::flow_card::template_card;
@@ -148,9 +148,6 @@ impl Render for TemplatesView {
         };
         let built_in: Vec<&Template> = self.templates.iter().filter(|t| t.is_built_in()).collect();
         let user: Vec<&Template> = self.templates.iter().filter(|t| !t.is_built_in()).collect();
-        let user_dir = user_templates_dir()
-            .map(|p| p.display().to_string())
-            .unwrap_or_default();
 
         let user_section: AnyElement = if user.is_empty() {
             div()
@@ -158,9 +155,7 @@ impl Render for TemplatesView {
                 .text_color(muted)
                 .child(selectable(
                     "no-user-templates",
-                    format!(
-                        "No templates of your own yet. Put a .flow.toml file in {user_dir} to add one."
-                    ),
+                    "No templates of your own yet",
                 ))
                 .into_any_element()
         } else {

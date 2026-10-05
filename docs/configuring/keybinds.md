@@ -41,7 +41,7 @@ XF86AudioMute
 SUPER + code:10
 ```
 
-If the keys are already in use, the dialog lists the other binds; press **Save** again to keep both. Binds that run a Lua function inside Omarchy's config cannot be re-bound, only disabled.
+If the keys are already in use, the dialog lists the other binds; press **Save** again to keep both. Binds that run a Lua function inside Omarchy's config cannot be re-bound, only disabled. If you change a bind whose keys a Lua-function bind also uses, that bind is removed too and cannot be restored; the dialog names it before you save.
 
 **Add keybind** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>, or **Add keybind…** in the title bar's **Keybinds** menu from any page) makes a new bind the same way. The description fills itself in from the action until you type your own.
 
@@ -57,7 +57,7 @@ The **Action** section builds the command for you; the line under it shows exact
 | **Omarchy** | One of Omarchy's own commands: menus, panels, capture, notifications, media, display, system. |
 | **Window** | A Hyprland action: close, float, focus or swap in a direction, workspaces, scratchpad, monitors, groups, resizing. |
 | **Flow** | A [flow](/flows/), so one key runs a whole sequence. |
-| **Command** | Any shell command, through Hyprland's `exec` dispatcher. |
+| **Command** | Any shell command, through Hyprland's `exec` dispatcher, so shell syntax such as `||` and pipes works. |
 
 ## Disabling and resetting
 
