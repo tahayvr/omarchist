@@ -88,14 +88,20 @@ pub fn with<R>(
 /// taking the keyboard) is delivered here; the tasks it starts need the
 /// executor, and the result needs another frame.
 pub fn settle(cx: &mut TestAppContext, handle: WindowHandle<Root>) {
-    for _ in 0..3 {
+    // Until a frame leaves nothing waiting for the next one; a frame is the
+    // costly part of a test, so no more of them than that.
+    for _ in 0..6 {
         cx.run_until_parked();
-        with(cx, handle, |window, cx| {
+        let delivered = with(cx, handle, |window, cx| {
             window.render_frame(cx);
-            window.simulate_next_frame(cx);
-            window.render_frame(cx);
+            window.simulate_next_frame(cx)
         });
+        if delivered == 0 {
+            break;
+        }
     }
+    cx.run_until_parked();
+    with(cx, handle, |window, cx| window.render_frame(cx));
 }
 
 /// Waits in real time for something a thread outside the test executor

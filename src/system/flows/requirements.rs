@@ -41,11 +41,11 @@ pub fn program_of(kind: &StepKind) -> Option<String> {
 pub fn missing_programs(flow: &Flow) -> Vec<String> {
     let mut seen = BTreeSet::new();
     let mut missing = Vec::new();
-    let from_steps = flow
-        .steps
+    let steps = flow.walk();
+    let from_steps = steps
         .iter()
-        .filter(|step| step.enabled)
-        .filter_map(|step| program_of(&step.kind));
+        .filter(|(_, step)| step.enabled)
+        .filter_map(|(_, step)| program_of(&step.kind));
     for program in from_steps.chain(flow.meta.requires.iter().cloned()) {
         if seen.insert(program.clone()) && !is_installed(&program) {
             missing.push(program);

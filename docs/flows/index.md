@@ -30,10 +30,11 @@ Give the flow a name, a description, and an icon, then press **Add step** (<kbd>
 | **Wait** | Pauses for a number of milliseconds (up to ten minutes), for example to let a window appear. |
 | **Notify** | Shows a desktop notification, which can copy or open something when you click it. |
 | **Ask for text**, **Choose from a list**, **Confirm**, **Pick a file**, **Pick a folder** | Stops and asks you. See [Steps that ask](/flows/asking). |
+| **If**, **Repeat**, **Repeat with each**, **Choose from a menu**, **Stop this flow** | Decides what runs, and how often. See [If, Repeat, and menus](/flows/logic). |
 
 **Add step** opens a list of every kind of step, grouped and searchable: type a few letters and press <kbd>Enter</kbd>, or move with the arrow keys. **Change** in a step's form goes back to the list.
 
-A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows reorder steps. **Keep going when a step fails** lets the rest of the flow run after an error.
+A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows move it up and down. **Keep going when a step fails** lets the rest of the flow run after an error.
 
 A step can pass what it produced to later steps: save its output under a name and use it as `{{name}}`. See [Variables](/flows/variables).
 
@@ -57,7 +58,7 @@ The id comes from the flow's name and never changes, so renaming a flow breaks n
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships eighteen built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow file without an id. Omarchist ships twenty-three built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -82,8 +83,13 @@ A template is a flow file without an id. Omarchist ships eighteen built-in ones;
 | **Close an app** | Lists the apps that are open and closes the one you pick, after you confirm. |
 | **Wallpaper from a file** | Lets you pick a picture and sets it as your wallpaper. |
 | **Empty the trash** | Asks first, then empties the trash. |
+| **Open copied link** | Opens the link on your clipboard, or tells you there is none. Uses [If and Stop](/flows/logic). |
+| **Power by charger** | On battery: the power-saver profile and a dimmer screen. Plugged in: balanced and bright. |
+| **Leave** | A menu to lock, suspend, restart, or shut down. Restart and shut down ask first. |
+| **Open my sites** | Opens each link of a list in your browser. |
+| **Four pomodoros** | Four rounds of 25 minutes of focus and a 5-minute break. |
 
-Each built-in template sets things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
+The templates that change settings set things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 
 ## Sharing flows
 
@@ -128,7 +134,7 @@ title = "Focus mode"
 body = "Everything else can wait"
 ```
 
-- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), `flow` (`id`), and the [steps that ask](/flows/asking#in-the-flow-file). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
-- `format` is the file layout version. Omarchist writes format 1 unless the flow uses something newer (variables, steps that ask), which needs format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
+- Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), `flow` (`id`), the [steps that ask](/flows/asking#in-the-flow-file), and the [steps that hold steps](/flows/logic#in-the-flow-file). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
+- `format` is the file layout version. Omarchist writes format 1 unless the flow uses something newer (variables, steps that ask, If and Repeat), which needs format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
 - `[meta]` is optional: `author`, `version`, `homepage`, `tags`, `requires` (programs the flow expects), and `source` (the URL it was imported from).
 - A file without an `id` takes its file name as the id, so `night-shift.toml` or `night-shift.flow.toml` copied in just works.

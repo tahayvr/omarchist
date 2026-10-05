@@ -39,7 +39,7 @@ fn add_step_starts_on_a_searchable_list_of_step_types(cx: &mut TestAppContext) {
             "the search box has the keyboard"
         );
         assert!(window.find("step-type-ask-for-text").visible());
-        assert!(window.find("step-type-run-a-command").visible());
+        assert!(window.find("step-type-if").visible());
         assert!(
             window.try_find("step-save").is_none(),
             "there is nothing to add until a type is picked"
@@ -165,7 +165,7 @@ fn an_ask_step_saves_its_answer_under_a_default_name(cx: &mut TestAppContext) {
     assert_eq!(flow.steps[0].output.as_deref(), Some("answer"));
     with(cx, handle, |window, cx| {
         assert!(!window.has_active_dialog(cx), "the dialog closed");
-        assert!(window.find(("flow-step", 0usize)).visible());
+        assert!(window.find(("flow-step", 1usize)).visible());
     });
 
     // A second one must not reuse the name.
@@ -364,7 +364,7 @@ fn enter_on_a_step_opens_its_form_with_its_values(cx: &mut TestAppContext) {
     let (handle, view) = open(cx, ActivePage::FlowEdit("ui-three-steps".into()));
 
     with(cx, handle, |window, cx| {
-        window.click(("flow-step", 0usize), cx);
+        window.click(("flow-step", 1usize), cx);
         window.render_frame(cx);
         assert_eq!(window.find("flow-steps").focused(), Some(true));
         window.press("enter", cx);
@@ -408,7 +408,7 @@ fn the_keyboard_reorders_toggles_duplicates_and_removes_steps(cx: &mut TestAppCo
     let original = step_titles(&edited_flow(cx, &view));
 
     with(cx, handle, |window, cx| {
-        window.click(("flow-step", 1usize), cx);
+        window.click(("flow-step", 2usize), cx);
         // The Wait step moves below the notification, and back.
         window.press("alt-down", cx);
     });
@@ -440,7 +440,7 @@ fn the_keyboard_reorders_toggles_duplicates_and_removes_steps(cx: &mut TestAppCo
     with(cx, handle, |window, cx| {
         window.press("delete", cx);
         window.render_frame(cx);
-        assert!(window.try_find(("flow-step", 3usize)).is_none());
+        assert!(window.try_find(("flow-step", 4usize)).is_none());
     });
     assert_eq!(step_titles(&edited_flow(cx, &view)), original);
 }
@@ -453,7 +453,7 @@ fn a_step_that_lost_its_variable_is_flagged(cx: &mut TestAppContext) {
     // Removing the step that saves `name` leaves the notification using a
     // name nothing saves, which the flow refuses to be saved with.
     with(cx, handle, |window, cx| {
-        window.click(("flow-step", 0usize), cx);
+        window.click(("flow-step", 1usize), cx);
         window.press("delete", cx);
         window.render_frame(cx);
     });
@@ -461,7 +461,7 @@ fn a_step_that_lost_its_variable_is_flagged(cx: &mut TestAppContext) {
     assert_eq!(flow.steps.len(), 2);
     assert!(flow.validate_content().is_err());
     with(cx, handle, |window, _| {
-        assert!(window.find(("step-unknown-variable", 1usize)).visible());
+        assert!(window.find(("step-unknown-variable", 2usize)).visible());
     });
 }
 
@@ -496,27 +496,504 @@ fn a_run_shows_each_steps_result_under_it(cx: &mut TestAppContext) {
     let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-prints".into()));
 
     with(cx, handle, |window, cx| {
-        assert!(window.try_find(("step-result", 0usize)).is_none());
+        assert!(window.try_find(("step-result", 1usize)).is_none());
         window.click("flow-run", cx);
     });
     // The run is on a thread of its own, outside the test executor.
     wait_real(cx, handle, Duration::from_secs(10), |window, _| {
-        window.try_find("flow-run").is_some() && window.try_find(("step-result", 2usize)).is_some()
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", 3usize)).is_some()
     });
 
     with(cx, handle, |window, _| {
-        assert!(window.find(("step-result", 0usize)).visible());
+        assert!(window.find(("step-result", 1usize)).visible());
         assert!(
-            window.find(("step-failure", 1usize)).visible(),
+            window.find(("step-failure", 2usize)).visible(),
             "the failed step says why"
         );
         assert!(
-            window.try_find(("step-result", 1usize)).is_none(),
+            window.try_find(("step-result", 2usize)).is_none(),
             "a failed step has no result"
         );
         assert!(
-            window.try_find(("step-failure", 2usize)).is_none(),
+            window.try_find(("step-failure", 3usize)).is_none(),
             "the value saved by the first step reached the third"
         );
+    });
+}
+
+// MARK: Steps that hold steps
+
+use omarchist::system::flows::condition::Condition;
+use omarchist::system::flows::{Flow, Step};
+
+/// The times of the Wait steps, in the order the flow is written: a
+/// compact picture of where steps sit.
+fn waits(flow: &Flow) -> Vec<u64> {
+    flow.walk()
+        .into_iter()
+        .filter_map(|(_, step)| match step.kind {
+            StepKind::Wait { ms } => Some(ms),
+            _ => None,
+        })
+        .collect()
+}
+
+fn branches(step: &Step) -> Vec<Vec<u64>> {
+    step.kind
+        .branches()
+        .into_iter()
+        .map(|branch| {
+            branch
+                .iter()
+                .filter_map(|s| match s.kind {
+                    StepKind::Wait { ms } => Some(ms),
+                    _ => None,
+                })
+                .collect()
+        })
+        .collect()
+}
+
+const NESTED: &str = r#"
+format = 2
+id = "ui-nested"
+name = "UI nested"
+
+[[step]]
+type = "wait"
+ms = 1
+
+[[step]]
+type = "if"
+check = "on_battery"
+
+[[step.then]]
+type = "wait"
+ms = 2
+
+[[step.otherwise]]
+type = "wait"
+ms = 3
+
+[[step]]
+type = "wait"
+ms = 4
+"#;
+
+#[gpui_kit::test]
+fn an_if_step_gets_a_branch_for_each_outcome(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "if");
+
+    with(cx, handle, |window, cx| {
+        assert_eq!(
+            window.find("if-value").focused(),
+            Some(true),
+            "a new If checks a text"
+        );
+        window.input("{{clipboard}}", cx);
+        // is, is not, contains, ...
+        window.click(("if-op", 2usize), cx);
+        window.render_frame(cx);
+        window.click("if-other", cx);
+        window.input("https://", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    let flow = edited_flow(cx, &view);
+    assert_eq!(
+        flow.steps[0].kind,
+        StepKind::If {
+            condition: Condition::Contains {
+                value: "{{clipboard}}".into(),
+                text: "https://".into(),
+            },
+            not: false,
+            then: Vec::new(),
+            otherwise: Vec::new(),
+        }
+    );
+    with(cx, handle, |window, cx| {
+        assert!(window.find(("flow-step", 1usize)).visible());
+        assert!(
+            window.find("flow-add-1-0").visible(),
+            "a place to add to 'then'"
+        );
+        assert!(
+            window.find("flow-branch-1-1").visible(),
+            "the Otherwise heading"
+        );
+        // Add to "otherwise" from its own line.
+        window.click("flow-add-1-1", cx);
+    });
+    settle(cx, handle);
+    pick_step_type(cx, handle, "stop");
+
+    let flow = edited_flow(cx, &view);
+    let StepKind::If {
+        then, otherwise, ..
+    } = &flow.steps[0].kind
+    else {
+        panic!("still an If");
+    };
+    assert!(then.is_empty());
+    assert_eq!(
+        otherwise.iter().map(|s| &s.kind).collect::<Vec<_>>(),
+        vec![&StepKind::Stop],
+        "Stop has nothing to fill in, so picking it adds it"
+    );
+    with(cx, handle, |window, cx| {
+        assert!(!window.has_active_dialog(cx));
+        assert!(window.find(("flow-step", 2usize)).visible());
+    });
+}
+
+#[gpui_kit::test]
+fn the_negated_comparisons_and_other_checks_are_saved(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "if");
+
+    with(cx, handle, |window, cx| {
+        // Text, Command, App, Power, Time.
+        window.click(("if-kind", 3usize), cx);
+        window.render_frame(cx);
+        assert!(window.try_find("if-value").is_none());
+        // on battery, plugged in.
+        window.click(("if-op", 1usize), cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(
+        edited_flow(cx, &view).steps[0].kind,
+        StepKind::If {
+            condition: Condition::OnBattery,
+            not: true,
+            then: Vec::new(),
+            otherwise: Vec::new(),
+        }
+    );
+
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "if");
+    with(cx, handle, |window, cx| {
+        window.click(("if-kind", 4usize), cx);
+        window.render_frame(cx);
+        assert_eq!(window.find("if-from").value(), Some("09:00"));
+        window.click("if-to", cx);
+        window.press("ctrl-a", cx);
+        window.input("25:00", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx), "25:00 is not a time");
+        window.click("if-to", cx);
+        window.press("ctrl-a", cx);
+        window.input("12:30", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(
+        edited_flow(cx, &view).steps[1].kind,
+        StepKind::If {
+            condition: Condition::TimeBetween {
+                from: "09:00".into(),
+                to: "12:30".into(),
+            },
+            not: false,
+            then: Vec::new(),
+            otherwise: Vec::new(),
+        }
+    );
+}
+
+#[gpui_kit::test]
+fn editing_a_block_keeps_the_steps_inside_it(cx: &mut TestAppContext) {
+    write_flow("ui-nested", NESTED);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-nested".into()));
+
+    with(cx, handle, |window, cx| {
+        window.double_click(("flow-step", 2usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("if-kind").visible());
+        // on battery -> plugged in.
+        window.click(("if-op", 1usize), cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    let flow = edited_flow(cx, &view);
+    assert!(matches!(flow.steps[1].kind, StepKind::If { not: true, .. }));
+    assert_eq!(branches(&flow.steps[1]), vec![vec![2], vec![3]]);
+}
+
+#[gpui_kit::test]
+fn a_new_step_goes_after_the_selected_one_or_into_the_selected_branch(cx: &mut TestAppContext) {
+    write_flow("ui-nested", NESTED);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-nested".into()));
+
+    // With the step inside "then" selected, a new step follows it there.
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 3usize), cx)
+    });
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "wait");
+    with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(branches(&flow.steps[1]), vec![vec![2, 1000], vec![3]]);
+    with(cx, handle, |window, _| {
+        assert_eq!(window.find("flow-steps").focused(), Some(true));
+    });
+
+    // With the Otherwise heading selected, it goes to the end of that branch.
+    with(cx, handle, |window, cx| window.click("flow-branch-2-1", cx));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "wait");
+    with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(branches(&flow.steps[1]), vec![vec![2, 1000], vec![3, 1000]]);
+
+    // The button under the list always adds at the end of the flow.
+    with(cx, handle, |window, cx| window.click("flow-add-step", cx));
+    settle(cx, handle);
+    pick_step_type(cx, handle, "wait");
+    with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
+    settle(cx, handle);
+    assert_eq!(
+        waits(&edited_flow(cx, &view)),
+        vec![1, 2, 1000, 3, 1000, 4, 1000]
+    );
+}
+
+#[gpui_kit::test]
+fn alt_arrows_carry_a_step_into_and_out_of_a_block(cx: &mut TestAppContext) {
+    write_flow("ui-nested", NESTED);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-nested".into()));
+
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 1usize), cx);
+        window.press("alt-down", cx);
+    });
+    let flow = edited_flow(cx, &view);
+    assert_eq!(flow.steps.len(), 2);
+    assert_eq!(branches(&flow.steps[0]), vec![vec![1, 2], vec![3]]);
+
+    with(cx, handle, |window, cx| {
+        window.press("alt-down", cx);
+        window.press("alt-down", cx);
+    });
+    assert_eq!(
+        branches(&edited_flow(cx, &view).steps[0]),
+        vec![vec![2], vec![1, 3]],
+        "past the last step of 'then' is the top of 'otherwise'"
+    );
+
+    with(cx, handle, |window, cx| {
+        for _ in 0..3 {
+            window.press("alt-up", cx);
+        }
+    });
+    let flow = edited_flow(cx, &view);
+    assert_eq!(flow.steps.len(), 3, "and back out above the If");
+    assert_eq!(waits(&flow), vec![1, 2, 3, 4]);
+}
+
+#[gpui_kit::test]
+fn left_and_right_fold_a_block(cx: &mut TestAppContext) {
+    write_flow("ui-nested", NESTED);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-nested".into()));
+
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 2usize), cx);
+        assert!(window.find(("flow-step", 3usize)).visible());
+        window.press("left", cx);
+        window.render_frame(cx);
+        assert!(
+            window.try_find(("flow-step", 3usize)).is_none(),
+            "the steps inside are hidden"
+        );
+        assert!(window.try_find("flow-add-2-0").is_none());
+        assert!(window.find(("flow-step", 5usize)).visible(), "numbers stay");
+
+        // Down from the folded block goes straight to the step after it.
+        window.press("down", cx);
+        window.press("delete", cx);
+    });
+    let flow = edited_flow(cx, &view);
+    assert_eq!(
+        waits(&flow),
+        vec![1, 2, 3],
+        "the step after the block was removed"
+    );
+
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 2usize), cx);
+        window.press("right", cx);
+        window.render_frame(cx);
+        assert!(window.find(("flow-step", 3usize)).visible());
+        // Left from a step inside goes to its block.
+        window.click(("flow-step", 3usize), cx);
+        window.press("left", cx);
+        window.press("delete", cx);
+    });
+    assert_eq!(
+        waits(&edited_flow(cx, &view)),
+        vec![1],
+        "removing a block removes what it holds"
+    );
+}
+
+#[gpui_kit::test]
+fn a_menu_gets_a_branch_per_choice_and_keeps_them_by_name(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "menu");
+
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find(OUTPUT_NAME).value(), Some("pick"));
+        window.input("Power", cx);
+        window.click("step-choices", cx);
+        window.input("Lock", cx);
+        window.press("enter", cx);
+        window.input("Sleep", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    with(cx, handle, |window, cx| {
+        assert!(window.find("flow-branch-1-0").visible());
+        assert!(window.find("flow-branch-1-1").visible());
+        // A step for Sleep.
+        window.click("flow-add-1-1", cx);
+    });
+    settle(cx, handle);
+    pick_step_type(cx, handle, "wait");
+    with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
+    settle(cx, handle);
+
+    // Put a choice in front; Sleep keeps its step.
+    with(cx, handle, |window, cx| {
+        window.double_click(("flow-step", 1usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click("step-choices", cx);
+        window.press("ctrl-home", cx);
+        window.input("Off", cx);
+        window.press("enter", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    let flow = edited_flow(cx, &view);
+    let StepKind::Menu { prompt, choices } = &flow.steps[0].kind else {
+        panic!("a menu");
+    };
+    assert_eq!(prompt, "Power");
+    assert_eq!(
+        choices
+            .iter()
+            .map(|c| (c.label.as_str(), c.steps.len()))
+            .collect::<Vec<_>>(),
+        vec![("Off", 0), ("Lock", 0), ("Sleep", 1)]
+    );
+}
+
+const LOOPS: &str = r#"
+format = 2
+id = "ui-loops"
+name = "UI loops"
+
+[[step]]
+type = "exec"
+command = "printf 'a\nb\n'"
+wait = true
+output = "letters"
+
+[[step]]
+type = "each"
+items = "{{letters}}"
+
+[[step.do]]
+type = "exec"
+command = "printf '%s%s' {{index}} {{item}}"
+wait = true
+"#;
+
+#[gpui_kit::test]
+fn a_loops_names_are_offered_only_inside_it(cx: &mut TestAppContext) {
+    write_flow("ui-loops", LOOPS);
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-loops".into()));
+
+    with(cx, handle, |window, cx| window.click("flow-add-2-0", cx));
+    settle(cx, handle);
+    pick_step_type(cx, handle, "notify");
+    with(cx, handle, |window, cx| {
+        assert!(window.find("step-variable-item").visible());
+        assert!(window.find("step-variable-index").visible());
+        assert!(window.find("step-variable-letters").visible());
+        window.click("step-cancel", cx);
+    });
+    settle(cx, handle);
+
+    with(cx, handle, |window, cx| window.click("flow-add-step", cx));
+    settle(cx, handle);
+    pick_step_type(cx, handle, "notify");
+    with(cx, handle, |window, _| {
+        assert!(window.find("step-variable-letters").visible());
+        assert!(
+            window.try_find("step-variable-item").is_none(),
+            "after the loop its names are gone"
+        );
+    });
+}
+
+#[gpui_kit::test]
+fn a_run_marks_the_steps_inside_a_loop(cx: &mut TestAppContext) {
+    write_flow("ui-loops", LOOPS);
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-loops".into()));
+
+    with(cx, handle, |window, cx| window.click("flow-run", cx));
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", 3usize)).is_some()
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.find(("step-result", 1usize)).visible());
+        assert!(
+            window.find(("step-result", 3usize)).visible(),
+            "the step inside the loop shows its last round's result"
+        );
+        assert!(window.try_find(("step-failure", 2usize)).is_none());
+    });
+}
+
+#[gpui_kit::test]
+fn repeat_asks_how_many_times(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "repeat");
+
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-a", cx);
+        window.input("5", cx);
+        window.press("ctrl-enter", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(
+        edited_flow(cx, &view).steps[0].kind,
+        StepKind::Repeat {
+            times: 5,
+            steps: Vec::new(),
+        }
+    );
+    with(cx, handle, |window, _| {
+        assert!(window.find("flow-add-1-0").visible());
     });
 }

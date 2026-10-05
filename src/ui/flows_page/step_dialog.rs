@@ -8,16 +8,19 @@ use gpui_component::{
     h_flex, v_flex,
 };
 
-use crate::system::flows::StepKind;
+use crate::system::flows::{StepKind, StepPath};
 use crate::ui::flows_page::step_builder::{StepBuilder, StepBuilderEvent};
 use crate::ui::flows_page::step_picker::{StepPicker, StepPickerEvent};
 use crate::ui::focus;
 use crate::ui::text::selectable;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepDialogMode {
-    Add,
-    Edit(usize),
+    /// A new step at `index` of the list of steps `list` names (the
+    /// flow's own, or a branch of a step that holds steps).
+    Add { list: StepPath, index: usize },
+    /// The step at this path.
+    Edit(StepPath),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -88,16 +91,20 @@ impl StepDialog {
                         builder.set_choice(*choice, window, cx);
                         builder.focus_first(window, cx);
                     });
+                    // A step with nothing to fill in is added as it is.
+                    if !choice.has_form() {
+                        this.save(window, cx);
+                    }
                     cx.notify();
                 },
             ),
         ];
         Self {
-            mode,
             stage: match mode {
-                StepDialogMode::Add => Stage::Pick,
+                StepDialogMode::Add { .. } => Stage::Pick,
                 StepDialogMode::Edit(_) => Stage::Form,
             },
+            mode,
             picker,
             builder,
             error: None,
@@ -129,7 +136,7 @@ impl StepDialog {
             .and_then(|step| Ok((step, builder.output_name(cx)?)))
         {
             Ok((step, output)) => {
-                cx.emit(StepDialogEvent::Save(self.mode, step, output));
+                cx.emit(StepDialogEvent::Save(self.mode.clone(), step, output));
                 window.close_dialog(cx);
             }
             Err(error) => {
@@ -144,7 +151,7 @@ impl Render for StepDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let save_label = match self.mode {
-            StepDialogMode::Add => "Add step",
+            StepDialogMode::Add { .. } => "Add step",
             StepDialogMode::Edit(_) => "Save step",
         };
         let picking = self.stage == Stage::Pick;
@@ -216,7 +223,7 @@ pub fn open_step_dialog(
     cx: &mut App,
 ) -> Entity<StepDialog> {
     let title = match mode {
-        StepDialogMode::Add => "Add step",
+        StepDialogMode::Add { .. } => "Add step",
         StepDialogMode::Edit(_) => "Edit step",
     };
     let dialog =

@@ -95,7 +95,7 @@ pub fn step_strip(flow: &Flow, summaries: &SummaryContext, cx: &App) -> impl Int
 }
 
 pub fn step_count_label(flow: &Flow) -> String {
-    let n = flow.steps.len();
+    let n = flow.step_count();
     let enabled = flow.enabled_steps();
     let mut label = format!("{n} step{}", if n == 1 { "" } else { "s" });
     if enabled < n {

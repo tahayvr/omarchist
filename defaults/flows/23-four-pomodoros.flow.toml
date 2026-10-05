@@ -1,0 +1,38 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Four pomodoros"
+description = "Four rounds of 25 minutes of focus and a 5-minute break, with a notification at each change."
+icon = "clock"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "repeat"
+times = 4
+
+[[step.do]]
+type = "notify"
+title = "Focus {{index}} of 4"
+body = "25 minutes"
+
+[[step.do]]
+type = "exec"
+command = "sleep 1500"
+wait = true
+
+[[step.do]]
+type = "notify"
+title = "Break"
+body = "5 minutes"
+
+[[step.do]]
+type = "exec"
+command = "sleep 300"
+wait = true
+
+[[step]]
+type = "notify"
+title = "Four pomodoros done"

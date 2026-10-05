@@ -1,0 +1,50 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Leave"
+description = "A menu to lock, suspend, restart, or shut down. Restart and shut down ask first."
+icon = "power"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "menu"
+prompt = "Leave"
+
+[[step.choice]]
+label = "Lock"
+
+[[step.choice.do]]
+type = "exec"
+command = "omarchy-system-lock"
+
+[[step.choice]]
+label = "Suspend"
+
+[[step.choice.do]]
+type = "exec"
+command = "systemctl suspend"
+
+[[step.choice]]
+label = "Restart"
+
+[[step.choice.do]]
+type = "confirm"
+prompt = "Restart now?"
+
+[[step.choice.do]]
+type = "exec"
+command = "omarchy-system-reboot"
+
+[[step.choice]]
+label = "Shut down"
+
+[[step.choice.do]]
+type = "confirm"
+prompt = "Shut down now?"
+
+[[step.choice.do]]
+type = "exec"
+command = "omarchy-system-shutdown"

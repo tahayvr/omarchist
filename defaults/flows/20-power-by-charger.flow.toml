@@ -1,0 +1,34 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Power by charger"
+description = "On battery: the power-saver profile and a dimmer screen. Plugged in: balanced and bright."
+icon = "zap"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "if"
+check = "on_battery"
+
+[[step.then]]
+type = "exec"
+command = "omarchy-powerprofiles-set autodetect power-saver"
+wait = true
+
+[[step.then]]
+type = "exec"
+command = "omarchy-brightness-display 40%"
+wait = true
+
+[[step.otherwise]]
+type = "exec"
+command = "omarchy-powerprofiles-set autodetect balanced"
+wait = true
+
+[[step.otherwise]]
+type = "exec"
+command = "omarchy-brightness-display 80%"
+wait = true

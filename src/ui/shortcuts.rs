@@ -1153,6 +1153,20 @@ pub const SHORTCUTS: &[Shortcut] = &[
         FLOWS,
         "Duplicate the step"
     ),
+    shortcut!(
+        "left",
+        flow_edit_nav::CollapseStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Hide a block's steps, or go to the block"
+    ),
+    shortcut!(
+        "right",
+        flow_edit_nav::ExpandStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Show a block's steps"
+    ),
     // Dialogs
     shortcut!(
         "ctrl-enter",

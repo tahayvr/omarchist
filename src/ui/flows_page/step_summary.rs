@@ -7,6 +7,7 @@ use gpui::*;
 use gpui_component::{ActiveTheme, Icon};
 
 use crate::system::apps::DesktopApp;
+use crate::system::flows::condition::Condition;
 use crate::system::flows::{Flow, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::action::{Action, ActionKind, program_name};
@@ -115,7 +116,7 @@ impl SummaryContext<'_> {
                 icon: StepIcon::Path("icons/hourglass.svg"),
                 title: format!("Wait {}", format_duration(*ms)),
                 detail: String::new(),
-                group: StepGroup::Flow,
+                group: StepGroup::Logic,
             },
             StepKind::Notify {
                 title,
@@ -144,7 +145,7 @@ impl SummaryContext<'_> {
                 icon: StepIcon::Path(ActionKind::Flow.icon_path()),
                 title: format!("Run flow {}", self.flow_name(id)),
                 detail,
-                group: StepGroup::Flow,
+                group: StepGroup::Logic,
             },
             StepKind::Ask { prompt } => StepSummary {
                 icon: StepIcon::Path(StepChoice::Ask.info().icon),
@@ -172,6 +173,43 @@ impl SummaryContext<'_> {
                 },
                 group: StepGroup::Ask,
             },
+            StepKind::If { condition, not, .. } => StepSummary {
+                icon: StepIcon::Path(StepChoice::If.info().icon),
+                title: format!("If {}", self.condition(condition, *not)),
+                detail: match condition {
+                    Condition::Command { command } => command.clone(),
+                    _ => String::new(),
+                },
+                group: StepGroup::Logic,
+            },
+            StepKind::Repeat { times, .. } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Repeat.info().icon),
+                title: format!("Repeat {times} time{}", if *times == 1 { "" } else { "s" }),
+                detail: String::new(),
+                group: StepGroup::Logic,
+            },
+            StepKind::Each { items, .. } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Each.info().icon),
+                title: format!("Repeat with each line of {}", items.trim()),
+                detail: String::new(),
+                group: StepGroup::Logic,
+            },
+            StepKind::Menu { prompt, choices } => StepSummary {
+                icon: StepIcon::Path(StepChoice::Menu.info().icon),
+                title: quoted("Menu", prompt),
+                detail: choices
+                    .iter()
+                    .map(|c| c.label.trim())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+                group: StepGroup::Logic,
+            },
+            StepKind::Stop => StepSummary {
+                icon: StepIcon::Path(StepChoice::Stop.info().icon),
+                title: "Stop this flow".to_string(),
+                detail: String::new(),
+                group: StepGroup::Logic,
+            },
             StepKind::Pick { prompt, folder } => {
                 let choice = if *folder {
                     StepChoice::PickFolder
@@ -186,6 +224,55 @@ impl SummaryContext<'_> {
                 }
             }
         }
+    }
+
+    /// A condition as the rest of the sentence after "If".
+    pub fn condition(&self, condition: &Condition, not: bool) -> String {
+        match condition {
+            Condition::Equals { value, to } => format!(
+                "{} {} {}",
+                value.trim(),
+                if not { "is not" } else { "is" },
+                to.trim()
+            ),
+            Condition::Contains { value, text } => format!(
+                "{} {} {}",
+                value.trim(),
+                if not { "does not contain" } else { "contains" },
+                text.trim()
+            ),
+            Condition::Empty { value } => format!(
+                "{} {}",
+                value.trim(),
+                if not { "is not empty" } else { "is empty" }
+            ),
+            Condition::Command { .. } => {
+                format!("the command {}", if not { "fails" } else { "succeeds" })
+            }
+            Condition::AppOpen { class } => format!(
+                "{} {}",
+                self.app_name_for_class(class),
+                if not { "is not open" } else { "is open" }
+            ),
+            Condition::OnBattery => if not { "plugged in" } else { "on battery" }.to_string(),
+            Condition::TimeBetween { from, to } => format!(
+                "the time is {} {} and {}",
+                if not { "outside" } else { "between" },
+                from.trim(),
+                to.trim()
+            ),
+        }
+    }
+
+    /// The name of the installed app whose windows have this class, or
+    /// the class itself.
+    pub fn app_name_for_class(&self, class: &str) -> String {
+        let class = class.trim();
+        self.apps
+            .iter()
+            .find(|a| !a.is_webapp() && a.wm_class.eq_ignore_ascii_case(class))
+            .map(|a| a.name.clone())
+            .unwrap_or_else(|| class.to_string())
     }
 
     fn summarize_action(&self, action: Option<Action>, detail: String) -> StepSummary {
@@ -239,7 +326,7 @@ impl SummaryContext<'_> {
                 icon: StepIcon::Path(ActionKind::Flow.icon_path()),
                 title: format!("Run flow {}", self.flow_name(id)),
                 detail,
-                group: StepGroup::Flow,
+                group: StepGroup::Logic,
             },
             Action::Command(_) => StepSummary {
                 icon: StepIcon::Path(ActionKind::Command.icon_path()),
@@ -340,6 +427,28 @@ mod tests {
             target: String::new(),
         });
         assert_eq!(notify.detail, "{{url}} · click to open");
+
+        let open = ctx.summarize(&StepKind::If {
+            condition: super::Condition::AppOpen {
+                class: "OBSIDIAN".into(),
+            },
+            not: true,
+            then: Vec::new(),
+            otherwise: Vec::new(),
+        });
+        assert_eq!(open.title, "If Obsidian is not open");
+        let battery = ctx.summarize(&StepKind::If {
+            condition: super::Condition::OnBattery,
+            not: true,
+            then: Vec::new(),
+            otherwise: Vec::new(),
+        });
+        assert_eq!(battery.title, "If plugged in");
+        let repeat = ctx.summarize(&StepKind::Repeat {
+            times: 1,
+            steps: Vec::new(),
+        });
+        assert_eq!(repeat.title, "Repeat 1 time");
 
         let omarchy = ctx.summarize(&StepKind::Exec {
             command: "omarchy-launch-browser".into(),

@@ -17,6 +17,8 @@ pub fn describe(name: &str) -> (String, &'static str) {
         "window" => ("Window title".into(), "icons/app-window.svg"),
         "app" => ("App".into(), "icons/square.svg"),
         "workspace" => ("Workspace".into(), "icons/layout-grid.svg"),
+        "item" => ("Item".into(), "icons/repeat-2.svg"),
+        "index" => ("Round".into(), "icons/hash.svg"),
         other => (other.to_string(), "icons/sparkles.svg"),
     }
 }

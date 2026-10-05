@@ -382,7 +382,7 @@ impl RenderOnce for FocusSection {
 
 /// Scrolls `scroll` the minimum distance that brings `target` (window
 /// coordinates from the last frame) into its viewport.
-fn scroll_into_view(scroll: &ScrollHandle, target: Bounds<Pixels>) {
+pub fn scroll_into_view(scroll: &ScrollHandle, target: Bounds<Pixels>) {
     let viewport = scroll.bounds();
     if viewport.size.height <= px(0.) || target.size.height <= px(0.) {
         return;

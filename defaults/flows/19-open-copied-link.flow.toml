@@ -1,0 +1,28 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Open copied link"
+description = "Opens the link on your clipboard, or tells you there is none."
+icon = "globe"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "if"
+check = "contains"
+value = "{{clipboard}}"
+text = "://"
+not = true
+
+[[step.then]]
+type = "notify"
+title = "No link on the clipboard"
+
+[[step.then]]
+type = "stop"
+
+[[step]]
+type = "exec"
+command = "xdg-open {{clipboard}}"

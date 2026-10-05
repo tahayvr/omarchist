@@ -28,6 +28,10 @@ pub const BUILTINS: &[(&str, &str)] = &[
     ("workspace", "The current workspace"),
 ];
 
+/// Names the loop steps set for the steps inside them: the current line
+/// of a "repeat with each", and the round, counting from 1.
+pub const LOOP_NAMES: &[&str] = &["item", "index"];
+
 /// A saved output is cut to this many bytes, so a chatty command cannot
 /// fill memory or an environment block.
 pub const MAX_VALUE_BYTES: usize = 64 * 1024;
@@ -51,6 +55,16 @@ pub fn normalize(name: &str) -> String {
 pub fn is_builtin(name: &str) -> bool {
     let name = normalize(name);
     BUILTINS.iter().any(|(b, _)| *b == name)
+}
+
+pub fn is_loop_name(name: &str) -> bool {
+    LOOP_NAMES.contains(&normalize(name).as_str())
+}
+
+/// Whether a step cannot save its output under `name` because Omarchist
+/// sets it itself.
+pub fn is_reserved(name: &str) -> bool {
+    is_builtin(name) || is_loop_name(name)
 }
 
 /// One `{{name}}` in a text: its byte range and the normalized name.
@@ -142,6 +156,35 @@ impl Vars {
         Err(Error::Invalid(format!(
             "{{{{{name}}}}} has no value: the step that saves it did not run"
         )))
+    }
+
+    /// What `name` holds now, without reading a built-in.
+    pub fn peek(&self, name: &str) -> Option<String> {
+        self.values.get(&normalize(name)).cloned()
+    }
+
+    /// Forgets `name`, or puts back the value [`peek`](Self::peek) gave.
+    pub fn restore(&mut self, name: &str, value: Option<String>) {
+        match value {
+            Some(value) => self.values.insert(normalize(name), value),
+            None => self.values.remove(&normalize(name)),
+        };
+    }
+
+    /// [`text`](Self::text), with a name nothing has set yet read as
+    /// empty. Only for checking whether a value is there; anything that
+    /// uses a value goes through `text`, `shell` or `lua`, which refuse an
+    /// unset name rather than run with a hole in it.
+    pub fn text_or_empty(&mut self, text: &str) -> String {
+        let mut out = String::with_capacity(text.len());
+        let mut last = 0;
+        for r in references(text) {
+            out.push_str(&text[last..r.start]);
+            out.push_str(&self.get(&r.name).unwrap_or_default());
+            last = r.end;
+        }
+        out.push_str(&text[last..]);
+        out
     }
 
     /// `text` with every reference replaced by its value, for text that is

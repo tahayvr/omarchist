@@ -1,0 +1,28 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Open my sites"
+description = "Opens each link of a list in your browser. Put your own links in the first step."
+icon = "book"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "exec"
+command = "printf '%s\\n' https://omarchy.org https://github.com https://news.ycombinator.com"
+wait = true
+output = "sites"
+
+[[step]]
+type = "each"
+items = "{{sites}}"
+
+[[step.do]]
+type = "exec"
+command = "xdg-open {{item}}"
+
+[[step.do]]
+type = "wait"
+ms = 500

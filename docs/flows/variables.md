@@ -15,6 +15,7 @@ Two kinds of step produce output:
 | **Command** with **Wait until it finishes** on | What the command prints (its standard output). |
 | **Flow** | The output of the last step in that flow that produced one. |
 | **Ask for text**, **Choose from a list**, **Pick a file**, **Pick a folder** | Your answer. See [Steps that ask](/flows/asking). |
+| **Choose from a menu** | The choice you picked. |
 
 Edit the step and type a name in **Save output as**, for example `url`. The step list shows the name next to the step as a small token.
 
@@ -29,7 +30,9 @@ Type `{{name}}` in a step's text field, or pick a variable from the **Insert** r
 - the question of a step that asks, and the options of **Choose from a list**,
 - a **Window** step, inside a quoted value.
 
-A step can use the built-in variables and any name a step **before** it saves. If you move or delete steps so that a step uses a name nothing before it saves, the step list warns you, and the flow cannot be saved until you fix it.
+A step can use the built-in variables and any name a step written **before** it saves, also one inside an **If** or a loop. When that step did not run (its branch was not taken, or it is switched off), the name has no value and a step that uses it fails, rather than run with a hole in its command. An **If** step's *is empty* check is how you test for it.
+
+ If you move or delete steps so that a step uses a name nothing before it saves, the step list warns you, and the flow cannot be saved until you fix it.
 
 ## Built-in variables
 
@@ -44,6 +47,8 @@ A step can use the built-in variables and any name a step **before** it saves. I
 | `{{workspace}}` | The current workspace. |
 
 A built-in is read the first time a step in the run uses it. An empty clipboard reads as empty text.
+
+Inside a **Repeat** step, `{{index}}` is the round. Inside **Repeat with each**, `{{item}}` is the current line. See [If, Repeat, and menus](/flows/logic#repeat). You cannot save an output under these two names.
 
 ## Values are never run as commands
 

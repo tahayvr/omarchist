@@ -230,18 +230,27 @@ pub fn run_command(command: &Command) -> ExitCode {
                 total,
                 if total == 1 { "" } else { "s" }
             );
-            let mut ran = 0;
+            // Steps print under their number, indented by how deep they sit
+            // inside other steps.
+            let indent = |path: &[usize]| "  ".repeat(path.len().div_ceil(2));
             let outcome = Runner::new(false).run(&flow, &mut |event| match event {
                 RunEvent::Started { path } => {
-                    ran += 1;
-                    if let Some(step) = path.first().and_then(|ix| flow.steps.get(*ix)) {
-                        println!("[{ran}/{total}] {}", step.kind.text());
+                    if let Some(step) = flow.step_at(&path) {
+                        println!(
+                            "{}{}. {}",
+                            indent(&path),
+                            flow.step_number(&path),
+                            step.kind.text()
+                        );
                     }
                 }
+                RunEvent::Round { path, round, of } => {
+                    println!("{}  round {round} of {of}", indent(&path));
+                }
                 RunEvent::Finished {
+                    path,
                     status: StepStatus::Failed(error),
-                    ..
-                } => eprintln!("      failed: {error}"),
+                } => eprintln!("{}   failed: {error}", indent(&path)),
                 RunEvent::Finished { .. } => {}
             });
             let summary = outcome.summary(&flow);
@@ -324,9 +333,14 @@ fn import(source: &str, yes: bool) -> ExitCode {
         println!("  by {}", flow.meta.author);
     }
     println!("Steps:");
-    for (ix, step) in flow.steps.iter().enumerate() {
+    for (number, (path, step)) in flow.walk().into_iter().enumerate() {
         let off = if step.enabled { "" } else { "  (off)" };
-        println!("  {}. {}{off}", ix + 1, step.kind.text());
+        println!(
+            "{}{}. {}{off}",
+            "  ".repeat(path.len().div_ceil(2)),
+            number + 1,
+            step.kind.text()
+        );
     }
     if !flow.meta.requires.is_empty() {
         println!("Needs: {}", flow.meta.requires.join(", "));

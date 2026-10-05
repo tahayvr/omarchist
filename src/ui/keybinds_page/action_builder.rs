@@ -36,11 +36,11 @@ pub enum ActionBuilderEvent {
 // MARK: Picker items
 
 #[derive(Clone)]
-struct AppItem {
-    id: String,
-    name: SharedString,
-    exec: SharedString,
-    icon: Option<PathBuf>,
+pub(crate) struct AppItem {
+    pub(crate) id: String,
+    pub(crate) name: SharedString,
+    pub(crate) exec: SharedString,
+    pub(crate) icon: Option<PathBuf>,
 }
 
 impl SelectItem for AppItem {

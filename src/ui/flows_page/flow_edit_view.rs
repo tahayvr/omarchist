@@ -1,33 +1,31 @@
 // The flow editor: details and triggers on the left, the ordered steps on
 // the right. The step list is one tab stop with a roving index.
+use std::cell::Cell;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Icon, IconName, Sizable, WindowExt,
+    ActiveTheme, Disableable, Icon, Sizable, WindowExt,
     button::{Button, ButtonVariants},
     clipboard::Clipboard,
     h_flex,
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
-    spinner::Spinner,
-    switch::Switch,
     v_flex,
 };
 
-use gpui_kit::TestSupportExt;
-
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
-use crate::system::flows::requirements::{missing_programs, program_of};
+use crate::system::flows::requirements::missing_programs;
 use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner, StepStatus};
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
 };
 use crate::system::flows::templates::template;
-use crate::system::flows::{Flow, ICONS, OnError, Step, unique_id};
+use crate::system::flows::{Flow, ICONS, OnError, Step, StepPath, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -40,8 +38,7 @@ use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
 };
-use crate::ui::flows_page::step_summary::SummaryContext;
-use crate::ui::flows_page::var_token;
+use crate::ui::flows_page::step_list::RowKey;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybind_dialog::{
@@ -72,6 +69,8 @@ pub mod flow_edit_nav {
             MoveStepDown,
             ToggleStep,
             DuplicateStep,
+            CollapseStep,
+            ExpandStep,
             Export,
         ]
     );
@@ -88,7 +87,7 @@ pub enum FlowEditSource {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum StepState {
+pub(super) enum StepState {
     Idle,
     Running,
     /// With what the step produced, shown under it until the next run or
@@ -110,7 +109,7 @@ enum RunMessage {
 pub struct FlowEditPage {
     pub focus_handle: FocusHandle,
     /// Everything but the name and description, which live in the inputs.
-    flow: Flow,
+    pub(super) flow: Flow,
     /// What the editor opened with or last saved; the dirty check compares
     /// against it, so a template or an import is not "unsaved" until it is
     /// edited.
@@ -120,26 +119,34 @@ pub struct FlowEditPage {
     name: Entity<InputState>,
     description: Entity<InputState>,
     icon_focus: FocusHandle,
-    steps_focus: FocusHandle,
-    selected_step: Option<usize>,
-    step_states: Vec<StepState>,
+    pub(super) steps_focus: FocusHandle,
+    /// The line of the step list the keyboard is on.
+    pub(super) selected: Option<RowKey>,
+    /// Where that line was drawn, for scrolling it into view.
+    pub(super) selected_bounds: Rc<Cell<Bounds<Pixels>>>,
+    /// How each step of the last run ended, by its path.
+    pub(super) step_states: HashMap<StepPath, StepState>,
+    /// The round a loop step is on in the current run, and of how many.
+    pub(super) rounds: HashMap<StepPath, (u32, u32)>,
+    /// Blocks whose steps are hidden, by the block's `uid`.
+    pub(super) collapsed: HashSet<u64>,
     running: bool,
     /// Counts runs; a message from an older run is ignored.
     run_id: u64,
     /// Stops the current run from the Stop button.
     cancel: Option<Cancel>,
-    apps: Vec<DesktopApp>,
-    flows: Vec<Flow>,
+    pub(super) apps: Vec<DesktopApp>,
+    pub(super) flows: Vec<Flow>,
     binds: Rc<Vec<Keybind>>,
     /// The chord that runs this flow, and whether Omarchist owns that bind.
     chord: Option<(Chord, bool)>,
     step_dialog: Option<(Entity<StepDialog>, Subscription)>,
     keybind_dialog: Option<(Entity<KeybindDialog>, Subscription)>,
-    scroll: ScrollHandle,
+    pub(super) scroll: ScrollHandle,
     /// Where an imported flow came from, shown until it is saved.
-    import_origin: Option<String>,
+    pub(super) import_origin: Option<String>,
     /// Programs the flow needs that are not on this machine.
-    missing: Vec<String>,
+    pub(super) missing: Vec<String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -195,7 +202,10 @@ impl FlowEditPage {
 
         let mut page = Self {
             focus_handle: cx.focus_handle(),
-            step_states: vec![StepState::Idle; flow.steps.len()],
+            step_states: HashMap::new(),
+            rounds: HashMap::new(),
+            collapsed: HashSet::new(),
+            selected_bounds: Rc::new(Cell::new(Bounds::default())),
             flow,
             baseline,
             discarded: false,
@@ -203,7 +213,7 @@ impl FlowEditPage {
             description,
             icon_focus: focus::tab_stop(cx),
             steps_focus: focus::tab_stop(cx),
-            selected_step: None,
+            selected: None,
             running: false,
             run_id: 0,
             cancel: None,
@@ -325,7 +335,8 @@ impl FlowEditPage {
         let run_id = self.run_id;
         let cancel = Cancel::new();
         self.cancel = Some(cancel.clone());
-        self.step_states = vec![StepState::Idle; flow.steps.len()];
+        self.step_states.clear();
+        self.rounds.clear();
         cx.notify();
 
         let (tx, rx) = smol::channel::unbounded::<RunMessage>();
@@ -383,18 +394,22 @@ impl FlowEditPage {
         }
         match event {
             Some(RunEvent::Started { path }) => {
-                if let Some(state) = path.first().and_then(|ix| self.step_states.get_mut(*ix)) {
-                    *state = StepState::Running;
-                }
+                self.step_states.insert(path, StepState::Running);
             }
             Some(RunEvent::Finished { path, status }) => {
-                if let Some(state) = path.first().and_then(|ix| self.step_states.get_mut(*ix)) {
-                    *state = match status {
-                        StepStatus::Done(output) => StepState::Done(output),
-                        StepStatus::Failed(error) => StepState::Failed(error),
-                        StepStatus::Cancelled => StepState::Cancelled,
-                    };
-                }
+                let state = match status {
+                    StepStatus::Done(output) => StepState::Done(output),
+                    StepStatus::Failed(error) => StepState::Failed(error),
+                    StepStatus::Cancelled => StepState::Cancelled,
+                };
+                self.rounds.remove(&path);
+                self.step_states.insert(path, state);
+            }
+            Some(RunEvent::Round { path, round, of }) => {
+                // The steps inside start over, so their marks do too.
+                self.step_states
+                    .retain(|step, _| !(step.len() > path.len() && step.starts_with(&path)));
+                self.rounds.insert(path, (round, of));
             }
             None => {}
         }
@@ -402,8 +417,8 @@ impl FlowEditPage {
     }
 
     /// Editing the steps while they run would desynchronise the live
-    /// states (they are indexed by position).
-    fn refuse_while_running(&self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    /// states (they are kept by position).
+    pub(super) fn refuse_while_running(&self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.running {
             window.push_notification("Stop the flow before changing its steps", cx);
         }
@@ -435,28 +450,9 @@ impl FlowEditPage {
         export_flow(&flow, window, cx);
     }
 
-    // MARK: Steps
+    // MARK: Steps (the list itself lives in `step_list.rs`)
 
-    fn touch_steps(&mut self, cx: &mut Context<Self>) {
-        self.missing = missing_programs(&self.flow);
-        self.step_states = vec![StepState::Idle; self.flow.steps.len()];
-        self.selected_step = match self.selected_step {
-            Some(ix) if ix < self.flow.steps.len() => Some(ix),
-            Some(_) if !self.flow.steps.is_empty() => Some(self.flow.steps.len() - 1),
-            _ => None,
-        };
-        cx.notify();
-    }
-
-    fn select_step(&mut self, ix: usize, cx: &mut Context<Self>) {
-        if self.flow.steps.is_empty() {
-            return;
-        }
-        self.selected_step = Some(ix.min(self.flow.steps.len() - 1));
-        cx.notify();
-    }
-
-    fn open_step_dialog(
+    pub(super) fn open_step_dialog(
         &mut self,
         mode: StepDialogMode,
         window: &mut Window,
@@ -465,19 +461,22 @@ impl FlowEditPage {
         if self.step_dialog.is_some() || self.refuse_while_running(window, cx) {
             return;
         }
-        let initial = match mode {
-            StepDialogMode::Edit(ix) => self.flow.steps.get(ix).map(|s| s.kind.clone()),
-            StepDialogMode::Add => None,
+        let (initial, output) = match &mode {
+            StepDialogMode::Edit(path) => match self.flow.step_at(path) {
+                Some(step) => (Some(step.kind.clone()), step.output.clone()),
+                None => return,
+            },
+            StepDialogMode::Add { .. } => (None, None),
         };
-        let output = match mode {
-            StepDialogMode::Edit(ix) => self.flow.steps.get(ix).and_then(|s| s.output.clone()),
-            StepDialogMode::Add => None,
+        // A step can use what the steps written before it save, and what
+        // the loops around it set.
+        let saved = match &mode {
+            StepDialogMode::Edit(path) => match path.split_last() {
+                Some((index, list)) => self.flow.names_at(list, *index),
+                None => Vec::new(),
+            },
+            StepDialogMode::Add { list, index } => self.flow.names_at(list, *index),
         };
-        // A step can use what the steps before it save.
-        let saved = self.flow.outputs_before(match mode {
-            StepDialogMode::Edit(ix) => ix,
-            StepDialogMode::Add => self.flow.steps.len(),
-        });
         let exclude = (!self.is_new()).then(|| self.flow.id.clone());
         let dialog = open_step_dialog(
             mode,
@@ -493,72 +492,21 @@ impl FlowEditPage {
             window,
             |this, _, event: &StepDialogEvent, window, cx| {
                 this.step_dialog = None;
+                this.steps_focus.focus(window, cx);
                 match event {
-                    StepDialogEvent::Save(StepDialogMode::Add, kind, output) => {
+                    StepDialogEvent::Save(StepDialogMode::Add { list, index }, kind, output) => {
                         let mut step = Step::new(kind.clone());
                         step.output = output.clone();
-                        this.flow.steps.push(step);
-                        this.selected_step = Some(this.flow.steps.len() - 1);
-                        this.touch_steps(cx);
+                        this.insert_step(list, *index, step, window, cx);
                     }
-                    StepDialogEvent::Save(StepDialogMode::Edit(ix), kind, output) => {
-                        if let Some(step) = this.flow.steps.get_mut(*ix) {
-                            step.kind = kind.clone();
-                            step.output = output.clone();
-                        }
-                        this.touch_steps(cx);
+                    StepDialogEvent::Save(StepDialogMode::Edit(path), kind, output) => {
+                        this.replace_step(path, kind.clone(), output.clone(), cx);
                     }
                     StepDialogEvent::Cancel => {}
                 }
-                this.steps_focus.focus(window, cx);
             },
         );
         self.step_dialog = Some((dialog, subscription));
-    }
-
-    fn remove_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.refuse_while_running(window, cx) {
-            return;
-        }
-        if ix < self.flow.steps.len() {
-            self.flow.steps.remove(ix);
-            self.touch_steps(cx);
-        }
-    }
-
-    fn move_step(&mut self, ix: usize, delta: isize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.refuse_while_running(window, cx) {
-            return;
-        }
-        let len = self.flow.steps.len() as isize;
-        let target = ix as isize + delta;
-        if ix as isize >= len || target < 0 || target >= len {
-            return;
-        }
-        self.flow.steps.swap(ix, target as usize);
-        self.selected_step = Some(target as usize);
-        self.touch_steps(cx);
-    }
-
-    fn toggle_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.refuse_while_running(window, cx) {
-            return;
-        }
-        if let Some(step) = self.flow.steps.get_mut(ix) {
-            step.enabled = !step.enabled;
-            self.touch_steps(cx);
-        }
-    }
-
-    fn duplicate_step(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) {
-        if self.refuse_while_running(window, cx) {
-            return;
-        }
-        if let Some(step) = self.flow.steps.get(ix).cloned() {
-            self.flow.steps.insert(ix + 1, step);
-            self.selected_step = Some(ix + 1);
-            self.touch_steps(cx);
-        }
     }
 
     // MARK: Triggers
@@ -669,7 +617,7 @@ impl FlowEditPage {
 
     // MARK: Render
 
-    fn section_title(text: &'static str, cx: &App) -> Div {
+    pub(super) fn section_title(text: &'static str, cx: &App) -> Div {
         div()
             .text_xs()
             .font_weight(FontWeight::MEDIUM)
@@ -1057,390 +1005,6 @@ impl FlowEditPage {
                     ),
             )
     }
-
-    fn render_step(
-        &self,
-        ix: usize,
-        step: &Step,
-        summaries: &SummaryContext,
-        list_focused: bool,
-        cx: &mut Context<Self>,
-    ) -> impl IntoElement {
-        let theme = cx.theme();
-        let summary = summaries.summarize(&step.kind);
-        let missing_program = program_of(&step.kind).filter(|p| self.missing.contains(p));
-        let selected = list_focused && self.selected_step == Some(ix);
-        let state = self.step_states.get(ix).cloned().unwrap_or(StepState::Idle);
-        let count = self.flow.steps.len();
-        let failure = match &state {
-            StepState::Failed(error) => Some(error.clone()),
-            _ => None,
-        };
-        // The first line of what the step produced, so a run shows what its
-        // variables will hold.
-        let produced = match &state {
-            StepState::Done(Some(output)) => {
-                let first = output.lines().find(|l| !l.trim().is_empty()).unwrap_or("");
-                let more = output.lines().filter(|l| !l.trim().is_empty()).count() > 1;
-                Some(if first.is_empty() {
-                    "Nothing printed".to_string()
-                } else if more {
-                    format!("{first} …")
-                } else {
-                    first.to_string()
-                })
-            }
-            _ => None,
-        };
-        // A move or delete can leave a step using a name nothing before it
-        // saves; saving the flow refuses that, so point at the step now.
-        let known = self.flow.outputs_before(ix);
-        let unknown: Vec<String> = step
-            .kind
-            .references()
-            .into_iter()
-            .filter(|n| !crate::system::flows::vars::is_builtin(n) && !known.contains(n))
-            .collect();
-        let unknown = (!unknown.is_empty()).then(|| {
-            let names: Vec<String> = unknown.iter().map(|n| var_token::describe(n).0).collect();
-            format!("Nothing earlier saves {}", names.join(", "))
-        });
-        let state_icon: Option<AnyElement> = match state {
-            StepState::Idle => None,
-            StepState::Running => Some(Spinner::new().small().into_any_element()),
-            StepState::Done(_) => Some(
-                Icon::new(Icon::empty())
-                    .path("icons/circle-check.svg")
-                    .size_4()
-                    .text_color(theme.success)
-                    .into_any_element(),
-            ),
-            StepState::Failed(_) => Some(
-                Icon::new(Icon::empty())
-                    .path("icons/circle-x.svg")
-                    .size_4()
-                    .text_color(theme.danger)
-                    .into_any_element(),
-            ),
-            StepState::Cancelled => Some(
-                Icon::new(Icon::empty())
-                    .path("icons/ban.svg")
-                    .size_4()
-                    .text_color(theme.muted_foreground)
-                    .into_any_element(),
-            ),
-        };
-
-        h_flex()
-            .id(("flow-step", ix))
-            .test_support()
-            .gap_3()
-            .items_center()
-            .p_3()
-            .rounded(theme.radius)
-            .border_1()
-            .border_color(if selected { theme.ring } else { theme.border })
-            .bg(if selected {
-                theme.secondary
-            } else {
-                theme.background
-            })
-            .hover(|s| s.bg(theme.secondary))
-            .cursor_pointer()
-            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
-                this.selected_step = Some(ix);
-                this.steps_focus.focus(window, cx);
-                if event.click_count() >= 2 {
-                    this.open_step_dialog(StepDialogMode::Edit(ix), window, cx);
-                } else {
-                    cx.notify();
-                }
-            }))
-            .child(
-                div()
-                    .size_6()
-                    .flex_shrink_0()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded_full()
-                    .bg(theme.secondary)
-                    .text_xs()
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(theme.muted_foreground)
-                    .child((ix + 1).to_string()),
-            )
-            .child(
-                div()
-                    .flex_shrink_0()
-                    .opacity(if step.enabled { 1. } else { 0.4 })
-                    .child(summary.tile(px(28.), cx)),
-            )
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap_0p5()
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .min_w_0()
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::MEDIUM)
-                                    .truncate()
-                                    .text_color(if step.enabled {
-                                        theme.foreground
-                                    } else {
-                                        theme.muted_foreground
-                                    })
-                                    .child(var_token::rich_text(
-                                        &format!("step-title-{ix}"),
-                                        &summary.title,
-                                        cx,
-                                    )),
-                            )
-                            .when_some(step.output.clone(), |this, name| {
-                                this.child(
-                                    h_flex()
-                                        .flex_shrink_0()
-                                        .gap_1()
-                                        .items_center()
-                                        .text_xs()
-                                        .text_color(theme.muted_foreground)
-                                        .child(
-                                            Icon::new(Icon::empty())
-                                                .path("icons/arrow-down.svg")
-                                                .size_3(),
-                                        )
-                                        .child(var_token::token(&name, cx)),
-                                )
-                            }),
-                    )
-                    .when(!summary.detail.is_empty(), |this| {
-                        this.child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                // Reviewing an import: every character counts.
-                                .when(
-                                    self.import_origin.is_none()
-                                        && crate::system::flows::vars::references(&summary.detail)
-                                            .is_empty(),
-                                    |this| this.truncate(),
-                                )
-                                .child(var_token::rich_text(
-                                    &format!("step-detail-{ix}"),
-                                    &summary.detail,
-                                    cx,
-                                )),
-                        )
-                    })
-                    .when_some(missing_program, |this, program| {
-                        this.child(
-                            h_flex()
-                                .gap_1()
-                                .items_center()
-                                .text_xs()
-                                .text_color(theme.warning)
-                                .child(Icon::new(IconName::TriangleAlert).size_3())
-                                .child(selectable(
-                                    ("step-missing", ix),
-                                    format!("{program} is not installed"),
-                                )),
-                        )
-                    })
-                    .when_some(unknown, |this, message| {
-                        this.child(
-                            h_flex()
-                                .id(("step-unknown-variable", ix))
-                                .test_support()
-                                .gap_1()
-                                .items_center()
-                                .text_xs()
-                                .text_color(theme.warning)
-                                .child(Icon::new(IconName::TriangleAlert).size_3())
-                                .child(selectable(("step-unknown-var", ix), message)),
-                        )
-                    })
-                    .when_some(produced, |this, produced| {
-                        this.child(
-                            h_flex()
-                                .id(("step-result", ix))
-                                .test_support()
-                                .gap_2()
-                                .items_center()
-                                .min_w_0()
-                                .text_xs()
-                                .child(
-                                    div()
-                                        .flex_shrink_0()
-                                        .px_1p5()
-                                        .rounded(theme.radius)
-                                        .bg(theme.success.opacity(0.14))
-                                        .text_color(theme.success)
-                                        .child("Result"),
-                                )
-                                .child(
-                                    div()
-                                        .min_w_0()
-                                        .truncate()
-                                        .text_color(theme.foreground)
-                                        .child(selectable(("step-output", ix), produced)),
-                                ),
-                        )
-                    })
-                    .when_some(failure, |this, error| {
-                        this.child(
-                            div()
-                                .id(("step-failure", ix))
-                                .test_support()
-                                .text_xs()
-                                .text_color(theme.danger)
-                                .child(selectable(("step-error", ix), error)),
-                        )
-                    }),
-            )
-            .children(state_icon)
-            .child(
-                h_flex()
-                    .gap_0p5()
-                    .flex_shrink_0()
-                    .child(
-                        Button::new(("step-up", ix))
-                            .ghost()
-                            .xsmall()
-                            .tab_stop(false)
-                            .disabled(ix == 0)
-                            .icon(Icon::new(Icon::empty()).path("icons/arrow-up.svg"))
-                            .tooltip("Move up")
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.move_step(ix, -1, window, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new(("step-down", ix))
-                            .ghost()
-                            .xsmall()
-                            .tab_stop(false)
-                            .disabled(ix + 1 >= count)
-                            .icon(Icon::new(Icon::empty()).path("icons/arrow-down.svg"))
-                            .tooltip("Move down")
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.move_step(ix, 1, window, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new(("step-edit", ix))
-                            .ghost()
-                            .xsmall()
-                            .tab_stop(false)
-                            .icon(Icon::new(Icon::empty()).path("icons/pencil.svg"))
-                            .tooltip("Edit")
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.open_step_dialog(StepDialogMode::Edit(ix), window, cx);
-                            })),
-                    )
-                    .child(
-                        Button::new(("step-remove", ix))
-                            .ghost()
-                            .xsmall()
-                            .tab_stop(false)
-                            .icon(Icon::new(Icon::empty()).path("icons/trash.svg"))
-                            .tooltip("Remove")
-                            .on_click(cx.listener(move |this, _, window, cx| {
-                                cx.stop_propagation();
-                                this.remove_step(ix, window, cx);
-                            })),
-                    )
-                    .child(
-                        div().ml_1().child(
-                            Switch::new(("step-enabled", ix))
-                                .small()
-                                .checked(step.enabled)
-                                .on_click(cx.listener(move |this, _, window, cx| {
-                                    cx.stop_propagation();
-                                    this.toggle_step(ix, window, cx);
-                                })),
-                        ),
-                    ),
-            )
-    }
-
-    fn render_steps(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme().clone();
-        let list_focused = self.steps_focus.is_focused(window);
-        let ring = focus::focus_border(list_focused, theme.transparent, cx);
-        let summaries = SummaryContext {
-            apps: &self.apps,
-            flows: &self.flows,
-        };
-        let count = self.flow.steps.len();
-        let mut list = v_flex()
-            .id("flow-steps")
-            .test_support()
-            .key_context(STEPS_CONTEXT)
-            .track_focus(&self.steps_focus)
-            .rounded(theme.radius)
-            .border_1()
-            .border_color(ring)
-            .p_0p5();
-        for (ix, step) in self.flow.steps.iter().enumerate() {
-            list = list.child(self.render_step(ix, step, &summaries, list_focused, cx));
-            if ix + 1 < count {
-                // Connector under the step number.
-                list = list.child(div().ml(px(25.)).w(px(2.)).h(px(12.)).bg(theme.border));
-            }
-        }
-        if count == 0 {
-            list = list.child(
-                v_flex()
-                    .items_center()
-                    .py_6()
-                    .gap_1()
-                    .text_sm()
-                    .text_color(theme.muted_foreground)
-                    .child(selectable("no-steps", "No steps yet"))
-                    .child(div().text_xs().child(selectable(
-                        "no-steps-hint",
-                        "Add the first thing this flow should do.",
-                    ))),
-            );
-        }
-
-        v_flex()
-            .gap_3()
-            .child(
-                h_flex()
-                    .items_center()
-                    .justify_between()
-                    .child(Self::section_title("STEPS", cx))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(selectable("steps-order", "Run in order, top to bottom")),
-                    ),
-            )
-            .child(list)
-            .child(
-                Button::new("flow-add-step")
-                    .outline()
-                    .w_full()
-                    .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                    .label("Add step")
-                    .tooltip_with_action("Add step", &AddStep, Some(KEY_CONTEXT))
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.open_step_dialog(StepDialogMode::Add, window, cx)
-                    })),
-            )
-    }
 }
 
 impl Render for FlowEditPage {
@@ -1476,49 +1040,7 @@ impl Render for FlowEditPage {
             .on_action(cx.listener(|this, _: &Save, window, cx| this.save(window, cx)))
             .on_action(cx.listener(|this, _: &Export, window, cx| this.export(window, cx)))
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
-            .on_action(cx.listener(|this, _: &AddStep, window, cx| {
-                this.open_step_dialog(StepDialogMode::Add, window, cx);
-            }))
-            .on_action(cx.listener(|this, _: &StepUp, _, cx| {
-                let ix = this.selected_step.unwrap_or(0);
-                this.select_step(ix.saturating_sub(1), cx);
-            }))
-            .on_action(cx.listener(|this, _: &StepDown, _, cx| {
-                let ix = this.selected_step.map(|ix| ix + 1).unwrap_or(0);
-                this.select_step(ix, cx);
-            }))
-            .on_action(cx.listener(|this, _: &StepFirst, _, cx| this.select_step(0, cx)))
-            .on_action(cx.listener(|this, _: &StepLast, _, cx| this.select_step(usize::MAX, cx)))
-            .on_action(cx.listener(|this, _: &EditStep, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.open_step_dialog(StepDialogMode::Edit(ix), window, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &RemoveStep, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.remove_step(ix, window, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &MoveStepUp, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.move_step(ix, -1, window, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &MoveStepDown, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.move_step(ix, 1, window, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &ToggleStep, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.toggle_step(ix, window, cx);
-                }
-            }))
-            .on_action(cx.listener(|this, _: &DuplicateStep, window, cx| {
-                if let Some(ix) = this.selected_step {
-                    this.duplicate_step(ix, window, cx);
-                }
-            }))
+            .on_action(cx.listener(|this, _: &AddStep, window, cx| this.add_step(window, cx)))
             .child(self.render_header(cx))
             .children(self.render_import_banner(cx))
             .children(self.render_requirements_banner(cx))

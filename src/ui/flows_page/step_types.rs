@@ -16,6 +16,11 @@ pub enum StepChoice {
     Confirm,
     PickFile,
     PickFolder,
+    If,
+    Repeat,
+    Each,
+    Menu,
+    Stop,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,7 +28,7 @@ pub enum StepGroup {
     Apps,
     Desktop,
     Ask,
-    Flow,
+    Logic,
     Script,
 }
 
@@ -32,7 +37,7 @@ impl StepGroup {
         StepGroup::Apps,
         StepGroup::Desktop,
         StepGroup::Ask,
-        StepGroup::Flow,
+        StepGroup::Logic,
         StepGroup::Script,
     ];
 
@@ -41,7 +46,7 @@ impl StepGroup {
             StepGroup::Apps => "Apps",
             StepGroup::Desktop => "Desktop",
             StepGroup::Ask => "Ask and notify",
-            StepGroup::Flow => "Flow",
+            StepGroup::Logic => "Logic",
             StepGroup::Script => "Script",
         }
     }
@@ -54,7 +59,7 @@ impl StepGroup {
             StepGroup::Apps => theme.blue,
             StepGroup::Desktop => theme.cyan,
             StepGroup::Ask => theme.magenta,
-            StepGroup::Flow => theme.yellow,
+            StepGroup::Logic => theme.yellow,
             StepGroup::Script => theme.green,
         }
     }
@@ -98,8 +103,13 @@ pub const STEP_TYPES: &[StepType] = step_types! {
     StepChoice::PickFolder, "Pick a folder", "icons/folder.svg", Ask, "choose directory browse path";
     StepChoice::Notify, "Notify", "icons/bell.svg", Ask, "notification message show result toast copy open";
 
-    StepChoice::Wait, "Wait", "icons/hourglass.svg", Flow, "pause sleep delay";
-    StepChoice::Action(ActionKind::Flow), "Run a flow", "icons/workflow.svg", Flow, "nested another";
+    StepChoice::If, "If", "icons/split.svg", Logic, "condition otherwise else when check branch";
+    StepChoice::Repeat, "Repeat", "icons/repeat.svg", Logic, "loop times again";
+    StepChoice::Each, "Repeat with each", "icons/repeat-2.svg", Logic, "loop for every line item list";
+    StepChoice::Menu, "Choose from a menu", "icons/list-tree.svg", Logic, "branch options pick select";
+    StepChoice::Stop, "Stop this flow", "icons/octagon-x.svg", Logic, "end exit quit return";
+    StepChoice::Wait, "Wait", "icons/hourglass.svg", Logic, "pause sleep delay";
+    StepChoice::Action(ActionKind::Flow), "Run a flow", "icons/workflow.svg", Logic, "nested another";
 
     StepChoice::Action(ActionKind::Command), "Run a command", "icons/terminal.svg", Script, "shell exec script bash";
 };
@@ -124,8 +134,18 @@ impl StepChoice {
             StepKind::Confirm { .. } => StepChoice::Confirm,
             StepKind::Pick { folder: false, .. } => StepChoice::PickFile,
             StepKind::Pick { folder: true, .. } => StepChoice::PickFolder,
+            StepKind::If { .. } => StepChoice::If,
+            StepKind::Repeat { .. } => StepChoice::Repeat,
+            StepKind::Each { .. } => StepChoice::Each,
+            StepKind::Menu { .. } => StepChoice::Menu,
+            StepKind::Stop => StepChoice::Stop,
             StepKind::Exec { .. } | StepKind::Lua { .. } | StepKind::Flow { .. } => return None,
         })
+    }
+
+    /// Whether the step has anything to fill in.
+    pub fn has_form(self) -> bool {
+        self != StepChoice::Stop
     }
 
     /// The name a new step of this kind saves its output under, so its
@@ -136,6 +156,7 @@ impl StepChoice {
             StepChoice::Choose => Some("choice"),
             StepChoice::PickFile => Some("file"),
             StepChoice::PickFolder => Some("folder"),
+            StepChoice::Menu => Some("pick"),
             _ => None,
         }
     }
@@ -224,6 +245,7 @@ mod tests {
         assert_eq!(labels("").len(), STEP_TYPES.len());
         assert_eq!(labels("folder"), vec!["Pick a folder"]);
         assert_eq!(labels("pause"), vec!["Wait"]);
+        assert_eq!(labels("else"), vec!["If"]);
         assert!(labels("ask").contains(&"Confirm"), "the group name matches");
         assert!(labels("zzz").is_empty());
     }
@@ -237,5 +259,7 @@ mod tests {
         assert_eq!(best("ask"), "Ask for text");
         assert_eq!(best("fold"), "Pick a folder");
         assert_eq!(best("comm"), "Run a command");
+        assert_eq!(best("repeat"), "Repeat");
+        assert_eq!(best("each"), "Repeat with each");
     }
 }

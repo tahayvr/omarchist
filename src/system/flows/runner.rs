@@ -7,10 +7,11 @@ use std::time::{Duration, Instant};
 
 use crate::error::{Error, Result};
 
-use super::prompt::{Desktop, Prompter};
+use super::condition::{Machine, Probe};
+use super::prompt::{Desktop, Prompter, menu_options};
 use super::store::load_flow;
 use super::vars::Vars;
-use super::{Flow, MAX_DEPTH, OnClick, OnError, Step, StepKind, StepPath};
+use super::{Flow, MAX_DEPTH, MAX_ROUNDS, OnClick, OnError, Step, StepKind, StepPath};
 
 /// How one step ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,8 +27,20 @@ pub enum StepStatus {
 /// their parent.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RunEvent {
-    Started { path: StepPath },
-    Finished { path: StepPath, status: StepStatus },
+    Started {
+        path: StepPath,
+    },
+    Finished {
+        path: StepPath,
+        status: StepStatus,
+    },
+    /// A loop step starts round `round` of `of`; the steps inside it
+    /// report again for every round.
+    Round {
+        path: StepPath,
+        round: u32,
+        of: u32,
+    },
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -138,11 +151,38 @@ impl Cancel {
     }
 }
 
-/// Why a flow ends before its last step.
+/// Why a step did not finish.
 enum Halt {
     Failed(String),
     /// A prompt was dismissed.
     Cancelled,
+    /// A `stop` step: the flow ends here, as finished.
+    Stop,
+}
+
+/// How a step that did finish left the flow.
+enum StepEnd {
+    /// With its output, when it produces one.
+    Done(Option<String>),
+    /// A step inside it ended the flow; the outcome already says why.
+    Ended,
+}
+
+/// Whether the steps after a list should still run.
+#[derive(PartialEq, Eq)]
+enum Flowing {
+    On,
+    Ended,
+}
+
+/// What one flow's run carries from step to step.
+struct Run<'r> {
+    /// Each flow, nested ones included, has its own variables.
+    vars: Vars,
+    stack: &'r mut Vec<String>,
+    on_event: &'r mut dyn FnMut(RunEvent),
+    outcome: Outcome,
+    on_error: OnError,
 }
 
 impl From<Error> for Halt {
@@ -168,6 +208,8 @@ pub struct Runner<'a> {
     start_grace: Duration,
     /// Answers the steps that ask.
     prompter: &'a dyn Prompter,
+    /// What `if` steps check the machine through.
+    probe: &'a dyn Probe,
 }
 
 impl<'a> Runner<'a> {
@@ -179,6 +221,7 @@ impl<'a> Runner<'a> {
             cancel: Cancel::new(),
             start_grace: START_GRACE,
             prompter: &Desktop,
+            probe: &Machine,
         }
     }
 
@@ -189,6 +232,7 @@ impl<'a> Runner<'a> {
             cancel: Cancel::new(),
             start_grace: START_GRACE,
             prompter: &Desktop,
+            probe: &Machine,
         }
     }
 
@@ -196,6 +240,12 @@ impl<'a> Runner<'a> {
     /// desktop's menus.
     pub fn prompter(mut self, prompter: &'a dyn Prompter) -> Self {
         self.prompter = prompter;
+        self
+    }
+
+    /// Lets `if` steps check the machine through `probe`.
+    pub fn probe(mut self, probe: &'a dyn Probe) -> Self {
+        self.probe = probe;
         self
     }
 
@@ -223,55 +273,113 @@ impl<'a> Runner<'a> {
         stack: &mut Vec<String>,
         on_event: &mut dyn FnMut(RunEvent),
     ) -> Outcome {
-        let mut outcome = Outcome::default();
-        // Each flow, nested ones included, has its own variables.
-        let mut vars = Vars::new();
-        for (index, step) in flow.steps.iter().enumerate() {
+        let mut run = Run {
+            vars: Vars::new(),
+            stack,
+            on_event,
+            outcome: Outcome::default(),
+            on_error: flow.on_error,
+        };
+        self.run_list(&flow.steps, &[], &mut run);
+        run.outcome
+    }
+
+    /// Runs the steps of one list in order: the flow's own, or a branch
+    /// of a step that holds steps (`base` is that branch's path).
+    fn run_list(&self, steps: &[Step], base: &[usize], run: &mut Run) -> Flowing {
+        for (index, step) in steps.iter().enumerate() {
             if !step.enabled {
                 continue;
             }
-            let path: StepPath = vec![index];
+            let mut path: StepPath = base.to_vec();
+            path.push(index);
             if self.cancel.is_cancelled() {
-                outcome.stopped_at = Some(path);
-                break;
+                run.outcome.stopped_at = Some(path);
+                return Flowing::Ended;
             }
-            on_event(RunEvent::Started { path: path.clone() });
-            let result = self.run_step(step, &mut vars, stack);
-            outcome.ran += 1;
-            let status = match result {
-                Ok(output) => {
+            (run.on_event)(RunEvent::Started { path: path.clone() });
+            let result = self.run_step(step, &path, run);
+            run.outcome.ran += 1;
+            let (status, flowing) = match result {
+                Ok(StepEnd::Done(output)) => {
                     if let Some(output) = &output {
                         if let Some(name) = &step.output {
-                            vars.set(name, output);
+                            run.vars.set(name, output);
                         }
-                        outcome.last_output = Some(output.clone());
+                        run.outcome.last_output = Some(output.clone());
                     }
-                    StepStatus::Done(output)
+                    (StepStatus::Done(output), Flowing::On)
                 }
-                Err(Halt::Cancelled) => StepStatus::Cancelled,
-                Err(Halt::Failed(error)) => StepStatus::Failed(error),
+                Ok(StepEnd::Ended) | Err(Halt::Stop) => (StepStatus::Done(None), Flowing::Ended),
+                Err(Halt::Cancelled) => {
+                    run.outcome.cancelled = true;
+                    run.outcome.stopped_at = Some(path.clone());
+                    (StepStatus::Cancelled, Flowing::Ended)
+                }
+                Err(Halt::Failed(error)) => {
+                    run.outcome.failures.push((path.clone(), error.clone()));
+                    let flowing = if run.on_error == OnError::Stop {
+                        run.outcome.stopped_at = Some(path.clone());
+                        Flowing::Ended
+                    } else {
+                        Flowing::On
+                    };
+                    (StepStatus::Failed(error), flowing)
+                }
             };
-            on_event(RunEvent::Finished {
-                path: path.clone(),
-                status: status.clone(),
-            });
-            match status {
-                StepStatus::Done(_) => {}
-                StepStatus::Cancelled => {
-                    outcome.cancelled = true;
-                    outcome.stopped_at = Some(path);
-                    break;
-                }
-                StepStatus::Failed(error) => {
-                    outcome.failures.push((path.clone(), error));
-                    if flow.on_error == OnError::Stop {
-                        outcome.stopped_at = Some(path);
-                        break;
-                    }
-                }
+            (run.on_event)(RunEvent::Finished { path, status });
+            if flowing == Flowing::Ended {
+                return Flowing::Ended;
             }
         }
-        outcome
+        Flowing::On
+    }
+
+    /// Runs the steps of branch `branch` of the step at `path`.
+    fn run_branch(&self, steps: &[Step], path: &[usize], branch: usize, run: &mut Run) -> Flowing {
+        let mut list = path.to_vec();
+        list.push(branch);
+        self.run_list(steps, &list, run)
+    }
+
+    /// Runs `steps` once per round of a loop step, with `{{index}}` (and
+    /// `{{item}}` when there are items) set for them, and puts back what
+    /// those names held around the loop.
+    fn run_rounds(
+        &self,
+        steps: &[Step],
+        path: &[usize],
+        items: Option<&[String]>,
+        rounds: u32,
+        run: &mut Run,
+    ) -> StepEnd {
+        let before = (run.vars.peek("index"), run.vars.peek("item"));
+        let mut end = StepEnd::Done(None);
+        for round in 1..=rounds {
+            if self.cancel.is_cancelled() {
+                run.outcome.stopped_at = Some(path.to_vec());
+                end = StepEnd::Ended;
+                break;
+            }
+            (run.on_event)(RunEvent::Round {
+                path: path.to_vec(),
+                round,
+                of: rounds,
+            });
+            run.vars.set("index", &round.to_string());
+            if let Some(item) = items.and_then(|items| items.get(round as usize - 1)) {
+                run.vars.set("item", item);
+            }
+            if self.run_branch(steps, path, 0, run) == Flowing::Ended {
+                end = StepEnd::Ended;
+                break;
+            }
+        }
+        run.vars.restore("index", before.0);
+        if items.is_some() {
+            run.vars.restore("item", before.1);
+        }
+        end
     }
 
     /// Runs one step with its references filled in, and returns its
@@ -279,21 +387,22 @@ impl<'a> Runner<'a> {
     fn run_step(
         &self,
         step: &Step,
-        vars: &mut Vars,
-        stack: &mut Vec<String>,
-    ) -> std::result::Result<Option<String>, Halt> {
-        match &step.kind {
+        path: &[usize],
+        run: &mut Run,
+    ) -> std::result::Result<StepEnd, Halt> {
+        let vars = &mut run.vars;
+        let output = match &step.kind {
             StepKind::Exec { command, wait } => {
                 let (command, env) = vars.shell(command)?;
-                Ok(self.exec(&command, &env, *wait)?)
+                self.exec(&command, &env, *wait)?
             }
             StepKind::Lua { expr } => {
                 dispatch(&vars.lua(expr)?)?;
-                Ok(None)
+                None
             }
             StepKind::Wait { ms } => {
                 self.wait(Duration::from_millis(*ms))?;
-                Ok(None)
+                None
             }
             StepKind::Notify {
                 title,
@@ -317,15 +426,16 @@ impl<'a> Runner<'a> {
                     None => None,
                 };
                 notify(&title, &body, click)?;
-                Ok(None)
+                None
             }
-            StepKind::Flow { id } => self.run_flow_step(id, stack),
+            StepKind::Flow { id } => self.run_flow_step(id, run.stack)?,
             StepKind::Ask { prompt } => {
                 let prompt = vars.text(prompt)?;
-                self.prompter
-                    .ask(&prompt, &self.cancel)?
-                    .map(Some)
-                    .ok_or(Halt::Cancelled)
+                Some(
+                    self.prompter
+                        .ask(&prompt, &self.cancel)?
+                        .ok_or(Halt::Cancelled)?,
+                )
             }
             StepKind::Choose {
                 prompt,
@@ -341,31 +451,97 @@ impl<'a> Runner<'a> {
                 } else {
                     vars.text(from)?.lines().map(str::to_string).collect()
                 };
-                let options = super::prompt::menu_options(&options);
+                let options = menu_options(&options);
                 if options.is_empty() {
                     return Err(Halt::Failed("There is nothing to choose from".to_string()));
                 }
-                self.prompter
-                    .choose(&prompt, &options, &self.cancel)?
-                    .map(Some)
-                    .ok_or(Halt::Cancelled)
+                Some(
+                    self.prompter
+                        .choose(&prompt, &options, &self.cancel)?
+                        .ok_or(Halt::Cancelled)?,
+                )
             }
             StepKind::Confirm { prompt } => {
                 let prompt = vars.text(prompt)?;
                 let options = [CONTINUE.to_string(), CANCEL.to_string()];
                 match self.prompter.choose(&prompt, &options, &self.cancel)? {
-                    Some(answer) if answer == CONTINUE => Ok(None),
-                    _ => Err(Halt::Cancelled),
+                    Some(answer) if answer == CONTINUE => None,
+                    _ => return Err(Halt::Cancelled),
                 }
             }
             StepKind::Pick { prompt, folder } => {
                 let prompt = vars.text(prompt)?;
-                self.prompter
-                    .pick(&prompt, *folder)?
-                    .map(Some)
-                    .ok_or(Halt::Cancelled)
+                Some(
+                    self.prompter
+                        .pick(&prompt, *folder)?
+                        .ok_or(Halt::Cancelled)?,
+                )
             }
-        }
+            StepKind::Stop => return Err(Halt::Stop),
+            StepKind::If {
+                condition,
+                not,
+                then,
+                otherwise,
+            } => {
+                let holds = condition.evaluate(vars, self.probe)? != *not;
+                let (branch, steps) = if holds { (0, then) } else { (1, otherwise) };
+                return Ok(match self.run_branch(steps, path, branch, run) {
+                    Flowing::On => StepEnd::Done(None),
+                    Flowing::Ended => StepEnd::Ended,
+                });
+            }
+            StepKind::Repeat { times, steps } => {
+                return Ok(self.run_rounds(steps, path, None, (*times).min(MAX_ROUNDS), run));
+            }
+            StepKind::Each { items, steps } => {
+                let items: Vec<String> = vars
+                    .text(items)?
+                    .lines()
+                    .map(|line| line.trim().to_string())
+                    .filter(|line| !line.is_empty())
+                    .collect();
+                if items.len() > MAX_ROUNDS as usize {
+                    return Err(Halt::Failed(format!(
+                        "There are {} items; a step repeats at most {MAX_ROUNDS} times",
+                        items.len()
+                    )));
+                }
+                let rounds = items.len() as u32;
+                return Ok(self.run_rounds(steps, path, Some(&items), rounds, run));
+            }
+            StepKind::Menu { prompt, choices } => {
+                let prompt = vars.text(prompt)?;
+                let labels = choices
+                    .iter()
+                    .map(|c| vars.text(&c.label))
+                    .collect::<Result<Vec<String>>>()?;
+                // As the menu shows them, which is also how it answers.
+                let shown: Vec<String> = labels
+                    .iter()
+                    .map(|label| menu_options(std::slice::from_ref(label)).join(" "))
+                    .collect();
+                let pick = self
+                    .prompter
+                    .choose(&prompt, &shown, &self.cancel)?
+                    .ok_or(Halt::Cancelled)?;
+                let Some(branch) = shown.iter().position(|label| *label == pick) else {
+                    return Err(Halt::Failed(format!("'{pick}' is not one of the choices")));
+                };
+                // The pick is known to the steps it runs.
+                if let Some(name) = &step.output {
+                    vars.set(name, &pick);
+                }
+                run.outcome.last_output = Some(pick.clone());
+                return Ok(
+                    match self.run_branch(&choices[branch].steps, path, branch, run) {
+                        Flowing::On => StepEnd::Done(Some(pick)),
+                        Flowing::Ended => StepEnd::Ended,
+                    },
+                );
+            }
+        };
+        Ok(StepEnd::Done(output))
     }
 
     /// Sleeps in slices so a Stop does not wait out a long pause.
@@ -621,8 +797,8 @@ fn expand_home(target: &str) -> String {
 mod tests {
     use super::*;
     use crate::error::Error;
-    use crate::system::flows::Step;
     use crate::system::flows::prompt::Prompter;
+    use crate::system::flows::{Step, StepPath};
 
     /// A waited-for command, so its exit status reaches the outcome.
     fn exec(command: &str) -> Step {
@@ -663,10 +839,7 @@ mod tests {
     }
 
     fn saving(step: Step, name: &str) -> Step {
-        Step {
-            output: Some(name.into()),
-            ..step
-        }
+        step.saving(name)
     }
 
     #[test]
@@ -710,13 +883,7 @@ mod tests {
     fn a_name_whose_step_did_not_run_fails_the_step() {
         let mut flow = Flow::new("t".into(), "T".into());
         flow.on_error = OnError::Continue;
-        flow.steps = vec![
-            Step {
-                enabled: false,
-                ..saving(exec("echo x"), "x")
-            },
-            exec("echo {{x}}"),
-        ];
+        flow.steps = vec![saving(exec("echo x"), "x").off(), exec("echo {{x}}")];
         let (outcome, _) = events(&flow, &no_flows);
         assert_eq!(outcome.failures.len(), 1);
         assert!(
@@ -732,10 +899,7 @@ mod tests {
         flow.on_error = OnError::Continue;
         flow.steps = vec![
             exec("false"),
-            Step {
-                enabled: false,
-                ..exec("exit 9")
-            },
+            exec("exit 9").off(),
             Step::new(StepKind::Wait { ms: 1 }),
             exec("true"),
         ];
@@ -1021,6 +1185,337 @@ mod tests {
         assert_eq!(outcome.failures.len(), 1);
         assert!(outcome.failures[0].1.contains("nothing to choose"));
         assert!(prompts.asked().is_empty());
+    }
+
+    // MARK: Steps that hold steps
+
+    use crate::system::flows::MenuChoice;
+    use crate::system::flows::condition::Condition;
+    use crate::system::flows::condition::tests::Fake;
+
+    fn when(condition: Condition, then: Vec<Step>, otherwise: Vec<Step>) -> Step {
+        Step::new(StepKind::If {
+            condition,
+            not: false,
+            then,
+            otherwise,
+        })
+    }
+
+    fn repeat(times: u32, steps: Vec<Step>) -> Step {
+        Step::new(StepKind::Repeat { times, steps })
+    }
+
+    fn each(items: &str, steps: Vec<Step>) -> Step {
+        Step::new(StepKind::Each {
+            items: items.into(),
+            steps,
+        })
+    }
+
+    /// A file a flow's commands can append to, removed when dropped.
+    struct Scratch(std::path::PathBuf);
+
+    impl Scratch {
+        fn new(name: &str) -> Self {
+            let path = std::env::temp_dir()
+                .join(format!("omarchist-runner-{}-{name}", std::process::id()));
+            let _ = std::fs::remove_file(&path);
+            Self(path)
+        }
+
+        /// A step that appends `text` (with its variables filled in).
+        fn append(&self, text: &str) -> Step {
+            exec(&format!("echo {text} >> {}", self.0.display()))
+        }
+
+        fn lines(&self) -> Vec<String> {
+            std::fs::read_to_string(&self.0)
+                .unwrap_or_default()
+                .lines()
+                .map(str::to_string)
+                .collect()
+        }
+    }
+
+    impl Drop for Scratch {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_file(&self.0);
+        }
+    }
+
+    fn started(seen: &[RunEvent]) -> Vec<StepPath> {
+        seen.iter()
+            .filter_map(|e| match e {
+                RunEvent::Started { path } => Some(path.clone()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn an_if_runs_the_branch_its_check_picks() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            when(
+                Condition::OnBattery,
+                vec![exec("true")],
+                vec![exec("exit 9")],
+            ),
+            exec("true"),
+        ];
+        let on_battery = Fake {
+            battery: true,
+            ..Fake::default()
+        };
+        let mut seen = Vec::new();
+        let outcome = Runner::with_loader(&no_flows, true)
+            .probe(&on_battery)
+            .run(&flow, &mut |e| seen.push(e));
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(started(&seen), vec![vec![0], vec![0, 0, 0], vec![1]]);
+        assert_eq!(outcome.ran, 3);
+
+        // Plugged in, the other branch runs, and its failure is the flow's.
+        let plugged_in = Fake::default();
+        let mut seen = Vec::new();
+        let outcome = Runner::with_loader(&no_flows, true)
+            .probe(&plugged_in)
+            .run(&flow, &mut |e| seen.push(e));
+        assert_eq!(started(&seen), vec![vec![0], vec![0, 1, 0]]);
+        assert_eq!(outcome.failures.len(), 1);
+        assert_eq!(outcome.failures[0].0, vec![0, 1, 0]);
+        assert_eq!(outcome.stopped_at, Some(vec![0, 1, 0]));
+        assert!(
+            outcome.summary(&flow).contains("stopped at step 3"),
+            "{}",
+            outcome.summary(&flow)
+        );
+    }
+
+    #[test]
+    fn a_negated_if_takes_the_other_branch() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![Step::new(StepKind::If {
+            condition: Condition::OnBattery,
+            not: true,
+            then: vec![exec("true")],
+            otherwise: vec![exec("exit 9")],
+        })];
+        let plugged_in = Fake::default();
+        let outcome = Runner::with_loader(&no_flows, true)
+            .probe(&plugged_in)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+    }
+
+    #[test]
+    fn a_check_that_cannot_be_made_fails_the_step() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.on_error = OnError::Continue;
+        flow.steps = vec![
+            when(
+                Condition::Equals {
+                    value: "{{never}}".into(),
+                    to: "x".into(),
+                },
+                vec![exec("exit 9")],
+                vec![exec("exit 9")],
+            ),
+            exec("true"),
+        ];
+        let (outcome, seen) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
+        assert_eq!(outcome.failures[0].0, vec![0]);
+        assert_eq!(started(&seen), vec![vec![0], vec![1]], "neither branch ran");
+    }
+
+    #[test]
+    fn repeat_runs_its_steps_once_per_round_with_the_round_number() {
+        let scratch = Scratch::new("repeat");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![repeat(3, vec![scratch.append("round-{{index}}")])];
+        let (outcome, seen) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(scratch.lines(), vec!["round-1", "round-2", "round-3"]);
+        assert_eq!(outcome.ran, 4);
+        let rounds: Vec<(u32, u32)> = seen
+            .iter()
+            .filter_map(|e| match e {
+                RunEvent::Round { round, of, .. } => Some((*round, *of)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(rounds, vec![(1, 3), (2, 3), (3, 3)]);
+    }
+
+    #[test]
+    fn each_goes_through_the_lines_of_a_value() {
+        let scratch = Scratch::new("each");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(exec("printf 'a b\\n\\n  c  \\n$(false)\\n'"), "lines"),
+            each("{{lines}}", vec![scratch.append("{{index}}={{item}}")]),
+        ];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        // Blank lines are skipped, and a line is text, never a command.
+        assert_eq!(scratch.lines(), vec!["1=a b", "2=c", "3=$(false)"]);
+    }
+
+    #[test]
+    fn each_over_nothing_runs_nothing() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(exec("true"), "nothing"),
+            each("{{nothing}}", vec![exec("exit 9")]),
+        ];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(outcome.ran, 2);
+    }
+
+    #[test]
+    fn loops_inside_loops_keep_their_own_round() {
+        let scratch = Scratch::new("nested");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![repeat(
+            2,
+            vec![
+                each("x\ny", vec![scratch.append("in-{{index}}-{{item}}")]),
+                // The outer round again once the inner loop is done.
+                scratch.append("out-{{index}}"),
+            ],
+        )];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(
+            scratch.lines(),
+            vec!["in-1-x", "in-2-y", "out-1", "in-1-x", "in-2-y", "out-2"]
+        );
+    }
+
+    #[test]
+    fn a_loops_names_are_gone_after_it() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.on_error = OnError::Continue;
+        // Not valid to save (validation refuses it), but the runner must
+        // not leak the names either.
+        flow.steps = vec![repeat(1, vec![exec("true")]), exec("echo {{index}}")];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1);
+        assert!(outcome.failures[0].1.contains("{{index}}"));
+    }
+
+    #[test]
+    fn stop_ends_the_flow_as_finished() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            exec("true"),
+            when(
+                Condition::Command {
+                    command: "true".into(),
+                },
+                vec![Step::new(StepKind::Stop), exec("exit 9")],
+                vec![],
+            ),
+            exec("exit 9"),
+        ];
+        let (outcome, seen) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert!(!outcome.cancelled);
+        assert_eq!(outcome.stopped_at, None);
+        assert_eq!(started(&seen), vec![vec![0], vec![1], vec![1, 0, 0]]);
+        assert_eq!(outcome.summary(&flow), "Flow 'T' finished");
+    }
+
+    #[test]
+    fn stop_inside_a_loop_ends_every_round() {
+        let scratch = Scratch::new("stop-loop");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![repeat(
+            5,
+            vec![
+                scratch.append("{{index}}"),
+                when(
+                    Condition::Equals {
+                        value: "{{index}}".into(),
+                        to: "2".into(),
+                    },
+                    vec![Step::new(StepKind::Stop)],
+                    vec![],
+                ),
+            ],
+        )];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok());
+        assert_eq!(scratch.lines(), vec!["1", "2"]);
+    }
+
+    #[test]
+    fn a_failure_inside_a_loop_follows_the_flows_error_setting() {
+        let scratch = Scratch::new("fail-loop");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![repeat(3, vec![exec("exit 4"), scratch.append("after")])];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1);
+        assert_eq!(outcome.stopped_at, Some(vec![0, 0, 0]));
+        assert!(scratch.lines().is_empty(), "nothing ran after the failure");
+
+        flow.on_error = OnError::Continue;
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 3, "once per round");
+        assert_eq!(scratch.lines().len(), 3);
+    }
+
+    #[test]
+    fn a_switched_off_block_runs_none_of_its_steps() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![repeat(2, vec![exec("exit 9")]).off(), exec("true")];
+        let (outcome, seen) = events(&flow, &no_flows);
+        assert!(outcome.is_ok());
+        assert_eq!(started(&seen), vec![vec![1]]);
+    }
+
+    #[test]
+    fn a_menu_runs_the_steps_of_the_choice_picked() {
+        let scratch = Scratch::new("menu");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(
+                Step::new(StepKind::Menu {
+                    prompt: "Power".into(),
+                    choices: vec![
+                        MenuChoice {
+                            label: "Lock".into(),
+                            steps: vec![exec("exit 9")],
+                        },
+                        MenuChoice {
+                            label: " Sleep ".into(),
+                            steps: vec![scratch.append("inside-{{pick}}")],
+                        },
+                    ],
+                }),
+                "pick",
+            ),
+            scratch.append("after-{{pick}}"),
+        ];
+        let prompts = Scripted::new(&[Some("Sleep")]);
+        let mut seen = Vec::new();
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |e| seen.push(e));
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(prompts.asked(), vec!["choose Power: Lock|Sleep"]);
+        assert_eq!(started(&seen), vec![vec![0], vec![0, 1, 0], vec![1]]);
+        assert_eq!(scratch.lines(), vec!["inside-Sleep", "after-Sleep"]);
+
+        // Dismissing the menu ends the flow quietly.
+        let prompts = Scripted::new(&[None]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.cancelled && outcome.is_ok());
     }
 
     #[test]

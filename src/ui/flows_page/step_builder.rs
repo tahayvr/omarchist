@@ -13,8 +13,10 @@ use gpui_component::{
 
 use gpui_kit::TestSupportExt;
 
-use crate::system::flows::{OnClick, StepKind, format_duration, vars};
+use crate::system::flows::condition::Condition;
+use crate::system::flows::{MAX_ROUNDS, MenuChoice, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::action::{Action, ActionKind};
+use crate::ui::flows_page::app_picker::{AppPicker, AppPickerEvent};
 use crate::ui::flows_page::step_picker::icon_tile;
 use crate::ui::flows_page::step_types::StepChoice;
 use crate::ui::flows_page::var_token;
@@ -41,6 +43,59 @@ pub mod step_vars {
 const MAX_WAIT_MS: u64 = 600_000;
 
 const WAIT_PRESETS: [u64; 4] = [500, 1000, 2000, 5000];
+
+/// What an If step looks at; each has its own ways to compare.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum IfKind {
+    Text,
+    Command,
+    App,
+    Power,
+    Time,
+}
+
+impl IfKind {
+    const ALL: [(IfKind, &'static str); 5] = [
+        (IfKind::Text, "Text"),
+        (IfKind::Command, "Command"),
+        (IfKind::App, "App"),
+        (IfKind::Power, "Power"),
+        (IfKind::Time, "Time"),
+    ];
+
+    /// The comparisons of this kind, in the order the form offers them.
+    /// Every second one is the opposite of the one before it.
+    fn ops(self) -> &'static [&'static str] {
+        match self {
+            IfKind::Text => &[
+                "is",
+                "is not",
+                "contains",
+                "does not contain",
+                "is empty",
+                "is not empty",
+            ],
+            IfKind::Command => &["succeeds", "fails"],
+            IfKind::App => &["is open", "is not open"],
+            IfKind::Power => &["on battery", "plugged in"],
+            IfKind::Time => &["is between", "is outside"],
+        }
+    }
+
+    /// The kind and comparison that edit `condition`.
+    fn of(condition: &Condition, not: bool) -> (IfKind, usize) {
+        let not = usize::from(not);
+        match condition {
+            Condition::Equals { .. } => (IfKind::Text, not),
+            Condition::Contains { .. } => (IfKind::Text, 2 + not),
+            Condition::Empty { .. } => (IfKind::Text, 4 + not),
+            Condition::Command { .. } => (IfKind::Command, not),
+            Condition::AppOpen { .. } => (IfKind::App, not),
+            Condition::OnBattery => (IfKind::Power, not),
+            Condition::TimeBetween { .. } => (IfKind::Time, not),
+        }
+    }
+}
 
 /// One [`StepBuilder::segmented`] row: its choices, the current one, and
 /// what picking another does.
@@ -96,6 +151,24 @@ pub struct StepBuilder {
     /// Whether the Choose step takes its list from `from`.
     from_variable: bool,
     source_focus: FocusHandle,
+    /// What an If step checks, and how it compares.
+    if_kind: IfKind,
+    if_op: usize,
+    if_kind_focus: FocusHandle,
+    if_op_focus: FocusHandle,
+    /// The text an If step looks at, and what it compares it with.
+    if_value: Entity<InputState>,
+    if_other: Entity<InputState>,
+    if_command: Entity<InputState>,
+    if_from: Entity<InputState>,
+    if_to: Entity<InputState>,
+    if_app: Entity<AppPicker>,
+    /// How often a Repeat step runs.
+    times: Entity<InputState>,
+    /// What a Repeat with each step goes through, one line at a time.
+    items: Entity<InputState>,
+    /// A menu's choices, one per line.
+    choices: Entity<TextareaState>,
     /// "Save output as": the name later steps use as `{{name}}`.
     output_name: Entity<InputState>,
     /// What this step can use: built-ins, then names earlier steps save.
@@ -166,6 +239,46 @@ impl StepBuilder {
             _ => {}
         }
         let from_variable = options.trim().is_empty() && !from.trim().is_empty();
+        let (mut if_kind, mut if_op) = (IfKind::Text, 0);
+        let (mut if_value, mut if_other, mut if_command) =
+            (String::new(), String::new(), String::new());
+        let (mut if_from, mut if_to, mut if_class) =
+            (String::from("09:00"), String::from("17:00"), String::new());
+        let (mut times, mut items, mut choices) = (String::from("3"), String::new(), String::new());
+        match initial {
+            Some(StepKind::If { condition, not, .. }) => {
+                (if_kind, if_op) = IfKind::of(condition, *not);
+                match condition {
+                    Condition::Equals { value, to } => {
+                        (if_value, if_other) = (value.clone(), to.clone())
+                    }
+                    Condition::Contains { value, text } => {
+                        (if_value, if_other) = (value.clone(), text.clone())
+                    }
+                    Condition::Empty { value } => if_value = value.clone(),
+                    Condition::Command { command } => if_command = command.clone(),
+                    Condition::AppOpen { class } => if_class = class.clone(),
+                    Condition::OnBattery => {}
+                    Condition::TimeBetween { from, to } => {
+                        (if_from, if_to) = (from.clone(), to.clone())
+                    }
+                }
+            }
+            Some(StepKind::Repeat { times: n, .. }) => times = n.to_string(),
+            Some(StepKind::Each { items: i, .. }) => items = i.clone(),
+            Some(StepKind::Menu {
+                prompt: p,
+                choices: c,
+            }) => {
+                prompt = p.clone();
+                choices = c
+                    .iter()
+                    .map(|choice| choice.label.clone())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+            }
+            _ => {}
+        }
 
         let line = |window: &mut Window, cx: &mut Context<Self>, placeholder: &str, value: &str| {
             cx.new(|cx| {
@@ -194,6 +307,25 @@ impl StepBuilder {
                 .placeholder("One option per line")
                 .default_value(options)
         });
+        let if_value = line(window, cx, "Text, usually a variable", &if_value);
+        let if_other = line(window, cx, "", &if_other);
+        let if_command = line(window, cx, "Command, e.g. pgrep -x spotify", &if_command);
+        let if_from = line(window, cx, "09:00", &if_from);
+        let if_to = line(window, cx, "17:00", &if_to);
+        let if_app = cx.new(|cx| AppPicker::new(&if_class, window, cx));
+        let times = cx.new(|cx| {
+            InputState::new(window, cx)
+                .default_value(times)
+                .step(1.)
+                .min(1.)
+                .max(MAX_ROUNDS as f64)
+        });
+        let items = line(window, cx, "Text with one item per line", &items);
+        let choices = cx.new(|cx| {
+            TextareaState::new(window, cx)
+                .placeholder("One choice per line")
+                .default_value(choices)
+        });
         let output_name = line(window, cx, "Name, such as url", output.unwrap_or_default());
         let variables: Vec<String> = vars::BUILTINS
             .iter()
@@ -209,7 +341,15 @@ impl StepBuilder {
                 this.changed(cx);
             },
         )];
-        for input in [&wait_ms, &output_name] {
+        subscriptions.push(cx.subscribe_in(
+            &if_app,
+            window,
+            |this, _, event: &AppPickerEvent, _window, cx| {
+                let AppPickerEvent::Changed = event;
+                this.changed(cx);
+            },
+        ));
+        for input in [&wait_ms, &output_name, &times, &if_from, &if_to] {
             subscriptions.push(cx.subscribe_in(
                 input,
                 window,
@@ -222,7 +362,17 @@ impl StepBuilder {
         }
         // Fields that take variables remember being focused, so a variable
         // picked from the row lands in the one the person was typing in.
-        for input in [&notify_title, &notify_body, &notify_target, &prompt, &from] {
+        for input in [
+            &notify_title,
+            &notify_body,
+            &notify_target,
+            &prompt,
+            &from,
+            &if_value,
+            &if_other,
+            &if_command,
+            &items,
+        ] {
             let field = Field::Line(input.clone());
             subscriptions.push(cx.subscribe_in(
                 input,
@@ -234,16 +384,18 @@ impl StepBuilder {
                 },
             ));
         }
-        let field = Field::Area(options.clone());
-        subscriptions.push(cx.subscribe_in(
-            &options,
-            window,
-            move |this, _, event: &InputEvent, _window, cx| match event {
-                InputEvent::Change => this.changed(cx),
-                InputEvent::Focus => this.target = Some(field.clone()),
-                _ => {}
-            },
-        ));
+        for area in [&options, &choices] {
+            let field = Field::Area(area.clone());
+            subscriptions.push(cx.subscribe_in(
+                area,
+                window,
+                move |this, _, event: &InputEvent, _window, cx| match event {
+                    InputEvent::Change => this.changed(cx),
+                    InputEvent::Focus => this.target = Some(field.clone()),
+                    _ => {}
+                },
+            ));
+        }
 
         Self {
             choice,
@@ -260,6 +412,19 @@ impl StepBuilder {
             from,
             from_variable,
             source_focus: focus::tab_stop(cx),
+            if_kind,
+            if_op,
+            if_kind_focus: focus::tab_stop(cx),
+            if_op_focus: focus::tab_stop(cx),
+            if_value,
+            if_other,
+            if_command,
+            if_from,
+            if_to,
+            if_app,
+            times,
+            items,
+            choices,
             output_name,
             variables,
             saved: saved.to_vec(),
@@ -315,6 +480,22 @@ impl StepBuilder {
             | StepChoice::PickFile
             | StepChoice::PickFolder => &self.prompt,
             StepChoice::Wait => &self.wait_ms,
+            StepChoice::Menu => &self.prompt,
+            StepChoice::Repeat => &self.times,
+            StepChoice::Each => &self.items,
+            StepChoice::If => match self.if_kind {
+                IfKind::Text => &self.if_value,
+                IfKind::Command => &self.if_command,
+                IfKind::Time => &self.if_from,
+                IfKind::App | IfKind::Power => {
+                    self.if_kind_focus.focus(window, cx);
+                    return;
+                }
+            },
+            StepChoice::Stop => {
+                self.back_focus.focus(window, cx);
+                return;
+            }
             StepChoice::Action(_) => {
                 self.back_focus.focus(window, cx);
                 window.on_next_frame(|window, cx| window.focus_next(cx));
@@ -335,7 +516,8 @@ impl StepBuilder {
             StepChoice::Ask
             | StepChoice::Choose
             | StepChoice::PickFile
-            | StepChoice::PickFolder => true,
+            | StepChoice::PickFolder
+            | StepChoice::Menu => true,
             _ => false,
         }
     }
@@ -365,7 +547,8 @@ impl StepBuilder {
     fn takes_variables(&self, cx: &App) -> bool {
         match self.choice {
             StepChoice::Action(_) => self.action.read(cx).accepts_variables(),
-            StepChoice::Wait => false,
+            StepChoice::Wait | StepChoice::Repeat | StepChoice::Stop => false,
+            StepChoice::If => matches!(self.if_kind, IfKind::Text | IfKind::Command),
             _ => true,
         }
     }
@@ -379,7 +562,14 @@ impl StepBuilder {
             | StepChoice::Choose
             | StepChoice::Confirm
             | StepChoice::PickFile
-            | StepChoice::PickFolder => Some(Field::Line(self.prompt.clone())),
+            | StepChoice::PickFolder
+            | StepChoice::Menu => Some(Field::Line(self.prompt.clone())),
+            StepChoice::Each => Some(Field::Line(self.items.clone())),
+            StepChoice::If => match self.if_kind {
+                IfKind::Text => Some(Field::Line(self.if_value.clone())),
+                IfKind::Command => Some(Field::Line(self.if_command.clone())),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -506,7 +696,92 @@ impl StepBuilder {
                 prompt: self.prompt.read(cx).value().trim().to_string(),
                 folder: self.choice == StepChoice::PickFolder,
             }),
+            StepChoice::If => {
+                let (condition, not) = self.condition(cx);
+                condition.validate().map_err(capitalize)?;
+                Ok(StepKind::If {
+                    condition,
+                    not,
+                    then: Vec::new(),
+                    otherwise: Vec::new(),
+                })
+            }
+            StepChoice::Repeat => {
+                let text = self.times.read(cx).value().trim().to_string();
+                match text.parse::<u32>() {
+                    Ok(times) if (1..=MAX_ROUNDS).contains(&times) => Ok(StepKind::Repeat {
+                        times,
+                        steps: Vec::new(),
+                    }),
+                    _ => Err(format!("Repeat between 1 and {MAX_ROUNDS} times")),
+                }
+            }
+            StepChoice::Each => {
+                let items = self.items.read(cx).value().trim().to_string();
+                if items.is_empty() {
+                    return Err("Pick the variable that holds the items".into());
+                }
+                Ok(StepKind::Each {
+                    items,
+                    steps: Vec::new(),
+                })
+            }
+            StepChoice::Menu => {
+                let prompt = self.question(cx)?;
+                let mut choices: Vec<MenuChoice> = Vec::new();
+                for line in self.choices.read(cx).value().lines() {
+                    let label = line.trim();
+                    if label.is_empty() {
+                        continue;
+                    }
+                    if choices.iter().any(|c| c.label == label) {
+                        return Err(format!("'{label}' is there twice"));
+                    }
+                    choices.push(MenuChoice {
+                        label: label.to_string(),
+                        steps: Vec::new(),
+                    });
+                }
+                if choices.is_empty() {
+                    return Err("Enter the choices, one per line".into());
+                }
+                Ok(StepKind::Menu { prompt, choices })
+            }
+            StepChoice::Stop => Ok(StepKind::Stop),
         }
+    }
+
+    /// The condition the If form describes, and whether it is negated.
+    fn condition(&self, cx: &App) -> (Condition, bool) {
+        let read = |input: &Entity<InputState>| input.read(cx).value().trim().to_string();
+        let not = self.if_op % 2 == 1;
+        let condition = match self.if_kind {
+            IfKind::Text => match self.if_op / 2 {
+                0 => Condition::Equals {
+                    value: read(&self.if_value),
+                    to: read(&self.if_other),
+                },
+                1 => Condition::Contains {
+                    value: read(&self.if_value),
+                    text: read(&self.if_other),
+                },
+                _ => Condition::Empty {
+                    value: read(&self.if_value),
+                },
+            },
+            IfKind::Command => Condition::Command {
+                command: read(&self.if_command),
+            },
+            IfKind::App => Condition::AppOpen {
+                class: self.if_app.read(cx).class().to_string(),
+            },
+            IfKind::Power => Condition::OnBattery,
+            IfKind::Time => Condition::TimeBetween {
+                from: read(&self.if_from),
+                to: read(&self.if_to),
+            },
+        };
+        (condition, not)
     }
 
     // MARK: Render
@@ -553,7 +828,7 @@ impl StepBuilder {
         row: Segmented<T>,
         window: &Window,
         cx: &mut Context<Self>,
-    ) -> impl IntoElement {
+    ) -> AnyElement {
         let Segmented {
             id,
             handle,
@@ -571,40 +846,44 @@ impl StepBuilder {
         };
         let (prev, next) = (cycle.clone(), cycle);
         // Wrapped so the row is as wide as its choices, not the form.
-        h_flex().child(
-            h_flex()
-                .id(id)
-                .test_support()
-                .key_context(FILTERS_CONTEXT)
-                .track_focus(handle)
-                .on_action(
-                    cx.listener(move |this, _: &keybinds_nav::FilterPrev, _, cx| {
-                        prev(this, -1, cx)
-                    }),
-                )
-                .on_action(
-                    cx.listener(move |this, _: &keybinds_nav::FilterNext, _, cx| next(this, 1, cx)),
-                )
-                .rounded(cx.theme().radius)
-                .border_1()
-                .border_color(ring)
-                .p_0p5()
-                .gap_1()
-                .flex_wrap()
-                .children(choices.into_iter().enumerate().map(|(ix, (value, label))| {
-                    let button = Button::new((id, ix))
-                        .label(label)
-                        .small()
-                        .tab_stop(false)
-                        .cursor_pointer();
-                    let button = if value == current {
-                        button.primary()
-                    } else {
-                        button.ghost()
-                    };
-                    button.on_click(cx.listener(move |this, _, _, cx| set(this, value, cx)))
-                })),
-        )
+        h_flex()
+            .child(
+                h_flex()
+                    .id(id)
+                    .test_support()
+                    .key_context(FILTERS_CONTEXT)
+                    .track_focus(handle)
+                    .on_action(
+                        cx.listener(move |this, _: &keybinds_nav::FilterPrev, _, cx| {
+                            prev(this, -1, cx)
+                        }),
+                    )
+                    .on_action(
+                        cx.listener(move |this, _: &keybinds_nav::FilterNext, _, cx| {
+                            next(this, 1, cx)
+                        }),
+                    )
+                    .rounded(cx.theme().radius)
+                    .border_1()
+                    .border_color(ring)
+                    .p_0p5()
+                    .gap_1()
+                    .flex_wrap()
+                    .children(choices.into_iter().enumerate().map(|(ix, (value, label))| {
+                        let button = Button::new((id, ix))
+                            .label(label)
+                            .small()
+                            .tab_stop(false)
+                            .cursor_pointer();
+                        let button = if value == current {
+                            button.primary()
+                        } else {
+                            button.ghost()
+                        };
+                        button.on_click(cx.listener(move |this, _, _, cx| set(this, value, cx)))
+                    })),
+            )
+            .into_any_element()
     }
 
     fn render_body(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
@@ -761,7 +1040,111 @@ impl StepBuilder {
                         .into_any_element()
                 })
                 .into_any_element(),
+            StepChoice::If => self.render_if(window, cx),
+            StepChoice::Repeat => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Times",
+                    div()
+                        .id("step-times")
+                        .test_support()
+                        .w_40()
+                        .child(NumberInput::new(&self.times).small()),
+                ))
+                .into_any_element(),
+            StepChoice::Each => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Items",
+                    Input::new(&self.items).id("step-items").small(),
+                ))
+                .into_any_element(),
+            StepChoice::Menu => v_flex()
+                .gap_3()
+                .child(Self::field(
+                    "Question",
+                    Input::new(&self.prompt).id("step-prompt").small(),
+                ))
+                .child(Self::field(
+                    "Choices",
+                    div()
+                        .id("step-choices")
+                        .test_support()
+                        .child(Textarea::new(&self.choices).h(px(112.))),
+                ))
+                .into_any_element(),
+            StepChoice::Stop => div().into_any_element(),
         }
+    }
+
+    /// The If form: what to look at, how to compare, and with what.
+    fn render_if(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        let kind = self.if_kind;
+        let ops: Vec<(usize, &'static str)> = kind.ops().iter().copied().enumerate().collect();
+        let op_row = self.segmented(
+            Segmented {
+                id: "if-op",
+                handle: &self.if_op_focus,
+                choices: ops,
+                current: self.if_op,
+                set: |this, value, cx| {
+                    this.if_op = value;
+                    this.changed(cx);
+                },
+            },
+            window,
+            cx,
+        );
+        let form = v_flex().gap_3().child(Self::field(
+            "Check",
+            self.segmented(
+                Segmented {
+                    id: "if-kind",
+                    handle: &self.if_kind_focus,
+                    choices: IfKind::ALL.to_vec(),
+                    current: kind,
+                    set: |this, value, cx| {
+                        this.if_kind = value;
+                        this.if_op = 0;
+                        this.target = None;
+                        this.changed(cx);
+                    },
+                },
+                window,
+                cx,
+            ),
+        ));
+        match kind {
+            IfKind::Text => form
+                .child(Input::new(&self.if_value).id("if-value").small())
+                .child(op_row)
+                // "is empty" and "is not empty" compare with nothing.
+                .when(self.if_op < 4, |this| {
+                    this.child(Input::new(&self.if_other).id("if-other").small())
+                }),
+            IfKind::Command => form
+                .child(Input::new(&self.if_command).id("if-command").small())
+                .child(op_row),
+            IfKind::App => form.child(self.if_app.clone()).child(op_row),
+            IfKind::Power => form.child(op_row),
+            IfKind::Time => form.child(op_row).child(
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(
+                        div()
+                            .w_24()
+                            .child(Input::new(&self.if_from).id("if-from").small()),
+                    )
+                    .child(div().text_sm().child("and"))
+                    .child(
+                        div()
+                            .w_24()
+                            .child(Input::new(&self.if_to).id("if-to").small()),
+                    ),
+            ),
+        }
+        .into_any_element()
     }
 
     /// Why the form is not a step yet. The action builder shows its own.
@@ -881,5 +1264,14 @@ impl Render for StepBuilder {
             .children(self.render_variables(window, cx))
             .children(self.render_output(cx))
             .children(self.render_problem(cx))
+    }
+}
+
+/// A validation message as a sentence.
+fn capitalize(message: String) -> String {
+    let mut chars = message.chars();
+    match chars.next() {
+        Some(first) => first.to_uppercase().chain(chars).collect(),
+        None => message,
     }
 }
