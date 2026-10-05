@@ -1,6 +1,6 @@
 # This is an Omarchist flow: https://omarchist.com/flows/
 
-format = 1
+format = 2
 name = "Present"
 description = "A clean screen to share: no bar, no notifications, no screensaver, on an empty workspace."
 icon = "monitor"
@@ -10,14 +10,14 @@ on_error = "continue"
 author = "Omarchist"
 
 [[step]]
-type = "exec"
-command = "omarchy-shell notifications setDnd on && omarchy-shell -q omarchy.indicators refresh"
-wait = true
+type = "action"
+action = "dnd.set"
+state = "on"
 
 [[step]]
-type = "exec"
-command = "omarchy-toggle-idle stay-awake"
-wait = true
+type = "action"
+action = "awake.set"
+state = "on"
 
 [[step]]
 type = "exec"
@@ -25,9 +25,9 @@ command = "omarchy-toggle screensaver-off on"
 wait = true
 
 [[step]]
-type = "exec"
-command = "omarchy-toggle-bar off"
-wait = true
+type = "action"
+action = "bar.set"
+state = "off"
 
 [[step]]
 type = "lua"

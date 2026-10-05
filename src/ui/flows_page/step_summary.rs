@@ -7,6 +7,7 @@ use gpui::*;
 use gpui_component::{ActiveTheme, Icon};
 
 use crate::system::apps::DesktopApp;
+use crate::system::flows::actions::{self, FieldKind};
 use crate::system::flows::condition::Condition;
 use crate::system::flows::{Flow, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::Dispatcher;
@@ -209,6 +210,24 @@ impl SummaryContext<'_> {
                 title: "Stop this flow".to_string(),
                 detail: String::new(),
                 group: StepGroup::Logic,
+            },
+            StepKind::Action { action, args } => match actions::find(action) {
+                Some(def) => StepSummary {
+                    icon: StepIcon::Path(def.icon),
+                    // An app reads by its name, not its window class.
+                    title: def.title_with(args, &|field, value| match field.kind {
+                        FieldKind::App => self.app_name_for_class(&value),
+                        _ => value,
+                    }),
+                    detail: String::new(),
+                    group: StepGroup::of_action(def.group),
+                },
+                None => StepSummary {
+                    icon: StepIcon::Path("icons/circle-question-mark.svg"),
+                    title: format!("An action this Omarchist does not have: {action}"),
+                    detail: String::new(),
+                    group: StepGroup::Script,
+                },
             },
             StepKind::Pick { prompt, folder } => {
                 let choice = if *folder {

@@ -815,6 +815,20 @@ pub const SHORTCUTS: &[Shortcut] = &[
     ),
     shortcut!(
         "left",
+        step_picker_nav::PrevGroup,
+        Some("StepPickerGroups"),
+        DIALOGS,
+        "Previous group of step types"
+    ),
+    shortcut!(
+        "right",
+        step_picker_nav::NextGroup,
+        Some("StepPickerGroups"),
+        DIALOGS,
+        "Next group of step types"
+    ),
+    shortcut!(
+        "left",
         step_picker_nav::Left,
         Some("StepPicker"),
         DIALOGS,

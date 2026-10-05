@@ -1,0 +1,23 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Weather now"
+description = "Shows the weather where you are in a notification."
+icon = "sun"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "web.get"
+url = "https://wttr.in/?format=%l:+%c+%t,+%C"
+output = "weather"
+
+[[step]]
+type = "notify"
+title = "Weather"
+body = "{{weather}}"
+on_click = "open"
+target = "https://wttr.in"

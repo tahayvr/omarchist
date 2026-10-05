@@ -232,7 +232,7 @@ pub fn open_step_dialog(
     window.open_dialog(cx, move |d, window, _| {
         let on_close_view = view.clone();
         d.title(title)
-            .w(crate::ui::focus::dialog_width(640., window))
+            .w(crate::ui::focus::dialog_width(720., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)

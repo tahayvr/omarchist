@@ -1,6 +1,6 @@
 # This is an Omarchist flow: https://omarchist.com/flows/
 
-format = 1
+format = 2
 name = "Battery saver"
 description = "The power-saver profile, a dimmer screen, and the keyboard backlight off."
 icon = "leaf"
@@ -10,14 +10,14 @@ on_error = "continue"
 author = "Omarchist"
 
 [[step]]
-type = "exec"
-command = "omarchy-powerprofiles-set autodetect power-saver"
-wait = true
+type = "action"
+action = "power.profile"
+profile = "power-saver"
 
 [[step]]
-type = "exec"
-command = "omarchy-brightness-display 40%"
-wait = true
+type = "action"
+action = "brightness.set"
+level = 40
 
 [[step]]
 type = "exec"

@@ -38,8 +38,8 @@ fn add_step_starts_on_a_searchable_list_of_step_types(cx: &mut TestAppContext) {
             Some(true),
             "the search box has the keyboard"
         );
-        assert!(window.find("step-type-ask-for-text").visible());
-        assert!(window.find("step-type-if").visible());
+        assert!(window.find("step-type-open-an-app").visible());
+        assert!(window.find("step-type-set-the-volume").visible());
         assert!(
             window.try_find("step-save").is_none(),
             "there is nothing to add until a type is picked"
@@ -76,26 +76,60 @@ fn the_arrow_keys_move_through_the_step_types(cx: &mut TestAppContext) {
     open_add_step(cx, handle);
 
     with(cx, handle, |window, cx| {
+        // Narrowed to one group, the grid is small enough to count in:
+        // Ask for text, Choose from a list, Confirm / Pick a file, ...
+        window.click("step-group-ask", cx);
+        window.click(SEARCH, cx);
         // Down leaves the search box for the grid, on its first tile.
         window.press("down", cx);
         window.render_frame(cx);
         assert_eq!(window.find(GRID).focused(), Some(true));
         assert_eq!(window.find(SEARCH).focused(), Some(false));
 
-        // Apps, then Desktop, then the Ask group; Right moves along its row.
-        window.press("down", cx);
-        window.press("down", cx);
         window.press("right", cx);
+        window.press("down", cx);
+        window.press("left", cx);
         window.press("enter", cx);
     });
     settle(cx, handle);
 
     with(cx, handle, |window, _| {
-        assert!(
-            window.find("choose-source").visible(),
-            "Enter opened the form of Choose from a list"
+        assert_eq!(
+            window.find(OUTPUT_NAME).value(),
+            Some("file"),
+            "Enter opened the form of Pick a file"
         );
         assert_eq!(window.find(PROMPT).focused(), Some(true));
+    });
+}
+
+#[gpui_kit::test]
+fn the_group_filters_narrow_the_list_from_the_keyboard(cx: &mut TestAppContext) {
+    let (handle, _view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+
+    with(cx, handle, |window, cx| {
+        window.press("tab", cx);
+        window.render_frame(cx);
+        assert_eq!(window.find("step-picker-groups").focused(), Some(true));
+        // All, Apps, Desktop, Ask.
+        for _ in 0..3 {
+            window.press("right", cx);
+        }
+        window.render_frame(cx);
+        assert!(window.find("step-type-confirm").visible());
+        assert!(window.try_find("step-type-open-an-app").is_none());
+
+        // Typing looks in every group again.
+        window.click(SEARCH, cx);
+        window.input("app", cx);
+    });
+    // The picker hears about the typing once this update is over.
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert_eq!(window.find(SEARCH).value(), Some("app"));
+        assert!(window.find("step-type-open-an-app").visible());
+        assert!(window.try_find("step-type-confirm").is_none());
     });
 }
 
@@ -120,7 +154,9 @@ fn clicking_a_step_type_opens_its_form_and_change_goes_back(cx: &mut TestAppCont
     open_add_step(cx, handle);
 
     with(cx, handle, |window, cx| {
-        window.click("step-type-confirm", cx)
+        window.click("step-group-ask", cx);
+        window.render_frame(cx);
+        window.click("step-type-confirm", cx);
     });
     settle(cx, handle);
     with(cx, handle, |window, cx| {
@@ -995,5 +1031,151 @@ fn repeat_asks_how_many_times(cx: &mut TestAppContext) {
     );
     with(cx, handle, |window, _| {
         assert!(window.find("flow-add-1-0").visible());
+    });
+}
+
+// MARK: Ready-made actions
+
+use omarchist::system::flows::actions::Arg;
+
+fn action(flow: &Flow, index: usize) -> (String, Vec<(String, Arg)>) {
+    match &flow.steps[index].kind {
+        StepKind::Action { action, args } => (
+            action.clone(),
+            args.iter().map(|(k, v)| (k.clone(), v.clone())).collect(),
+        ),
+        other => panic!("not an action: {other:?}"),
+    }
+}
+
+#[gpui_kit::test]
+fn an_action_is_a_form_over_its_fields(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "volume");
+
+    with(cx, handle, |window, cx| {
+        // The level field has the keyboard, with its default in it.
+        window.press("ctrl-a", cx);
+        window.input("45", cx);
+        window.press("ctrl-enter", cx);
+    });
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(
+        action(&flow, 0),
+        (
+            "volume.set".to_string(),
+            vec![("level".to_string(), Arg::Number(45))]
+        )
+    );
+    assert_eq!(flow.steps[0].kind.text(), "Set the volume to 45%");
+
+    // Out of range is refused in the form.
+    with(cx, handle, |window, cx| {
+        window.double_click(("flow-step", 1usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-a", cx);
+        window.input("450", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx))
+    });
+    assert_eq!(
+        edited_flow(cx, &view).steps[0].kind.text(),
+        "Set the volume to 45%"
+    );
+}
+
+#[gpui_kit::test]
+fn an_actions_choices_and_text_fields_are_saved(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "change case");
+
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("action-text").focused(), Some(true));
+        assert_eq!(
+            window.find(OUTPUT_NAME).value(),
+            Some("text"),
+            "its result is saved under a name"
+        );
+        window.click("step-variable-clipboard", cx);
+        // UPPERCASE, lowercase, Title Case.
+        window.click(("action-to", 2usize), cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    let flow = edited_flow(cx, &view);
+    assert_eq!(
+        action(&flow, 0),
+        (
+            "text.case".to_string(),
+            vec![
+                ("text".to_string(), Arg::Text("{{clipboard}}".into())),
+                ("to".to_string(), Arg::Text("title".into())),
+            ]
+        )
+    );
+    assert_eq!(flow.steps[0].output.as_deref(), Some("text"));
+}
+
+#[gpui_kit::test]
+fn an_action_with_nothing_to_set_is_added_at_once(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "next wallpaper");
+
+    let flow = edited_flow(cx, &view);
+    assert_eq!(action(&flow, 0), ("wallpaper.next".to_string(), Vec::new()));
+    with(cx, handle, |window, cx| {
+        assert!(!window.has_active_dialog(cx))
+    });
+}
+
+const TEXT_ACTIONS: &str = r#"
+format = 2
+id = "ui-text-actions"
+name = "UI text actions"
+
+[[step]]
+type = "action"
+action = "text"
+text = "hello, world"
+output = "greeting"
+
+[[step]]
+type = "action"
+action = "text.case"
+text = "{{greeting}}"
+to = "upper"
+output = "loud"
+
+[[step]]
+type = "exec"
+command = "test {{loud}} = 'HELLO, WORLD'"
+wait = true
+"#;
+
+#[gpui_kit::test]
+fn actions_pass_their_results_on_in_a_run(cx: &mut TestAppContext) {
+    write_flow("ui-text-actions", TEXT_ACTIONS);
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-text-actions".into()));
+
+    with(cx, handle, |window, cx| window.click("flow-run", cx));
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", 3usize)).is_some()
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.find(("step-result", 2usize)).visible());
+        assert!(
+            window.try_find(("step-failure", 3usize)).is_none(),
+            "the upper-cased text reached the command"
+        );
     });
 }

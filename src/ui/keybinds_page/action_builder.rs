@@ -93,10 +93,10 @@ fn app_icon(icon: Option<&PathBuf>) -> AnyElement {
 }
 
 #[derive(Clone)]
-struct LabeledItem {
-    id: String,
-    label: SharedString,
-    group: SharedString,
+pub(crate) struct LabeledItem {
+    pub(crate) id: String,
+    pub(crate) label: SharedString,
+    pub(crate) group: SharedString,
 }
 
 impl SelectItem for LabeledItem {

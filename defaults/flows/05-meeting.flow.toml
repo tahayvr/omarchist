@@ -1,6 +1,6 @@
 # This is an Omarchist flow: https://omarchist.com/flows/
 
-format = 1
+format = 2
 name = "Meeting"
 description = "Unmutes your mic, keeps the screen awake, silences notifications, and opens Google Meet."
 icon = "video"
@@ -10,19 +10,19 @@ on_error = "continue"
 author = "Omarchist"
 
 [[step]]
-type = "exec"
-command = "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ 0"
-wait = true
+type = "action"
+action = "mic.mute"
+state = "off"
 
 [[step]]
-type = "exec"
-command = "omarchy-toggle-idle stay-awake"
-wait = true
+type = "action"
+action = "awake.set"
+state = "on"
 
 [[step]]
-type = "exec"
-command = "omarchy-shell notifications setDnd on && omarchy-shell -q omarchy.indicators refresh"
-wait = true
+type = "action"
+action = "dnd.set"
+state = "on"
 
 [[step]]
 type = "exec"

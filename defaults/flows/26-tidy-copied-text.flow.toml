@@ -1,0 +1,33 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Tidy copied text"
+description = "Trims what you copied, turns it into Title Case, and puts it back on the clipboard."
+icon = "pen-tool"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "text.trim"
+text = "{{clipboard}}"
+output = "trimmed"
+
+[[step]]
+type = "action"
+action = "text.case"
+text = "{{trimmed}}"
+to = "title"
+output = "tidy"
+
+[[step]]
+type = "action"
+action = "clipboard.set"
+text = "{{tidy}}"
+
+[[step]]
+type = "notify"
+title = "Copied"
+body = "{{tidy}}"

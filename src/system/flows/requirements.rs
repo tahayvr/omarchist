@@ -36,6 +36,17 @@ pub fn program_of(kind: &StepKind) -> Option<String> {
     Some(expanded)
 }
 
+/// Every program a step needs: the one a command starts, or the ones a
+/// ready-made action is built on.
+pub fn programs_of(kind: &StepKind) -> Vec<String> {
+    match kind {
+        StepKind::Action { action, .. } => super::actions::find(action)
+            .map(|def| def.requires.iter().map(|p| p.to_string()).collect())
+            .unwrap_or_default(),
+        _ => program_of(kind).into_iter().collect(),
+    }
+}
+
 /// Programs from the enabled command steps and `meta.requires` that are not
 /// on `PATH`, each once, in order.
 pub fn missing_programs(flow: &Flow) -> Vec<String> {
@@ -45,7 +56,7 @@ pub fn missing_programs(flow: &Flow) -> Vec<String> {
     let from_steps = steps
         .iter()
         .filter(|(_, step)| step.enabled)
-        .filter_map(|(_, step)| program_of(&step.kind));
+        .flat_map(|(_, step)| programs_of(&step.kind));
     for program in from_steps.chain(flow.meta.requires.iter().cloned()) {
         if seen.insert(program.clone()) && !is_installed(&program) {
             missing.push(program);

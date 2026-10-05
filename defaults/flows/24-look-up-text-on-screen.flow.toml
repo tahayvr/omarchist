@@ -1,0 +1,28 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Look up text on screen"
+description = "Lets you drag over any text on screen, even in a picture, and searches the web for it."
+icon = "camera"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "capture.text"
+output = "screen text"
+
+[[step]]
+type = "if"
+check = "empty"
+value = "{{screen text}}"
+
+[[step.then]]
+type = "stop"
+
+[[step]]
+type = "action"
+action = "web.search"
+query = "{{screen text}}"

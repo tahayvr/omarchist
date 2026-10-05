@@ -14,21 +14,21 @@ type = "if"
 check = "on_battery"
 
 [[step.then]]
-type = "exec"
-command = "omarchy-powerprofiles-set autodetect power-saver"
-wait = true
+type = "action"
+action = "power.profile"
+profile = "power-saver"
 
 [[step.then]]
-type = "exec"
-command = "omarchy-brightness-display 40%"
-wait = true
+type = "action"
+action = "brightness.set"
+level = 40
 
 [[step.otherwise]]
-type = "exec"
-command = "omarchy-powerprofiles-set autodetect balanced"
-wait = true
+type = "action"
+action = "power.profile"
+profile = "balanced"
 
 [[step.otherwise]]
-type = "exec"
-command = "omarchy-brightness-display 80%"
-wait = true
+type = "action"
+action = "brightness.set"
+level = 80

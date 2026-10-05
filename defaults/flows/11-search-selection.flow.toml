@@ -10,11 +10,6 @@ on_error = "stop"
 author = "Omarchist"
 
 [[step]]
-type = "exec"
-command = "printf '%s' {{selection}} | jq -sRr @uri"
-wait = true
-output = "query"
-
-[[step]]
-type = "exec"
-command = 'omarchy-launch-webapp "https://duckduckgo.com/?q={{query}}"'
+type = "action"
+action = "web.search"
+query = "{{selection}}"

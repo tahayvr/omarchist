@@ -7,6 +7,9 @@ use std::time::{Duration, Instant};
 
 use crate::error::{Error, Result};
 
+use std::collections::BTreeMap;
+
+use super::actions;
 use super::condition::{Machine, Probe};
 use super::prompt::{Desktop, Prompter, menu_options};
 use super::store::load_flow;
@@ -478,6 +481,36 @@ impl<'a> Runner<'a> {
                 )
             }
             StepKind::Stop => return Err(Halt::Stop),
+            StepKind::Action { action, args } => {
+                let Some(def) = actions::find(action) else {
+                    return Err(Halt::Failed(format!(
+                        "This Omarchist has no action '{action}'"
+                    )));
+                };
+                // Each field with its variables filled in. Text fields are
+                // the only ones that take them.
+                let mut values: BTreeMap<&'static str, String> = BTreeMap::new();
+                for field in def.fields {
+                    values.insert(field.key, vars.text(&def.raw(field, args))?);
+                }
+                match def.run {
+                    actions::Run::Shell(script) => {
+                        let env: Vec<(String, String)> = values
+                            .iter()
+                            .map(|(key, value)| {
+                                (format!("ARG_{}", key.to_uppercase()), value.clone())
+                            })
+                            .collect();
+                        let printed = self.exec(script, &env, true)?;
+                        printed.filter(|_| def.has_output())
+                    }
+                    actions::Run::Lua(template) => {
+                        dispatch(&actions::lua_call(template, &values)?)?;
+                        None
+                    }
+                    actions::Run::Native(run) => Some(run(&values)),
+                }
+            }
             StepKind::If {
                 condition,
                 not,
@@ -1516,6 +1549,88 @@ mod tests {
             .prompter(&prompts)
             .run(&flow, &mut |_| {});
         assert!(outcome.cancelled && outcome.is_ok());
+    }
+
+    // MARK: Ready-made actions
+
+    use crate::system::flows::actions::{Arg, Args};
+
+    fn action(id: &str, pairs: &[(&str, &str)]) -> Step {
+        let args: Args = pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), Arg::Text(v.to_string())))
+            .collect();
+        Step::new(StepKind::Action {
+            action: id.into(),
+            args,
+        })
+    }
+
+    #[test]
+    fn text_actions_chain_through_variables() {
+        let scratch = Scratch::new("actions");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(action("text", &[("text", " a-b, c-d ")]), "raw"),
+            saving(action("text.trim", &[("text", "{{raw}}")]), "trimmed"),
+            saving(
+                action(
+                    "text.replace",
+                    &[("text", "{{trimmed}}"), ("find", "-"), ("with", "+")],
+                ),
+                "swapped",
+            ),
+            saving(
+                action("text.split", &[("text", "{{swapped}}"), ("by", ",")]),
+                "lines",
+            ),
+            each(
+                "{{lines}}",
+                vec![
+                    saving(
+                        action("text.case", &[("text", "{{item}}"), ("to", "upper")]),
+                        "loud",
+                    ),
+                    scratch.append("{{loud}}"),
+                ],
+            ),
+        ];
+        assert!(flow.validate().is_ok(), "{:?}", flow.validate());
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(scratch.lines(), vec!["A+B", "C+D"]);
+    }
+
+    #[test]
+    fn a_shell_action_gets_its_fields_as_data() {
+        if !crate::system::flows::requirements::is_installed("jq") {
+            return;
+        }
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            // A value that would end the script if it were pasted into it.
+            saving(
+                action("text", &[("text", r#"{"name": "a\"; exit 9; \""}"#)]),
+                "json",
+            ),
+            saving(
+                action("json.get", &[("json", "{{json}}"), ("path", ".name")]),
+                "name",
+            ),
+            exec(r#"test {{name}} = 'a"; exit 9; "'"#),
+        ];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+    }
+
+    #[test]
+    fn an_action_this_build_does_not_have_fails_its_step() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![action("from.the.future", &[])];
+        assert!(flow.validate().is_err());
+        let (outcome, _) = events(&flow, &no_flows);
+        assert_eq!(outcome.failures.len(), 1);
+        assert!(outcome.failures[0].1.contains("from.the.future"));
     }
 
     #[test]

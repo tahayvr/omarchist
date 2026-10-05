@@ -15,12 +15,16 @@ use crate::ui::focus;
 use crate::ui::text::selectable;
 
 pub const GRID_CONTEXT: &str = "StepPicker";
+/// The row of group filters: one tab stop, arrows move the filter.
+pub const GROUPS_CONTEXT: &str = "StepPickerGroups";
 pub const SEARCH_CONTEXT: &str = "StepPickerSearch";
 
 pub mod step_picker_nav {
     gpui::actions!(
         step_picker,
-        [Left, Right, Up, Down, First, Last, Pick, FocusGrid]
+        [
+            Left, Right, Up, Down, First, Last, Pick, FocusGrid, PrevGroup, NextGroup
+        ]
     );
 }
 use step_picker_nav::*;
@@ -31,6 +35,9 @@ pub enum StepPickerEvent {
 
 pub struct StepPicker {
     search: Entity<InputState>,
+    /// The group the list is narrowed to; `None` shows every group.
+    group: Option<StepGroup>,
+    groups_focus: FocusHandle,
     grid_focus: FocusHandle,
     /// The highlighted step type, as an index into the filtered list.
     selected: usize,
@@ -73,6 +80,10 @@ impl StepPicker {
             window,
             |this, _, event: &InputEvent, _, cx| match event {
                 InputEvent::Change => {
+                    // Typing searches every group.
+                    if !this.search.read(cx).value().trim().is_empty() {
+                        this.group = None;
+                    }
                     this.selected = best_match(this.search.read(cx).value().as_ref());
                     this.scroll.set_offset(point(px(0.), px(0.)));
                     cx.notify();
@@ -83,6 +94,8 @@ impl StepPicker {
         );
         Self {
             search,
+            group: None,
+            groups_focus: focus::tab_stop(cx),
             grid_focus: focus::tab_stop(cx),
             selected: 0,
             scroll: ScrollHandle::new(),
@@ -96,6 +109,78 @@ impl StepPicker {
 
     fn filtered(&self, cx: &App) -> Vec<&'static StepType> {
         search(self.search.read(cx).value().as_ref())
+            .into_iter()
+            .filter(|step| self.group.is_none_or(|group| step.group == group))
+            .collect()
+    }
+
+    fn set_group(&mut self, group: Option<StepGroup>, cx: &mut Context<Self>) {
+        self.group = group;
+        self.selected = 0;
+        self.scroll.set_offset(point(px(0.), px(0.)));
+        cx.notify();
+    }
+
+    /// Moves the group filter along All, then each group.
+    fn cycle_group(&mut self, delta: isize, cx: &mut Context<Self>) {
+        let all: Vec<Option<StepGroup>> = std::iter::once(None)
+            .chain(StepGroup::ALL.into_iter().map(Some))
+            .collect();
+        let ix = all.iter().position(|g| *g == self.group).unwrap_or(0) as isize;
+        let next = (ix + delta).rem_euclid(all.len() as isize) as usize;
+        self.set_group(all[next], cx);
+    }
+
+    fn render_groups(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        let focused = self.groups_focus.is_focused(window);
+        let ring = focus::focus_border(focused, theme.transparent, cx);
+        let chip = |id: SharedString, label: &'static str, group: Option<StepGroup>| {
+            let selected = self.group == group;
+            h_flex()
+                .id(ElementId::Name(id))
+                .test_support()
+                .gap_1p5()
+                .items_center()
+                .px_2()
+                .py_0p5()
+                .rounded(theme.radius)
+                .text_xs()
+                .when(selected, |this| {
+                    this.bg(theme.primary).text_color(theme.primary_foreground)
+                })
+                .when(!selected, |this| {
+                    this.text_color(theme.muted_foreground)
+                        .hover(|this| this.bg(theme.secondary).text_color(theme.foreground))
+                })
+                .cursor_pointer()
+                .when_some(group, |this, group| {
+                    this.child(div().size_2().rounded_full().bg(group.accent(cx)))
+                })
+                .child(label)
+                .on_click(cx.listener(move |this, _, _, cx| this.set_group(group, cx)))
+        };
+        h_flex()
+            .id("step-picker-groups")
+            .test_support()
+            .key_context(GROUPS_CONTEXT)
+            .track_focus(&self.groups_focus)
+            .on_action(cx.listener(|this, _: &PrevGroup, _, cx| this.cycle_group(-1, cx)))
+            .on_action(cx.listener(|this, _: &NextGroup, _, cx| this.cycle_group(1, cx)))
+            .rounded(theme.radius)
+            .border_1()
+            .border_color(ring)
+            .p_0p5()
+            .gap_0p5()
+            .flex_wrap()
+            .child(chip("step-group-all".into(), "All", None))
+            .children(StepGroup::ALL.into_iter().map(|group| {
+                chip(
+                    format!("step-group-{}", group.short_label().to_lowercase()).into(),
+                    group.short_label(),
+                    Some(group),
+                )
+            }))
     }
 
     fn columns(window: &Window) -> usize {
@@ -278,6 +363,7 @@ impl Render for StepPicker {
                             .cleanable(true),
                     ),
             )
+            .child(self.render_groups(window, cx))
             .child(
                 v_flex()
                     .id("step-picker-grid")
@@ -326,18 +412,18 @@ impl Render for StepPicker {
 #[cfg(test)]
 mod tests {
     use super::{StepGroup, StepPicker, StepType};
-    use crate::ui::flows_page::step_types::STEP_TYPES;
+    use crate::ui::flows_page::step_types::step_types;
 
     #[test]
     fn the_grid_keeps_groups_together_in_rows() {
-        let types: Vec<&'static StepType> = STEP_TYPES.iter().collect();
+        let types: Vec<&'static StepType> = step_types().iter().collect();
         let layout = StepPicker::layout(&types, 3);
         assert_eq!(layout[0].0, StepGroup::Apps);
         let seen: Vec<usize> = layout
             .iter()
             .flat_map(|(_, rows)| rows.iter().flatten().copied())
             .collect();
-        assert_eq!(seen, (0..STEP_TYPES.len()).collect::<Vec<_>>());
+        assert_eq!(seen, (0..step_types().len()).collect::<Vec<_>>());
         assert!(
             layout
                 .iter()

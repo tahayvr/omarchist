@@ -1,6 +1,6 @@
 # This is an Omarchist flow: https://omarchist.com/flows/
 
-format = 1
+format = 2
 name = "Wind down"
 description = "Night light on, a dimmer screen, and quieter sound for the evening."
 icon = "moon"
@@ -9,21 +9,20 @@ on_error = "continue"
 [meta]
 author = "Omarchist"
 
-# Night light only has a toggle, so it is flipped only when it is off.
 [[step]]
-type = "exec"
-command = "omarchy-toggle-nightlight --status | grep -q '\"enabled\":true' || omarchy-toggle-nightlight"
-wait = true
+type = "action"
+action = "nightlight.set"
+state = "on"
 
 [[step]]
-type = "exec"
-command = "omarchy-brightness-display 30%"
-wait = true
+type = "action"
+action = "brightness.set"
+level = 30
 
 [[step]]
-type = "exec"
-command = 'pactl set-sink-volume "$(omarchy-audio-output-sink)" 20%'
-wait = true
+type = "action"
+action = "volume.set"
+level = 20
 
 [[step]]
 type = "notify"

@@ -12,11 +12,14 @@ use gpui_component::{
 };
 
 use gpui_kit::TestSupportExt;
+use std::collections::BTreeMap;
 
+use crate::system::flows::actions::{ActionDef, Args, FieldKind};
 use crate::system::flows::condition::Condition;
 use crate::system::flows::{MAX_ROUNDS, MenuChoice, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::action::{Action, ActionKind};
 use crate::ui::flows_page::app_picker::{AppPicker, AppPickerEvent};
+use crate::ui::flows_page::option_picker::{OptionPicker, OptionPickerEvent, installed_themes};
 use crate::ui::flows_page::step_picker::icon_tile;
 use crate::ui::flows_page::step_types::StepChoice;
 use crate::ui::flows_page::var_token;
@@ -97,10 +100,20 @@ impl IfKind {
     }
 }
 
+/// One field of a ready-made action's form.
+enum ActionControl {
+    Text(Entity<InputState>),
+    Number(Entity<InputState>),
+    /// The index of the choice, and the row's tab stop.
+    Choice(usize, FocusHandle),
+    App(Entity<AppPicker>),
+    Theme(Entity<OptionPicker>),
+}
+
 /// One [`StepBuilder::segmented`] row: its choices, the current one, and
 /// what picking another does.
 struct Segmented<'a, T> {
-    id: &'static str,
+    id: SharedString,
     handle: &'a FocusHandle,
     choices: Vec<(T, &'static str)>,
     current: T,
@@ -169,8 +182,15 @@ pub struct StepBuilder {
     items: Entity<InputState>,
     /// A menu's choices, one per line.
     choices: Entity<TextareaState>,
+    /// The controls of a ready-made action's form, one per field, and
+    /// what listens to them.
+    action_controls: Vec<ActionControl>,
+    _action_subscriptions: Vec<Subscription>,
     /// "Save output as": the name later steps use as `{{name}}`.
     output_name: Entity<InputState>,
+    /// The name the form filled in by itself, replaced when the kind
+    /// changes unless the person typed their own.
+    auto_output: Option<String>,
     /// What this step can use: built-ins, then names earlier steps save.
     variables: Vec<String>,
     /// Names earlier steps save, which a default name must not repeat.
@@ -397,7 +417,7 @@ impl StepBuilder {
             ));
         }
 
-        Self {
+        let mut this = Self {
             choice,
             action,
             wait,
@@ -425,6 +445,9 @@ impl StepBuilder {
             times,
             items,
             choices,
+            action_controls: Vec::new(),
+            _action_subscriptions: Vec::new(),
+            auto_output: None,
             output_name,
             variables,
             saved: saved.to_vec(),
@@ -433,7 +456,11 @@ impl StepBuilder {
             variable_ix: 0,
             back_focus: focus::tab_stop(cx),
             _subscriptions: subscriptions,
+        };
+        if let (StepChoice::Do(def), Some(StepKind::Action { args, .. })) = (choice, initial) {
+            this.build_action_controls(def, args, window, cx);
         }
+        this
     }
 
     pub fn choice(&self) -> StepChoice {
@@ -446,27 +473,142 @@ impl StepBuilder {
     pub fn set_choice(&mut self, choice: StepChoice, window: &mut Window, cx: &mut Context<Self>) {
         self.choice = choice;
         self.target = None;
-        if let StepChoice::Action(kind) = choice {
-            self.action
-                .update(cx, |builder, cx| builder.set_kind(kind, cx));
+        match choice {
+            StepChoice::Action(kind) => self
+                .action
+                .update(cx, |builder, cx| builder.set_kind(kind, cx)),
+            StepChoice::Do(def) => self.build_action_controls(def, &Args::new(), window, cx),
+            _ => {}
         }
-        if let Some(base) = choice.default_output()
-            && self.output_name.read(cx).value().trim().is_empty()
-        {
-            let name = (1..)
-                .map(|n| {
-                    if n == 1 {
-                        base.to_string()
-                    } else {
-                        format!("{base} {n}")
-                    }
-                })
-                .find(|name| !self.saved.contains(name))
-                .unwrap_or_else(|| base.to_string());
-            self.output_name
-                .update(cx, |input, cx| input.set_value(name, window, cx));
+        // The name the form suggested for the last kind gives way to the
+        // new kind's; one the person typed stays.
+        let current = self.output_name.read(cx).value().trim().to_string();
+        if current.is_empty() || Some(&current) == self.auto_output.as_ref() {
+            let name = choice.default_output().map(|base| {
+                (1..)
+                    .map(|n| {
+                        if n == 1 {
+                            base.to_string()
+                        } else {
+                            format!("{base} {n}")
+                        }
+                    })
+                    .find(|name| !self.saved.contains(name))
+                    .unwrap_or_else(|| base.to_string())
+            });
+            self.output_name.update(cx, |input, cx| {
+                input.set_value(name.clone().unwrap_or_default(), window, cx)
+            });
+            self.auto_output = name;
         }
         self.changed(cx);
+    }
+
+    /// Builds the controls of a ready-made action's form from its fields,
+    /// starting with `args` (or each field's default).
+    fn build_action_controls(
+        &mut self,
+        def: &'static ActionDef,
+        args: &Args,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut controls = Vec::new();
+        let mut subscriptions = Vec::new();
+        for field in def.fields {
+            let value = def.raw(field, args);
+            let control = match field.kind {
+                FieldKind::Text => {
+                    let input = cx.new(|cx| {
+                        InputState::new(window, cx)
+                            .placeholder(field.placeholder)
+                            .default_value(value)
+                    });
+                    let target = Field::Line(input.clone());
+                    subscriptions.push(cx.subscribe_in(
+                        &input,
+                        window,
+                        move |this, _, event: &InputEvent, _window, cx| match event {
+                            InputEvent::Change => this.changed(cx),
+                            InputEvent::Focus => this.target = Some(target.clone()),
+                            _ => {}
+                        },
+                    ));
+                    ActionControl::Text(input)
+                }
+                FieldKind::Number { min, max, step, .. } => {
+                    let input = cx.new(|cx| {
+                        InputState::new(window, cx)
+                            .default_value(value)
+                            .step(step as f64)
+                            .min(min as f64)
+                            .max(max as f64)
+                    });
+                    subscriptions.push(cx.subscribe_in(
+                        &input,
+                        window,
+                        |this, _, event: &InputEvent, _window, cx| {
+                            if matches!(event, InputEvent::Change) {
+                                this.changed(cx);
+                            }
+                        },
+                    ));
+                    ActionControl::Number(input)
+                }
+                FieldKind::Choice(choices) => {
+                    let current = choices.iter().position(|(v, _)| *v == value).unwrap_or(0);
+                    ActionControl::Choice(current, focus::tab_stop(cx))
+                }
+                FieldKind::App => {
+                    let picker = cx.new(|cx| AppPicker::new(&value, window, cx));
+                    subscriptions.push(cx.subscribe_in(
+                        &picker,
+                        window,
+                        |this, _, _: &AppPickerEvent, _window, cx| this.changed(cx),
+                    ));
+                    ActionControl::App(picker)
+                }
+                FieldKind::Theme => {
+                    let picker = cx.new(|cx| {
+                        OptionPicker::new(&value, "Choose a theme", installed_themes, window, cx)
+                    });
+                    subscriptions.push(cx.subscribe_in(
+                        &picker,
+                        window,
+                        |this, _, _: &OptionPickerEvent, _window, cx| this.changed(cx),
+                    ));
+                    ActionControl::Theme(picker)
+                }
+            };
+            controls.push(control);
+        }
+        self.action_controls = controls;
+        self._action_subscriptions = subscriptions;
+    }
+
+    /// What the action form holds, by field.
+    fn action_values(&self, def: &'static ActionDef, cx: &App) -> BTreeMap<&'static str, String> {
+        def.fields
+            .iter()
+            .zip(&self.action_controls)
+            .map(|(field, control)| {
+                let value = match control {
+                    ActionControl::Text(input) | ActionControl::Number(input) => {
+                        input.read(cx).value().trim().to_string()
+                    }
+                    ActionControl::Choice(current, _) => match field.kind {
+                        FieldKind::Choice(choices) => choices
+                            .get(*current)
+                            .map(|(value, _)| value.to_string())
+                            .unwrap_or_default(),
+                        _ => String::new(),
+                    },
+                    ActionControl::App(picker) => picker.read(cx).class().to_string(),
+                    ActionControl::Theme(picker) => picker.read(cx).value().to_string(),
+                };
+                (field.key, value)
+            })
+            .collect()
     }
 
     /// Puts the keyboard on the form's first control, past the Change
@@ -496,6 +638,15 @@ impl StepBuilder {
                 self.back_focus.focus(window, cx);
                 return;
             }
+            StepChoice::Do(_) => match self.action_controls.first() {
+                Some(ActionControl::Text(input) | ActionControl::Number(input)) => input,
+                _ => {
+                    // Past the Change button, onto the first control.
+                    self.back_focus.focus(window, cx);
+                    window.on_next_frame(|window, cx| window.focus_next(cx));
+                    return;
+                }
+            },
             StepChoice::Action(_) => {
                 self.back_focus.focus(window, cx);
                 window.on_next_frame(|window, cx| window.focus_next(cx));
@@ -518,6 +669,7 @@ impl StepBuilder {
             | StepChoice::PickFile
             | StepChoice::PickFolder
             | StepChoice::Menu => true,
+            StepChoice::Do(def) => def.has_output(),
             _ => false,
         }
     }
@@ -549,6 +701,10 @@ impl StepBuilder {
             StepChoice::Action(_) => self.action.read(cx).accepts_variables(),
             StepChoice::Wait | StepChoice::Repeat | StepChoice::Stop => false,
             StepChoice::If => matches!(self.if_kind, IfKind::Text | IfKind::Command),
+            StepChoice::Do(_) => self
+                .action_controls
+                .iter()
+                .any(|control| matches!(control, ActionControl::Text(_))),
             _ => true,
         }
     }
@@ -565,6 +721,13 @@ impl StepBuilder {
             | StepChoice::PickFolder
             | StepChoice::Menu => Some(Field::Line(self.prompt.clone())),
             StepChoice::Each => Some(Field::Line(self.items.clone())),
+            StepChoice::Do(_) => self
+                .action_controls
+                .iter()
+                .find_map(|control| match control {
+                    ActionControl::Text(input) => Some(Field::Line(input.clone())),
+                    _ => None,
+                }),
             StepChoice::If => match self.if_kind {
                 IfKind::Text => Some(Field::Line(self.if_value.clone())),
                 IfKind::Command => Some(Field::Line(self.if_command.clone())),
@@ -748,6 +911,14 @@ impl StepBuilder {
                 Ok(StepKind::Menu { prompt, choices })
             }
             StepChoice::Stop => Ok(StepKind::Stop),
+            StepChoice::Do(def) => {
+                let args = def.args(&self.action_values(def, cx));
+                def.validate(&args).map_err(capitalize)?;
+                Ok(StepKind::Action {
+                    action: def.id.to_string(),
+                    args,
+                })
+            }
         }
     }
 
@@ -849,7 +1020,7 @@ impl StepBuilder {
         h_flex()
             .child(
                 h_flex()
-                    .id(id)
+                    .id(ElementId::Name(id.clone()))
                     .test_support()
                     .key_context(FILTERS_CONTEXT)
                     .track_focus(handle)
@@ -870,7 +1041,7 @@ impl StepBuilder {
                     .gap_1()
                     .flex_wrap()
                     .children(choices.into_iter().enumerate().map(|(ix, (value, label))| {
-                        let button = Button::new((id, ix))
+                        let button = Button::new(ElementId::NamedInteger(id.clone(), ix as u64))
                             .label(label)
                             .small()
                             .tab_stop(false)
@@ -961,7 +1132,7 @@ impl StepBuilder {
                         "When clicked",
                         self.segmented(
                             Segmented {
-                                id: "notify-click",
+                                id: "notify-click".into(),
                                 handle: &self.click_focus,
                                 choices: vec![
                                     (None, "Nothing"),
@@ -1013,7 +1184,7 @@ impl StepBuilder {
                     "Options",
                     self.segmented(
                         Segmented {
-                            id: "choose-source",
+                            id: "choose-source".into(),
                             handle: &self.source_focus,
                             choices: vec![(false, "A list"), (true, "From a variable")],
                             current: self.from_variable,
@@ -1074,7 +1245,82 @@ impl StepBuilder {
                 ))
                 .into_any_element(),
             StepChoice::Stop => div().into_any_element(),
+            StepChoice::Do(def) => self.render_action(def, window, cx),
         }
+    }
+
+    /// A ready-made action's form: one control per field.
+    fn render_action(
+        &self,
+        def: &'static ActionDef,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let mut form = v_flex().gap_3();
+        for (ix, (field, control)) in def.fields.iter().zip(&self.action_controls).enumerate() {
+            let id: SharedString = format!("action-{}", field.key).into();
+            let element: AnyElement = match control {
+                ActionControl::Text(input) => Input::new(input)
+                    .id(ElementId::Name(id))
+                    .small()
+                    .into_any_element(),
+                ActionControl::Number(input) => {
+                    let unit = match field.kind {
+                        FieldKind::Number { unit, .. } => unit,
+                        _ => "",
+                    };
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(
+                            div()
+                                .id(ElementId::Name(id))
+                                .test_support()
+                                .w_32()
+                                .child(NumberInput::new(input).small()),
+                        )
+                        .child(
+                            div()
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(unit),
+                        )
+                        .into_any_element()
+                }
+                ActionControl::Choice(current, handle) => {
+                    let choices = match field.kind {
+                        FieldKind::Choice(choices) => choices,
+                        _ => &[],
+                    };
+                    self.segmented(
+                        Segmented {
+                            id,
+                            handle,
+                            choices: choices
+                                .iter()
+                                .enumerate()
+                                .map(|(choice, (_, label))| ((ix, choice), *label))
+                                .collect(),
+                            current: (ix, *current),
+                            set: |this, (field, choice), cx| {
+                                if let Some(ActionControl::Choice(current, _)) =
+                                    this.action_controls.get_mut(field)
+                                {
+                                    *current = choice;
+                                }
+                                this.changed(cx);
+                            },
+                        },
+                        window,
+                        cx,
+                    )
+                }
+                ActionControl::App(picker) => picker.clone().into_any_element(),
+                ActionControl::Theme(picker) => picker.clone().into_any_element(),
+            };
+            form = form.child(Self::field(field.label, element));
+        }
+        form.into_any_element()
     }
 
     /// The If form: what to look at, how to compare, and with what.
@@ -1083,7 +1329,7 @@ impl StepBuilder {
         let ops: Vec<(usize, &'static str)> = kind.ops().iter().copied().enumerate().collect();
         let op_row = self.segmented(
             Segmented {
-                id: "if-op",
+                id: "if-op".into(),
                 handle: &self.if_op_focus,
                 choices: ops,
                 current: self.if_op,
@@ -1099,7 +1345,7 @@ impl StepBuilder {
             "Check",
             self.segmented(
                 Segmented {
-                    id: "if-kind",
+                    id: "if-kind".into(),
                     handle: &self.if_kind_focus,
                     choices: IfKind::ALL.to_vec(),
                     current: kind,

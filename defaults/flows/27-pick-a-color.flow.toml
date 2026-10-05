@@ -1,0 +1,30 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Pick a color"
+description = "Pick any color on screen. Click the notification to copy its code."
+icon = "palette"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "capture.color"
+output = "color"
+
+[[step]]
+type = "if"
+check = "empty"
+value = "{{color}}"
+
+[[step.then]]
+type = "stop"
+
+[[step]]
+type = "notify"
+title = "{{color}}"
+body = "Click to copy"
+on_click = "copy"
+target = "{{color}}"

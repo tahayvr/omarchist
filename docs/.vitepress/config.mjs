@@ -112,6 +112,7 @@ export default defineConfig({
           { text: "Variables", link: "/flows/variables" },
           { text: "Steps That Ask", link: "/flows/asking" },
           { text: "If, Repeat, and Menus", link: "/flows/logic" },
+          { text: "Ready-Made Actions", link: "/flows/actions" },
           { text: "Templates", link: "/flows/#templates" },
           { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],

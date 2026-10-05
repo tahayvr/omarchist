@@ -24,5 +24,6 @@ title = "No link on the clipboard"
 type = "stop"
 
 [[step]]
-type = "exec"
-command = "xdg-open {{clipboard}}"
+type = "action"
+action = "open.link"
+url = "{{clipboard}}"

@@ -25,7 +25,7 @@ use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
 };
 use crate::system::flows::templates::template;
-use crate::system::flows::{Flow, ICONS, OnError, Step, StepPath, unique_id};
+use crate::system::flows::{Flow, ICONS, OnError, Step, StepKind, StepPath, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -468,6 +468,13 @@ impl FlowEditPage {
             },
             StepDialogMode::Add { .. } => (None, None),
         };
+        // An action from a newer Omarchist has no form here.
+        if let Some(StepKind::Action { action, .. }) = &initial
+            && crate::system::flows::actions::find(action).is_none()
+        {
+            window.push_notification("This step needs a newer Omarchist to edit", cx);
+            return;
+        }
         // A step can use what the steps written before it save, and what
         // the loops around it set.
         let saved = match &mode {

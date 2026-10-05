@@ -16,6 +16,7 @@ Two kinds of step produce output:
 | **Flow** | The output of the last step in that flow that produced one. |
 | **Ask for text**, **Choose from a list**, **Pick a file**, **Pick a folder** | Your answer. See [Steps that ask](/flows/asking). |
 | **Choose from a menu** | The choice you picked. |
+| A [ready-made action](/flows/actions) that produces something, such as **Text from the screen** | What it produced. |
 
 Edit the step and type a name in **Save output as**, for example `url`. The step list shows the name next to the step as a small token.
 
@@ -26,6 +27,7 @@ A name starts with a letter and can contain letters, digits, spaces, `-` and `_`
 Type `{{name}}` in a step's text field, or pick a variable from the **Insert** row under the fields; it goes where your cursor was. With the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. Outside the text field, Omarchist shows each variable as a token with its name, such as **Clipboard** or **url**. You can use variables in:
 
 - a **Command**, **Terminal**, or **Web app** step,
+- the text fields of a [ready-made action](/flows/actions),
 - a **Notify** step's title, message, and what it copies or opens,
 - the question of a step that asks, and the options of **Choose from a list**,
 - a **Window** step, inside a quoted value.

@@ -2,6 +2,7 @@ pub mod app_picker;
 pub mod flow_card;
 pub mod flow_edit_view;
 pub mod flows_view;
+pub mod option_picker;
 pub mod share_ui;
 pub mod step_builder;
 pub mod step_dialog;

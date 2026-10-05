@@ -3,7 +3,10 @@
 use gpui::{App, Hsla};
 use gpui_component::ActiveTheme;
 
+use std::sync::LazyLock;
+
 use crate::system::flows::StepKind;
+use crate::system::flows::actions::{self, ACTIONS, ActionDef, ActionGroup};
 use crate::system::keybinds::action::ActionKind;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -21,6 +24,8 @@ pub enum StepChoice {
     Each,
     Menu,
     Stop,
+    /// A ready-made action.
+    Do(&'static ActionDef),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -29,15 +34,21 @@ pub enum StepGroup {
     Desktop,
     Ask,
     Logic,
+    Text,
+    Capture,
+    Web,
     Script,
 }
 
 impl StepGroup {
-    pub const ALL: [StepGroup; 5] = [
+    pub const ALL: [StepGroup; 8] = [
         StepGroup::Apps,
         StepGroup::Desktop,
         StepGroup::Ask,
         StepGroup::Logic,
+        StepGroup::Text,
+        StepGroup::Capture,
+        StepGroup::Web,
         StepGroup::Script,
     ];
 
@@ -47,7 +58,19 @@ impl StepGroup {
             StepGroup::Desktop => "Desktop",
             StepGroup::Ask => "Ask and notify",
             StepGroup::Logic => "Logic",
+            StepGroup::Text => "Text and clipboard",
+            StepGroup::Capture => "Capture",
+            StepGroup::Web => "Web",
             StepGroup::Script => "Script",
+        }
+    }
+
+    /// A word for the group's filter in the step list.
+    pub fn short_label(self) -> &'static str {
+        match self {
+            StepGroup::Ask => "Ask",
+            StepGroup::Text => "Text",
+            other => other.label(),
         }
     }
 
@@ -60,7 +83,20 @@ impl StepGroup {
             StepGroup::Desktop => theme.cyan,
             StepGroup::Ask => theme.magenta,
             StepGroup::Logic => theme.yellow,
-            StepGroup::Script => theme.green,
+            StepGroup::Text => theme.green,
+            StepGroup::Capture => theme.red,
+            StepGroup::Web => theme.blue_light,
+            StepGroup::Script => theme.muted_foreground,
+        }
+    }
+
+    pub fn of_action(group: ActionGroup) -> Self {
+        match group {
+            ActionGroup::Text => StepGroup::Text,
+            ActionGroup::Apps => StepGroup::Apps,
+            ActionGroup::Desktop => StepGroup::Desktop,
+            ActionGroup::Capture => StepGroup::Capture,
+            ActionGroup::Web => StepGroup::Web,
         }
     }
 }
@@ -87,8 +123,8 @@ macro_rules! step_types {
     };
 }
 
-/// In the order the picker lists them.
-pub const STEP_TYPES: &[StepType] = step_types! {
+/// The kinds with a form of their own.
+const BUILT_IN: &[StepType] = step_types! {
     StepChoice::Action(ActionKind::App), "Open an app", "icons/app-window.svg", Apps, "launch start focus program";
     StepChoice::Action(ActionKind::WebApp), "Open a web app", "icons/globe.svg", Apps, "site url browser link";
     StepChoice::Action(ActionKind::Terminal), "Run in a terminal", "icons/square-terminal.svg", Apps, "tui shell console";
@@ -114,9 +150,35 @@ pub const STEP_TYPES: &[StepType] = step_types! {
     StepChoice::Action(ActionKind::Command), "Run a command", "icons/terminal.svg", Script, "shell exec script bash";
 };
 
+/// Every kind of step, in the order the picker lists them: group by
+/// group, the kinds with their own form first, then the ready-made
+/// actions of that group.
+pub fn step_types() -> &'static [StepType] {
+    static ALL: LazyLock<Vec<StepType>> = LazyLock::new(|| {
+        let mut all = Vec::new();
+        for group in StepGroup::ALL {
+            all.extend(BUILT_IN.iter().filter(|t| t.group == group).copied());
+            all.extend(
+                ACTIONS
+                    .iter()
+                    .filter(|action| StepGroup::of_action(action.group) == group)
+                    .map(|action| StepType {
+                        choice: StepChoice::Do(action),
+                        label: action.label,
+                        icon: action.icon,
+                        group,
+                        keywords: action.keywords,
+                    }),
+            );
+        }
+        all
+    });
+    &ALL
+}
+
 impl StepChoice {
     pub fn info(self) -> &'static StepType {
-        STEP_TYPES
+        step_types()
             .iter()
             .find(|t| t.choice == self)
             .expect("every choice is listed")
@@ -139,13 +201,19 @@ impl StepChoice {
             StepKind::Each { .. } => StepChoice::Each,
             StepKind::Menu { .. } => StepChoice::Menu,
             StepKind::Stop => StepChoice::Stop,
+            StepKind::Action { action, .. } => StepChoice::Do(actions::find(action)?),
             StepKind::Exec { .. } | StepKind::Lua { .. } | StepKind::Flow { .. } => return None,
         })
     }
 
     /// Whether the step has anything to fill in.
     pub fn has_form(self) -> bool {
-        self != StepChoice::Stop
+        match self {
+            StepChoice::Stop => false,
+            // An action with nothing to set and nothing to save.
+            StepChoice::Do(action) => !action.fields.is_empty() || action.has_output(),
+            _ => true,
+        }
     }
 
     /// The name a new step of this kind saves its output under, so its
@@ -157,6 +225,7 @@ impl StepChoice {
             StepChoice::PickFile => Some("file"),
             StepChoice::PickFolder => Some("folder"),
             StepChoice::Menu => Some("pick"),
+            StepChoice::Do(action) if action.has_output() => Some(action.saves_as),
             _ => None,
         }
     }
@@ -196,7 +265,7 @@ fn words(query: &str) -> Vec<String> {
 /// `query`, in list order.
 pub fn search(query: &str) -> Vec<&'static StepType> {
     let words = words(query);
-    STEP_TYPES
+    step_types()
         .iter()
         .filter(|t| rank(t, &words).is_some())
         .collect()
@@ -216,19 +285,19 @@ pub fn best_match(query: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{STEP_TYPES, StepChoice, best_match, search};
+    use super::{StepChoice, best_match, search, step_types};
     use crate::system::keybinds::action::ActionKind;
 
     #[test]
     fn every_action_kind_is_listed_once() {
         for kind in ActionKind::ALL {
-            let count = STEP_TYPES
+            let count = step_types()
                 .iter()
                 .filter(|t| t.choice == StepChoice::Action(kind))
                 .count();
             assert_eq!(count, 1, "{kind:?}");
         }
-        for step in STEP_TYPES {
+        for step in step_types() {
             let embedded =
                 gpui::AssetSource::load(&crate::assets::CombinedAssets::new(), step.icon);
             assert!(
@@ -242,8 +311,11 @@ mod tests {
     #[test]
     fn search_matches_names_groups_and_keywords() {
         let labels = |q: &str| -> Vec<&str> { search(q).iter().map(|t| t.label).collect() };
-        assert_eq!(labels("").len(), STEP_TYPES.len());
-        assert_eq!(labels("folder"), vec!["Pick a folder"]);
+        assert_eq!(labels("").len(), step_types().len());
+        assert_eq!(
+            labels("folder"),
+            vec!["Open a file or folder", "Pick a folder"]
+        );
         assert_eq!(labels("pause"), vec!["Wait"]);
         assert_eq!(labels("else"), vec!["If"]);
         assert!(labels("ask").contains(&"Confirm"), "the group name matches");
@@ -253,12 +325,15 @@ mod tests {
     #[test]
     fn the_best_match_is_the_name_that_starts_with_the_query() {
         let best = |q: &str| search(q)[best_match(q)].label;
-        assert_eq!(best(""), STEP_TYPES[0].label);
+        assert_eq!(best(""), step_types()[0].label);
         // "notify" is also in the group name of every asking step.
         assert_eq!(best("notify"), "Notify");
         assert_eq!(best("ask"), "Ask for text");
-        assert_eq!(best("fold"), "Pick a folder");
+        assert_eq!(best("pick a fol"), "Pick a folder");
         assert_eq!(best("comm"), "Run a command");
+        assert_eq!(best("volume"), "Set the volume");
+        assert_eq!(best("screenshot"), "Take a screenshot");
+        assert_eq!(best("copy"), "Copy to the clipboard");
         assert_eq!(best("repeat"), "Repeat");
         assert_eq!(best("each"), "Repeat with each");
     }

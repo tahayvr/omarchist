@@ -12,6 +12,7 @@ use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::overrides::is_dsp_call;
 use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
+pub mod actions;
 pub mod condition;
 pub mod launcher;
 pub mod prompt;
@@ -356,6 +357,12 @@ pub enum StepKind {
     },
     /// Ends the flow here, as finished.
     Stop,
+    /// A ready-made action from [`actions::ACTIONS`], with its fields.
+    Action {
+        action: String,
+        #[serde(flatten)]
+        args: actions::Args,
+    },
 }
 
 /// One entry of a `menu` step with the steps it runs.
@@ -441,6 +448,9 @@ impl StepKind {
                 }
                 names
             }
+            StepKind::Action { action, args } => actions::find(action)
+                .map(|def| def.references(args))
+                .unwrap_or_default(),
             StepKind::Wait { .. }
             | StepKind::Flow { .. }
             | StepKind::Repeat { .. }
@@ -452,15 +462,18 @@ impl StepKind {
     /// the flow waits for (its stdout), a nested flow (its last output),
     /// and the steps that ask (the answer).
     pub fn has_output(&self) -> bool {
-        matches!(
-            self,
+        match self {
             StepKind::Exec { wait: true, .. }
-                | StepKind::Flow { .. }
-                | StepKind::Ask { .. }
-                | StepKind::Choose { .. }
-                | StepKind::Pick { .. }
-                | StepKind::Menu { .. }
-        )
+            | StepKind::Flow { .. }
+            | StepKind::Ask { .. }
+            | StepKind::Choose { .. }
+            | StepKind::Pick { .. }
+            | StepKind::Menu { .. } => true,
+            StepKind::Action { action, .. } => {
+                actions::find(action).is_some_and(|def| def.has_output())
+            }
+            _ => false,
+        }
     }
 
     /// Whether the step exists only since format 2.
@@ -474,7 +487,8 @@ impl StepKind {
             | StepKind::Repeat { .. }
             | StepKind::Each { .. }
             | StepKind::Menu { .. }
-            | StepKind::Stop => true,
+            | StepKind::Stop
+            | StepKind::Action { .. } => true,
             StepKind::Notify { on_click, .. } => on_click.is_some(),
             _ => false,
         }
@@ -599,6 +613,10 @@ impl StepKind {
                     .join(", ")
             ),
             StepKind::Stop => "stop".to_string(),
+            StepKind::Action { action, args } => match actions::find(action) {
+                Some(def) => def.title(args),
+                None => format!("action {action}"),
+            },
         }
     }
 
@@ -867,6 +885,18 @@ impl Flow {
                 StepKind::Each { items, .. } if items.trim().is_empty() => {
                     return fail("there is nothing to repeat with".to_string());
                 }
+                StepKind::Action { action, args } => match actions::find(action) {
+                    Some(def) => {
+                        if let Err(message) = def.validate(args) {
+                            return fail(message);
+                        }
+                    }
+                    None => {
+                        return fail(format!(
+                            "this Omarchist has no action '{action}'; a newer one may"
+                        ));
+                    }
+                },
                 StepKind::Menu { prompt, choices } => {
                     if prompt.trim().is_empty() {
                         return fail("a question is missing".to_string());
@@ -1948,6 +1978,58 @@ mod block_tests {
             "Sleep was renamed in place"
         );
         assert!(choices[2].steps.is_empty(), "a new choice starts empty");
+    }
+
+    #[test]
+    fn an_actions_fields_sit_next_to_its_name() {
+        use super::actions::{Arg, Args};
+        let args: Args = [("level".to_string(), Arg::Number(40))].into();
+        let volume = Step::new(StepKind::Action {
+            action: "volume.set".into(),
+            args,
+        });
+        let args: Args = [
+            ("text".to_string(), Arg::Text("{{clipboard}}".into())),
+            ("to".to_string(), Arg::Text("upper".into())),
+        ]
+        .into();
+        let case = Step::new(StepKind::Action {
+            action: "text.case".into(),
+            args,
+        })
+        .saving("loud")
+        .off();
+        let with_actions = flow(vec![volume, case]);
+        assert!(
+            with_actions.validate().is_ok(),
+            "{:?}",
+            with_actions.validate()
+        );
+        let text = with_actions.to_toml().unwrap();
+        assert!(
+            text.contains("[[step]]\ntype = \"action\"\naction = \"volume.set\"\nlevel = 40\n"),
+            "{text}"
+        );
+        assert!(
+            text.contains(
+                "type = \"action\"\naction = \"text.case\"\ntext = \"{{clipboard}}\"\nto = \"upper\"\nenabled = false\noutput = \"loud\"\n"
+            ),
+            "{text}"
+        );
+        assert_eq!(parse_flow(&text).unwrap().steps, with_actions.steps);
+        assert!(with_actions.steps[1].has_output());
+        assert!(!with_actions.steps[0].has_output());
+
+        // A field the action does not have, or a value out of range.
+        for bad in [
+            "type = \"action\"\naction = \"volume.set\"\nlevel = 400\n",
+            "type = \"action\"\naction = \"volume.set\"\nloudness = 4\n",
+            "type = \"action\"\naction = \"no.such.action\"\n",
+            "type = \"action\"\naction = \"clipboard.set\"\n",
+        ] {
+            let parsed = parse_flow(&format!("name = \"X\"\n[[step]]\n{bad}")).unwrap();
+            assert!(parsed.validate_content().is_err(), "{bad} passed");
+        }
     }
 
     #[test]

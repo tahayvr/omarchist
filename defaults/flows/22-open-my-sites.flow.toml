@@ -10,9 +10,10 @@ on_error = "continue"
 author = "Omarchist"
 
 [[step]]
-type = "exec"
-command = "printf '%s\\n' https://omarchy.org https://github.com https://news.ycombinator.com"
-wait = true
+type = "action"
+action = "text.split"
+text = "https://omarchy.org, https://github.com, https://news.ycombinator.com"
+by = ","
 output = "sites"
 
 [[step]]
@@ -20,8 +21,9 @@ type = "each"
 items = "{{sites}}"
 
 [[step.do]]
-type = "exec"
-command = "xdg-open {{item}}"
+type = "action"
+action = "open.link"
+url = "{{item}}"
 
 [[step.do]]
 type = "wait"
