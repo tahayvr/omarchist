@@ -73,3 +73,12 @@ lto = true          # Enable Link-Time Optimization
 codegen-units = 1   # Reduce parallel code generation units
 panic = 'abort'     # Abort on panic instead of unwinding
 strip = true        # Automatically strip symbols from the binary
+
+# The headless UI tests spend their time laying out frames, in taffy's
+# generic code as gpui instantiates it. Unoptimized, one frame of the flow
+# editor takes about 100 ms and the UI tests four times as long.
+[profile.dev.package.taffy]
+opt-level = 3
+
+[profile.dev.package.gpui-pre]
+opt-level = 1
