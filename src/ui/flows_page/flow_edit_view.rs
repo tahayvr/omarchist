@@ -25,7 +25,9 @@ use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
 };
 use crate::system::flows::templates::template;
-use crate::system::flows::{Flow, ICONS, OnError, Step, StepKind, StepPath, unique_id};
+use crate::system::flows::{
+    Flow, ICONS, InputFallback, OnError, Step, StepKind, StepPath, unique_id,
+};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
 use crate::system::keybinds::replay::scan_keybinds;
@@ -47,6 +49,7 @@ use crate::ui::keybinds_page::keybind_dialog::{
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
 use crate::ui::text::selectable;
+use gpui_kit::TestSupportExt;
 
 const KEY_CONTEXT: &str = "FlowEditPage";
 /// Wraps the step list: up/down select, Enter edits, Alt+arrows reorder.
@@ -119,6 +122,7 @@ pub struct FlowEditPage {
     name: Entity<InputState>,
     description: Entity<InputState>,
     icon_focus: FocusHandle,
+    input_focus: FocusHandle,
     pub(super) steps_focus: FocusHandle,
     /// The line of the step list the keyboard is on.
     pub(super) selected: Option<RowKey>,
@@ -212,6 +216,7 @@ impl FlowEditPage {
             name,
             description,
             icon_focus: focus::tab_stop(cx),
+            input_focus: focus::tab_stop(cx),
             steps_focus: focus::tab_stop(cx),
             selected: None,
             running: false,
@@ -868,7 +873,88 @@ impl FlowEditPage {
             )
     }
 
-    fn render_triggers(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// Whether the flow reads `{{input}}` anywhere, or is set up to get one.
+    fn uses_input(&self) -> bool {
+        !self.flow.input.is_none()
+            || self.flow.triggers.files
+            || self
+                .flow
+                .walk()
+                .iter()
+                .any(|(_, step)| step.kind.references().iter().any(|name| name == "input"))
+    }
+
+    /// Where the input comes from when the flow is started with none. Only
+    /// shown for a flow that uses its input.
+    fn render_input_fallback(
+        &self,
+        window: &Window,
+        cx: &mut Context<Self>,
+    ) -> Option<impl IntoElement + use<>> {
+        if !self.uses_input() {
+            return None;
+        }
+        let theme = cx.theme();
+        let focused = self.input_focus.is_focused(window);
+        let ring = focus::focus_border(focused, theme.transparent, cx);
+        let cycle = |this: &mut Self, delta: isize, cx: &mut Context<Self>| {
+            let all = InputFallback::ALL;
+            let ix = all.iter().position(|f| *f == this.flow.input).unwrap_or(0) as isize;
+            this.flow.input = all[(ix + delta).rem_euclid(all.len() as isize) as usize];
+            cx.notify();
+        };
+        Some(
+            v_flex()
+                .gap_1()
+                .child(Self::label("Started without input, use"))
+                .child(
+                    h_flex().child(
+                        h_flex()
+                            .id("flow-input-fallback")
+                            .test_support()
+                            .key_context(FILTERS_CONTEXT)
+                            .track_focus(&self.input_focus)
+                            .on_action(cx.listener(
+                                move |this, _: &keybinds_nav::FilterPrev, _, cx| {
+                                    cycle(this, -1, cx)
+                                },
+                            ))
+                            .on_action(cx.listener(
+                                move |this, _: &keybinds_nav::FilterNext, _, cx| cycle(this, 1, cx),
+                            ))
+                            .rounded(theme.radius)
+                            .border_1()
+                            .border_color(ring)
+                            .p_0p5()
+                            .gap_1()
+                            .flex_wrap()
+                            .children(InputFallback::ALL.into_iter().enumerate().map(
+                                |(ix, fallback)| {
+                                    let button = Button::new(("flow-input-fallback", ix))
+                                        .label(fallback.label())
+                                        .small()
+                                        .tab_stop(false)
+                                        .cursor_pointer();
+                                    let button = if self.flow.input == fallback {
+                                        button.primary()
+                                    } else {
+                                        button.ghost()
+                                    };
+                                    button.on_click(cx.listener(move |this, _, _, cx| {
+                                        this.flow.input = fallback;
+                                        cx.notify();
+                                    }))
+                                },
+                            )),
+                    ),
+                ),
+        )
+    }
+
+    fn render_triggers(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let input_fallback = self
+            .render_input_fallback(window, cx)
+            .map(|e| e.into_any_element());
         let theme = cx.theme();
         let is_new = self.is_new();
         let command = if is_new {
@@ -966,6 +1052,18 @@ impl FlowEditPage {
                 ),
             )
             .child(
+                div().text_sm().child(
+                    FocusableSwitch::new("flow-trigger-files")
+                        .label("Files menu, on selected files")
+                        .checked(self.flow.triggers.files)
+                        .on_change(cx.listener(|this, checked, _, cx| {
+                            this.flow.triggers.files = *checked;
+                            cx.notify();
+                        })),
+                ),
+            )
+            .children(input_fallback)
+            .child(
                 v_flex()
                     .gap_1()
                     .child(Self::label("Command line"))
@@ -1023,7 +1121,7 @@ impl Render for FlowEditPage {
             .gap_4()
             .when(wide, |this| this.w(px(380.)).flex_shrink_0())
             .child(self.render_details(window, cx))
-            .child(self.render_triggers(cx));
+            .child(self.render_triggers(window, cx));
         let steps = div()
             .flex_1()
             .min_w_0()

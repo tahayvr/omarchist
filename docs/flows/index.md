@@ -56,10 +56,13 @@ The id comes from the flow's name and never changes, so renaming a flow breaks n
 - **Keybind** opens the keybind editor with the flow chosen as the action. The same bind appears on the [Keybinds](/configuring/keybinds) page.
 - **App launcher** adds the flow to your app menu with its own icon.
 - **At startup** runs it after every login through Omarchy's `post-boot` hook.
+- **Files menu, on selected files** adds it to the Files app's right-click **Scripts** menu. The files you picked become the flow's [input](/flows/input).
+
+A flow can be given something to work on: words on the command line, piped text, files, or the text you have selected. See [Input](/flows/input).
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships twenty-seven built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow file without an id. Omarchist ships twenty-eight built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -76,13 +79,13 @@ A template is a flow file without an id. Omarchist ships twenty-seven built-in o
 | **Wind down** | Turns on the night light, dims the screen to 30%, and lowers the volume to 20%. |
 | **Battery saver** | Switches to the power-saver profile, dims the screen to 40%, and turns off the keyboard backlight. |
 | **Fix my connection** | Restarts Wi-Fi, Bluetooth, and audio. |
-| **Search selection** | Searches the web for the text you have selected. Uses a [variable](/flows/variables) in a [ready-made action](/flows/actions). |
+| **Search selection** | Searches the web for the text you have selected, or for the words you start it with. Uses [input](/flows/input) in a [ready-made action](/flows/actions). |
 | **Daily note** | Opens today's note (`~/Notes/<date>.md`) in your editor, creating it the first time. |
 | **Clipboard log** | Adds what you copied to `~/clipboard-log.txt`, with the date and time, and shows it. |
 | **Where am I** | Shows the app, window and workspace you are on. |
 | **Quick note** | Asks for a line and adds it to `~/Notes/inbox.md`. Click the notification to open the file. Uses [steps that ask](/flows/asking). |
 | **Close an app** | Lists the apps that are open and closes the one you pick, after you confirm. |
-| **Wallpaper from a file** | Lets you pick a picture and sets it as your wallpaper. |
+| **Wallpaper from a file** | Sets a picture as your wallpaper: the file you start it on, or one you pick. |
 | **Empty the trash** | Asks first, then empties the trash. |
 | **Open copied link** | Opens the link on your clipboard, or tells you there is none. Uses [If and Stop](/flows/logic). |
 | **Power by charger** | On battery: the power-saver profile and a dimmer screen. Plugged in: balanced and bright. |
@@ -93,6 +96,7 @@ A template is a flow file without an id. Omarchist ships twenty-seven built-in o
 | **Weather now** | Shows the weather where you are, from wttr.in, in a notification. |
 | **Tidy copied text** | Trims what you copied, turns it into Title Case, and copies it back. |
 | **Pick a color** | Pick any color on screen; click the notification to copy its code. |
+| **Archive files** | Packs the files you start it on into one archive in your home folder. Made for the **Files menu**. |
 
 The templates that change settings set things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 
@@ -141,5 +145,6 @@ body = "Everything else can wait"
 
 - Step types are `exec` (with optional `wait = true`), `lua` (only `hl.dsp.*(...)` calls), `wait` (`ms`), `notify` (`title`, `body`), `flow` (`id`), the [steps that ask](/flows/asking#in-the-flow-file), the [steps that hold steps](/flows/logic#in-the-flow-file), and `action` for a [ready-made action](/flows/actions#in-the-flow-file). `enabled = false` skips a step. `output = "name"` saves a step's output for later steps; see [Variables](/flows/variables).
 - `format` is the file layout version. Omarchist writes format 1 unless the flow uses something newer (variables, steps that ask, If and Repeat, ready-made actions), which needs format 2. A file for a newer format is refused with a message to update; a file without the line is read as format 1.
+- `input` and `[triggers]` `files` are described under [Input](/flows/input#in-the-flow-file).
 - `[meta]` is optional: `author`, `version`, `homepage`, `tags`, `requires` (programs the flow expects), and `source` (the URL it was imported from).
 - A file without an `id` takes its file name as the id, so `night-shift.toml` or `night-shift.flow.toml` copied in just works.

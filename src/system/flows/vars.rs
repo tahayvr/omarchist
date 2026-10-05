@@ -26,6 +26,7 @@ pub const BUILTINS: &[(&str, &str)] = &[
     ("window", "The focused window's title"),
     ("app", "The focused window's app"),
     ("workspace", "The current workspace"),
+    ("input", "What the flow was started with"),
 ];
 
 /// Names the loop steps set for the steps inside them: the current line

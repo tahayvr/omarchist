@@ -47,6 +47,7 @@ A step can use the built-in variables and any name a step written **before** it 
 | `{{window}}` | The focused window's title. |
 | `{{app}}` | The focused window's app. |
 | `{{workspace}}` | The current workspace. |
+| `{{input}}` | What the flow was started with. See [Input](/flows/input). |
 
 A built-in is read the first time a step in the run uses it. An empty clipboard reads as empty text.
 

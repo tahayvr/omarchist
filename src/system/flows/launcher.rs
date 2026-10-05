@@ -1,6 +1,7 @@
 //! The files that let other parts of the desktop start a flow: a `.desktop`
-//! entry for the app launcher and a script in Omarchy's `post-boot` hook
-//! directory for startup.
+//! entry for the app launcher, a script in Omarchy's `post-boot` hook
+//! directory for startup, and a script in the file manager's Scripts menu
+//! that runs the flow on the selected files.
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
 use std::path::PathBuf;
@@ -43,6 +44,102 @@ pub fn startup_hook_path(id: &str) -> Result<PathBuf> {
     Ok(home()?
         .join(".config/omarchy/hooks/post-boot.d")
         .join(format!("omarchist-flow-{id}")))
+}
+
+/// `$XDG_DATA_HOME/nautilus/scripts`, whose executables Files lists under
+/// Scripts in its right-click menu.
+pub fn file_scripts_dir() -> Result<PathBuf> {
+    Ok(data_dir()?.join("nautilus/scripts"))
+}
+
+/// The line that marks a script as a flow's, whatever the file is called.
+fn file_script_marker(id: &str) -> String {
+    format!("# omarchist-flow: {id}")
+}
+
+/// The menu entry's script. Files hands the selected paths over as
+/// arguments, which become the flow's input, one per line.
+pub fn file_script(flow: &Flow) -> String {
+    format!(
+        "#!/bin/sh
+# Managed by Omarchist: runs the '{}' flow on the selected files.
+{}
+exec {} flow run {} -- \"$@\"
+",
+        flow.id,
+        file_script_marker(&flow.id),
+        shell_quote(&omarchist_binary()),
+        flow.id
+    )
+}
+
+/// The file name is what the menu shows, so it is the flow's name, without
+/// what a file name cannot hold.
+fn file_script_name(flow: &Flow) -> String {
+    let name: String = flow
+        .name
+        .trim()
+        .chars()
+        .map(|c| if c == '/' || c.is_control() { ' ' } else { c })
+        .collect();
+    let name = name.trim().trim_start_matches('.').to_string();
+    if name.is_empty() {
+        flow.id.clone()
+    } else {
+        name
+    }
+}
+
+/// Every script in the Scripts folder that belongs to the flow `id`: the
+/// file is named after the flow, which can be renamed, so they are found
+/// by their marker line.
+pub fn file_scripts_of(id: &str) -> Vec<PathBuf> {
+    let Ok(dir) = file_scripts_dir() else {
+        return Vec::new();
+    };
+    let marker = file_script_marker(id);
+    fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|entry| entry.path())
+        .filter(|path| {
+            path.is_file()
+                && fs::read_to_string(path)
+                    .is_ok_and(|text| text.lines().any(|line| line == marker))
+        })
+        .collect()
+}
+
+/// Writes the flow's Scripts entry under its current name and removes any
+/// it had under an older one, or removes them all when the trigger is off.
+fn sync_file_script(flow: &Flow) -> Result<()> {
+    let wanted = flow
+        .triggers
+        .files
+        .then(|| Ok::<_, Error>(file_scripts_dir()?.join(file_script_name(flow))))
+        .transpose()?;
+    for old in file_scripts_of(&flow.id) {
+        if Some(&old) != wanted.as_ref() {
+            remove(&old, "file manager entry")?;
+        }
+    }
+    if let Some(path) = wanted {
+        let text = file_script(flow);
+        // A file of that name that is not this flow's is someone else's.
+        if path.exists() && !file_scripts_of(&flow.id).contains(&path) {
+            return Err(Error::Invalid(format!(
+                "The file manager already has a script named '{}'",
+                file_script_name(flow)
+            )));
+        }
+        if fs::read_to_string(&path).ok().as_deref() != Some(text.as_str()) {
+            write(&path, &text, "file manager entry")?;
+        }
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o755))
+            .map_err(|e| Error::io("Failed to make the file manager entry executable", e))?;
+    }
+    Ok(())
 }
 
 /// The desktop entry text. Field codes only apply to `Exec`, which is fixed
@@ -115,6 +212,9 @@ pub fn refresh_all(flows: &[Flow]) -> Result<()> {
                     .map_err(|e| Error::io("Failed to make the startup hook executable", e))?;
             }
         }
+        if flow.triggers.files {
+            sync_file_script(flow)?;
+        }
     }
     Ok(())
 }
@@ -170,13 +270,24 @@ pub fn sync_triggers(flow: &Flow) -> Result<()> {
     } else {
         remove(&hook, "startup hook")?;
     }
-    Ok(())
+    sync_file_script(flow)
 }
 
 pub fn remove_triggers(id: &str) -> Result<()> {
     remove(&desktop_entry_path(id)?, "launcher entry")?;
     remove(&icon_file_path(id)?, "flow icon")?;
-    remove(&startup_hook_path(id)?, "startup hook")
+    remove(&startup_hook_path(id)?, "startup hook")?;
+    for script in file_scripts_of(id) {
+        remove(&script, "file manager entry")?;
+    }
+    Ok(())
+}
+
+/// Whether the flow `id` has any file outside Omarchist's own folders.
+pub fn has_trigger_files(id: &str) -> bool {
+    desktop_entry_path(id).is_ok_and(|p| p.exists())
+        || startup_hook_path(id).is_ok_and(|p| p.exists())
+        || !file_scripts_of(id).is_empty()
 }
 
 #[cfg(test)]
@@ -211,6 +322,26 @@ mod tests {
             !hook.contains("Morning 100%"),
             "the hook names the id, never the free-text name"
         );
+    }
+
+    #[test]
+    fn the_file_manager_script_passes_the_files_on_as_input() {
+        let mut flow = Flow::new("archive".into(), " Archive / these\nfiles ".into());
+        flow.triggers.files = true;
+        let script = file_script(&flow);
+        assert!(script.starts_with("#!/bin/sh\n"));
+        assert!(script.contains("\n# omarchist-flow: archive\n"));
+        assert!(
+            script.ends_with(&format!(
+                "exec {} flow run archive -- \"$@\"\n",
+                shell_quote(&omarchist_binary())
+            )),
+            "{script}"
+        );
+        // What the menu shows is the name, as a file name.
+        assert_eq!(file_script_name(&flow), "Archive   these files");
+        flow.name = "/".into();
+        assert_eq!(file_script_name(&flow), "archive");
     }
 
     #[test]

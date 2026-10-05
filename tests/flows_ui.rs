@@ -1179,3 +1179,79 @@ fn actions_pass_their_results_on_in_a_run(cx: &mut TestAppContext) {
         );
     });
 }
+
+// MARK: Input
+
+use omarchist::system::flows::InputFallback;
+
+#[gpui_kit::test]
+fn a_flow_that_uses_its_input_says_where_it_comes_from(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+
+    with(cx, handle, |window, _| {
+        assert!(
+            window.try_find("flow-input-fallback").is_none(),
+            "nothing to choose for a flow that reads no input"
+        );
+    });
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "notify");
+    with(cx, handle, |window, cx| {
+        window.click("step-variable-input", cx);
+        window.click("step-save", cx);
+    });
+    settle(cx, handle);
+
+    with(cx, handle, |window, cx| {
+        assert!(window.find("flow-input-fallback").visible());
+        // Nothing, Selected text, Clipboard, Ask.
+        window.click(("flow-input-fallback", 1usize), cx);
+    });
+    assert_eq!(edited_flow(cx, &view).input, InputFallback::Selection);
+
+    with(cx, handle, |window, cx| {
+        window.click(("flow-input-fallback", 2usize), cx)
+    });
+    assert_eq!(edited_flow(cx, &view).input, InputFallback::Clipboard);
+}
+
+#[gpui_kit::test]
+fn the_files_menu_is_a_trigger(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+
+    assert!(!edited_flow(cx, &view).triggers.files);
+    with(cx, handle, |window, cx| {
+        window.click("flow-trigger-files", cx)
+    });
+    let flow = edited_flow(cx, &view);
+    assert!(flow.triggers.files);
+    with(cx, handle, |window, cx| {
+        window.render_frame(cx);
+        assert!(
+            window.find("flow-input-fallback").visible(),
+            "a flow run on files gets input"
+        );
+    });
+}
+
+#[gpui_kit::test]
+fn run_a_flow_can_hand_it_input(cx: &mut TestAppContext) {
+    write_flow("ui-three-steps", THREE_STEPS);
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "run a flow");
+
+    with(cx, handle, |window, cx| {
+        assert!(window.find("flow-input").visible());
+        window.click("flow-input", cx);
+        window.input("hello", cx);
+    });
+    settle(cx, handle);
+    // Without a flow picked there is nothing to add.
+    with(cx, handle, |window, cx| window.click("step-save", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx))
+    });
+    assert!(edited_flow(cx, &view).steps.is_empty());
+}

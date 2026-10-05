@@ -162,6 +162,7 @@ impl RenderOnce for FocusableSwitch {
 
         h_flex()
             .id(self.id)
+            .test_support()
             .track_focus(&focus_handle)
             .gap_3()
             .items_center()

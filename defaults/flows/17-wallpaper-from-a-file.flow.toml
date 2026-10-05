@@ -2,7 +2,7 @@
 
 format = 2
 name = "Wallpaper from a file"
-description = "Lets you pick a picture and sets it as your wallpaper."
+description = "Sets a picture as your wallpaper: the file you start it on, or one you pick."
 icon = "palette"
 on_error = "stop"
 
@@ -10,11 +10,24 @@ on_error = "stop"
 author = "Omarchist"
 
 [[step]]
+type = "if"
+check = "empty"
+value = "{{input}}"
+
+[[step.then]]
 type = "pick"
 prompt = "Pick a wallpaper"
 output = "picture"
 
-[[step]]
+[[step.then]]
 type = "exec"
 command = "omarchy-theme-bg-set {{picture}}"
+wait = true
+
+[[step.then]]
+type = "stop"
+
+[[step]]
+type = "exec"
+command = "omarchy-theme-bg-set {{input}}"
 wait = true

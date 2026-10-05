@@ -142,9 +142,13 @@ impl SummaryContext<'_> {
                     group: StepGroup::Ask,
                 }
             }
-            StepKind::Flow { id } => StepSummary {
+            StepKind::Flow { id, input } => StepSummary {
                 icon: StepIcon::Path(ActionKind::Flow.icon_path()),
-                title: format!("Run flow {}", self.flow_name(id)),
+                title: if input.trim().is_empty() {
+                    format!("Run flow {}", self.flow_name(id))
+                } else {
+                    format!("Run flow {} with {}", self.flow_name(id), input.trim())
+                },
                 detail,
                 group: StepGroup::Logic,
             },
@@ -420,7 +424,7 @@ mod tests {
             StepIcon::Image(PathBuf::from("/tmp/obsidian.png"))
         );
 
-        let flow = ctx.summarize(&StepKind::Flow { id: "focus".into() });
+        let flow = ctx.summarize(&StepKind::flow("focus"));
         assert_eq!(flow.title, "Run flow Focus mode");
         assert_eq!(flow.detail, "omarchist flow run focus");
 

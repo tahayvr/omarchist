@@ -1,4 +1,5 @@
-use std::io::{IsTerminal, Write};
+use std::io::{IsTerminal, Read, Write};
+use std::os::fd::AsFd;
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
@@ -103,6 +104,10 @@ pub enum FlowCommand {
     Run {
         /// The flow's name (case-insensitive) or id
         name: String,
+        /// What the flow gets as its input, after `--`: text, or files,
+        /// one per line. Piped text works too
+        #[arg(last = true)]
+        input: Vec<String>,
     },
     /// List every flow with its id
     List {
@@ -211,7 +216,7 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: FlowCommand::Import { source, yes },
         } => import(source, *yes),
         Command::Flow {
-            action: FlowCommand::Run { name },
+            action: FlowCommand::Run { name, input },
         } => {
             // The editor's guard on Lua steps applies to a hand-edited file
             // too, so nothing reaches `hyprctl dispatch` unchecked.
@@ -233,26 +238,28 @@ pub fn run_command(command: &Command) -> ExitCode {
             // Steps print under their number, indented by how deep they sit
             // inside other steps.
             let indent = |path: &[usize]| "  ".repeat(path.len().div_ceil(2));
-            let outcome = Runner::new(false).run(&flow, &mut |event| match event {
-                RunEvent::Started { path } => {
-                    if let Some(step) = flow.step_at(&path) {
-                        println!(
-                            "{}{}. {}",
-                            indent(&path),
-                            flow.step_number(&path),
-                            step.kind.text()
-                        );
+            let outcome = Runner::new(false)
+                .input(run_input(input))
+                .run(&flow, &mut |event| match event {
+                    RunEvent::Started { path } => {
+                        if let Some(step) = flow.step_at(&path) {
+                            println!(
+                                "{}{}. {}",
+                                indent(&path),
+                                flow.step_number(&path),
+                                step.kind.text()
+                            );
+                        }
                     }
-                }
-                RunEvent::Round { path, round, of } => {
-                    println!("{}  round {round} of {of}", indent(&path));
-                }
-                RunEvent::Finished {
-                    path,
-                    status: StepStatus::Failed(error),
-                } => eprintln!("{}   failed: {error}", indent(&path)),
-                RunEvent::Finished { .. } => {}
-            });
+                    RunEvent::Round { path, round, of } => {
+                        println!("{}  round {round} of {of}", indent(&path));
+                    }
+                    RunEvent::Finished {
+                        path,
+                        status: StepStatus::Failed(error),
+                    } => eprintln!("{}   failed: {error}", indent(&path)),
+                    RunEvent::Finished { .. } => {}
+                });
             let summary = outcome.summary(&flow);
             if outcome.cancelled && outcome.is_ok() {
                 // Dismissing a prompt is the person's choice, not a failure,
@@ -276,6 +283,31 @@ pub fn run_command(command: &Command) -> ExitCode {
             }
         }
     }
+}
+
+/// A flow's input from the command line: the words after `--`, one per
+/// line, or else what is piped in. A terminal, `/dev/null` (a keybind, the
+/// launcher), or anything else that is not a pipe or a file is not input.
+fn run_input(args: &[String]) -> Option<String> {
+    if !args.is_empty() {
+        return Some(args.join("\n"));
+    }
+    use std::os::unix::fs::FileTypeExt;
+    let stdin = std::io::stdin();
+    let kind = std::fs::File::from(stdin.as_fd().try_clone_to_owned().ok()?)
+        .metadata()
+        .ok()?
+        .file_type();
+    if !(kind.is_fifo() || kind.is_file()) {
+        return None;
+    }
+    let mut text = String::new();
+    stdin
+        .lock()
+        .take(crate::system::flows::vars::MAX_VALUE_BYTES as u64)
+        .read_to_string(&mut text)
+        .ok()?;
+    Some(text)
 }
 
 fn export(name: &str, output: Option<&PathBuf>) -> ExitCode {
@@ -579,9 +611,38 @@ mod tests {
             args.command,
             Some(Command::Flow {
                 action: FlowCommand::Run {
-                    name: "Morning start".into()
+                    name: "Morning start".into(),
+                    input: Vec::new(),
                 }
             })
+        );
+        // What follows `--` is the flow's input, dashes and all.
+        let args = CliArgs::parse_from([
+            "omarchist",
+            "flow",
+            "run",
+            "archive",
+            "--",
+            "a b.txt",
+            "--list",
+            "-x",
+        ]);
+        assert_eq!(
+            args.command,
+            Some(Command::Flow {
+                action: FlowCommand::Run {
+                    name: "archive".into(),
+                    input: vec!["a b.txt".into(), "--list".into(), "-x".into()],
+                }
+            })
+        );
+        assert_eq!(
+            run_input(&["a b.txt".to_string(), "c".to_string()]).as_deref(),
+            Some("a b.txt\nc")
+        );
+        assert!(
+            CliArgs::try_parse_from(["omarchist", "flow", "run", "archive", "stray"]).is_err(),
+            "input needs the `--`, so a typo is not taken for it"
         );
         let args = CliArgs::parse_from(["omarchist", "flow", "list"]);
         assert_eq!(

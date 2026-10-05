@@ -14,7 +14,9 @@ use super::condition::{Machine, Probe};
 use super::prompt::{Desktop, Prompter, menu_options};
 use super::store::load_flow;
 use super::vars::Vars;
-use super::{Flow, MAX_DEPTH, MAX_ROUNDS, OnClick, OnError, Step, StepKind, StepPath};
+use super::{
+    Flow, InputFallback, MAX_DEPTH, MAX_ROUNDS, OnClick, OnError, Step, StepKind, StepPath,
+};
 
 /// How one step ended.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -70,6 +72,9 @@ impl Outcome {
         match (self.failures.as_slice(), &self.stopped_at) {
             ([], _) if self.cancelled => format!("Flow '{}' cancelled", flow.name),
             ([], _) => format!("Flow '{}' finished", flow.name),
+            ([(path, error)], Some(_)) if path.is_empty() => {
+                format!("Flow '{}' could not start: {error}", flow.name)
+            }
             ([(path, error)], Some(_)) => {
                 format!(
                     "Flow '{}' stopped at step {}: {error}",
@@ -209,6 +214,8 @@ pub struct Runner<'a> {
     cancel: Cancel,
     /// How long a command that is not waited for gets to fail.
     start_grace: Duration,
+    /// What the flow is started with: its `{{input}}`.
+    input: Option<String>,
     /// Answers the steps that ask.
     prompter: &'a dyn Prompter,
     /// What `if` steps check the machine through.
@@ -223,6 +230,7 @@ impl<'a> Runner<'a> {
             quiet,
             cancel: Cancel::new(),
             start_grace: START_GRACE,
+            input: None,
             prompter: &Desktop,
             probe: &Machine,
         }
@@ -234,6 +242,7 @@ impl<'a> Runner<'a> {
             quiet,
             cancel: Cancel::new(),
             start_grace: START_GRACE,
+            input: None,
             prompter: &Desktop,
             probe: &Machine,
         }
@@ -243,6 +252,13 @@ impl<'a> Runner<'a> {
     /// desktop's menus.
     pub fn prompter(mut self, prompter: &'a dyn Prompter) -> Self {
         self.prompter = prompter;
+        self
+    }
+
+    /// Starts the flow with `input` as its `{{input}}`: arguments, piped
+    /// text, or the files picked in the file manager, one per line.
+    pub fn input(mut self, input: Option<String>) -> Self {
+        self.input = input.filter(|text| !text.trim().is_empty());
         self
     }
 
@@ -267,17 +283,45 @@ impl<'a> Runner<'a> {
 
     pub fn run(&self, flow: &Flow, on_event: &mut dyn FnMut(RunEvent)) -> Outcome {
         let mut stack = vec![flow.id.clone()];
-        self.run_nested(flow, &mut stack, on_event)
+        self.run_nested(flow, self.input.clone(), &mut stack, on_event)
     }
 
     fn run_nested(
         &self,
         flow: &Flow,
+        input: Option<String>,
         stack: &mut Vec<String>,
         on_event: &mut dyn FnMut(RunEvent),
     ) -> Outcome {
+        let mut vars = Vars::new();
+        // Started with nothing, the flow says where its input comes from.
+        let input = match input.filter(|text| !text.trim().is_empty()) {
+            Some(input) => input,
+            None => match flow.input {
+                InputFallback::None => String::new(),
+                InputFallback::Selection => vars.get("selection").unwrap_or_default(),
+                InputFallback::Clipboard => vars.get("clipboard").unwrap_or_default(),
+                InputFallback::Ask => match self.prompter.ask(&flow.name, &self.cancel) {
+                    Ok(Some(answer)) => answer,
+                    Ok(None) => {
+                        return Outcome {
+                            cancelled: true,
+                            ..Outcome::default()
+                        };
+                    }
+                    Err(e) => {
+                        return Outcome {
+                            failures: vec![(Vec::new(), e.to_string())],
+                            stopped_at: Some(Vec::new()),
+                            ..Outcome::default()
+                        };
+                    }
+                },
+            },
+        };
+        vars.set("input", &input);
         let mut run = Run {
-            vars: Vars::new(),
+            vars,
             stack,
             on_event,
             outcome: Outcome::default(),
@@ -431,7 +475,10 @@ impl<'a> Runner<'a> {
                 notify(&title, &body, click)?;
                 None
             }
-            StepKind::Flow { id } => self.run_flow_step(id, run.stack)?,
+            StepKind::Flow { id, input } => {
+                let input = vars.text(input)?;
+                self.run_flow_step(id, input, run.stack)?
+            }
             StepKind::Ask { prompt } => {
                 let prompt = vars.text(prompt)?;
                 Some(
@@ -680,6 +727,7 @@ impl<'a> Runner<'a> {
     fn run_flow_step(
         &self,
         id: &str,
+        input: String,
         stack: &mut Vec<String>,
     ) -> std::result::Result<Option<String>, Halt> {
         if stack.iter().any(|s| s == id) {
@@ -694,7 +742,7 @@ impl<'a> Runner<'a> {
         }
         let nested = (self.load)(id)?;
         stack.push(nested.id.clone());
-        let outcome = self.run_nested(&nested, stack, &mut |_| {});
+        let outcome = self.run_nested(&nested, Some(input), stack, &mut |_| {});
         stack.pop();
         if outcome.cancelled {
             Err(Halt::Cancelled)
@@ -905,7 +953,7 @@ mod tests {
         };
         let mut flow = Flow::new("t".into(), "T".into());
         flow.steps = vec![
-            saving(Step::new(StepKind::Flow { id: "child".into() }), "got"),
+            saving(Step::new(StepKind::flow("child")), "got"),
             exec("test {{got}} = from-child"),
         ];
         let outcome = Runner::with_loader(&load, true).run(&flow, &mut |_| {});
@@ -1188,10 +1236,7 @@ mod tests {
             }
         };
         let mut flow = Flow::new("t".into(), "T".into());
-        flow.steps = vec![
-            Step::new(StepKind::Flow { id: "child".into() }),
-            exec("exit 7"),
-        ];
+        flow.steps = vec![Step::new(StepKind::flow("child")), exec("exit 7")];
         let prompts = Scripted::new(&[None]);
         let outcome = Runner::with_loader(&load, true)
             .prompter(&prompts)
@@ -1551,6 +1596,87 @@ mod tests {
         assert!(outcome.cancelled && outcome.is_ok());
     }
 
+    // MARK: Input
+
+    use crate::system::flows::InputFallback;
+
+    #[test]
+    fn a_flow_reads_what_it_was_started_with() {
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![exec("test {{input}} = 'two words; $(false)'")];
+        let outcome = Runner::with_loader(&no_flows, true)
+            .input(Some("two words; $(false)".into()))
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+
+        // Started with nothing, the input is empty rather than missing.
+        flow.steps = vec![exec("test -z {{input}}")];
+        let (outcome, _) = events(&flow, &no_flows);
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .input(Some("  \n".into()))
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "blank input counts as none");
+    }
+
+    #[test]
+    fn a_flow_started_with_nothing_can_ask_for_its_input() {
+        let mut flow = Flow::new("t".into(), "Translate".into());
+        flow.input = InputFallback::Ask;
+        flow.steps = vec![exec("test {{input}} = typed")];
+        let prompts = Scripted::new(&[Some("typed")]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(prompts.asked(), vec!["ask Translate"]);
+
+        // Given input, it does not ask.
+        let prompts = Scripted::new(&[]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .input(Some("typed".into()))
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok());
+        assert!(prompts.asked().is_empty());
+
+        // Dismissing the question ends the flow before its first step.
+        let prompts = Scripted::new(&[None]);
+        let outcome = Runner::with_loader(&no_flows, true)
+            .prompter(&prompts)
+            .run(&flow, &mut |_| {});
+        assert!(outcome.cancelled && outcome.is_ok());
+        assert_eq!(outcome.ran, 0);
+    }
+
+    #[test]
+    fn a_flow_hands_input_to_the_flow_it_runs() {
+        let mut child = Flow::new("child".into(), "Child".into());
+        child.steps = vec![exec("printf '%s!' {{input}}")];
+        let load = move |id: &str| -> Result<Flow> {
+            if id == "child" {
+                Ok(child.clone())
+            } else {
+                Err(Error::Invalid(format!("no flow {id}")))
+            }
+        };
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            saving(
+                Step::new(StepKind::Flow {
+                    id: "child".into(),
+                    input: "from {{input}}".into(),
+                }),
+                "said",
+            ),
+            exec("test {{said}} = 'from parent!'"),
+        ];
+        let outcome = Runner::with_loader(&load, true)
+            .input(Some("parent".into()))
+            .run(&flow, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+    }
+
     // MARK: Ready-made actions
 
     use crate::system::flows::actions::{Arg, Args};
@@ -1638,7 +1764,7 @@ mod tests {
         let mut inner = Flow::new("inner".into(), "Inner".into());
         inner.steps = vec![exec("true")];
         let mut looping = Flow::new("loop".into(), "Loop".into());
-        looping.steps = vec![Step::new(StepKind::Flow { id: "outer".into() })];
+        looping.steps = vec![Step::new(StepKind::flow("outer"))];
         let loader = move |id: &str| match id {
             "inner" => Ok(inner.clone()),
             "loop" => Ok(looping.clone()),
@@ -1647,17 +1773,15 @@ mod tests {
 
         let mut outer = Flow::new("outer".into(), "Outer".into());
         outer.steps = vec![
-            Step::new(StepKind::Flow { id: "inner".into() }),
-            Step::new(StepKind::Flow { id: "loop".into() }),
+            Step::new(StepKind::flow("inner")),
+            Step::new(StepKind::flow("loop")),
         ];
         let (outcome, _) = events(&outer, &loader);
         assert_eq!(outcome.failures.len(), 1);
         assert_eq!(outcome.failures[0].0, vec![1]);
         assert!(outcome.failures[0].1.contains("already running"));
 
-        outer.steps = vec![Step::new(StepKind::Flow {
-            id: "missing".into(),
-        })];
+        outer.steps = vec![Step::new(StepKind::flow("missing"))];
         let (outcome, _) = events(&outer, &loader);
         assert!(outcome.failures[0].1.contains("no flow missing"));
     }

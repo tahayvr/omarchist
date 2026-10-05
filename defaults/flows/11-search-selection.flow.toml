@@ -2,9 +2,10 @@
 
 format = 2
 name = "Search selection"
-description = "Searches the web for the text you have selected."
+description = "Searches the web for the text you have selected, or for the text you start it with."
 icon = "globe"
 on_error = "stop"
+input = "selection"
 
 [meta]
 author = "Omarchist"
@@ -12,4 +13,4 @@ author = "Omarchist"
 [[step]]
 type = "action"
 action = "web.search"
-query = "{{selection}}"
+query = "{{input}}"

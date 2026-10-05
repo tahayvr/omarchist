@@ -75,6 +75,9 @@ pub struct Flow {
     /// Who made the flow and what it needs; what a shared file carries.
     #[serde(default, skip_serializing_if = "Meta::is_empty")]
     pub meta: Meta,
+    /// Where `{{input}}` comes from when the flow is started without any.
+    #[serde(default, skip_serializing_if = "InputFallback::is_none")]
+    pub input: InputFallback,
     /// Declared before `steps` so the TOML file lists it before the
     /// `[[step]]` tables rather than after them.
     #[serde(default, skip_serializing_if = "Triggers::is_empty")]
@@ -171,6 +174,44 @@ impl OnError {
     }
 }
 
+/// What `{{input}}` holds when a flow is started with nothing: no
+/// arguments, no piped text, no files, no flow that hands it something.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InputFallback {
+    /// Nothing: `{{input}}` is empty.
+    #[default]
+    None,
+    /// The text selected anywhere on screen.
+    Selection,
+    /// What is on the clipboard.
+    Clipboard,
+    /// What the person types when asked.
+    Ask,
+}
+
+impl InputFallback {
+    pub const ALL: [InputFallback; 4] = [
+        InputFallback::None,
+        InputFallback::Selection,
+        InputFallback::Clipboard,
+        InputFallback::Ask,
+    ];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            InputFallback::None => "Nothing",
+            InputFallback::Selection => "Selected text",
+            InputFallback::Clipboard => "Clipboard",
+            InputFallback::Ask => "Ask",
+        }
+    }
+
+    pub fn is_none(&self) -> bool {
+        *self == InputFallback::None
+    }
+}
+
 /// Where a flow can be started from, besides the command line and a keybind
 /// (which lives in the keybind overrides, not here).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -182,11 +223,15 @@ pub struct Triggers {
     /// Omarchy's `post-boot` hook, run once per session start.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub startup: bool,
+    /// An entry in the file manager's Scripts menu, which runs the flow
+    /// with the selected files as its input.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub files: bool,
 }
 
 impl Triggers {
     pub fn is_empty(&self) -> bool {
-        !self.launcher && !self.startup
+        !self.launcher && !self.startup && !self.files
     }
 }
 
@@ -301,8 +346,13 @@ pub enum StepKind {
         #[serde(default, skip_serializing_if = "String::is_empty")]
         target: String,
     },
-    /// Runs another flow to completion.
-    Flow { id: String },
+    /// Runs another flow to completion, handing it `input` as its
+    /// `{{input}}`.
+    Flow {
+        id: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        input: String,
+    },
     /// Asks for a line of text in Omarchy's menu; the answer is the output.
     Ask { prompt: String },
     /// Offers a list in Omarchy's menu; the pick is the output. The list is
@@ -409,6 +459,14 @@ impl StepKind {
         }
     }
 
+    /// A step that runs the flow `id` with no input of its own.
+    pub fn flow(id: impl Into<String>) -> Self {
+        StepKind::Flow {
+            id: id.into(),
+            input: String::new(),
+        }
+    }
+
     /// Every `{{name}}` the step uses, in the texts it fills in.
     pub fn references(&self) -> Vec<String> {
         match self {
@@ -451,10 +509,8 @@ impl StepKind {
             StepKind::Action { action, args } => actions::find(action)
                 .map(|def| def.references(args))
                 .unwrap_or_default(),
-            StepKind::Wait { .. }
-            | StepKind::Flow { .. }
-            | StepKind::Repeat { .. }
-            | StepKind::Stop => Vec::new(),
+            StepKind::Flow { input, .. } => vars::names_in(input),
+            StepKind::Wait { .. } | StepKind::Repeat { .. } | StepKind::Stop => Vec::new(),
         }
     }
 
@@ -490,6 +546,7 @@ impl StepKind {
             | StepKind::Stop
             | StepKind::Action { .. } => true,
             StepKind::Notify { on_click, .. } => on_click.is_some(),
+            StepKind::Flow { input, .. } => !input.is_empty(),
             _ => false,
         }
     }
@@ -582,7 +639,7 @@ impl StepKind {
             StepKind::Lua { expr } => expr.clone(),
             StepKind::Wait { ms } => format!("wait {}", format_duration(*ms)),
             StepKind::Notify { title, .. } => format!("notify \"{title}\""),
-            StepKind::Flow { id } => run_command(id),
+            StepKind::Flow { id, .. } => run_command(id),
             StepKind::Ask { prompt } => format!("ask \"{prompt}\""),
             StepKind::Choose {
                 prompt,
@@ -626,7 +683,7 @@ impl StepKind {
         match self {
             StepKind::Exec { command, .. } => Some(Dispatcher::Exec(command.clone())),
             StepKind::Lua { expr } => Some(Dispatcher::Lua(expr.clone())),
-            StepKind::Flow { id } => Some(Dispatcher::Exec(run_command(id))),
+            StepKind::Flow { id, .. } => Some(Dispatcher::Exec(run_command(id))),
             _ => None,
         }
     }
@@ -636,7 +693,7 @@ impl StepKind {
     pub fn from_dispatcher(dispatcher: Dispatcher, wait: bool) -> Option<Self> {
         match dispatcher {
             Dispatcher::Exec(command) => Some(match run_command_id(&command) {
-                Some(id) => StepKind::Flow { id },
+                Some(id) => StepKind::flow(id),
                 None => StepKind::Exec { command, wait },
             }),
             Dispatcher::Lua(expr) => Some(StepKind::Lua { expr }),
@@ -655,6 +712,7 @@ impl Flow {
             icon: DEFAULT_ICON.to_string(),
             on_error: OnError::Stop,
             meta: Meta::default(),
+            input: InputFallback::None,
             triggers: Triggers::default(),
             steps: Vec::new(),
         }
@@ -677,7 +735,11 @@ impl Flow {
         let uses_format_2 = self.walk().iter().any(|(_, s)| {
             s.output.is_some() || !s.kind.references().is_empty() || s.kind.needs_format_2()
         });
-        if uses_format_2 { FORMAT_VARIABLES } else { 1 }
+        if uses_format_2 || !self.input.is_none() || self.triggers.files {
+            FORMAT_VARIABLES
+        } else {
+            1
+        }
     }
 
     /// Every step, including the ones inside other steps, in the order
@@ -847,10 +909,10 @@ impl Flow {
                 StepKind::Notify { title, .. } if title.trim().is_empty() => {
                     return fail("a notification needs a title".to_string());
                 }
-                StepKind::Flow { id } if id.is_empty() => {
+                StepKind::Flow { id, .. } if id.is_empty() => {
                     return fail("pick the flow to run".to_string());
                 }
-                StepKind::Flow { id } if id == &self.id => {
+                StepKind::Flow { id, .. } if id == &self.id => {
                     return fail("a flow cannot run itself".to_string());
                 }
                 StepKind::Ask { prompt } | StepKind::Confirm { prompt }
@@ -1325,19 +1387,16 @@ mod tests {
         assert_eq!(format_duration(1000), "1 s");
         assert_eq!(format_duration(1500), "1.5 s");
         assert_eq!(StepKind::Wait { ms: 2000 }.text(), "wait 2 s");
-        assert_eq!(
-            StepKind::Flow { id: "x".into() }.text(),
-            "omarchist flow run x"
-        );
+        assert_eq!(StepKind::flow("x").text(), "omarchist flow run x");
     }
 
     #[test]
     fn flow_commands_become_flow_steps() {
         let step =
             StepKind::from_dispatcher(Dispatcher::Exec("omarchist flow run 'other'".into()), false);
-        assert_eq!(step, Some(StepKind::Flow { id: "other".into() }));
+        assert_eq!(step, Some(StepKind::flow("other")));
         assert_eq!(
-            StepKind::Flow { id: "other".into() }.dispatcher(),
+            StepKind::flow("other").dispatcher(),
             Some(Dispatcher::Exec("omarchist flow run other".into()))
         );
         assert_eq!(
@@ -1411,7 +1470,7 @@ mod tests {
                     expr: "hl.dsp.focus({ workspace = \"2\" })".into(),
                 }),
                 Step::new(StepKind::notify("Ready", "")),
-                Step::new(StepKind::Flow { id: "other".into() }),
+                Step::new(StepKind::flow("other")),
             ],
             ..Flow::new("morning".into(), "Morning".into())
         };
@@ -1445,8 +1504,7 @@ mod tests {
         assert!(flow.validate().is_err());
         flow.steps.clear();
 
-        flow.steps
-            .push(Step::new(StepKind::Flow { id: "ok".into() }));
+        flow.steps.push(Step::new(StepKind::flow("ok")));
         assert!(flow.validate().is_err());
         flow.steps.clear();
 
@@ -1537,12 +1595,9 @@ mod variable_tests {
                 .is_err()
         );
         assert!(
-            flow(vec![saving(
-                Step::new(StepKind::Flow { id: "other".into() }),
-                "x"
-            )])
-            .validate()
-            .is_ok()
+            flow(vec![saving(Step::new(StepKind::flow("other")), "x")])
+                .validate()
+                .is_ok()
         );
     }
 
@@ -2030,6 +2085,42 @@ mod block_tests {
             let parsed = parse_flow(&format!("name = \"X\"\n[[step]]\n{bad}")).unwrap();
             assert!(parsed.validate_content().is_err(), "{bad} passed");
         }
+    }
+
+    #[test]
+    fn input_settings_are_written_only_when_set() {
+        let plain = flow(vec![command("echo hi")]);
+        let text = plain.to_toml().unwrap();
+        assert!(!text.contains("input"), "{text}");
+
+        let mut with = flow(vec![
+            command("echo {{input}}"),
+            Step::new(StepKind::Flow {
+                id: "other".into(),
+                input: "{{input}}".into(),
+            }),
+        ]);
+        with.input = super::InputFallback::Selection;
+        with.triggers.files = true;
+        assert!(with.validate().is_ok(), "{:?}", with.validate());
+        let text = with.to_toml().unwrap();
+        assert!(text.contains("format = 2\n"), "{text}");
+        assert!(text.contains("input = \"selection\"\n"), "{text}");
+        assert!(text.contains("[triggers]\nfiles = true\n"), "{text}");
+        assert!(
+            text.contains("type = \"flow\"\nid = \"other\"\ninput = \"{{input}}\"\n"),
+            "{text}"
+        );
+        let back = parse_flow(&text).unwrap();
+        assert_eq!(back.input, super::InputFallback::Selection);
+        assert!(back.triggers.files);
+        assert_eq!(back.steps, with.steps);
+        // `input` is Omarchist's name.
+        assert!(
+            flow(vec![command("echo").saving("input")])
+                .validate()
+                .is_err()
+        );
     }
 
     #[test]

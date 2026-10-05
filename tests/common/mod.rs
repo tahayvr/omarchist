@@ -23,9 +23,17 @@ pub fn home() -> &'static PathBuf {
         let dir = std::env::temp_dir().join(format!("omarchist-ui-tests-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join(".config/omarchist/flows")).expect("test home");
-        // Every test calls this first, so the variable is set before any
-        // thread of the binary reads it.
-        unsafe { std::env::set_var("HOME", &dir) };
+        // Every test calls this first, so the variables are set before any
+        // thread of the binary reads them. The data directory is named by
+        // its own variable, which a desktop session exports as a path into
+        // the real home.
+        unsafe {
+            std::env::set_var("HOME", &dir);
+            std::env::set_var("XDG_DATA_HOME", dir.join(".local/share"));
+            std::env::set_var("XDG_CONFIG_HOME", dir.join(".config"));
+            std::env::set_var("XDG_STATE_HOME", dir.join(".local/state"));
+            std::env::set_var("XDG_CACHE_HOME", dir.join(".cache"));
+        }
         dir
     })
 }

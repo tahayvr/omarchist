@@ -164,6 +164,8 @@ pub struct StepBuilder {
     /// Whether the Choose step takes its list from `from`.
     from_variable: bool,
     source_focus: FocusHandle,
+    /// What a Run a flow step hands the flow as its input.
+    flow_input: Entity<InputState>,
     /// What an If step checks, and how it compares.
     if_kind: IfKind,
     if_op: usize,
@@ -327,6 +329,15 @@ impl StepBuilder {
                 .placeholder("One option per line")
                 .default_value(options)
         });
+        let flow_input = line(
+            window,
+            cx,
+            "Nothing",
+            match initial {
+                Some(StepKind::Flow { input, .. }) => input,
+                _ => "",
+            },
+        );
         let if_value = line(window, cx, "Text, usually a variable", &if_value);
         let if_other = line(window, cx, "", &if_other);
         let if_command = line(window, cx, "Command, e.g. pgrep -x spotify", &if_command);
@@ -392,6 +403,7 @@ impl StepBuilder {
             &if_other,
             &if_command,
             &items,
+            &flow_input,
         ] {
             let field = Field::Line(input.clone());
             subscriptions.push(cx.subscribe_in(
@@ -432,6 +444,7 @@ impl StepBuilder {
             from,
             from_variable,
             source_focus: focus::tab_stop(cx),
+            flow_input,
             if_kind,
             if_op,
             if_kind_focus: focus::tab_stop(cx),
@@ -698,6 +711,7 @@ impl StepBuilder {
     /// Whether the current kind has a text field a variable can go into.
     fn takes_variables(&self, cx: &App) -> bool {
         match self.choice {
+            StepChoice::Action(ActionKind::Flow) => true,
             StepChoice::Action(_) => self.action.read(cx).accepts_variables(),
             StepChoice::Wait | StepChoice::Repeat | StepChoice::Stop => false,
             StepChoice::If => matches!(self.if_kind, IfKind::Text | IfKind::Command),
@@ -739,10 +753,18 @@ impl StepBuilder {
 
     fn insert_variable(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         let text = format!("{{{{{name}}}}}");
-        if let StepChoice::Action(_) = self.choice {
-            self.action
-                .update(cx, |builder, cx| builder.insert_in_field(&text, window, cx));
-            return;
+        match self.choice {
+            StepChoice::Action(ActionKind::Flow) => {
+                Field::Line(self.flow_input.clone()).insert(&text, window, cx);
+                self.changed(cx);
+                return;
+            }
+            StepChoice::Action(_) => {
+                self.action
+                    .update(cx, |builder, cx| builder.insert_in_field(&text, window, cx));
+                return;
+            }
+            _ => {}
         }
         if let Some(field) = self.target.clone().or_else(|| self.default_target()) {
             field.insert(&text, window, cx);
@@ -795,7 +817,10 @@ impl StepBuilder {
             StepChoice::Action(_) => {
                 let builder = self.action.read(cx);
                 if let Ok(Action::Flow(id)) = builder.action(cx) {
-                    return Ok(StepKind::Flow { id });
+                    return Ok(StepKind::Flow {
+                        id,
+                        input: self.flow_input.read(cx).value().trim().to_string(),
+                    });
                 }
                 let dispatcher = builder.dispatcher(cx)?;
                 StepKind::from_dispatcher(dispatcher, self.wait)
@@ -1062,6 +1087,12 @@ impl StepBuilder {
             StepChoice::Action(kind) => v_flex()
                 .gap_2()
                 .child(self.action.clone())
+                .when(kind == ActionKind::Flow, |this| {
+                    this.child(Self::field(
+                        "Input",
+                        Input::new(&self.flow_input).id("flow-input").small(),
+                    ))
+                })
                 .when(
                     kind != ActionKind::Window && kind != ActionKind::Flow,
                     |this| {

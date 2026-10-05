@@ -21,7 +21,8 @@ pub enum Step {
     OmarchistLua(PathBuf),
     /// Disable the bar widget and delete its plugin folder.
     BarWidget(PathBuf),
-    /// Delete a flow's launcher entry, icon, and startup hook.
+    /// Delete a flow's launcher entry, icon, startup hook, and file
+    /// manager entry.
     FlowTriggers { id: String, name: String },
     /// Delete `~/.config/omarchist` (settings, Hyprland state, keybind
     /// overrides, flows, templates).
@@ -41,7 +42,7 @@ impl Step {
                 format!("Take Omarchist off the bar and delete {}", path.display())
             }
             Step::FlowTriggers { name, .. } => {
-                format!("Remove the launcher entry and startup hook of flow \"{name}\"")
+                format!("Remove what starts the flow \"{name}\" (launcher, startup, file manager)")
             }
             Step::ConfigDir(path) | Step::DataDir(path) => format!("Delete {}", path.display()),
         }
@@ -69,9 +70,7 @@ pub fn plan() -> Vec<Step> {
         steps.push(Step::BarWidget(dir));
     }
     for flow in store::load_flows().unwrap_or_default() {
-        let has_files = launcher::desktop_entry_path(&flow.id).is_ok_and(|p| p.exists())
-            || launcher::startup_hook_path(&flow.id).is_ok_and(|p| p.exists());
-        if has_files {
+        if launcher::has_trigger_files(&flow.id) {
             steps.push(Step::FlowTriggers {
                 id: flow.id.clone(),
                 name: flow.name.clone(),

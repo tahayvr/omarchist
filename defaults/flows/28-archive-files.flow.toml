@@ -1,0 +1,37 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Archive files"
+description = "Packs the files you start it on into one archive in your home folder. Made for the Files menu."
+icon = "briefcase"
+on_error = "stop"
+
+[meta]
+author = "Omarchist"
+requires = ["tar"]
+
+[[step]]
+type = "if"
+check = "empty"
+value = "{{input}}"
+
+[[step.then]]
+type = "notify"
+title = "Archive files"
+body = "Start this flow on files: right-click them, Scripts, Archive files"
+
+[[step.then]]
+type = "stop"
+
+[[step]]
+type = "exec"
+command = "out=~/archive-{{date}}-$(date +%H%M%S).tar.gz && printf '%s\\n' {{input}} | tar -czf \"$out\" --transform='s|.*/||' -T - && echo \"$out\""
+wait = true
+output = "archive"
+
+[[step]]
+type = "notify"
+title = "Archive ready"
+body = "{{archive}}"
+on_click = "open"
+target = "~"
