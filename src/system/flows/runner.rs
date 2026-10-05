@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 use super::actions;
 use super::condition::{Machine, Probe};
+use super::history::{self, Recorder};
 use super::prompt::{Desktop, Prompter, menu_options};
 use super::store::load_flow;
 use super::vars::Vars;
@@ -784,7 +785,11 @@ pub async fn run_in_thread(flow: Flow) -> Result<Outcome> {
     flow.validate()?;
     let (tx, rx) = smol::channel::bounded(1);
     std::thread::spawn(move || {
-        let outcome = Runner::new(true).run(&flow, &mut |_| {});
+        let mut recorder = Recorder::new(&flow, "Omarchist");
+        let outcome = Runner::new(true).run(&flow, &mut |event| recorder.event(&event));
+        if let Err(e) = history::record(&flow.id, &recorder.finish(&flow, &outcome, false)) {
+            eprintln!("{e}");
+        }
         let _ = tx.send_blocking(outcome);
     });
     rx.recv()

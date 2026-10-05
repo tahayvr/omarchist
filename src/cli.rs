@@ -6,7 +6,9 @@ use std::process::ExitCode;
 use clap::{Parser, Subcommand, ValueEnum};
 
 use crate::shell::theme_sh_commands::apply_theme;
-use crate::system::flows::runner::{RunEvent, Runner, StepStatus};
+use crate::system::flows::history::{self, Recorder};
+use crate::system::flows::runner::{Cancel, RunEvent, Runner, StepStatus};
+use crate::system::flows::running;
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
 use crate::system::flows::store::{existing_ids, find_flow, load_flows, save_new_flow};
 use crate::system::flows::unique_id;
@@ -130,9 +132,22 @@ pub enum FlowCommand {
         #[arg(last = true)]
         input: Vec<String>,
     },
+    /// Stop a flow that is running
+    Stop {
+        /// The flow's name (case-insensitive) or id
+        name: String,
+    },
+    /// Show a flow's last runs: how each ended, when, and what started it
+    History {
+        /// The flow's name (case-insensitive) or id
+        name: String,
+        /// Print JSON: every kept run with its steps
+        #[arg(long)]
+        json: bool,
+    },
     /// List every flow with its id
     List {
-        /// Print JSON: an array of {id, name, icon, steps}
+        /// Print JSON: an array of {id, name, icon, glyph, steps, running}
         #[arg(long)]
         json: bool,
     },
@@ -177,6 +192,7 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: FlowCommand::List { json: true },
         } => match load_flows() {
             Ok(flows) => {
+                let running = running::list();
                 let entries: Vec<serde_json::Value> = flows
                     .iter()
                     .map(|flow| {
@@ -186,6 +202,7 @@ pub fn run_command(command: &Command) -> ExitCode {
                             "icon": flow.icon,
                             "glyph": crate::system::flows::icon_glyph(&flow.icon).to_string(),
                             "steps": flow.enabled_steps(),
+                            "running": running.iter().any(|run| run.id == flow.id),
                         })
                     })
                     .collect();
@@ -238,73 +255,189 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: FlowCommand::Import { source, yes },
         } => import(source, *yes),
         Command::Flow {
-            action: FlowCommand::Run { name, input, .. },
-        } => {
-            // The editor's guard on Lua steps applies to a hand-edited file
-            // too, so nothing reaches `hyprctl dispatch` unchecked.
-            let flow = match find_flow(name).and_then(|flow| flow.validate().map(|()| flow)) {
-                Ok(flow) => flow,
-                Err(e) => {
-                    eprintln!("{e}");
-                    notify_failure(&e.to_string());
-                    return ExitCode::FAILURE;
+            action:
+                FlowCommand::Run {
+                    name,
+                    input,
+                    trigger,
+                },
+        } => run_flow(name, input, trigger.as_deref()),
+        Command::Flow {
+            action: FlowCommand::Stop { name },
+        } => match find_flow(name) {
+            Ok(flow) => match running::stop(&flow.id) {
+                0 => {
+                    println!("'{}' is not running.", flow.name);
+                    ExitCode::SUCCESS
                 }
-            };
-            let total = flow.enabled_steps();
-            println!(
-                "Running '{}' ({} step{})",
-                flow.name,
-                total,
-                if total == 1 { "" } else { "s" }
-            );
-            // Steps print under their number, indented by how deep they sit
-            // inside other steps.
-            let indent = |path: &[usize]| "  ".repeat(path.len().div_ceil(2));
-            let outcome = Runner::new(false)
-                .input(run_input(input))
-                .run(&flow, &mut |event| match event {
-                    RunEvent::Started { path } => {
-                        if let Some(step) = flow.step_at(&path) {
-                            println!(
-                                "{}{}. {}",
-                                indent(&path),
-                                flow.step_number(&path),
-                                step.kind.text()
-                            );
-                        }
-                    }
-                    RunEvent::Round { path, round, of } => {
-                        println!("{}  round {round} of {of}", indent(&path));
-                    }
-                    RunEvent::Finished {
-                        path,
-                        status: StepStatus::Failed(error),
-                    } => eprintln!("{}   failed: {error}", indent(&path)),
-                    RunEvent::Finished { .. } => {}
-                });
-            let summary = outcome.summary(&flow);
-            if outcome.cancelled && outcome.is_ok() {
-                // Dismissing a prompt is the person's choice, not a failure,
-                // and needs no notification.
-                println!("{summary}");
-                ExitCode::SUCCESS
-            } else if outcome.is_ok() {
-                println!("{summary}");
-                if crate::system::config::config_setup::settings().notify_flows {
-                    notify::send(
-                        &format!("{} finished", flow.name),
-                        &summary,
-                        notify::Urgency::Low,
-                    );
+                _ => {
+                    println!("Stopping '{}'.", flow.name);
+                    ExitCode::SUCCESS
                 }
-                ExitCode::SUCCESS
-            } else {
-                eprintln!("{summary}");
-                notify_failure(&summary);
+            },
+            Err(e) => {
+                eprintln!("{e}");
                 ExitCode::FAILURE
             }
+        },
+        Command::Flow {
+            action: FlowCommand::History { name, json },
+        } => flow_history(name, *json),
+    }
+}
+
+/// What started a run nobody labelled: a terminal, or else a keybind
+/// (Hyprland starts those detached, so their parent is the session
+/// manager) or a script.
+fn default_trigger() -> &'static str {
+    if std::io::stdin().is_terminal() || std::io::stdout().is_terminal() {
+        return "Terminal";
+    }
+    let parent = std::os::unix::process::parent_id();
+    let parent_name = std::fs::read_to_string(format!("/proc/{parent}/comm")).unwrap_or_default();
+    if parent == 1 || parent_name.trim() == "systemd" {
+        "Keybind"
+    } else {
+        "Script"
+    }
+}
+
+fn run_flow(name: &str, input: &[String], trigger: Option<&str>) -> ExitCode {
+    // The editor's guard on Lua steps applies to a hand-edited file too, so
+    // nothing reaches `hyprctl dispatch` unchecked.
+    let flow = match find_flow(name).and_then(|flow| flow.validate().map(|()| flow)) {
+        Ok(flow) => flow,
+        Err(e) => {
+            eprintln!("{e}");
+            notify_failure(&e.to_string());
+            return ExitCode::FAILURE;
+        }
+    };
+    let trigger = trigger.unwrap_or_else(|| default_trigger());
+    let total = flow.enabled_steps();
+    println!(
+        "Running '{}' ({} step{})",
+        flow.name,
+        total,
+        if total == 1 { "" } else { "s" }
+    );
+    // While it runs, the bar widget and the Flows page can see it and ask
+    // it to stop, which arrives here as a signal.
+    let _registered = running::register(&flow, trigger);
+    let cancel = Cancel::new();
+    let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    {
+        use signal_hook::consts::{SIGHUP, SIGINT, SIGTERM};
+        let (cancel, stopped) = (cancel.clone(), stopped.clone());
+        if let Ok(mut signals) = signal_hook::iterator::Signals::new([SIGTERM, SIGINT, SIGHUP]) {
+            std::thread::spawn(move || {
+                if signals.forever().next().is_some() {
+                    stopped.store(true, std::sync::atomic::Ordering::SeqCst);
+                    cancel.cancel();
+                }
+            });
         }
     }
+    let mut recorder = Recorder::new(&flow, trigger);
+    // Steps print under their number, indented by how deep they sit inside
+    // other steps.
+    let indent = |path: &[usize]| "  ".repeat(path.len().div_ceil(2));
+    let outcome = Runner::new(false)
+        .cancellable(cancel)
+        .input(run_input(input))
+        .run(&flow, &mut |event| {
+            recorder.event(&event);
+            match event {
+                RunEvent::Started { path } => {
+                    if let Some(step) = flow.step_at(&path) {
+                        println!(
+                            "{}{}. {}",
+                            indent(&path),
+                            flow.step_number(&path),
+                            step.kind.text()
+                        );
+                    }
+                }
+                RunEvent::Round { path, round, of } => {
+                    println!("{}  round {round} of {of}", indent(&path));
+                }
+                RunEvent::Finished {
+                    path,
+                    status: StepStatus::Failed(error),
+                } => eprintln!("{}   failed: {error}", indent(&path)),
+                RunEvent::Finished { .. } => {}
+            }
+        });
+    let stopped = stopped.load(std::sync::atomic::Ordering::SeqCst);
+    let run = recorder.finish(&flow, &outcome, stopped);
+    if let Err(e) = history::record(&flow.id, &run) {
+        eprintln!("{e}");
+    }
+    let summary = run.summary.clone();
+    if stopped {
+        // Stopping is the person's choice, as dismissing a prompt is.
+        println!("{summary}");
+        ExitCode::SUCCESS
+    } else if outcome.cancelled && outcome.is_ok() {
+        // Not a failure, and it needs no notification.
+        println!("{summary}");
+        ExitCode::SUCCESS
+    } else if outcome.is_ok() {
+        println!("{summary}");
+        if crate::system::config::config_setup::settings().notify_flows {
+            notify::send(
+                &format!("{} finished", flow.name),
+                &summary,
+                notify::Urgency::Low,
+            );
+        }
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("{summary}");
+        notify_failure(&summary);
+        ExitCode::FAILURE
+    }
+}
+
+/// Prints a flow's last runs, newest first.
+fn flow_history(name: &str, json: bool) -> ExitCode {
+    let flow = match find_flow(name) {
+        Ok(flow) => flow,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    let runs = history::load(&flow.id);
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string(&runs).unwrap_or_else(|_| "[]".to_string())
+        );
+        return ExitCode::SUCCESS;
+    }
+    if runs.is_empty() {
+        println!("'{}' has not run yet.", flow.name);
+        return ExitCode::SUCCESS;
+    }
+    let now = chrono::Local::now().timestamp();
+    for run in runs {
+        println!(
+            "{:<10} {:<14} {:<9} {}",
+            run.result.label(),
+            history::ago(run.started, now),
+            history::took(run.ms),
+            run.trigger
+        );
+        for step in run
+            .steps
+            .iter()
+            .filter(|step| step.result == history::StepResult::Failed)
+        {
+            println!("           step {}: {}", step.number, step.detail);
+        }
+    }
+    ExitCode::SUCCESS
 }
 
 fn automations(action: &AutomationsCommand) -> ExitCode {

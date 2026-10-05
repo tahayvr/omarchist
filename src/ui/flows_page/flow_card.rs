@@ -2,7 +2,9 @@
 //! trigger chips, and the strip of step icons.
 use gpui::*;
 use gpui_component::{ActiveTheme, Icon, Sizable, button::Button, h_flex, tag::Tag, v_flex};
+use gpui_kit::TestSupportExt;
 
+use crate::system::flows::history::{self, RunResult};
 use crate::system::flows::{Flow, icon_path};
 use crate::system::keybinds::chord::Chord;
 use crate::ui::flows_page::step_summary::SummaryContext;
@@ -77,6 +79,34 @@ pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoE
         );
     }
     row
+}
+
+/// When a flow last ran and how that run ended.
+pub type LastRun = (i64, RunResult);
+
+/// "5 min ago" behind a mark for how the run ended.
+pub fn last_run(ix: usize, (started, result): LastRun, cx: &App) -> impl IntoElement {
+    let theme = cx.theme();
+    let (icon, color) = match result {
+        RunResult::Finished => ("icons/circle-check.svg", theme.success),
+        RunResult::Failed => ("icons/circle-x.svg", theme.danger),
+        RunResult::Cancelled | RunResult::Stopped => ("icons/ban.svg", theme.muted_foreground),
+    };
+    h_flex()
+        .id(("flow-last-run", ix))
+        .test_support()
+        .flex_shrink_0()
+        .gap_1()
+        .items_center()
+        .text_xs()
+        .text_color(theme.muted_foreground)
+        .child(
+            Icon::new(Icon::empty())
+                .path(icon)
+                .size_3()
+                .text_color(color),
+        )
+        .child(history::ago(started, chrono::Local::now().timestamp()))
 }
 
 /// The steps as a row of small icons joined by chevrons, so a card shows

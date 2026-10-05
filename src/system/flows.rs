@@ -15,10 +15,12 @@ use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 pub mod actions;
 pub mod automations;
 pub mod condition;
+pub mod history;
 pub mod launcher;
 pub mod prompt;
 pub mod requirements;
 pub mod runner;
+pub mod running;
 pub mod service;
 pub mod share;
 pub mod store;
@@ -1194,6 +1196,12 @@ pub fn run_command_id(command: &str) -> Option<String> {
         [uwsm, dashes, rest @ ..] if uwsm == "uwsm-app" && dashes == "--" => rest,
         rest => rest,
     };
+    // The launcher entry says what started the run; that changes nothing
+    // about which flow it is.
+    let words = match words {
+        [rest @ .., flag, _label] if flag == "--trigger" => rest,
+        rest => rest,
+    };
     match words {
         [omarchist, flow, run, id]
             if omarchist == "omarchist" && flow == "flow" && run == "run" =>
@@ -1444,6 +1452,11 @@ mod tests {
             run_command_id("uwsm-app -- omarchist flow run morning").as_deref(),
             Some("morning")
         );
+        assert_eq!(
+            run_command_id("uwsm-app -- omarchist flow run morning --trigger Launcher").as_deref(),
+            Some("morning")
+        );
+        assert_eq!(run_command_id("omarchist flow run --trigger x"), None);
     }
 
     #[test]

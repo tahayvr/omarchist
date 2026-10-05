@@ -1377,3 +1377,154 @@ fn what_an_automation_waits_for_decides_its_fields(cx: &mut TestAppContext) {
     assert_eq!(flow.triggers.automations.len(), 1, "edited in place");
     assert!(!flow.triggers.automations[0].ask);
 }
+
+// MARK: Run history
+
+use omarchist::system::flows::history::{self, Run, RunResult, StepResult, StepRun};
+use omarchist::ui::flows_page::flows_view::FlowHistory;
+
+fn past_run(trigger: &str, result: RunResult, steps: Vec<StepRun>) -> Run {
+    Run {
+        started: chrono::Local::now().timestamp() - 120,
+        ms: 400,
+        trigger: trigger.to_string(),
+        result,
+        summary: String::new(),
+        steps,
+    }
+}
+
+#[gpui_kit::test]
+fn a_run_is_added_to_the_flows_history(cx: &mut TestAppContext) {
+    write_flow("ui-history", &PRINTS.replace("ui-prints", "ui-history"));
+    history::clear("ui-history").unwrap();
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-history".into()));
+
+    with(cx, handle, |window, cx| window.click("flow-run", cx));
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", 3usize)).is_some()
+    });
+
+    let runs = history::load("ui-history");
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].trigger, "Editor");
+    assert_eq!(runs[0].result, RunResult::Failed, "its second step fails");
+    assert_eq!(
+        runs[0].steps.iter().map(|s| s.result).collect::<Vec<_>>(),
+        vec![StepResult::Done, StepResult::Failed, StepResult::Done]
+    );
+
+    // The toast of the run covers the History button; the shortcut is
+    // not in its way.
+    with(cx, handle, |window, cx| window.press("ctrl-shift-h", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(window.find("history-dialog").visible());
+        assert_eq!(
+            window.find("history-runs").focused(),
+            Some(true),
+            "the list of runs has the keyboard"
+        );
+        assert!(window.find(("history-run", 0usize)).visible());
+        assert!(
+            window.find(("history-steps", 0usize)).visible(),
+            "the newest run starts opened"
+        );
+        assert!(window.try_find(("history-run", 1usize)).is_none());
+    });
+}
+
+#[gpui_kit::test]
+fn the_history_opens_a_run_from_the_keyboard_and_can_be_cleared(cx: &mut TestAppContext) {
+    write_flow("ui-past", &PRINTS.replace("ui-prints", "ui-past"));
+    history::clear("ui-past").unwrap();
+    let step = StepRun {
+        number: 1,
+        depth: 0,
+        title: "Wait 1 s".into(),
+        result: StepResult::Done,
+        detail: String::new(),
+        ms: 1000,
+    };
+    // Oldest first, as runs are recorded.
+    history::record(
+        "ui-past",
+        &past_run("Keybind", RunResult::Finished, vec![step.clone()]),
+    )
+    .unwrap();
+    history::record(
+        "ui-past",
+        &past_run("Launcher", RunResult::Stopped, vec![step]),
+    )
+    .unwrap();
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-past".into()));
+
+    with(cx, handle, |window, cx| window.click("flow-history", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find(("history-run", 0usize)).visible());
+        assert!(window.find(("history-run", 1usize)).visible());
+        assert!(window.find(("history-steps", 0usize)).visible());
+        assert!(window.try_find(("history-steps", 1usize)).is_none());
+
+        // Down to the older run, Enter opens it in place of the newest.
+        window.press("down", cx);
+        window.press("enter", cx);
+        window.render_frame(cx);
+        assert!(window.find(("history-steps", 1usize)).visible());
+        assert!(window.try_find(("history-steps", 0usize)).is_none());
+
+        window.click("history-clear", cx);
+        window.render_frame(cx);
+        assert!(window.try_find(("history-run", 0usize)).is_none());
+        assert!(window.find("history-dialog").visible(), "the dialog stays");
+    });
+    assert!(history::load("ui-past").is_empty());
+}
+
+#[gpui_kit::test]
+fn a_flow_that_was_never_saved_has_no_history(cx: &mut TestAppContext) {
+    let (handle, _view) = open(cx, ActivePage::FlowNew(None));
+    with(cx, handle, |window, cx| window.press("ctrl-shift-h", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("history-dialog").is_none());
+        assert_eq!(window.notifications(cx).len(), 1);
+    });
+}
+
+#[gpui_kit::test]
+fn a_flows_card_says_when_it_last_ran(cx: &mut TestAppContext) {
+    write_flow("ui-ran", &PRINTS.replace("ui-prints", "ui-ran"));
+    write_flow("ui-idle", &PRINTS.replace("ui-prints", "ui-idle"));
+    history::clear("ui-ran").unwrap();
+    history::record("ui-ran", &past_run("Keybind", RunResult::Finished, vec![])).unwrap();
+    let (handle, _view) = open(cx, ActivePage::Flows);
+    settle(cx, handle);
+
+    // Other tests keep flows in the same home; the search leaves one card.
+    with(cx, handle, |window, cx| window.input("ui-ran", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find(("flow-last-run", 0usize)).visible());
+        window.dispatch_action(Box::new(FlowHistory(0)), cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find(("history-run", 0usize)).visible());
+        window.close_dialog(cx);
+    });
+    settle(cx, handle);
+
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-a", cx);
+        window.input("ui-idle", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(
+            window.try_find(("flow-last-run", 0usize)).is_none(),
+            "a flow that never ran says nothing"
+        );
+    });
+}

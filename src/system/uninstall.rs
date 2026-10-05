@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::error::{Error, Result};
 use crate::system::bar_widget;
 use crate::system::config::hypr_setup;
-use crate::system::flows::{launcher, service, store};
+use crate::system::flows::{history, launcher, service, store};
 use crate::system::fs::write_atomic;
 use crate::system::omarchy_paths::user_hyprland_config_dir;
 
@@ -31,6 +31,8 @@ pub enum Step {
     ConfigDir(PathBuf),
     /// Delete `~/.local/share/omarchist` (flow icons).
     DataDir(PathBuf),
+    /// Delete `~/.local/state/omarchist` (the flows' run history).
+    StateDir(PathBuf),
 }
 
 impl Step {
@@ -49,7 +51,9 @@ impl Step {
             Step::FlowTriggers { name, .. } => {
                 format!("Remove what starts the flow \"{name}\" (launcher, startup, file manager)")
             }
-            Step::ConfigDir(path) | Step::DataDir(path) => format!("Delete {}", path.display()),
+            Step::ConfigDir(path) | Step::DataDir(path) | Step::StateDir(path) => {
+                format!("Delete {}", path.display())
+            }
         }
     }
 }
@@ -97,6 +101,11 @@ pub fn plan() -> Vec<Step> {
     {
         steps.push(Step::DataDir(dir));
     }
+    if let Ok(dir) = history::state_dir()
+        && dir.is_dir()
+    {
+        steps.push(Step::StateDir(dir));
+    }
     steps
 }
 
@@ -116,7 +125,7 @@ pub fn run(step: &Step) -> Result<()> {
         }
         Step::AutomationsService(_) => service::disable(),
         Step::FlowTriggers { id, .. } => launcher::remove_triggers(id),
-        Step::ConfigDir(dir) | Step::DataDir(dir) => remove_dir(dir),
+        Step::ConfigDir(dir) | Step::DataDir(dir) | Step::StateDir(dir) => remove_dir(dir),
     }
 }
 

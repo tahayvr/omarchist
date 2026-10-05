@@ -7,7 +7,7 @@ outline: deep
 ```bash
 omarchist [--view <page>] [--theme <name>]
 omarchist theme from-image <image> [--name <name>] [--apply]
-omarchist flow <run | list | export | import> ...
+omarchist flow <run | stop | history | list | export | import> ...
 omarchist uninstall [--yes]
 ```
 
@@ -43,7 +43,9 @@ These run without opening the window.
 | --- | --- |
 | `flow run <name or id> [-- <input>...]` | Runs the flow and prints each step. The words after `--`, or text piped in, are the flow's [input](/flows/input). Exits with status 1 and sends a notification if a step fails (a program that cannot start counts, even for a step the flow does not wait for), so a keybind never fails silently. |
 | `automations <on \| off \| status>` | Turns the background service for [automations](/flows/automations) on or off, or says whether it runs and what it waits for. |
-| `flow list` | Every flow with its id and step count. `--json` prints an array of `{id, name, icon, glyph, steps}` for scripts and the bar widget; `glyph` is the icon as a Nerd Font character. |
+| `flow stop <name or id>` | Ends the flow's runs, whatever started them. See [Run history](/flows/history#stop-a-running-flow). |
+| `flow history <name or id> [--json]` | The flow's last runs: how each ended, when, how long it took, and what started it. `--json` prints every kept run with its steps. |
+| `flow list` | Every flow with its id and step count. `--json` prints an array of `{id, name, icon, glyph, steps, running}` for scripts and the bar widget; `glyph` is the icon as a Nerd Font character. |
 | `flow export <name or id> [--output <path>]` | Writes the flow as a shareable `.flow.toml` file, to stdout or to a file or directory. |
 | `flow import <file or https URL> [--yes]` | Prints the flow's steps and saves it after you confirm. `--yes` skips the question. |
 
@@ -62,7 +64,8 @@ See [Flows](/flows/) for what a flow is and [Sharing flows](/flows/#sharing-flow
 
 1. The `require("hypr.omarchist")` line in `~/.config/hypr/hyprland.lua` and `~/.config/hypr/omarchist.lua` (Hyprland is reloaded, so your settings and keybinds go back to Omarchy's).
 2. The bar widget, taken off the bar and deleted from `~/.config/omarchy/plugins`.
-3. Every flow's launcher entry, icon, and startup hook.
-4. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates) and `~/.local/share/omarchist`.
+3. The service that runs [automations](/flows/automations), stopped and removed.
+4. Every flow's launcher entry, icon, startup hook, and Files menu script.
+5. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates), `~/.local/share/omarchist`, and `~/.local/state/omarchist` (the flows' run history).
 
 It prints that list and asks first; `--yes` skips the question. Quit Omarchist before you run it, because a running window would write its files back on the next save. Themes you made stay in `~/.config/omarchy/themes`. Remove the package afterwards with `sudo pacman -R omarchist-bin`.

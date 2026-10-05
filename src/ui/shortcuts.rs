@@ -6,6 +6,7 @@ use gpui::{Action, KeyBinding};
 use crate::ui::config_page::config_view::config_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
+use crate::ui::flows_page::history_dialog::history_nav;
 use crate::ui::flows_page::step_builder::step_vars;
 use crate::ui::flows_page::step_picker::step_picker_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
@@ -805,6 +806,49 @@ pub const SHORTCUTS: &[Shortcut] = &[
         DIALOGS,
         "Insert the variable"
     ),
+    // A flow's run history.
+    shortcut!(
+        "up",
+        history_nav::Up,
+        Some("RunHistory"),
+        DIALOGS,
+        "Previous run"
+    ),
+    shortcut!(
+        "down",
+        history_nav::Down,
+        Some("RunHistory"),
+        DIALOGS,
+        "Next run"
+    ),
+    shortcut!(
+        "home",
+        history_nav::First,
+        Some("RunHistory"),
+        DIALOGS,
+        "Newest run"
+    ),
+    shortcut!(
+        "end",
+        history_nav::Last,
+        Some("RunHistory"),
+        DIALOGS,
+        "Oldest run"
+    ),
+    shortcut!(
+        "enter",
+        history_nav::Toggle,
+        Some("RunHistory"),
+        DIALOGS,
+        "Show or hide a run's steps"
+    ),
+    shortcut!(
+        "space",
+        history_nav::Toggle,
+        Some("RunHistory"),
+        DIALOGS,
+        "Show or hide a run's steps"
+    ),
     // The list of step types in the Add step dialog.
     shortcut!(
         "down",
@@ -1096,6 +1140,13 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowEditPage"),
         FLOWS,
         "Export the flow"
+    ),
+    shortcut!(
+        "ctrl-shift-h",
+        flow_edit_nav::ShowHistory,
+        Some("FlowEditPage"),
+        FLOWS,
+        "Run history"
     ),
     shortcut!(
         "up",

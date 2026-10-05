@@ -21,6 +21,7 @@ use gpui_component::{
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::automations::Event;
+use crate::system::flows::history::{self, Recorder};
 use crate::system::flows::requirements::missing_programs;
 use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner, StepStatus};
 use crate::system::flows::service;
@@ -43,6 +44,7 @@ use crate::ui::flows_page::automation_dialog::{
     AutomationDialog, AutomationDialogEvent, EventKind, open_automation_dialog,
 };
 use crate::ui::flows_page::flow_card::icon_tile;
+use crate::ui::flows_page::history_dialog::open_history_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
@@ -82,6 +84,7 @@ pub mod flow_edit_nav {
             DuplicateStep,
             CollapseStep,
             ExpandStep,
+            ShowHistory,
             Export,
         ]
     );
@@ -373,11 +376,18 @@ impl FlowEditPage {
         // long as the flow takes, which is not what the executor's pool is
         // for.
         std::thread::spawn(move || {
+            let mut recorder = Recorder::new(&flow, "Editor");
             let outcome = Runner::new(true)
-                .cancellable(cancel)
+                .cancellable(cancel.clone())
                 .run(&flow, &mut |event| {
+                    recorder.event(&event);
                     let _ = tx.send_blocking(RunMessage::Event(run_id, event));
                 });
+            // A flow that was never saved has no history to add to.
+            let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
+            if let Err(e) = history::record(&flow.id, &run) {
+                eprintln!("{e}");
+            }
             let _ = tx.send_blocking(RunMessage::Done(run_id, outcome));
         });
 
@@ -463,6 +473,16 @@ impl FlowEditPage {
     /// away from the editor (`MainWindowView::navigate_to`).
     fn navigate_back(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         emit(cx, AppEvent::Navigate(ActivePage::Flows));
+    }
+
+    /// Opens the flow's run history. A flow that was never saved has none.
+    fn show_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_new() {
+            window.push_notification("Save the flow to keep a history of its runs", cx);
+            return;
+        }
+        let name = self.name.read(cx).value().trim().to_string();
+        open_history_dialog(&self.flow.id, &name, window, cx);
     }
 
     // MARK: Sharing
@@ -991,6 +1011,17 @@ impl FlowEditPage {
                         )
                     }),
             )
+            .when(!self.is_new(), |this| {
+                this.child(
+                    Button::new("flow-history")
+                        .ghost()
+                        .compact()
+                        .icon(Icon::new(Icon::empty()).path("icons/rotate-ccw-clock.svg"))
+                        .tooltip_with_action("Run history", &ShowHistory, Some(KEY_CONTEXT))
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, window, cx| this.show_history(window, cx))),
+                )
+            })
             .child(if self.running {
                 Button::new("flow-stop")
                     .compact()
@@ -1394,6 +1425,9 @@ impl Render for FlowEditPage {
             }))
             .on_action(cx.listener(|this, _: &Save, window, cx| this.save(window, cx)))
             .on_action(cx.listener(|this, _: &Export, window, cx| this.export(window, cx)))
+            .on_action(
+                cx.listener(|this, _: &ShowHistory, window, cx| this.show_history(window, cx)),
+            )
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| this.add_step(window, cx)))
             .child(self.render_header(cx))

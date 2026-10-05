@@ -9,7 +9,7 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 <img src="/images/flows-light.webp" alt="Flows page" class="screenshot light-only">
 <img src="/images/flows-dark.webp" alt="Flows page" class="screenshot dark-only">
 
-Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu duplicates, exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
+Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates, exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
 **New flow** starts a blank flow. **Templates**, next to it, opens the starter flows and your own templates. Its arrow offers **From scratch**, **From template**, and **Import flow**. The **Flows** menu in the title bar has the same three from any page, plus **Run** for every saved flow.
 
@@ -41,7 +41,7 @@ A step can pass what it produced to later steps: save its output under a name an
 
 A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install.
 
-**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
+**Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. Every run, from here or from anywhere else, is kept in the flow's [run history](/flows/history). **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
 
 ## Triggers
 

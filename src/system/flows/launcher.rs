@@ -61,11 +61,7 @@ fn file_script_marker(id: &str) -> String {
 /// arguments, which become the flow's input, one per line.
 pub fn file_script(flow: &Flow) -> String {
     format!(
-        "#!/bin/sh
-# Managed by Omarchist: runs the '{}' flow on the selected files.
-{}
-exec {} flow run {} -- \"$@\"
-",
+        "#!/bin/sh\n# Managed by Omarchist: runs the '{}' flow on the selected files.\n{}\nexec {} flow run {} --trigger 'Files menu' -- \"$@\"\n",
         flow.id,
         file_script_marker(&flow.id),
         shell_quote(&omarchist_binary()),
@@ -153,7 +149,7 @@ pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
         escape(flow.description.trim())
     };
     let exec = format!(
-        "{} flow run {}",
+        "{} flow run {} --trigger Launcher",
         desktop_exec_quote(&omarchist_binary()),
         flow.id
     );
@@ -177,7 +173,7 @@ pub fn desktop_entry(flow: &Flow, icon: &str) -> String {
 /// started in the background rather than holding up the hooks after it.
 pub fn startup_hook(flow: &Flow) -> String {
     format!(
-        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\nsetsid -f {} flow run {} >/dev/null 2>&1\n",
+        "#!/bin/bash\n# Managed by Omarchist: runs the '{}' flow after boot.\nsetsid -f {} flow run {} --trigger Startup >/dev/null 2>&1\n",
         flow.id,
         shell_quote(&omarchist_binary()),
         flow.id
@@ -304,7 +300,7 @@ mod tests {
         let binary = omarchist_binary();
         assert!(
             entry.contains(&format!(
-                "Exec={} flow run morning\n",
+                "Exec={} flow run morning --trigger Launcher\n",
                 desktop_exec_quote(&binary)
             )),
             "{entry}"
@@ -315,7 +311,7 @@ mod tests {
         let hook = startup_hook(&flow);
         assert!(hook.starts_with("#!/bin/bash\n"));
         assert!(hook.ends_with(&format!(
-            "setsid -f {} flow run morning >/dev/null 2>&1\n",
+            "setsid -f {} flow run morning --trigger Startup >/dev/null 2>&1\n",
             shell_quote(&binary)
         )));
         assert!(
@@ -333,7 +329,7 @@ mod tests {
         assert!(script.contains("\n# omarchist-flow: archive\n"));
         assert!(
             script.ends_with(&format!(
-                "exec {} flow run archive -- \"$@\"\n",
+                "exec {} flow run archive --trigger 'Files menu' -- \"$@\"\n",
                 shell_quote(&omarchist_binary())
             )),
             "{script}"

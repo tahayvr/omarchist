@@ -3,6 +3,7 @@ pub mod automation_dialog;
 pub mod flow_card;
 pub mod flow_edit_view;
 pub mod flows_view;
+pub mod history_dialog;
 pub mod option_picker;
 pub mod share_ui;
 pub mod step_builder;

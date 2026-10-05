@@ -115,6 +115,7 @@ export default defineConfig({
           { text: "Ready-Made Actions", link: "/flows/actions" },
           { text: "Input", link: "/flows/input" },
           { text: "Automations", link: "/flows/automations" },
+          { text: "Run History", link: "/flows/history" },
           { text: "Templates", link: "/flows/#templates" },
           { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],

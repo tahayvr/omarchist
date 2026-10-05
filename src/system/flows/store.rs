@@ -213,6 +213,7 @@ pub fn delete_flow(id: &str) -> Result<()> {
         }
     }
     launcher::remove_triggers(id)?;
+    super::history::clear(id)?;
     remove_keybinds_running(id)
 }
 

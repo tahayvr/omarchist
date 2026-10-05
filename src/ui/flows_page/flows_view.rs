@@ -14,6 +14,7 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::flows::history;
 use crate::system::flows::runner::run_in_thread;
 use crate::system::flows::store::{
     BrokenFlow, delete_flow, existing_ids, load_flows_with_broken, save_new_flow,
@@ -27,8 +28,9 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
-    icon_tile, step_count_label, step_strip, template_card, trigger_chips,
+    LastRun, icon_tile, last_run, step_count_label, step_strip, template_card, trigger_chips,
 };
+use crate::ui::flows_page::history_dialog::open_history_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, import_flow_path};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
@@ -85,6 +87,21 @@ pub struct DeleteFlow(pub usize);
 #[action(namespace = flows, no_json)]
 pub struct ExportFlow(pub usize);
 
+#[derive(Action, Clone, PartialEq, Eq, Debug)]
+#[action(namespace = flows, no_json)]
+pub struct FlowHistory(pub usize);
+
+/// When each flow last ran and how it ended, keyed by flow id.
+fn last_runs(flows: &[Flow]) -> HashMap<String, LastRun> {
+    flows
+        .iter()
+        .filter_map(|flow| {
+            let run = history::last(&flow.id)?;
+            Some((flow.id.clone(), (run.started, run.result)))
+        })
+        .collect()
+}
+
 /// The chord of every bind that runs a flow, keyed by flow id.
 fn flow_chords(
     scan: crate::error::Result<crate::system::keybinds::replay::ScanResult>,
@@ -110,6 +127,8 @@ pub struct FlowsView {
     /// Indices into `flows` that match the query.
     filtered: Vec<usize>,
     chords: HashMap<String, Chord>,
+    /// Read with the flows, and again after a run from this page.
+    last_runs: HashMap<String, LastRun>,
     apps: Vec<DesktopApp>,
     /// For the empty state's cards; reloaded with the flows.
     templates: Vec<Template>,
@@ -146,6 +165,7 @@ impl FlowsView {
             flows: Vec::new(),
             filtered: Vec::new(),
             chords: HashMap::new(),
+            last_runs: HashMap::new(),
             apps: Vec::new(),
             templates: Vec::new(),
             broken: Vec::new(),
@@ -172,17 +192,18 @@ impl FlowsView {
         cx.spawn(async move |this, cx| {
             let loaded = cx
                 .background_spawn(async {
-                    (
-                        load_flows_with_broken(),
-                        scan_keybinds(),
-                        installed_apps(),
-                        templates(),
-                    )
+                    let flows = load_flows_with_broken();
+                    let runs = flows
+                        .as_ref()
+                        .map(|(flows, _)| last_runs(flows))
+                        .unwrap_or_default();
+                    (flows, runs, scan_keybinds(), installed_apps(), templates())
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let (flows, scan, apps, templates) = loaded;
+                let (flows, runs, scan, apps, templates) = loaded;
                 this.templates = templates;
+                this.last_runs = runs;
                 match flows {
                     Ok((flows, broken)) => {
                         this.flows = flows;
@@ -314,8 +335,14 @@ impl FlowsView {
         cx.notify();
         cx.spawn_in(window, async move |this, cx| {
             let outcome = run_in_thread(flow.clone()).await;
+            let id = flow.id.clone();
+            let last = cx.background_spawn(async move { history::last(&id) }).await;
             this.update_in(cx, |this, window, cx| {
                 this.running = None;
+                if let Some(run) = last {
+                    this.last_runs
+                        .insert(flow.id.clone(), (run.started, run.result));
+                }
                 match outcome {
                     Ok(outcome) => window.push_notification(outcome.summary(&flow), cx),
                     Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
@@ -562,7 +589,8 @@ impl FlowsView {
                                     )
                                     .cursor_pointer()
                                     .dropdown_menu(move |menu, _, _| {
-                                        menu.menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
+                                        menu.menu("Run history", Box::new(FlowHistory(filtered_ix)))
+                                            .menu("Duplicate", Box::new(DuplicateFlow(filtered_ix)))
                                             .menu("Export…", Box::new(ExportFlow(filtered_ix)))
                                             .separator()
                                             .menu("Delete", Box::new(DeleteFlow(filtered_ix)))
@@ -571,7 +599,18 @@ impl FlowsView {
                     ),
             )
             .child(step_strip(flow, summaries, cx))
-            .child(trigger_chips(flow, self.chords.get(&flow.id), cx))
+            .child(
+                h_flex()
+                    .gap_2()
+                    .items_end()
+                    .justify_between()
+                    .child(trigger_chips(flow, self.chords.get(&flow.id), cx))
+                    .children(
+                        self.last_runs
+                            .get(&flow.id)
+                            .map(|last| last_run(filtered_ix, *last, cx)),
+                    ),
+            )
     }
 
     fn render_grid(&self, window: &Window, cx: &mut Context<Self>) -> Vec<AnyElement> {
@@ -773,6 +812,11 @@ impl Render for FlowsView {
             }))
             .on_action(cx.listener(|this, action: &ExportFlow, window, cx| {
                 this.export(action.0, window, cx);
+            }))
+            .on_action(cx.listener(|this, action: &FlowHistory, window, cx| {
+                if let Some(flow) = this.flow_at(action.0) {
+                    open_history_dialog(&flow.id, &flow.name, window, cx);
+                }
             }))
             .on_drop(cx.listener(|_, paths: &ExternalPaths, window, cx| {
                 if let Some(path) = paths.paths().first() {
