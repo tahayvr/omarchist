@@ -380,7 +380,6 @@ impl GalleryView {
             .flex_1()
             .min_w_0()
             .h_auto()
-            .items_start()
             .p_4()
             .cursor_pointer()
             .on_click(cx.listener(move |this, _, window, cx| this.open_detail(&slug, window, cx)))
@@ -447,6 +446,9 @@ impl GalleryView {
                             .text_sm()
                             .font_weight(FontWeight::NORMAL)
                             .text_color(theme.muted_foreground)
+                            // Always two lines tall, so the cards of a
+                            // row line up.
+                            .min_h(rems(2.5))
                             .line_clamp(2)
                             .text_ellipsis()
                             .child(selectable("gallery-description", entry.description.clone())),

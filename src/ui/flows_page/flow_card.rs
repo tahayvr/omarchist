@@ -179,8 +179,6 @@ pub fn template_card(
         .flex_1()
         .min_w(px(240.))
         .h_auto()
-        // A short card in a row of taller ones keeps its text at the top.
-        .items_start()
         .p_4()
         .cursor_pointer()
         .child(
@@ -203,6 +201,9 @@ pub fn template_card(
                 .child(
                     div()
                         .w_full()
+                        // Room for two lines, so a card with a short
+                        // description lines up with its neighbours.
+                        .min_h(rems(2.5))
                         .whitespace_normal()
                         .text_sm()
                         .font_weight(FontWeight::NORMAL)
