@@ -7,7 +7,7 @@ outline: deep
 ```bash
 omarchist [--view <page>] [--theme <name>]
 omarchist theme from-image <image> [--name <name>] [--apply]
-omarchist flow <run | stop | history | list | export | import> ...
+omarchist flow <run | stop | history | list | check | export | import> ...
 omarchist uninstall [--yes]
 ```
 
@@ -46,6 +46,7 @@ These run without opening the window.
 | `flow stop <name or id>` | Ends the flow's runs, whatever started them. See [Run history](/flows/history#stop-a-running-flow). |
 | `flow history <name or id> [--json]` | The flow's last runs: how each ended, when, how long it took, and what started it. `--json` prints every kept run with its steps. |
 | `flow list` | Every flow with its id and step count. `--json` prints an array of `{id, name, icon, glyph, steps, running}` for scripts and the bar widget; `glyph` is the icon as a Nerd Font character. |
+| `flow check <file>... [--json] [--catalog]` | Says whether each file is a valid flow, lists its steps and the programs it needs, and points at steps worth a closer look, such as one that runs as administrator. `--catalog` also applies the [Gallery](/flows/gallery)'s rules. Exits with status 1 if a file fails. |
 | `flow export <name or id> [--output <path>]` | Writes the flow as a shareable `.flow.toml` file, to stdout or to a file or directory. |
 | `flow import <file or https URL> [--yes]` | Prints the flow's steps and saves it after you confirm. `--yes` skips the question. |
 

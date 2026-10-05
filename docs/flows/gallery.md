@@ -83,6 +83,25 @@ To publish a new version, change the flow and choose **Publish to the gallery…
 
 Once you have published, the Gallery offers **Mine**: the flows listed under your name. **Your pull requests on GitHub**, shown with it, opens the ones still in review.
 
+## Check a flow file
+
+Before you import a file someone sent you, or publish your own, the command line tells you what it does:
+
+```bash
+omarchist flow check ~/Downloads/focus.flow.toml
+```
+
+```
+ok      focus.flow.toml  'Focus' (3 steps)
+    1. Turn do not disturb on
+    2. sudo systemctl stop bluetooth
+    3. notify "Focus"
+  Needs: omarchy-shell, sudo
+  Step 2: Runs a command as administrator
+```
+
+`--catalog` also applies the gallery's rules, and `--json` prints the report for scripts.
+
 ## Privacy
 
 - Browsing the Gallery downloads its list and the flows you open. No account, no identifier.

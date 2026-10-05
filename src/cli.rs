@@ -180,6 +180,19 @@ pub enum FlowCommand {
         #[arg(long)]
         json: bool,
     },
+    /// Check flow files: that they are valid, what they need, and what a
+    /// reader should know before running them
+    Check {
+        /// `.flow.toml` files
+        #[arg(required = true)]
+        files: Vec<PathBuf>,
+        /// Print JSON: one report per file
+        #[arg(long)]
+        json: bool,
+        /// Also apply the gallery's rules for a published flow
+        #[arg(long)]
+        catalog: bool,
+    },
     /// Write a flow as a shareable file (to stdout unless --output is given)
     Export {
         /// The flow's name (case-insensitive) or id
@@ -277,6 +290,14 @@ pub fn run_command(command: &Command) -> ExitCode {
         } => theme_from_image(image, name.as_deref(), *apply),
         Command::Uninstall { yes } => uninstall(*yes),
         Command::Catalog { action } => catalog_command(action),
+        Command::Flow {
+            action:
+                FlowCommand::Check {
+                    files,
+                    json,
+                    catalog,
+                },
+        } => check(files, *json, *catalog),
         Command::Automations { action } => automations(action),
         Command::Flow {
             action: FlowCommand::Export { name, output },
@@ -565,6 +586,54 @@ fn export(name: &str, output: Option<&PathBuf>) -> ExitCode {
             eprintln!("Could not write {}: {e}", path.display());
             ExitCode::FAILURE
         }
+    }
+}
+
+/// Checks flow files and prints what each does, needs, and risks. Fails
+/// when any of them is not a valid flow (or, with `for_catalog`, not ready
+/// for the gallery).
+fn check(files: &[PathBuf], json: bool, for_catalog: bool) -> ExitCode {
+    let reports: Vec<catalog::Report> = files
+        .iter()
+        .map(|file| catalog::check_file(file, for_catalog))
+        .collect();
+    let all_ok = reports.iter().all(|report| report.ok);
+    if json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&reports).unwrap_or_else(|_| "[]".to_string())
+        );
+    } else {
+        for report in &reports {
+            if !report.ok {
+                println!("FAILED  {}", report.file);
+                for error in &report.errors {
+                    println!("    {error}");
+                }
+                continue;
+            }
+            println!(
+                "ok      {}  '{}' ({} step{})",
+                report.file,
+                report.name,
+                report.steps,
+                if report.steps == 1 { "" } else { "s" }
+            );
+            for line in &report.summary {
+                println!("    {line}");
+            }
+            if !report.requires.is_empty() {
+                println!("  Needs: {}", report.requires.join(", "));
+            }
+            for risk in &report.risks {
+                println!("  Step {}: {}", risk.step, risk.what);
+            }
+        }
+    }
+    if all_ok {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
     }
 }
 
