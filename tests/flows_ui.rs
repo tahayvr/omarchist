@@ -1528,3 +1528,89 @@ fn a_flows_card_says_when_it_last_ran(cx: &mut TestAppContext) {
         );
     });
 }
+
+// MARK: One step alone
+
+#[gpui_kit::test]
+fn a_step_runs_alone_with_what_the_last_run_saved(cx: &mut TestAppContext) {
+    write_flow("ui-alone", &PRINTS.replace("ui-prints", "ui-alone"));
+    history::clear("ui-alone").unwrap();
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-alone".into()));
+    let finished = |window: &mut gpui_kit::Window, number: usize| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", number)).is_some()
+    };
+
+    // The first step uses no variable: it runs at once.
+    with(cx, handle, |window, cx| {
+        window.click(("step-test", 1usize), cx)
+    });
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        finished(window, 1)
+    });
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("test-step-dialog").is_none());
+        assert!(
+            window.try_find(("step-failure", 2usize)).is_none()
+                && window.try_find(("step-result", 3usize)).is_none(),
+            "the other steps did not run"
+        );
+        window.clear_notifications(cx);
+    });
+
+    // The third uses what the first saves, so it asks, offering what the
+    // first just produced.
+    with(cx, handle, |window, cx| {
+        window.click(("flow-step", 3usize), cx);
+        window.press("shift-enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("test-step-dialog").visible());
+        assert!(window.find("test-value-text").visible());
+        window.click("test-step-run", cx);
+    });
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        finished(window, 3)
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("test-step-dialog").is_none());
+        assert!(
+            window.try_find(("step-failure", 3usize)).is_none(),
+            "the value of the first step reached the third"
+        );
+        assert!(
+            window.find(("step-result", 1usize)).visible(),
+            "the first step keeps its result"
+        );
+    });
+    assert!(
+        history::load("ui-alone").is_empty(),
+        "trying a step is not a run of the flow"
+    );
+}
+
+#[gpui_kit::test]
+fn a_step_alone_fails_on_a_value_typed_for_it(cx: &mut TestAppContext) {
+    write_flow(
+        "ui-alone-typed",
+        &PRINTS.replace("ui-prints", "ui-alone-typed"),
+    );
+    let (handle, _view) = open(cx, ActivePage::FlowEdit("ui-alone-typed".into()));
+
+    with(cx, handle, |window, cx| {
+        window.click(("step-test", 3usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        // The first field has the keyboard.
+        window.input("something else", cx);
+        window.press("ctrl-enter", cx);
+    });
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-failure", 3usize)).is_some()
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("test-step-dialog").is_none());
+        assert!(window.try_find(("step-result", 1usize)).is_none());
+    });
+}

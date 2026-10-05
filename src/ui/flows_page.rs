@@ -13,6 +13,7 @@ pub mod step_picker;
 pub mod step_summary;
 pub mod step_types;
 pub mod templates_view;
+pub mod test_step_dialog;
 pub mod var_token;
 
 pub use flow_edit_view::{FlowEditPage, FlowEditSource};

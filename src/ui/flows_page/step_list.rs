@@ -599,7 +599,8 @@ impl FlowEditPage {
                 .child(text)
         };
 
-        let (p_click, p_up, p_down, p_edit, p_remove, p_toggle, p_fold) = (
+        let (p_click, p_up, p_down, p_edit, p_remove, p_toggle, p_fold, p_test) = (
+            path.clone(),
             path.clone(),
             path.clone(),
             path.clone(),
@@ -816,6 +817,23 @@ impl FlowEditPage {
                         )
                     })
                     .child(
+                        Button::new(("step-test", number))
+                            .ghost()
+                            .xsmall()
+                            .tab_stop(false)
+                            .disabled(self.running)
+                            .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
+                            .tooltip_with_action(
+                                "Run only this step",
+                                &TestStep,
+                                Some(STEPS_CONTEXT),
+                            )
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                cx.stop_propagation();
+                                this.test_step(&p_test, window, cx);
+                            })),
+                    )
+                    .child(
                         Button::new(("step-up", number))
                             .ghost()
                             .xsmall()
@@ -938,6 +956,11 @@ impl FlowEditPage {
             .on_action(cx.listener(|this, _: &ToggleStep, window, cx| {
                 if let Some(path) = this.selected_step() {
                     this.toggle_step(&path, window, cx);
+                }
+            }))
+            .on_action(cx.listener(|this, _: &TestStep, window, cx| {
+                if let Some(path) = this.selected_step() {
+                    this.test_step(&path, window, cx);
                 }
             }))
             .on_action(cx.listener(|this, _: &DuplicateStep, window, cx| {

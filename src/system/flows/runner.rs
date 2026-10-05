@@ -332,6 +332,37 @@ impl<'a> Runner<'a> {
         run.outcome
     }
 
+    /// Runs only the step at `path`, with the steps it holds, to try it
+    /// out. The steps before it do not run, so `values` gives the
+    /// variables it uses what they would hold. A step that is switched off
+    /// runs all the same: trying it is how one decides to switch it on.
+    pub fn run_only(
+        &self,
+        flow: &Flow,
+        path: &[usize],
+        values: &[(String, String)],
+        on_event: &mut dyn FnMut(RunEvent),
+    ) -> Outcome {
+        let Some(step) = flow.step_at(path) else {
+            return Outcome::default();
+        };
+        let mut vars = Vars::new();
+        vars.set("input", self.input.as_deref().unwrap_or_default());
+        for (name, value) in values {
+            vars.set(name, value);
+        }
+        let mut stack = vec![flow.id.clone()];
+        let mut run = Run {
+            vars,
+            stack: &mut stack,
+            on_event,
+            outcome: Outcome::default(),
+            on_error: flow.on_error,
+        };
+        self.run_at(step, path.to_vec(), &mut run);
+        run.outcome
+    }
+
     /// Runs the steps of one list in order: the flow's own, or a branch
     /// of a step that holds steps (`base` is that branch's path).
     fn run_list(&self, steps: &[Step], base: &[usize], run: &mut Run) -> Flowing {
@@ -341,46 +372,51 @@ impl<'a> Runner<'a> {
             }
             let mut path: StepPath = base.to_vec();
             path.push(index);
-            if self.cancel.is_cancelled() {
-                run.outcome.stopped_at = Some(path);
-                return Flowing::Ended;
-            }
-            (run.on_event)(RunEvent::Started { path: path.clone() });
-            let result = self.run_step(step, &path, run);
-            run.outcome.ran += 1;
-            let (status, flowing) = match result {
-                Ok(StepEnd::Done(output)) => {
-                    if let Some(output) = &output {
-                        if let Some(name) = &step.output {
-                            run.vars.set(name, output);
-                        }
-                        run.outcome.last_output = Some(output.clone());
-                    }
-                    (StepStatus::Done(output), Flowing::On)
-                }
-                Ok(StepEnd::Ended) | Err(Halt::Stop) => (StepStatus::Done(None), Flowing::Ended),
-                Err(Halt::Cancelled) => {
-                    run.outcome.cancelled = true;
-                    run.outcome.stopped_at = Some(path.clone());
-                    (StepStatus::Cancelled, Flowing::Ended)
-                }
-                Err(Halt::Failed(error)) => {
-                    run.outcome.failures.push((path.clone(), error.clone()));
-                    let flowing = if run.on_error == OnError::Stop {
-                        run.outcome.stopped_at = Some(path.clone());
-                        Flowing::Ended
-                    } else {
-                        Flowing::On
-                    };
-                    (StepStatus::Failed(error), flowing)
-                }
-            };
-            (run.on_event)(RunEvent::Finished { path, status });
-            if flowing == Flowing::Ended {
+            if self.run_at(step, path, run) == Flowing::Ended {
                 return Flowing::Ended;
             }
         }
         Flowing::On
+    }
+
+    /// Runs the step at `path`, reports it, and keeps what it produced.
+    fn run_at(&self, step: &Step, path: StepPath, run: &mut Run) -> Flowing {
+        if self.cancel.is_cancelled() {
+            run.outcome.stopped_at = Some(path);
+            return Flowing::Ended;
+        }
+        (run.on_event)(RunEvent::Started { path: path.clone() });
+        let result = self.run_step(step, &path, run);
+        run.outcome.ran += 1;
+        let (status, flowing) = match result {
+            Ok(StepEnd::Done(output)) => {
+                if let Some(output) = &output {
+                    if let Some(name) = &step.output {
+                        run.vars.set(name, output);
+                    }
+                    run.outcome.last_output = Some(output.clone());
+                }
+                (StepStatus::Done(output), Flowing::On)
+            }
+            Ok(StepEnd::Ended) | Err(Halt::Stop) => (StepStatus::Done(None), Flowing::Ended),
+            Err(Halt::Cancelled) => {
+                run.outcome.cancelled = true;
+                run.outcome.stopped_at = Some(path.clone());
+                (StepStatus::Cancelled, Flowing::Ended)
+            }
+            Err(Halt::Failed(error)) => {
+                run.outcome.failures.push((path.clone(), error.clone()));
+                let flowing = if run.on_error == OnError::Stop {
+                    run.outcome.stopped_at = Some(path.clone());
+                    Flowing::Ended
+                } else {
+                    Flowing::On
+                };
+                (StepStatus::Failed(error), flowing)
+            }
+        };
+        (run.on_event)(RunEvent::Finished { path, status });
+        flowing
     }
 
     /// Runs the steps of branch `branch` of the step at `path`.
@@ -1431,6 +1467,42 @@ mod tests {
             })
             .collect();
         assert_eq!(rounds, vec![(1, 3), (2, 3), (3, 3)]);
+    }
+
+    #[test]
+    fn a_step_run_alone_gets_its_values_and_reports_its_own_path() {
+        let scratch = Scratch::new("alone");
+        let mut flow = Flow::new("t".into(), "T".into());
+        flow.steps = vec![
+            // Never runs: it would fail the flow.
+            saving(exec("exit 9"), "name"),
+            repeat(1, vec![scratch.append("{{name}}-{{index}}")]),
+        ];
+        let mut seen = Vec::new();
+        let values = vec![
+            ("name".to_string(), "Ada; $(false)".to_string()),
+            ("index".to_string(), "7".to_string()),
+        ];
+        let outcome =
+            Runner::with_loader(&no_flows, true)
+                .run_only(&flow, &[1, 0, 0], &values, &mut |e| seen.push(e));
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(outcome.ran, 1);
+        assert_eq!(scratch.lines(), vec!["Ada; $(false)-7"]);
+        assert_eq!(started(&seen), vec![vec![1, 0, 0]]);
+
+        // The whole block alone: its loop sets the round itself.
+        let outcome =
+            Runner::with_loader(&no_flows, true).run_only(&flow, &[1], &values, &mut |_| {});
+        assert!(outcome.is_ok(), "{:?}", outcome.failures);
+        assert_eq!(
+            scratch.lines().last().map(String::as_str),
+            Some("Ada; $(false)-1")
+        );
+
+        // Without its value the step fails, as it would in a run.
+        let outcome = Runner::with_loader(&no_flows, true).run_only(&flow, &[1], &[], &mut |_| {});
+        assert_eq!(outcome.failures.len(), 1);
     }
 
     #[test]

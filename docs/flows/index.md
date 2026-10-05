@@ -43,6 +43,8 @@ A step whose program is not installed says so under the command. Nothing stops y
 
 **Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. Every run, from here or from anywhere else, is kept in the flow's [run history](/flows/history). **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
 
+To try one step without the rest, press the play button on it, or select it and press <kbd>Shift</kbd> + <kbd>Enter</kbd>. A step that uses variables asks for their values first, filled in with what the last run saved. A block runs with the steps inside it. Trying a step is not added to the run history.
+
 ## Triggers
 
 Every saved flow has a command that works from anywhere:

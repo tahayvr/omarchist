@@ -31,7 +31,7 @@ use crate::system::flows::store::{
 };
 use crate::system::flows::templates::template;
 use crate::system::flows::{
-    Flow, ICONS, InputFallback, OnError, Step, StepKind, StepPath, unique_id,
+    Flow, ICONS, InputFallback, OnError, Step, StepKind, StepPath, unique_id, vars,
 };
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
@@ -51,6 +51,9 @@ use crate::ui::flows_page::step_dialog::{
 };
 use crate::ui::flows_page::step_list::RowKey;
 use crate::ui::flows_page::step_summary::SummaryContext;
+use crate::ui::flows_page::test_step_dialog::{
+    TestStepDialog, TestStepEvent, open_test_step_dialog,
+};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybind_dialog::{
@@ -85,6 +88,7 @@ pub mod flow_edit_nav {
             CollapseStep,
             ExpandStep,
             ShowHistory,
+            TestStep,
             Export,
         ]
     );
@@ -145,7 +149,13 @@ pub struct FlowEditPage {
     pub(super) rounds: HashMap<StepPath, (u32, u32)>,
     /// Blocks whose steps are hidden, by the block's `uid`.
     pub(super) collapsed: HashSet<u64>,
-    running: bool,
+    pub(super) running: bool,
+    /// The step being run alone, when the run is a test of one step.
+    testing: Option<StepPath>,
+    /// What each variable last held: saved by a run in this editor or
+    /// typed into a test. A step run alone starts from these.
+    sample_values: HashMap<String, String>,
+    test_dialog: Option<(Entity<TestStepDialog>, Subscription)>,
     /// Counts runs; a message from an older run is ignored.
     run_id: u64,
     /// Stops the current run from the Stop button.
@@ -236,6 +246,9 @@ impl FlowEditPage {
             steps_focus: focus::tab_stop(cx),
             selected: None,
             running: false,
+            testing: None,
+            sample_values: HashMap::new(),
+            test_dialog: None,
             run_id: 0,
             cancel: None,
             apps: Vec::new(),
@@ -362,13 +375,92 @@ impl FlowEditPage {
             window.push_notification(format!("Cannot run the flow: {e}"), cx);
             return;
         }
+        self.start_run(flow, None, window, cx);
+    }
+
+    /// Runs the step at `path` alone, to try it out. The variables it
+    /// uses are asked for first, filled with what they last held.
+    pub(super) fn test_step(
+        &mut self,
+        path: &[usize],
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.running || self.test_dialog.is_some() {
+            return;
+        }
+        let flow = self.current(cx);
+        if let Err(e) = flow.validate_step(path) {
+            window.push_notification(format!("Cannot run the step: {e}"), cx);
+            return;
+        }
+        let needs = flow.needs_at(path);
+        if needs.is_empty() {
+            self.start_run(flow, Some((path.to_vec(), Vec::new())), window, cx);
+            return;
+        }
+        let Some(step) = flow.step_at(path) else {
+            return;
+        };
+        let summary = SummaryContext {
+            apps: &self.apps,
+            flows: &self.flows,
+        }
+        .summarize(&step.kind);
+        let values: Vec<(String, String)> = needs
+            .into_iter()
+            .map(|name| {
+                let value = self.sample_values.get(&name).cloned().unwrap_or_default();
+                (name, value)
+            })
+            .collect();
+        let dialog = open_test_step_dialog(flow.step_number(path), summary, &values, window, cx);
+        let path = path.to_vec();
+        let subscription = cx.subscribe_in(
+            &dialog,
+            window,
+            move |this, _, event: &TestStepEvent, window, cx| {
+                this.test_dialog = None;
+                this.steps_focus.focus(window, cx);
+                if let TestStepEvent::Run(values) = event {
+                    for (name, value) in values {
+                        this.sample_values.insert(name.clone(), value.clone());
+                    }
+                    let flow = this.current(cx);
+                    this.start_run(flow, Some((path.clone(), values.clone())), window, cx);
+                }
+            },
+        );
+        self.test_dialog = Some((dialog, subscription));
+    }
+
+    /// Starts `flow` on a thread of its own, or only the step `only` names
+    /// with the values it is given.
+    fn start_run(
+        &mut self,
+        flow: Flow,
+        only: Option<(StepPath, Vec<(String, String)>)>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         self.running = true;
         self.run_id += 1;
         let run_id = self.run_id;
         let cancel = Cancel::new();
         self.cancel = Some(cancel.clone());
-        self.step_states.clear();
-        self.rounds.clear();
+        match &only {
+            // The other steps keep what the last run showed under them:
+            // those are the values this one starts from.
+            Some((path, _)) => {
+                self.step_states.retain(|step, _| !step.starts_with(path));
+                self.rounds.retain(|step, _| !step.starts_with(path));
+            }
+            None => {
+                self.step_states.clear();
+                self.rounds.clear();
+            }
+        }
+        self.testing = only.as_ref().map(|(path, _)| path.clone());
         cx.notify();
 
         let (tx, rx) = smol::channel::unbounded::<RunMessage>();
@@ -376,18 +468,27 @@ impl FlowEditPage {
         // long as the flow takes, which is not what the executor's pool is
         // for.
         std::thread::spawn(move || {
-            let mut recorder = Recorder::new(&flow, "Editor");
-            let outcome = Runner::new(true)
-                .cancellable(cancel.clone())
-                .run(&flow, &mut |event| {
-                    recorder.event(&event);
+            let runner = Runner::new(true).cancellable(cancel.clone());
+            let outcome = match only {
+                // A test of one step is not a run of the flow: it is not
+                // kept in the history.
+                Some((path, values)) => runner.run_only(&flow, &path, &values, &mut |event| {
                     let _ = tx.send_blocking(RunMessage::Event(run_id, event));
-                });
-            // A flow that was never saved has no history to add to.
-            let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
-            if let Err(e) = history::record(&flow.id, &run) {
-                eprintln!("{e}");
-            }
+                }),
+                None => {
+                    let mut recorder = Recorder::new(&flow, "Editor");
+                    let outcome = runner.run(&flow, &mut |event| {
+                        recorder.event(&event);
+                        let _ = tx.send_blocking(RunMessage::Event(run_id, event));
+                    });
+                    // A flow that was never saved has no history to add to.
+                    let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
+                    if let Err(e) = history::record(&flow.id, &run) {
+                        eprintln!("{e}");
+                    }
+                    outcome
+                }
+            };
             let _ = tx.send_blocking(RunMessage::Done(run_id, outcome));
         });
 
@@ -422,7 +523,21 @@ impl FlowEditPage {
                 if run_id == self.run_id {
                     self.running = false;
                     self.cancel = None;
-                    window.push_notification(outcome.summary(&self.current(cx)), cx);
+                    let flow = self.current(cx);
+                    let message = match self.testing.take() {
+                        Some(path) => {
+                            let number = flow.step_number(&path);
+                            if outcome.cancelled {
+                                format!("Step {number} cancelled")
+                            } else if outcome.is_ok() {
+                                format!("Step {number} finished")
+                            } else {
+                                format!("Step {number} failed")
+                            }
+                        }
+                        None => outcome.summary(&flow),
+                    };
+                    window.push_notification(message, cx);
                     cx.notify();
                 }
                 return;
@@ -436,6 +551,14 @@ impl FlowEditPage {
                 self.step_states.insert(path, StepState::Running);
             }
             Some(RunEvent::Finished { path, status }) => {
+                // What a step saved is what a later step, run alone, is
+                // offered as its value.
+                if let StepStatus::Done(Some(output)) = &status
+                    && let Some(name) = self.flow.step_at(&path).and_then(|s| s.output.as_ref())
+                {
+                    self.sample_values
+                        .insert(vars::normalize(name), output.clone());
+                }
                 let state = match status {
                     StepStatus::Done(output) => StepState::Done(output),
                     StepStatus::Failed(error) => StepState::Failed(error),

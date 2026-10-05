@@ -803,6 +803,34 @@ impl Flow {
         names
     }
 
+    /// The names the step at `path` needs a value for when it runs
+    /// alone: what it and the steps inside it use of the names saved before
+    /// it, of the loops around it, and of the flow's input. The other
+    /// built-ins are read from the desktop as in any run.
+    pub fn needs_at(&self, path: &[usize]) -> Vec<String> {
+        let Some(step) = self.step_at(path) else {
+            return Vec::new();
+        };
+        let (list, index) = match path.split_last() {
+            Some((index, list)) => (list, *index),
+            None => return Vec::new(),
+        };
+        let known = self.names_at(list, index);
+        let mut used = step.kind.references();
+        for branch in step.kind.branches() {
+            for (_, inner) in walk(branch) {
+                used.extend(inner.kind.references());
+            }
+        }
+        let mut names: Vec<String> = Vec::new();
+        for name in used {
+            if (known.contains(&name) || name == "input") && !names.contains(&name) {
+                names.push(name);
+            }
+        }
+        names
+    }
+
     /// Names saved by the top-level steps before `index` and the steps
     /// inside them.
     pub fn outputs_before(&self, index: usize) -> Vec<String> {
@@ -870,6 +898,21 @@ impl Flow {
         }
         let mut scope = Scope::default();
         self.validate_steps(&self.steps, 0, &mut scope)
+    }
+
+    /// Validates the step at `path` and the steps inside it, with the
+    /// names its place in the flow gives it: what running that step alone
+    /// relies on. The rest of the flow may still be unfinished.
+    pub fn validate_step(&self, path: &[usize]) -> Result<()> {
+        let (Some((index, list)), Some(step)) = (path.split_last(), self.step_at(path)) else {
+            return Err(Error::Invalid("That step is gone".to_string()));
+        };
+        let mut scope = Scope {
+            number: self.step_number(path).saturating_sub(1),
+            saved: self.names_at(list, *index),
+            loops: Vec::new(),
+        };
+        self.validate_steps(std::slice::from_ref(step), list.len() / 2, &mut scope)
     }
 
     fn validate_steps(&self, steps: &[Step], depth: usize, scope: &mut Scope) -> Result<()> {
@@ -1763,6 +1806,30 @@ mod block_tests {
         let mut flow = Flow::new("f".into(), "F".into());
         flow.steps = steps;
         flow
+    }
+
+    #[test]
+    fn a_step_alone_needs_what_was_saved_before_it_and_set_around_it() {
+        let flow = flow(vec![
+            command("date").saving("today"),
+            command("whoami").saving("unused"),
+            each(
+                "{{today}}",
+                vec![
+                    command("echo {{item}} {{clipboard}}").saving("line"),
+                    command("echo {{line}} {{input}} {{today}}"),
+                ],
+            ),
+        ]);
+        // The block: what it reads from before it, and the input. Its own
+        // loop sets the item, a step inside saves the line, and the
+        // clipboard is read from the desktop.
+        assert_eq!(flow.needs_at(&[2]), vec!["today", "input"]);
+        // A step inside, alone: the loop around it does not run either.
+        assert_eq!(flow.needs_at(&[2, 0, 0]), vec!["item"]);
+        assert_eq!(flow.needs_at(&[2, 0, 1]), vec!["line", "input", "today"]);
+        assert!(flow.needs_at(&[0]).is_empty());
+        assert!(flow.needs_at(&[9]).is_empty());
     }
 
     fn waits(steps: &[Step]) -> Vec<u64> {

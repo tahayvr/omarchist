@@ -81,4 +81,6 @@ Bind it to a key and select some text: the first step turns the selection into a
 
 **Run** in the editor shows each step's output under the step, marked **Result**, so you can see what a variable will hold. From the command line, `omarchist flow run` prints each command's output.
 
+The play button on a step runs only that step. It asks for the value of each variable the step uses and offers what the last run saved, so you can change one step and try it without running everything before it.
+
 Flows that save outputs or use variables are written as file format 2. Omarchist 2.0.0 cannot open them; update Omarchist on every machine that runs your shared flows.

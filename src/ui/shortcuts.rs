@@ -1184,6 +1184,13 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Edit the selected step"
     ),
     shortcut!(
+        "shift-enter",
+        flow_edit_nav::TestStep,
+        Some("FlowSteps"),
+        FLOWS,
+        "Run only the selected step"
+    ),
+    shortcut!(
         "delete",
         flow_edit_nav::RemoveStep,
         Some("FlowSteps"),
