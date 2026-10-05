@@ -56,13 +56,14 @@ The id comes from the flow's name and never changes, so renaming a flow breaks n
 - **Keybind** opens the keybind editor with the flow chosen as the action. The same bind appears on the [Keybinds](/configuring/keybinds) page.
 - **App launcher** adds the flow to your app menu with its own icon.
 - **At startup** runs it after every login through Omarchy's `post-boot` hook.
-- **Files menu, on selected files** adds it to the Files app's right-click **Scripts** menu. The files you picked become the flow's [input](/flows/input).
+- **Files menu** adds it to the Files app's right-click **Scripts** menu. The files you picked become the flow's [input](/flows/input).
+- **Automations** start it by themselves: at a time, when an app opens, when the charger is unplugged. See [Automations](/flows/automations).
 
 A flow can be given something to work on: words on the command line, piped text, files, or the text you have selected. See [Input](/flows/input).
 
 ## Templates
 
-A template is a flow file without an id. Omarchist ships twenty-eight built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
+A template is a flow file without an id. Omarchist ships thirty built-in ones; your own go in `~/.config/omarchist/templates/` as `<name>.flow.toml` files. **From template** opens the Templates page, and picking one opens it in the editor as a new, unsaved flow.
 
 <img src="/images/templates-light.webp" alt="Templates page" class="screenshot light-only">
 <img src="/images/templates-dark.webp" alt="Templates page" class="screenshot dark-only">
@@ -97,12 +98,14 @@ A template is a flow file without an id. Omarchist ships twenty-eight built-in o
 | **Tidy copied text** | Trims what you copied, turns it into Title Case, and copies it back. |
 | **Pick a color** | Pick any color on screen; click the notification to copy its code. |
 | **Archive files** | Packs the files you start it on into one archive in your home folder. Made for the **Files menu**. |
+| **Low battery** | Switches to power saver, dims the screen, and tells you. Made for the battery [automation](/flows/automations). |
+| **Headphones on** | Sets a comfortable volume when your headphones connect. Made for the Bluetooth automation. |
 
 The templates that change settings set things to a state rather than flipping them, so running one twice changes nothing the second time. Edit a template's steps to fit you: a different meeting link, brightness, or volume.
 
 ## Sharing flows
 
-- **Export** from a card's menu, the editor's menu (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>), or `omarchist flow export`. The file leaves out the id and triggers, which belong to your machine.
+- **Export** from a card's menu, the editor's menu (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd>), or `omarchist flow export`. The file leaves out the id and everything under **Run it from**, automations included, which belong to your machine.
 - **Import** with **Import flow**, by dropping a `.flow.toml` file onto the Flows page, or with `omarchist flow import <file or https URL>`.
 
 An imported flow opens in the editor with a note showing where it came from. Nothing is saved or run until you press **Save**, so read the steps first: a flow is a list of commands, and it runs them as you. The command line prints the steps and asks before saving.

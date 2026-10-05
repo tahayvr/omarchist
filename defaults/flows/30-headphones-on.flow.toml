@@ -1,0 +1,31 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Headphones on"
+description = "Sets a comfortable volume when your headphones connect. Made for the Bluetooth automation."
+icon = "headphones"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "volume.set"
+level = 30
+
+[[step]]
+type = "action"
+action = "volume.mute"
+state = "off"
+
+[[step]]
+type = "if"
+check = "empty"
+value = "{{input}}"
+not = true
+
+[[step.then]]
+type = "notify"
+title = "{{input}} connected"
+body = "Volume set to 30%"

@@ -13,13 +13,17 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
+    popover::Popover,
+    switch::Switch,
     v_flex,
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
+use crate::system::flows::automations::Event;
 use crate::system::flows::requirements::missing_programs;
 use crate::system::flows::runner::{Cancel, Outcome, RunEvent, Runner, StepStatus};
+use crate::system::flows::service;
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::{
     existing_ids, load_flow, load_flows, runs_flow, save_flow, save_new_flow,
@@ -35,12 +39,16 @@ use crate::system::keybinds::store::{load_overrides, save_overrides};
 use crate::system::keybinds::{BindStatus, Dispatcher, Keybind, Origin};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
+use crate::ui::flows_page::automation_dialog::{
+    AutomationDialog, AutomationDialogEvent, EventKind, open_automation_dialog,
+};
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
     StepDialog, StepDialogEvent, StepDialogMode, open_step_dialog,
 };
 use crate::ui::flows_page::step_list::RowKey;
+use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybind_dialog::{
@@ -145,6 +153,11 @@ pub struct FlowEditPage {
     /// The chord that runs this flow, and whether Omarchist owns that bind.
     chord: Option<(Chord, bool)>,
     step_dialog: Option<(Entity<StepDialog>, Subscription)>,
+    automation_dialog: Option<(Entity<AutomationDialog>, Subscription)>,
+    /// Whether the background service that runs automations is on.
+    service_on: bool,
+    /// The service is being turned on.
+    service_pending: bool,
     keybind_dialog: Option<(Entity<KeybindDialog>, Subscription)>,
     pub(super) scroll: ScrollHandle,
     /// Where an imported flow came from, shown until it is saved.
@@ -227,6 +240,9 @@ impl FlowEditPage {
             binds: Rc::new(Vec::new()),
             chord: None,
             step_dialog: None,
+            automation_dialog: None,
+            service_on: false,
+            service_pending: false,
             keybind_dialog: None,
             scroll: ScrollHandle::new(),
             import_origin,
@@ -252,10 +268,18 @@ impl FlowEditPage {
         let id = self.flow.id.clone();
         cx.spawn(async move |this, cx| {
             let loaded = cx
-                .background_spawn(async { (installed_apps(), load_flows(), scan_keybinds()) })
+                .background_spawn(async {
+                    (
+                        installed_apps(),
+                        load_flows(),
+                        scan_keybinds(),
+                        service::is_enabled(),
+                    )
+                })
                 .await;
             this.update(cx, |this, cx| {
-                let (apps, flows, scan) = loaded;
+                let (apps, flows, scan, service_on) = loaded;
+                this.service_on = service_on;
                 this.apps = apps;
                 this.flows = flows.unwrap_or_default();
                 if let Ok(scan) = scan {
@@ -627,6 +651,212 @@ impl FlowEditPage {
         cx.notify();
     }
 
+    // MARK: Automations
+
+    fn open_automation_dialog(
+        &mut self,
+        index: Option<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.automation_dialog.is_some() {
+            return;
+        }
+        let initial = index
+            .and_then(|ix| self.flow.triggers.automations.get(ix))
+            .cloned();
+        let dialog = open_automation_dialog(index, initial.as_ref(), window, cx);
+        let subscription = cx.subscribe_in(
+            &dialog,
+            window,
+            |this, _, event: &AutomationDialogEvent, window, cx| {
+                this.automation_dialog = None;
+                if let AutomationDialogEvent::Save(index, automation) = event {
+                    let automations = &mut this.flow.triggers.automations;
+                    match index.and_then(|ix| automations.get_mut(ix)) {
+                        Some(slot) => *slot = automation.clone(),
+                        None => automations.push(automation.clone()),
+                    }
+                    cx.notify();
+                }
+                this.focus_handle.focus(window, cx);
+            },
+        );
+        self.automation_dialog = Some((dialog, subscription));
+    }
+
+    /// Installs and starts the background service, off the UI thread.
+    fn turn_on_service(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.service_pending {
+            return;
+        }
+        self.service_pending = true;
+        cx.notify();
+        let task = cx.background_spawn(async { service::enable() });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            this.update_in(cx, |this, window, cx| {
+                this.service_pending = false;
+                this.service_on = result.is_ok();
+                window.push_notification(
+                    match result {
+                        Ok(()) => "Automations are on".to_string(),
+                        Err(e) => format!("Could not turn automations on: {e}"),
+                    },
+                    cx,
+                );
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    /// An automation as a sentence, with an app by its name.
+    fn describe_automation(&self, event: &Event) -> String {
+        let summaries = SummaryContext {
+            apps: &self.apps,
+            flows: &self.flows,
+        };
+        match event {
+            Event::AppOpened { class } => {
+                format!("When {} opens", summaries.app_name_for_class(class))
+            }
+            Event::AppClosed { class } => {
+                format!("When {} closes", summaries.app_name_for_class(class))
+            }
+            other => other.describe(),
+        }
+    }
+
+    fn render_automations(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        let theme = cx.theme();
+        let automations = &self.flow.triggers.automations;
+        let rows = automations.iter().enumerate().map(|(ix, automation)| {
+            let kind = EventKind::of(&automation.event);
+            h_flex()
+                .id(("flow-automation", ix))
+                .test_support()
+                .gap_2()
+                .items_center()
+                .child(
+                    Icon::new(Icon::empty())
+                        .path(kind.icon())
+                        .size_4()
+                        .flex_shrink_0()
+                        .text_color(theme.muted_foreground),
+                )
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .text_sm()
+                        .when(!automation.enabled, |this| {
+                            this.text_color(theme.muted_foreground)
+                        })
+                        .child(selectable(
+                            ("automation-text", ix),
+                            self.describe_automation(&automation.event),
+                        )),
+                )
+                .when(automation.ask, |this| {
+                    this.child(
+                        div()
+                            .flex_shrink_0()
+                            .px_1p5()
+                            .rounded(theme.radius)
+                            .bg(theme.secondary)
+                            .text_xs()
+                            .text_color(theme.muted_foreground)
+                            .child("asks"),
+                    )
+                })
+                .child(
+                    Button::new(("automation-edit", ix))
+                        .ghost()
+                        .xsmall()
+                        .icon(Icon::new(Icon::empty()).path("icons/pencil.svg"))
+                        .tooltip("Edit")
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.open_automation_dialog(Some(ix), window, cx)
+                        })),
+                )
+                .child(
+                    Button::new(("automation-remove", ix))
+                        .ghost()
+                        .xsmall()
+                        .icon(Icon::new(Icon::empty()).path("icons/trash.svg"))
+                        .tooltip("Remove")
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if ix < this.flow.triggers.automations.len() {
+                                this.flow.triggers.automations.remove(ix);
+                                cx.notify();
+                            }
+                        })),
+                )
+                .child(
+                    Switch::new(("automation-enabled", ix))
+                        .small()
+                        .checked(automation.enabled)
+                        .on_click(cx.listener(move |this, _, _, cx| {
+                            if let Some(automation) = this.flow.triggers.automations.get_mut(ix) {
+                                automation.enabled = !automation.enabled;
+                                cx.notify();
+                            }
+                        })),
+                )
+        });
+        let service_off = !automations.is_empty() && !self.service_on;
+        v_flex()
+            .gap_2()
+            .child(Self::label("Automations"))
+            .children(rows)
+            .when(service_off, |this| {
+                this.child(
+                    h_flex()
+                        .id("automations-service-off")
+                        .test_support()
+                        .gap_2()
+                        .items_center()
+                        .flex_wrap()
+                        .p_2()
+                        .rounded(theme.radius)
+                        .bg(theme.warning.opacity(0.1))
+                        .text_xs()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .child(selectable("service-off", "The background service is off")),
+                        )
+                        .child(
+                            Button::new("automations-turn-on")
+                                .xsmall()
+                                .outline()
+                                .label("Turn on")
+                                .loading(self.service_pending)
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, window, cx| {
+                                    this.turn_on_service(window, cx)
+                                })),
+                        ),
+                )
+            })
+            .child(
+                h_flex().child(
+                    Button::new("flow-add-automation")
+                        .outline()
+                        .xsmall()
+                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                        .label("Add automation")
+                        .cursor_pointer()
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.open_automation_dialog(None, window, cx)
+                        })),
+                ),
+            )
+    }
+
     // MARK: Render
 
     pub(super) fn section_title(text: &'static str, cx: &App) -> Div {
@@ -798,12 +1028,17 @@ impl FlowEditPage {
             )
     }
 
+    /// The flow's icon as a button that opens the icons to choose from.
+    /// With the keyboard on it, Left and Right step through them.
     fn render_icon_picker(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme();
         let focused = self.icon_focus.is_focused(window);
         let ring = focus::focus_border(focused, theme.transparent, cx);
+        let editor = cx.entity();
+        let current = self.flow.icon.clone();
         h_flex()
             .id("flow-icons")
+            .test_support()
             .key_context(FILTERS_CONTEXT)
             .track_focus(&self.icon_focus)
             .on_action(
@@ -812,42 +1047,66 @@ impl FlowEditPage {
             .on_action(
                 cx.listener(|this, _: &keybinds_nav::FilterNext, _, cx| this.cycle_icon(1, cx)),
             )
-            .flex_wrap()
-            .gap_1()
-            .p_1()
+            .flex_shrink_0()
             .rounded(theme.radius)
             .border_1()
             .border_color(ring)
-            .children(ICONS.iter().enumerate().map(|(ix, &icon)| {
-                let selected = self.flow.icon == icon;
-                let button = Button::new(("flow-icon", ix))
-                    .icon(Icon::new(Icon::empty()).path(format!("icons/{icon}.svg")))
-                    .small()
-                    .tab_stop(false)
-                    .cursor_pointer();
-                let button = if selected {
-                    button.primary()
-                } else {
-                    button.ghost()
-                };
-                button.on_click(cx.listener(move |this, _, _, cx| this.set_icon(icon, cx)))
-            }))
+            .child(
+                Popover::new("flow-icon-popover")
+                    .trigger(
+                        Button::new("flow-icon-button")
+                            .icon(
+                                Icon::new(Icon::empty())
+                                    .path(crate::system::flows::icon_path(&self.flow.icon)),
+                            )
+                            .small()
+                            .tab_stop(false)
+                            .tooltip("Choose an icon")
+                            .cursor_pointer(),
+                    )
+                    .content(move |_, _, cx| {
+                        let editor = editor.clone();
+                        let current = current.clone();
+                        h_flex().w(px(264.)).flex_wrap().gap_1().children(
+                            ICONS.iter().enumerate().map(|(ix, &icon)| {
+                                let editor = editor.clone();
+                                let button = Button::new(("flow-icon", ix))
+                                    .icon(
+                                        Icon::new(Icon::empty()).path(format!("icons/{icon}.svg")),
+                                    )
+                                    .small()
+                                    .cursor_pointer();
+                                let button = if current == icon {
+                                    button.primary()
+                                } else {
+                                    button.ghost()
+                                };
+                                button.on_click(cx.listener(move |popover, _, window, cx| {
+                                    editor.update(cx, |this, cx| this.set_icon(icon, cx));
+                                    popover.dismiss(window, cx);
+                                }))
+                            }),
+                        )
+                    }),
+            )
     }
 
     fn render_details(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         Self::card(cx)
             .child(Self::section_title("DETAILS", cx))
             .child(
-                v_flex()
-                    .gap_1()
-                    .child(Self::label("Icon"))
-                    .child(self.render_icon_picker(window, cx)),
-            )
-            .child(
-                v_flex()
-                    .gap_1()
-                    .child(Self::label("Name"))
-                    .child(Input::new(&self.name).id("flow-name").small()),
+                h_flex()
+                    .gap_2()
+                    .items_end()
+                    .child(self.render_icon_picker(window, cx))
+                    .child(
+                        v_flex()
+                            .flex_1()
+                            .min_w_0()
+                            .gap_1()
+                            .child(Self::label("Name"))
+                            .child(Input::new(&self.name).id("flow-name").small()),
+                    ),
             )
             .child(
                 v_flex()
@@ -955,6 +1214,7 @@ impl FlowEditPage {
         let input_fallback = self
             .render_input_fallback(window, cx)
             .map(|e| e.into_any_element());
+        let automations = self.render_automations(cx).into_any_element();
         let theme = cx.theme();
         let is_new = self.is_new();
         let command = if is_new {
@@ -1032,82 +1292,72 @@ impl FlowEditPage {
                     .child(keybind_row),
             )
             .child(
-                div().text_sm().child(
-                    FocusableSwitch::new("flow-trigger-launcher")
-                        .label("App launcher")
-                        .checked(self.flow.triggers.launcher)
-                        .on_change(cx.listener(|this, checked, _, cx| {
-                            this.set_trigger(Some(*checked), None, cx)
-                        })),
-                ),
-            )
-            .child(
-                div().text_sm().child(
-                    FocusableSwitch::new("flow-trigger-startup")
-                        .label("At startup")
-                        .checked(self.flow.triggers.startup)
-                        .on_change(cx.listener(|this, checked, _, cx| {
-                            this.set_trigger(None, Some(*checked), cx)
-                        })),
-                ),
-            )
-            .child(
-                div().text_sm().child(
-                    FocusableSwitch::new("flow-trigger-files")
-                        .label("Files menu, on selected files")
-                        .checked(self.flow.triggers.files)
-                        .on_change(cx.listener(|this, checked, _, cx| {
-                            this.flow.triggers.files = *checked;
-                            cx.notify();
-                        })),
-                ),
-            )
-            .children(input_fallback)
-            .child(
-                v_flex()
-                    .gap_1()
-                    .child(Self::label("Command line"))
+                h_flex()
+                    .gap_x_4()
+                    .gap_y_1()
+                    .flex_wrap()
+                    .text_sm()
                     .child(
-                        h_flex()
-                            .gap_2()
-                            .items_center()
-                            .child(
-                                div()
-                                    .flex_1()
-                                    .min_w_0()
-                                    .px_2()
-                                    .py_1()
-                                    .rounded(theme.radius)
-                                    .bg(theme.secondary)
-                                    .text_xs()
-                                    .truncate()
-                                    .text_color(if is_new {
-                                        theme.muted_foreground
-                                    } else {
-                                        theme.foreground
-                                    })
-                                    .child(selectable("flow-command", command)),
-                            )
-                            .when(!is_new, |this| {
-                                this.child(
-                                    Clipboard::new("flow-copy-command")
-                                        .value(self.flow.command())
-                                        .tooltip("Copy the command")
-                                        .on_copied(|_, window, cx| {
-                                            window.push_notification("Command copied", cx)
-                                        }),
-                                )
-                            }),
+                        FocusableSwitch::new("flow-trigger-launcher")
+                            .label("App launcher")
+                            .checked(self.flow.triggers.launcher)
+                            .on_change(cx.listener(|this, checked, _, cx| {
+                                this.set_trigger(Some(*checked), None, cx)
+                            })),
                     )
                     .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(selectable(
-                                "command-note",
-                                "Works from any script, terminal, or keybind.",
-                            )),
+                        FocusableSwitch::new("flow-trigger-startup")
+                            .label("At startup")
+                            .checked(self.flow.triggers.startup)
+                            .on_change(cx.listener(|this, checked, _, cx| {
+                                this.set_trigger(None, Some(*checked), cx)
+                            })),
+                    )
+                    .child(
+                        FocusableSwitch::new("flow-trigger-files")
+                            .label("Files menu")
+                            .checked(self.flow.triggers.files)
+                            .on_change(cx.listener(|this, checked, _, cx| {
+                                this.flow.triggers.files = *checked;
+                                cx.notify();
+                            })),
                     ),
+            )
+            .children(input_fallback)
+            .child(automations)
+            .child(
+                v_flex().gap_1().child(Self::label("Command line")).child(
+                    h_flex()
+                        .gap_2()
+                        .items_center()
+                        .child(
+                            div()
+                                .flex_1()
+                                .min_w_0()
+                                .px_2()
+                                .py_1()
+                                .rounded(theme.radius)
+                                .bg(theme.secondary)
+                                .text_xs()
+                                .truncate()
+                                .text_color(if is_new {
+                                    theme.muted_foreground
+                                } else {
+                                    theme.foreground
+                                })
+                                .child(selectable("flow-command", command)),
+                        )
+                        .when(!is_new, |this| {
+                            this.child(
+                                Clipboard::new("flow-copy-command")
+                                    .value(self.flow.command())
+                                    .tooltip("Copy the command")
+                                    .on_copied(|_, window, cx| {
+                                        window.push_notification("Command copied", cx)
+                                    }),
+                            )
+                        }),
+                ),
             )
     }
 }

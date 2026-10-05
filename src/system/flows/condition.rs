@@ -99,31 +99,58 @@ impl Probe for Machine {
     }
 }
 
-/// On battery means there is a battery and no mains supply is online. A
-/// desktop without a battery is never on battery.
+/// On battery means the machine has a battery of its own and no mains
+/// supply is online. A desktop is never on battery, whatever batteries
+/// its mouse or keyboard report (their `scope` is `Device`).
 pub fn on_battery_in(dir: &std::path::Path) -> bool {
+    let power = power_in(dir);
+    power.battery && !power.plugged_in
+}
+
+/// What `/sys/class/power_supply` says about the machine's own power.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Power {
+    /// The machine has a battery of its own.
+    pub battery: bool,
+    /// A charger is connected.
+    pub plugged_in: bool,
+    /// The charge of the machine's battery, when it has one.
+    pub percent: Option<u8>,
+}
+
+pub fn power_in(dir: &std::path::Path) -> Power {
     let Ok(entries) = std::fs::read_dir(dir) else {
-        return false;
+        return Power::default();
     };
     let read = |path: std::path::PathBuf| {
         std::fs::read_to_string(path)
             .map(|s| s.trim().to_string())
             .unwrap_or_default()
     };
-    let (mut battery, mut mains_online) = (false, false);
+    let mut power = Power::default();
     for entry in entries.flatten() {
         let path = entry.path();
         match read(path.join("type")).as_str() {
-            "Battery" => battery = true,
+            "Battery" if read(path.join("scope")) != "Device" => {
+                power.battery = true;
+                if let Ok(percent) = read(path.join("capacity")).parse::<u8>() {
+                    power.percent = Some(power.percent.map_or(percent, |p| p.min(percent)));
+                }
+            }
             "Mains" | "USB" | "USB_C" | "USB_PD" | "Wireless"
                 if read(path.join("online")) == "1" =>
             {
-                mains_online = true;
+                power.plugged_in = true;
             }
             _ => {}
         }
     }
-    battery && !mains_online
+    power
+}
+
+/// The machine's power right now.
+pub fn power() -> Power {
+    power_in(std::path::Path::new("/sys/class/power_supply"))
 }
 
 /// `HH:MM` as minutes since midnight.
@@ -394,10 +421,18 @@ pub(crate) mod tests {
         assert!(!on_battery_in(&dir), "no supplies at all");
         supply("AC", "Mains", Some("0"));
         assert!(!on_battery_in(&dir), "a desktop has no battery");
+        // A wireless mouse's battery does not make a desktop a laptop.
+        supply("hidpp_battery_0", "Battery", None);
+        std::fs::write(dir.join("hidpp_battery_0/scope"), "Device\n").unwrap();
+        std::fs::write(dir.join("hidpp_battery_0/capacity"), "12\n").unwrap();
+        assert!(!on_battery_in(&dir));
         supply("BAT0", "Battery", None);
+        std::fs::write(dir.join("BAT0/capacity"), "71\n").unwrap();
         assert!(on_battery_in(&dir));
+        assert_eq!(power_in(&dir).percent, Some(71));
         supply("AC", "Mains", Some("1"));
         assert!(!on_battery_in(&dir));
+        assert!(power_in(&dir).plugged_in);
         std::fs::remove_dir_all(&dir).unwrap();
     }
 }

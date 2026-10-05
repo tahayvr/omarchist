@@ -50,6 +50,20 @@ pub fn trigger_chips(flow: &Flow, chord: Option<&Chord>, cx: &App) -> impl IntoE
         row = row.child(Tag::secondary().small().child("Files menu"));
         any = true;
     }
+    let automations = flow
+        .triggers
+        .automations
+        .iter()
+        .filter(|a| a.enabled)
+        .count();
+    if automations > 0 {
+        row = row.child(Tag::secondary().small().child(if automations == 1 {
+            "Automation".to_string()
+        } else {
+            format!("{automations} automations")
+        }));
+        any = true;
+    }
     if !flow.meta.source.is_empty() {
         row = row.child(Tag::warning().small().child("Imported"));
         any = true;

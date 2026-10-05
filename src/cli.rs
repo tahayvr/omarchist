@@ -74,6 +74,12 @@ pub enum Command {
         #[command(subcommand)]
         action: ThemeCommand,
     },
+    /// The background service that starts flows by themselves, on a
+    /// schedule or when something happens
+    Automations {
+        #[command(subcommand)]
+        action: AutomationsCommand,
+    },
     /// Remove everything Omarchist added outside its package (Hyprland
     /// hook, bar widget, flow launchers, settings); themes stay
     Uninstall {
@@ -81,6 +87,18 @@ pub enum Command {
         #[arg(short, long)]
         yes: bool,
     },
+}
+
+#[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
+pub enum AutomationsCommand {
+    /// Turn automations on: install the service and start it
+    On,
+    /// Turn automations off: stop the service and remove it
+    Off,
+    /// Say whether the service is running and what it watches for
+    Status,
+    /// Watch and start flows until stopped; what the service itself runs
+    Run,
 }
 
 #[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
@@ -104,6 +122,9 @@ pub enum FlowCommand {
     Run {
         /// The flow's name (case-insensitive) or id
         name: String,
+        /// What started the run, for the run history; set by automations
+        #[arg(long, hide = true)]
+        trigger: Option<String>,
         /// What the flow gets as its input, after `--`: text, or files,
         /// one per line. Piped text works too
         #[arg(last = true)]
@@ -209,6 +230,7 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: ThemeCommand::FromImage { image, name, apply },
         } => theme_from_image(image, name.as_deref(), *apply),
         Command::Uninstall { yes } => uninstall(*yes),
+        Command::Automations { action } => automations(action),
         Command::Flow {
             action: FlowCommand::Export { name, output },
         } => export(name, output.as_ref()),
@@ -216,7 +238,7 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: FlowCommand::Import { source, yes },
         } => import(source, *yes),
         Command::Flow {
-            action: FlowCommand::Run { name, input },
+            action: FlowCommand::Run { name, input, .. },
         } => {
             // The editor's guard on Lua steps applies to a hand-edited file
             // too, so nothing reaches `hyprctl dispatch` unchecked.
@@ -281,6 +303,43 @@ pub fn run_command(command: &Command) -> ExitCode {
                 notify_failure(&summary);
                 ExitCode::FAILURE
             }
+        }
+    }
+}
+
+fn automations(action: &AutomationsCommand) -> ExitCode {
+    use crate::system::flows::{automations, service};
+    let result = match action {
+        AutomationsCommand::Run => automations::run(),
+        AutomationsCommand::On => service::enable().map(|()| println!("Automations are on.")),
+        AutomationsCommand::Off => service::disable().map(|()| println!("Automations are off.")),
+        AutomationsCommand::Status => {
+            println!(
+                "The service is {}.",
+                match (service::is_enabled(), service::is_active()) {
+                    (true, true) => "on and running",
+                    (true, false) => "on but not running",
+                    (false, _) => "off",
+                }
+            );
+            for flow in load_flows().unwrap_or_default() {
+                for automation in &flow.triggers.automations {
+                    println!(
+                        "  {}: {}{}",
+                        flow.name,
+                        automation.event.describe(),
+                        if automation.enabled { "" } else { "  (off)" }
+                    );
+                }
+            }
+            Ok(())
+        }
+    };
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(e) => {
+            eprintln!("{e}");
+            ExitCode::FAILURE
         }
     }
 }
@@ -612,6 +671,7 @@ mod tests {
             Some(Command::Flow {
                 action: FlowCommand::Run {
                     name: "Morning start".into(),
+                    trigger: None,
                     input: Vec::new(),
                 }
             })
@@ -632,6 +692,7 @@ mod tests {
             Some(Command::Flow {
                 action: FlowCommand::Run {
                     name: "archive".into(),
+                    trigger: None,
                     input: vec!["a b.txt".into(), "--list".into(), "-x".into()],
                 }
             })

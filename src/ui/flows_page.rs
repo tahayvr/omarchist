@@ -1,4 +1,5 @@
 pub mod app_picker;
+pub mod automation_dialog;
 pub mod flow_card;
 pub mod flow_edit_view;
 pub mod flows_view;

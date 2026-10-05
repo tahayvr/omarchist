@@ -14,6 +14,7 @@ A flow can work on something you give it: a text, a link, a few files. Inside th
 | With text piped into it | The text. |
 | On files, from the **Files menu** | The files' paths, one per line. |
 | From another flow, with **Input** filled in | What that step hands over. |
+| By an [automation](/flows/automations) | What the automation is about: the app, the network, the device. |
 | With a keybind, the launcher, or **Run** | Whatever **Started without input, use** says. |
 
 ```bash
@@ -37,7 +38,7 @@ Once a flow uses **Input**, the **Run it from** card shows **Started without inp
 
 ## Run a flow on files
 
-Turn on **Files menu, on selected files** in **Run it from** and save. In the Files app, right-click one or more files, open **Scripts**, and pick the flow. Its input is the files, one path per line.
+Turn on **Files menu** in **Run it from** and save. In the Files app, right-click one or more files, open **Scripts**, and pick the flow. Its input is the files, one path per line.
 
 **Repeat with each** goes through them one at a time:
 

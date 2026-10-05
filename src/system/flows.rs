@@ -13,11 +13,13 @@ use crate::system::keybinds::overrides::is_dsp_call;
 use crate::system::themes::theme_management::lifecycle::slugify_theme_name;
 
 pub mod actions;
+pub mod automations;
 pub mod condition;
 pub mod launcher;
 pub mod prompt;
 pub mod requirements;
 pub mod runner;
+pub mod service;
 pub mod share;
 pub mod store;
 pub mod templates;
@@ -214,7 +216,7 @@ impl InputFallback {
 
 /// Where a flow can be started from, besides the command line and a keybind
 /// (which lives in the keybind overrides, not here).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Triggers {
     /// A `.desktop` entry, so the flow appears in the app launcher.
@@ -227,11 +229,15 @@ pub struct Triggers {
     /// with the selected files as its input.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub files: bool,
+    /// Things that happen on the machine and start the flow by
+    /// themselves; see [`automations`].
+    #[serde(default, rename = "automation", skip_serializing_if = "Vec::is_empty")]
+    pub automations: Vec<automations::Automation>,
 }
 
 impl Triggers {
     pub fn is_empty(&self) -> bool {
-        !self.launcher && !self.startup && !self.files
+        !self.launcher && !self.startup && !self.files && self.automations.is_empty()
     }
 }
 
@@ -735,7 +741,11 @@ impl Flow {
         let uses_format_2 = self.walk().iter().any(|(_, s)| {
             s.output.is_some() || !s.kind.references().is_empty() || s.kind.needs_format_2()
         });
-        if uses_format_2 || !self.input.is_none() || self.triggers.files {
+        if uses_format_2
+            || !self.input.is_none()
+            || self.triggers.files
+            || !self.triggers.automations.is_empty()
+        {
             FORMAT_VARIABLES
         } else {
             1
@@ -847,6 +857,14 @@ impl Flow {
             return Err(Error::Invalid(
                 "A flow's name cannot contain line breaks".to_string(),
             ));
+        }
+        for (index, automation) in self.triggers.automations.iter().enumerate() {
+            if let Err(message) = automation.event.validate() {
+                return Err(Error::Invalid(format!(
+                    "Automation {}: {message}",
+                    index + 1
+                )));
+            }
         }
         let mut scope = Scope::default();
         self.validate_steps(&self.steps, 0, &mut scope)

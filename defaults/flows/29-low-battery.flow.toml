@@ -1,0 +1,25 @@
+# This is an Omarchist flow: https://omarchist.com/flows/
+
+format = 2
+name = "Low battery"
+description = "Switches to power saver, dims the screen, and tells you. Made for the battery automation."
+icon = "leaf"
+on_error = "continue"
+
+[meta]
+author = "Omarchist"
+
+[[step]]
+type = "action"
+action = "power.profile"
+profile = "power-saver"
+
+[[step]]
+type = "action"
+action = "brightness.set"
+level = 30
+
+[[step]]
+type = "notify"
+title = "Battery low"
+body = "Power saver is on and the screen is dimmed"

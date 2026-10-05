@@ -1255,3 +1255,125 @@ fn run_a_flow_can_hand_it_input(cx: &mut TestAppContext) {
     });
     assert!(edited_flow(cx, &view).steps.is_empty());
 }
+
+// MARK: Automations
+
+use omarchist::system::flows::automations::{Day, Event};
+
+#[gpui_kit::test]
+fn an_automation_is_added_from_its_dialog(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("automations-service-off").is_none());
+        window.click("flow-add-automation", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("automation-dialog").visible());
+        // A new automation waits for a time of day; pick Monday and Friday.
+        assert_eq!(window.find("automation-time").value(), Some("09:00"));
+        window.click(("automation-day", 0usize), cx);
+        window.click(("automation-day", 4usize), cx);
+        window.click("automation-time", cx);
+        window.press("ctrl-a", cx);
+        window.input("07:30", cx);
+        window.click("automation-save", cx);
+    });
+    settle(cx, handle);
+
+    let flow = edited_flow(cx, &view);
+    assert_eq!(flow.triggers.automations.len(), 1);
+    let automation = &flow.triggers.automations[0];
+    assert_eq!(
+        automation.event,
+        Event::Time {
+            at: "07:30".into(),
+            days: vec![Day::Mon, Day::Fri],
+        }
+    );
+    assert!(automation.enabled && !automation.ask);
+    with(cx, handle, |window, cx| {
+        assert!(!window.has_active_dialog(cx));
+        assert!(window.find(("flow-automation", 0usize)).visible());
+        assert!(
+            window.find("automations-service-off").visible(),
+            "with an automation and no service, the card says so"
+        );
+        // Its switch turns it off without removing it.
+        window.click(("automation-enabled", 0usize), cx);
+    });
+    assert!(!edited_flow(cx, &view).triggers.automations[0].enabled);
+    with(cx, handle, |window, cx| {
+        window.click(("automation-remove", 0usize), cx)
+    });
+    assert!(edited_flow(cx, &view).triggers.automations.is_empty());
+}
+
+#[gpui_kit::test]
+fn a_time_that_is_not_one_is_refused(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    with(cx, handle, |window, cx| {
+        window.click("flow-add-automation", cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click("automation-time", cx);
+        window.press("ctrl-a", cx);
+        window.input("9am", cx);
+        window.press("ctrl-enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx))
+    });
+    assert!(edited_flow(cx, &view).triggers.automations.is_empty());
+}
+
+#[gpui_kit::test]
+fn what_an_automation_waits_for_decides_its_fields(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    with(cx, handle, |window, cx| {
+        window.click("flow-add-automation", cx)
+    });
+    settle(cx, handle);
+
+    // Open the list of events, search it, and take the match.
+    with(cx, handle, |window, cx| {
+        window.click("automation-kind", cx);
+        window.render_frame(cx);
+        window.input("battery", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| window.press("enter", cx));
+    settle(cx, handle);
+
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("automation-time").is_none());
+        assert!(window.find("automation-percent").visible());
+        window.click("automation-ask", cx);
+        window.click("automation-save", cx);
+    });
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(
+        flow.triggers.automations[0].event,
+        Event::BatteryBelow { percent: 20 }
+    );
+    assert!(flow.triggers.automations[0].ask);
+
+    // Editing opens the same dialog on what is there.
+    with(cx, handle, |window, cx| {
+        window.click(("automation-edit", 0usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.find("automation-percent").visible());
+        window.click("automation-ask", cx);
+        window.click("automation-save", cx);
+    });
+    settle(cx, handle);
+    let flow = edited_flow(cx, &view);
+    assert_eq!(flow.triggers.automations.len(), 1, "edited in place");
+    assert!(!flow.triggers.automations[0].ask);
+}

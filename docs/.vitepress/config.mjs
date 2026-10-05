@@ -114,6 +114,7 @@ export default defineConfig({
           { text: "If, Repeat, and Menus", link: "/flows/logic" },
           { text: "Ready-Made Actions", link: "/flows/actions" },
           { text: "Input", link: "/flows/input" },
+          { text: "Automations", link: "/flows/automations" },
           { text: "Templates", link: "/flows/#templates" },
           { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],

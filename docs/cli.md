@@ -42,6 +42,7 @@ These run without opening the window.
 | Command | What it does |
 | --- | --- |
 | `flow run <name or id> [-- <input>...]` | Runs the flow and prints each step. The words after `--`, or text piped in, are the flow's [input](/flows/input). Exits with status 1 and sends a notification if a step fails (a program that cannot start counts, even for a step the flow does not wait for), so a keybind never fails silently. |
+| `automations <on \| off \| status>` | Turns the background service for [automations](/flows/automations) on or off, or says whether it runs and what it waits for. |
 | `flow list` | Every flow with its id and step count. `--json` prints an array of `{id, name, icon, glyph, steps}` for scripts and the bar widget; `glyph` is the icon as a Nerd Font character. |
 | `flow export <name or id> [--output <path>]` | Writes the flow as a shareable `.flow.toml` file, to stdout or to a file or directory. |
 | `flow import <file or https URL> [--yes]` | Prints the flow's steps and saves it after you confirm. `--yes` skips the question. |

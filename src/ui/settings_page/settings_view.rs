@@ -16,6 +16,7 @@ use gpui_component::{
 
 use crate::system::bar_widget;
 use crate::system::config::config_setup::{SettingsConfig, settings, update_settings};
+use crate::system::flows::service;
 use crate::system::ui_theme_watcher;
 use crate::ui::focus::{FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
@@ -52,6 +53,10 @@ pub struct SettingsView {
     bar_widget_on: bool,
     /// `omarchy plugin enable/disable` is running in the background.
     bar_widget_pending: bool,
+    /// Whether the service that runs automations is installed; systemd's
+    /// answer, not a saved setting.
+    automations_on: bool,
+    automations_pending: bool,
     /// A failed write of settings.json, shown on the next render (which
     /// has the window).
     save_error: Option<String>,
@@ -65,6 +70,8 @@ impl SettingsView {
             settings: settings(),
             bar_widget_on: bar_widget::is_enabled(),
             bar_widget_pending: false,
+            automations_on: service::is_enabled(),
+            automations_pending: false,
             save_error: None,
             focus_handle: cx.focus_handle(),
             scroll: ScrollHandle::new(),
@@ -100,7 +107,45 @@ impl SettingsView {
         if !self.bar_widget_pending {
             self.bar_widget_on = bar_widget::is_enabled();
         }
+        if !self.automations_pending {
+            self.automations_on = service::is_enabled();
+        }
         cx.notify();
+    }
+
+    /// Installs and starts the automations service, or stops and removes
+    /// it, in the background.
+    fn set_automations(&mut self, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.automations_pending {
+            return;
+        }
+        self.automations_pending = true;
+        self.automations_on = on;
+        cx.notify();
+        let task = cx.background_spawn(async move {
+            if on {
+                service::enable()
+            } else {
+                service::disable()
+            }
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let result = task.await;
+            let now_on = cx.background_spawn(async { service::is_enabled() }).await;
+            this.update_in(cx, |this, window, cx| {
+                this.automations_pending = false;
+                this.automations_on = now_on;
+                let message = match result {
+                    Ok(()) if on => "Automations are on".to_string(),
+                    Ok(()) => "Automations are off".to_string(),
+                    Err(e) => format!("Could not change automations: {e}"),
+                };
+                window.push_notification(message, cx);
+                cx.notify();
+            })
+            .ok();
+        })
+        .detach();
     }
 
     /// Installs and enables the bar widget, or takes it off the bar, in the
@@ -427,6 +472,20 @@ impl Render for SettingsView {
                     "A desktop notification after a flow run from a keybind or the command line",
                     s.notify_flows,
                     |s, v| s.notify_flows = v,
+                    cx,
+                )
+                .into_any_element(),
+                self.render_row(
+                    "automations",
+                    "Run Automations in the Background",
+                    "A service that starts flows on a schedule or when something happens",
+                    FocusableSwitch::new("automations-switch")
+                        .checked(self.automations_on)
+                        .disabled(self.automations_pending)
+                        .on_change(cx.listener(|this, value, window, cx| {
+                            this.set_automations(*value, window, cx);
+                        }))
+                        .into_any_element(),
                     cx,
                 )
                 .into_any_element(),

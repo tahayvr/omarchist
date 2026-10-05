@@ -1004,14 +1004,15 @@ mod tests {
                 wait: false,
             }),
             Step::new(StepKind::Exec {
-                command: "sleep 2".into(),
+                command: "sleep 30".into(),
                 wait: false,
             }),
         ];
         flow.on_error = OnError::Continue;
         let started = Instant::now();
-        // The whole test suite runs in parallel; give `sh` time to report.
-        let runner = Runner::with_loader(&no_flows, true).start_grace(Duration::from_secs(1));
+        // The whole test suite runs in parallel, on a busy machine; give
+        // `sh` time to report.
+        let runner = Runner::with_loader(&no_flows, true).start_grace(Duration::from_secs(2));
         let outcome = runner.run(&flow, &mut |_| {});
         assert_eq!(outcome.failures.len(), 1, "{:?}", outcome.failures);
         assert_eq!(outcome.failures[0].0, vec![0]);
@@ -1021,7 +1022,7 @@ mod tests {
             outcome.failures[0].1
         );
         assert!(
-            started.elapsed() < Duration::from_secs(3),
+            started.elapsed() < Duration::from_secs(15),
             "a started command is not waited for"
         );
     }

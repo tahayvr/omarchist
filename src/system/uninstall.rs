@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use crate::error::{Error, Result};
 use crate::system::bar_widget;
 use crate::system::config::hypr_setup;
-use crate::system::flows::{launcher, store};
+use crate::system::flows::{launcher, service, store};
 use crate::system::fs::write_atomic;
 use crate::system::omarchy_paths::user_hyprland_config_dir;
 
@@ -21,6 +21,8 @@ pub enum Step {
     OmarchistLua(PathBuf),
     /// Disable the bar widget and delete its plugin folder.
     BarWidget(PathBuf),
+    /// Stop the automations service and delete its systemd unit.
+    AutomationsService(PathBuf),
     /// Delete a flow's launcher entry, icon, startup hook, and file
     /// manager entry.
     FlowTriggers { id: String, name: String },
@@ -40,6 +42,9 @@ impl Step {
             Step::OmarchistLua(path) => format!("Delete {}", path.display()),
             Step::BarWidget(path) => {
                 format!("Take Omarchist off the bar and delete {}", path.display())
+            }
+            Step::AutomationsService(path) => {
+                format!("Stop the automations service and delete {}", path.display())
             }
             Step::FlowTriggers { name, .. } => {
                 format!("Remove what starts the flow \"{name}\" (launcher, startup, file manager)")
@@ -68,6 +73,11 @@ pub fn plan() -> Vec<Step> {
         && (dir.is_dir() || bar_widget::is_enabled())
     {
         steps.push(Step::BarWidget(dir));
+    }
+    if let Ok(path) = service::unit_path()
+        && path.is_file()
+    {
+        steps.push(Step::AutomationsService(path));
     }
     for flow in store::load_flows().unwrap_or_default() {
         if launcher::has_trigger_files(&flow.id) {
@@ -104,6 +114,7 @@ pub fn run(step: &Step) -> Result<()> {
             bar_widget::disable()?;
             remove_dir(dir)
         }
+        Step::AutomationsService(_) => service::disable(),
         Step::FlowTriggers { id, .. } => launcher::remove_triggers(id),
         Step::ConfigDir(dir) | Step::DataDir(dir) => remove_dir(dir),
     }
