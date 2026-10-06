@@ -20,7 +20,7 @@ use crate::system::bar_widget;
 use crate::system::config::config_setup::{SettingsConfig, settings, update_settings};
 use crate::system::flows::service;
 use crate::system::ui_theme_watcher;
-use crate::ui::explain::explain;
+use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{FocusSection, FocusableSwitch};
 const KEY_CONTEXT: &str = "SettingsPage";
 
@@ -204,7 +204,7 @@ impl SettingsView {
         label: &'static str,
         description: &'static str,
         control: AnyElement,
-        _cx: &App,
+        cx: &App,
     ) -> impl IntoElement {
         h_flex()
             .id(id)
@@ -215,7 +215,7 @@ impl SettingsView {
             .py_2()
             .child(div().flex_1().min_w_0().child(explain(
                 SharedString::from(format!("{id}-desc")),
-                div().text_sm().child(label),
+                explained_label(label, cx),
                 description,
             )))
             .child(div().flex_none().child(control))

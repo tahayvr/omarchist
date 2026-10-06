@@ -38,7 +38,7 @@ use crate::ui::config_page::pages::{
     FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items, page,
     page_count, pages,
 };
-use crate::ui::explain::explain;
+use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
 /// A dynamic dropdown with more choices than this is a searchable select.
@@ -1399,7 +1399,7 @@ impl ConfigView {
                     .justify_between()
                     .child(div().flex_1().min_w_0().child(explain(
                         SharedString::from(format!("desc-{}", item.id)),
-                        div().text_sm().child(item.label),
+                        explained_label(item.label, cx),
                         item.description,
                     )))
                     .child(
@@ -1549,10 +1549,15 @@ impl ConfigView {
                     .gap_1()
                     .child(explain(
                         ("page-desc", page_ix),
-                        div()
-                            .text_lg()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(page.title),
+                        div().flex().child(
+                            div()
+                                .text_lg()
+                                .font_weight(FontWeight::SEMIBOLD)
+                                .border_b_1()
+                                .border_dashed()
+                                .border_color(muted.opacity(0.5))
+                                .child(page.title),
+                        ),
                         page.description,
                     ))
                     .into_any_element(),
