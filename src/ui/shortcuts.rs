@@ -8,7 +8,8 @@ use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::flows_page::gallery_view::gallery_nav;
 use crate::ui::flows_page::history_dialog::history_nav;
-use crate::ui::flows_page::step_builder::step_vars;
+use crate::ui::flows_page::icon_dialog::icon_picker_nav;
+use crate::ui::flows_page::step_builder::{step_lines, step_vars};
 use crate::ui::flows_page::step_picker::step_picker_nav;
 use crate::ui::flows_page::templates_view::templates_nav;
 use crate::ui::focus::{self, dialog, tab_strip};
@@ -929,6 +930,79 @@ pub const SHORTCUTS: &[Shortcut] = &[
         DIALOGS,
         "Add the highlighted step type"
     ),
+    // A list of one-line fields in the step dialog (a Choose step's
+    // options, a menu's choices): Enter adds the next field.
+    shortcut!(
+        "enter",
+        step_lines::AddLine,
+        Some("StepLines > Input"),
+        DIALOGS,
+        "Add another option after this one"
+    ),
+    // The icons in the flow editor's Choose an icon dialog.
+    shortcut!(
+        "down",
+        icon_picker_nav::FocusGrid,
+        Some("IconPickerSearch > Input"),
+        DIALOGS,
+        "From the icon search to the icons"
+    ),
+    shortcut!(
+        "left",
+        icon_picker_nav::Left,
+        Some("IconPicker"),
+        DIALOGS,
+        "Previous icon"
+    ),
+    shortcut!(
+        "right",
+        icon_picker_nav::Right,
+        Some("IconPicker"),
+        DIALOGS,
+        "Next icon"
+    ),
+    shortcut!(
+        "up",
+        icon_picker_nav::Up,
+        Some("IconPicker"),
+        DIALOGS,
+        "Icon above"
+    ),
+    shortcut!(
+        "down",
+        icon_picker_nav::Down,
+        Some("IconPicker"),
+        DIALOGS,
+        "Icon below"
+    ),
+    shortcut!(
+        "home",
+        icon_picker_nav::First,
+        Some("IconPicker"),
+        DIALOGS,
+        "First icon"
+    ),
+    shortcut!(
+        "end",
+        icon_picker_nav::Last,
+        Some("IconPicker"),
+        DIALOGS,
+        "Last icon"
+    ),
+    shortcut!(
+        "enter",
+        icon_picker_nav::Pick,
+        Some("IconPicker"),
+        DIALOGS,
+        "Use the highlighted icon"
+    ),
+    shortcut!(
+        "space",
+        icon_picker_nav::Pick,
+        Some("IconPicker"),
+        DIALOGS,
+        "Use the highlighted icon"
+    ),
     // The action builder's kind and direction strips (in the keybind and
     // flow step dialogs) cycle with the arrow keys.
     shortcut!(
@@ -1206,6 +1280,27 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowEditPage"),
         FLOWS,
         "Redo"
+    ),
+    shortcut!(
+        "enter",
+        flow_edit_nav::Rename,
+        Some("FlowTitle"),
+        FLOWS,
+        "Rename the flow"
+    ),
+    shortcut!(
+        "space",
+        flow_edit_nav::Rename,
+        Some("FlowTitle"),
+        FLOWS,
+        "Rename the flow"
+    ),
+    shortcut!(
+        "enter",
+        flow_edit_nav::Rename,
+        Some("FlowRename > Input"),
+        FLOWS,
+        "Keep the new name"
     ),
     shortcut!(
         "up",

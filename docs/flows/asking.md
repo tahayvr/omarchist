@@ -24,7 +24,7 @@ You can use variables in a question, for example `Close {{choice}}?`.
 
 The options come from one of two places:
 
-- **A list**: type the options, one per line.
+- **A list**: one field per option. <kbd>Enter</kbd> in a field, or **Add option**, adds another.
 - **From a variable**: the lines of a variable become the options. Use it with a command that prints one item per line.
 
 This flow lists your open apps and closes the one you pick:

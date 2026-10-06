@@ -13,8 +13,8 @@ use gpui_component::{
     h_flex,
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
-    popover::Popover,
     switch::Switch,
+    tooltip::Tooltip,
     v_flex,
 };
 
@@ -34,7 +34,7 @@ use crate::system::flows::store::{
 };
 use crate::system::flows::templates::{save_user_template, template};
 use crate::system::flows::{
-    Flow, ICONS, InputFallback, OnError, Step, StepKind, StepPath, unique_id, vars,
+    Flow, InputFallback, OnError, Step, StepKind, StepPath, unique_id, vars,
 };
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::overrides::Override;
@@ -49,6 +49,7 @@ use crate::ui::flows_page::automation_dialog::{
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
+use crate::ui::flows_page::icon_dialog::{IconDialog, IconDialogEvent, open_icon_dialog};
 use crate::ui::flows_page::publish_dialog::open_publish_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, warning_banner};
 use crate::ui::flows_page::step_dialog::{
@@ -73,6 +74,10 @@ use gpui_kit::TestSupportExt;
 const KEY_CONTEXT: &str = "FlowEditPage";
 /// Wraps the step list: up/down select, Enter edits, Alt+arrows reorder.
 pub const STEPS_CONTEXT: &str = "FlowSteps";
+/// The flow's name in the header: Enter or Space edits it in place.
+pub const TITLE_CONTEXT: &str = "FlowTitle";
+/// Around the field that renames the flow: Enter ends the rename.
+pub const RENAME_CONTEXT: &str = "FlowRename";
 
 pub mod flow_edit_nav {
     gpui::actions!(
@@ -100,6 +105,7 @@ pub mod flow_edit_nav {
             SaveAsTemplate,
             Publish,
             Export,
+            Rename,
         ]
     );
 }
@@ -151,7 +157,12 @@ pub struct FlowEditPage {
     undo: UndoStack,
     name: Entity<InputState>,
     description: Entity<InputState>,
+    /// The name in the header is a text field, not a title, until Enter
+    /// or a click elsewhere.
+    renaming: bool,
+    title_focus: FocusHandle,
     icon_focus: FocusHandle,
+    icon_dialog: Option<(Entity<IconDialog>, Subscription)>,
     input_focus: FocusHandle,
     pub(super) steps_focus: FocusHandle,
     /// The line of the step list the keyboard is on.
@@ -275,6 +286,15 @@ impl FlowEditPage {
                     cx.notify();
                 }
             }),
+            // Leaving the field ends the rename (Enter is a binding). The
+            // window going inactive reads as a blur too, with the field
+            // still focused, so that one is not the end.
+            cx.subscribe_in(&name, window, |this, _, event: &InputEvent, window, cx| {
+                if matches!(event, InputEvent::Blur) && window.is_window_active() {
+                    this.renaming = false;
+                    cx.notify();
+                }
+            }),
             cx.subscribe(&description, |_, _, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
                     cx.notify();
@@ -299,7 +319,10 @@ impl FlowEditPage {
             gallery: None,
             name,
             description,
+            renaming: false,
+            title_focus: focus::tab_stop(cx),
             icon_focus: focus::tab_stop(cx),
+            icon_dialog: None,
             input_focus: focus::tab_stop(cx),
             steps_focus: focus::tab_stop(cx),
             selected: None,
@@ -328,8 +351,56 @@ impl FlowEditPage {
         page
     }
 
-    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
-        self.name.update(cx, |input, cx| input.focus(window, cx));
+    /// A flow without a name starts by asking for one; a named one lands
+    /// on its title.
+    pub fn focus_entry(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.name.read(cx).value().trim().is_empty() {
+            self.start_rename(window, cx);
+        } else {
+            self.title_focus.focus(window, cx);
+        }
+    }
+
+    /// The field takes the keyboard once it is on screen (a handle focused
+    /// before its element is drawn loses the focus again); until then the
+    /// page has it, so the shortcuts keep working.
+    fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.renaming = true;
+        self.focus_handle.focus(window, cx);
+        let name = self.name.clone();
+        window.on_next_frame(move |window, cx| {
+            name.update(cx, |input, cx| {
+                input.focus(window, cx);
+                input.select_all(window, cx);
+            });
+        });
+        cx.notify();
+    }
+
+    fn stop_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.renaming = false;
+        self.focus_handle.focus(window, cx);
+        let title = self.title_focus.clone();
+        window.on_next_frame(move |window, cx| title.focus(window, cx));
+        cx.notify();
+    }
+
+    fn choose_icon(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.icon_dialog.is_some() {
+            return;
+        }
+        let dialog = open_icon_dialog(&self.flow.icon, window, cx);
+        let subscription = cx.subscribe_in(
+            &dialog,
+            window,
+            |this, _, event: &IconDialogEvent, _window, cx| {
+                this.icon_dialog = None;
+                if let IconDialogEvent::Picked(icon) = event {
+                    this.set_icon(icon, cx);
+                }
+            },
+        );
+        self.icon_dialog = Some((dialog, subscription));
     }
 
     fn is_new(&self) -> bool {
@@ -809,12 +880,6 @@ impl FlowEditPage {
         cx.notify();
     }
 
-    fn cycle_icon(&mut self, delta: isize, cx: &mut Context<Self>) {
-        let ix = ICONS.iter().position(|i| *i == self.flow.icon).unwrap_or(0) as isize;
-        let next = (ix + delta).rem_euclid(ICONS.len() as isize) as usize;
-        self.set_icon(ICONS[next], cx);
-    }
-
     fn assign_keybind(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.keybind_dialog.is_some() {
             return;
@@ -1066,7 +1131,18 @@ impl FlowEditPage {
         let service_off = !automations.is_empty() && !self.service_on;
         v_flex()
             .gap_2()
-            .child(Self::label("Automations"))
+            .child(Self::row(
+                "Automations",
+                Button::new("flow-add-automation")
+                    .outline()
+                    .xsmall()
+                    .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                    .label("Add automation")
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        this.open_automation_dialog(None, window, cx)
+                    })),
+            ))
             .children(rows)
             .when(service_off, |this| {
                 this.child(
@@ -1099,19 +1175,6 @@ impl FlowEditPage {
                         ),
                 )
             })
-            .child(
-                h_flex().child(
-                    Button::new("flow-add-automation")
-                        .outline()
-                        .xsmall()
-                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                        .label("Add automation")
-                        .cursor_pointer()
-                        .on_click(cx.listener(|this, _, window, cx| {
-                            this.open_automation_dialog(None, window, cx)
-                        })),
-                ),
-            )
     }
 
     // MARK: Render
@@ -1126,6 +1189,21 @@ impl FlowEditPage {
 
     fn label(text: &'static str) -> Div {
         div().text_sm().child(text)
+    }
+
+    /// A setting as one line: its label on the left, its control on the
+    /// right; on a narrow card the control wraps under the label.
+    fn row(label: &'static str, control: impl IntoElement) -> Div {
+        h_flex()
+            .gap_x_3()
+            .gap_y_1()
+            .items_center()
+            .justify_between()
+            .flex_wrap()
+            // The same inset as a switch row, so the labels line up.
+            .px_1()
+            .child(Self::label(label))
+            .child(control)
     }
 
     fn card(cx: &App) -> Div {
@@ -1348,9 +1426,67 @@ impl FlowEditPage {
         ))
     }
 
-    fn render_header(&self, cx: &mut Context<Self>) -> impl IntoElement {
+    /// The flow's icon as a button that opens the icons to choose from.
+    fn render_icon_button(&self, cx: &mut Context<Self>) -> impl IntoElement {
+        Button::new("flow-icon-button")
+            .ghost()
+            .compact()
+            .p_0p5()
+            .track_focus(&self.icon_focus)
+            .tooltip("Change the icon")
+            .cursor_pointer()
+            .child(icon_tile(&self.flow.icon, px(28.), cx))
+            .on_click(cx.listener(|this, _, window, cx| this.choose_icon(window, cx)))
+    }
+
+    /// The flow's name: a title that a click, Enter or Space turns into
+    /// the field that edits it.
+    fn render_title(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
+        if self.renaming {
+            return div()
+                .key_context(RENAME_CONTEXT)
+                .on_action(cx.listener(|this, _: &Rename, window, cx| this.stop_rename(window, cx)))
+                .flex_1()
+                .min_w_0()
+                .child(Input::new(&self.name).id("flow-name").small())
+                .into_any_element();
+        }
         let theme = cx.theme();
         let name = self.name.read(cx).value().trim().to_string();
+        let ring = focus::focus_border(self.title_focus.is_focused(window), theme.transparent, cx);
+        div()
+            .id("flow-title")
+            .test_support()
+            .key_context(TITLE_CONTEXT)
+            .track_focus(&self.title_focus)
+            .on_action(cx.listener(|this, _: &Rename, window, cx| this.start_rename(window, cx)))
+            .min_w_0()
+            .px_1p5()
+            .py_0p5()
+            .rounded(theme.radius)
+            .border_1()
+            .border_color(ring)
+            .font_weight(FontWeight::SEMIBOLD)
+            .truncate()
+            .when(name.is_empty(), |this| {
+                this.text_color(theme.muted_foreground)
+            })
+            .hover(|this| this.bg(theme.secondary))
+            .cursor_pointer()
+            .tooltip(|window, cx| Tooltip::new("Rename").build(window, cx))
+            .child(if name.is_empty() {
+                "New flow".to_string()
+            } else {
+                name
+            })
+            .on_click(cx.listener(|this, _, window, cx| this.start_rename(window, cx)))
+            .into_any_element()
+    }
+
+    fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let icon_button = self.render_icon_button(cx).into_any_element();
+        let title = self.render_title(window, cx);
+        let theme = cx.theme();
         let dirty = self.is_dirty(cx);
         h_flex()
             .gap_3()
@@ -1372,22 +1508,10 @@ impl FlowEditPage {
                 h_flex()
                     .flex_1()
                     .min_w_0()
-                    .gap_2()
+                    .gap_1()
                     .items_center()
-                    .child(icon_tile(&self.flow.icon, px(28.), cx))
-                    .child(
-                        div()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .truncate()
-                            .child(selectable(
-                                "flow-title",
-                                if name.is_empty() {
-                                    "New flow".to_string()
-                                } else {
-                                    name
-                                },
-                            )),
-                    )
+                    .child(icon_button)
+                    .child(title)
                     .when(dirty, |this| {
                         this.child(
                             div()
@@ -1477,86 +1601,9 @@ impl FlowEditPage {
             )
     }
 
-    /// The flow's icon as a button that opens the icons to choose from.
-    /// With the keyboard on it, Left and Right step through them.
-    fn render_icon_picker(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
-        let focused = self.icon_focus.is_focused(window);
-        let ring = focus::focus_border(focused, theme.transparent, cx);
-        let editor = cx.entity();
-        let current = self.flow.icon.clone();
-        h_flex()
-            .id("flow-icons")
-            .test_support()
-            .key_context(FILTERS_CONTEXT)
-            .track_focus(&self.icon_focus)
-            .on_action(
-                cx.listener(|this, _: &keybinds_nav::FilterPrev, _, cx| this.cycle_icon(-1, cx)),
-            )
-            .on_action(
-                cx.listener(|this, _: &keybinds_nav::FilterNext, _, cx| this.cycle_icon(1, cx)),
-            )
-            .flex_shrink_0()
-            .rounded(theme.radius)
-            .border_1()
-            .border_color(ring)
-            .child(
-                Popover::new("flow-icon-popover")
-                    .trigger(
-                        Button::new("flow-icon-button")
-                            .icon(
-                                Icon::new(Icon::empty())
-                                    .path(crate::system::flows::icon_path(&self.flow.icon)),
-                            )
-                            .small()
-                            .tab_stop(false)
-                            .tooltip("Choose an icon")
-                            .cursor_pointer(),
-                    )
-                    .content(move |_, _, cx| {
-                        let editor = editor.clone();
-                        let current = current.clone();
-                        h_flex().w(px(264.)).flex_wrap().gap_1().children(
-                            ICONS.iter().enumerate().map(|(ix, &icon)| {
-                                let editor = editor.clone();
-                                let button = Button::new(("flow-icon", ix))
-                                    .icon(
-                                        Icon::new(Icon::empty()).path(format!("icons/{icon}.svg")),
-                                    )
-                                    .small()
-                                    .cursor_pointer();
-                                let button = if current == icon {
-                                    button.primary()
-                                } else {
-                                    button.ghost()
-                                };
-                                button.on_click(cx.listener(move |popover, _, window, cx| {
-                                    editor.update(cx, |this, cx| this.set_icon(icon, cx));
-                                    popover.dismiss(window, cx);
-                                }))
-                            }),
-                        )
-                    }),
-            )
-    }
-
-    fn render_details(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render_details(&self, cx: &mut Context<Self>) -> impl IntoElement {
         Self::card(cx)
             .child(Self::section_title("DETAILS", cx))
-            .child(
-                h_flex()
-                    .gap_2()
-                    .items_end()
-                    .child(self.render_icon_picker(window, cx))
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap_1()
-                            .child(Self::label("Name"))
-                            .child(Input::new(&self.name).id("flow-name").small()),
-                    ),
-            )
             .child(
                 v_flex()
                     .gap_1()
@@ -1568,6 +1615,7 @@ impl FlowEditPage {
                 div().text_sm().child(
                     FocusableSwitch::new("flow-on-error")
                         .label("Keep going when a step fails")
+                        .between()
                         .checked(self.flow.on_error == OnError::Continue)
                         .on_change(cx.listener(|this, checked, _, cx| {
                             this.flow.on_error = if *checked {
@@ -1611,52 +1659,51 @@ impl FlowEditPage {
             this.flow.input = all[(ix + delta).rem_euclid(all.len() as isize) as usize];
             cx.notify();
         };
-        Some(
-            v_flex()
+        Some(Self::row(
+            "Started without input, use",
+            h_flex()
+                .id("flow-input-fallback")
+                .test_support()
+                .key_context(FILTERS_CONTEXT)
+                .track_focus(&self.input_focus)
+                .on_action(
+                    cx.listener(move |this, _: &keybinds_nav::FilterPrev, _, cx| {
+                        cycle(this, -1, cx)
+                    }),
+                )
+                .on_action(
+                    cx.listener(move |this, _: &keybinds_nav::FilterNext, _, cx| {
+                        cycle(this, 1, cx)
+                    }),
+                )
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(ring)
+                .p_0p5()
                 .gap_1()
-                .child(Self::label("Started without input, use"))
-                .child(
-                    h_flex().child(
-                        h_flex()
-                            .id("flow-input-fallback")
-                            .test_support()
-                            .key_context(FILTERS_CONTEXT)
-                            .track_focus(&self.input_focus)
-                            .on_action(cx.listener(
-                                move |this, _: &keybinds_nav::FilterPrev, _, cx| {
-                                    cycle(this, -1, cx)
-                                },
-                            ))
-                            .on_action(cx.listener(
-                                move |this, _: &keybinds_nav::FilterNext, _, cx| cycle(this, 1, cx),
-                            ))
-                            .rounded(theme.radius)
-                            .border_1()
-                            .border_color(ring)
-                            .p_0p5()
-                            .gap_1()
-                            .flex_wrap()
-                            .children(InputFallback::ALL.into_iter().enumerate().map(
-                                |(ix, fallback)| {
-                                    let button = Button::new(("flow-input-fallback", ix))
-                                        .label(fallback.label())
-                                        .small()
-                                        .tab_stop(false)
-                                        .cursor_pointer();
-                                    let button = if self.flow.input == fallback {
-                                        button.primary()
-                                    } else {
-                                        button.ghost()
-                                    };
-                                    button.on_click(cx.listener(move |this, _, _, cx| {
-                                        this.flow.input = fallback;
-                                        cx.notify();
-                                    }))
-                                },
-                            )),
-                    ),
+                .flex_wrap()
+                .children(
+                    InputFallback::ALL
+                        .into_iter()
+                        .enumerate()
+                        .map(|(ix, fallback)| {
+                            let button = Button::new(("flow-input-fallback", ix))
+                                .label(fallback.label())
+                                .small()
+                                .tab_stop(false)
+                                .cursor_pointer();
+                            let button = if self.flow.input == fallback {
+                                button.primary()
+                            } else {
+                                button.ghost()
+                            };
+                            button.on_click(cx.listener(move |this, _, _, cx| {
+                                this.flow.input = fallback;
+                                cx.notify();
+                            }))
+                        }),
                 ),
-        )
+        ))
     }
 
     fn render_triggers(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1732,40 +1779,55 @@ impl FlowEditPage {
                 }),
         };
 
+        let switch = |id: &'static str, label: &'static str, checked: bool| {
+            FocusableSwitch::new(id)
+                .label(label)
+                .between()
+                .checked(checked)
+        };
+        let command_box = div()
+            .px_2()
+            .py_1()
+            .rounded(theme.radius)
+            .bg(theme.secondary)
+            .text_xs()
+            .truncate()
+            .text_color(if is_new {
+                theme.muted_foreground
+            } else {
+                theme.foreground
+            })
+            .child(selectable("flow-command", command));
+
         Self::card(cx)
             .child(Self::section_title("RUN IT FROM", cx))
+            .child(Self::row("Keybind", keybind_row))
             .child(
                 v_flex()
                     .gap_1()
-                    .child(Self::label("Keybind"))
-                    .child(keybind_row),
-            )
-            .child(
-                h_flex()
-                    .gap_x_4()
-                    .gap_y_1()
-                    .flex_wrap()
                     .text_sm()
                     .child(
-                        FocusableSwitch::new("flow-trigger-launcher")
-                            .label("App launcher")
-                            .checked(self.flow.triggers.launcher)
-                            .on_change(cx.listener(|this, checked, _, cx| {
-                                this.set_trigger(Some(*checked), None, cx)
-                            })),
+                        switch(
+                            "flow-trigger-launcher",
+                            "App launcher",
+                            self.flow.triggers.launcher,
+                        )
+                        .on_change(cx.listener(|this, checked, _, cx| {
+                            this.set_trigger(Some(*checked), None, cx)
+                        })),
                     )
                     .child(
-                        FocusableSwitch::new("flow-trigger-startup")
-                            .label("At startup")
-                            .checked(self.flow.triggers.startup)
-                            .on_change(cx.listener(|this, checked, _, cx| {
-                                this.set_trigger(None, Some(*checked), cx)
-                            })),
+                        switch(
+                            "flow-trigger-startup",
+                            "At startup",
+                            self.flow.triggers.startup,
+                        )
+                        .on_change(cx.listener(|this, checked, _, cx| {
+                            this.set_trigger(None, Some(*checked), cx)
+                        })),
                     )
                     .child(
-                        FocusableSwitch::new("flow-trigger-files")
-                            .label("Files menu")
-                            .checked(self.flow.triggers.files)
+                        switch("flow-trigger-files", "Files menu", self.flow.triggers.files)
                             .on_change(cx.listener(|this, checked, _, cx| {
                                 this.flow.triggers.files = *checked;
                                 cx.notify();
@@ -1775,28 +1837,11 @@ impl FlowEditPage {
             .children(input_fallback)
             .child(automations)
             .child(
-                v_flex().gap_1().child(Self::label("Command line")).child(
-                    h_flex()
-                        .gap_2()
-                        .items_center()
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .px_2()
-                                .py_1()
-                                .rounded(theme.radius)
-                                .bg(theme.secondary)
-                                .text_xs()
-                                .truncate()
-                                .text_color(if is_new {
-                                    theme.muted_foreground
-                                } else {
-                                    theme.foreground
-                                })
-                                .child(selectable("flow-command", command)),
-                        )
-                        .when(!is_new, |this| {
+                v_flex()
+                    .gap_1()
+                    .child(Self::row(
+                        "Command line",
+                        div().when(!is_new, |this| {
                             this.child(
                                 Clipboard::new("flow-copy-command")
                                     .value(self.flow.command())
@@ -1806,7 +1851,8 @@ impl FlowEditPage {
                                     }),
                             )
                         }),
-                ),
+                    ))
+                    .child(command_box),
             )
     }
 }
@@ -1819,7 +1865,7 @@ impl Render for FlowEditPage {
         let details = v_flex()
             .gap_4()
             .when(wide, |this| this.w(px(380.)).flex_shrink_0())
-            .child(self.render_details(window, cx))
+            .child(self.render_details(cx))
             .child(self.render_triggers(window, cx));
         let steps = div()
             .flex_1()
@@ -1856,7 +1902,7 @@ impl Render for FlowEditPage {
             .on_action(cx.listener(|this, _: &Redo, window, cx| this.undo(true, window, cx)))
             .on_action(cx.listener(|this, _: &Run, window, cx| this.run(window, cx)))
             .on_action(cx.listener(|this, _: &AddStep, window, cx| this.add_step(window, cx)))
-            .child(self.render_header(cx))
+            .child(self.render_header(window, cx))
             .children(self.render_import_banner(cx))
             .children(self.render_risks(cx))
             .children(self.render_gallery_standing(cx))

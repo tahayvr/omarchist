@@ -90,7 +90,7 @@ command = "xdg-open {{item}}"
 
 ## Choose from a menu
 
-Type the choices, one per line. Each choice becomes a branch with its own steps. The choice you pick is the step's output, so the steps can use it.
+Type each choice in its own field; <kbd>Enter</kbd> in a field, or **Add choice**, adds another. Each choice becomes a branch with its own steps. The choice you pick is the step's output, so the steps can use it.
 
 Pressing <kbd>Esc</kbd> in the menu ends the flow, as with any [step that asks](/flows/asking#cancelling).
 

@@ -18,7 +18,7 @@ Each card shows a flow's steps and how it can be started. **Run** starts it, the
 <img src="/images/flow-editor-light.webp" alt="Flow editor" class="screenshot light-only">
 <img src="/images/flow-editor-dark.webp" alt="Flow editor" class="screenshot dark-only">
 
-Give the flow a name, a description, and an icon, then press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) for each step.
+Click the name in the header to change it, and the icon next to it to pick another. Then press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) for each step.
 
 | Step | Does |
 | --- | --- |

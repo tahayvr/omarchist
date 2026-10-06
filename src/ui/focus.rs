@@ -107,6 +107,9 @@ pub struct FocusableSwitch {
     checked: bool,
     disabled: bool,
     label: Option<SharedString>,
+    /// The row fills its container, the label at one end and the switch
+    /// at the other.
+    between: bool,
     on_change: Option<ChangeHandler>,
 }
 
@@ -117,8 +120,14 @@ impl FocusableSwitch {
             checked: false,
             disabled: false,
             label: None,
+            between: false,
             on_change: None,
         }
+    }
+
+    pub fn between(mut self) -> Self {
+        self.between = true;
+        self
     }
 
     pub fn checked(mut self, checked: bool) -> Self {
@@ -170,6 +179,7 @@ impl RenderOnce for FocusableSwitch {
             // place of running into the next grid column.
             .max_w_full()
             .min_w_0()
+            .when(self.between, |this| this.w_full().justify_between())
             .px_1()
             .py_0p5()
             .rounded(radius)

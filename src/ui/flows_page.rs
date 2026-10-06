@@ -6,6 +6,7 @@ pub mod flows_view;
 pub mod gallery_detail;
 pub mod gallery_view;
 pub mod history_dialog;
+pub mod icon_dialog;
 pub mod option_picker;
 pub mod publish_dialog;
 pub mod share_ui;

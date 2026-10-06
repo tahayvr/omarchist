@@ -243,10 +243,21 @@ fn choose_takes_its_options_from_a_list(cx: &mut TestAppContext) {
 
     with(cx, handle, |window, cx| {
         window.input("Which size?", cx);
-        window.click("step-options", cx);
+        // Two empty fields to start with; Enter adds one after the first.
+        window.click(("step-option", 0usize), cx);
         window.input("Small", cx);
         window.press("enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find(("step-option", 1usize)).focused(), Some(true));
+        window.input("Medium", cx);
+        window.click(("step-option", 2usize), cx);
         window.input("Large", cx);
+        // The middle one goes.
+        window.click(("step-option-remove", 1usize), cx);
+        window.render_frame(cx);
+        assert!(window.try_find(("step-option", 2usize)).is_none());
         window.click("step-save", cx);
     });
     settle(cx, handle);
@@ -261,6 +272,22 @@ fn choose_takes_its_options_from_a_list(cx: &mut TestAppContext) {
         }
     );
     assert_eq!(flow.steps[0].output.as_deref(), Some("choice"));
+
+    // Editing shows one field per option, and the last one cannot be
+    // removed.
+    with(cx, handle, |window, cx| {
+        window.double_click(("flow-step", 1usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find(("step-option", 0usize)).value(), Some("Small"));
+        assert_eq!(window.find(("step-option", 1usize)).value(), Some("Large"));
+        window.click(("step-option-remove", 0usize), cx);
+        window.click(("step-option-remove", 0usize), cx);
+        window.render_frame(cx);
+        assert_eq!(window.find(("step-option", 0usize)).value(), Some("Large"));
+        window.press("escape", cx);
+    });
 }
 
 #[gpui_kit::test]
@@ -895,9 +922,9 @@ fn a_menu_gets_a_branch_per_choice_and_keeps_them_by_name(cx: &mut TestAppContex
     with(cx, handle, |window, cx| {
         assert_eq!(window.find(OUTPUT_NAME).value(), Some("pick"));
         window.input("Power", cx);
-        window.click("step-choices", cx);
+        window.click(("step-choice", 0usize), cx);
         window.input("Lock", cx);
-        window.press("enter", cx);
+        window.click(("step-choice", 1usize), cx);
         window.input("Sleep", cx);
         window.click("step-save", cx);
     });
@@ -914,16 +941,18 @@ fn a_menu_gets_a_branch_per_choice_and_keeps_them_by_name(cx: &mut TestAppContex
     with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
     settle(cx, handle);
 
-    // Put a choice in front; Sleep keeps its step.
+    // Put a choice between the two; Sleep keeps its step.
     with(cx, handle, |window, cx| {
         window.double_click(("flow-step", 1usize), cx)
     });
     settle(cx, handle);
     with(cx, handle, |window, cx| {
-        window.click("step-choices", cx);
-        window.press("ctrl-home", cx);
-        window.input("Off", cx);
+        window.click(("step-choice", 0usize), cx);
         window.press("enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.input("Off", cx);
         window.click("step-save", cx);
     });
     settle(cx, handle);
@@ -938,8 +967,100 @@ fn a_menu_gets_a_branch_per_choice_and_keeps_them_by_name(cx: &mut TestAppContex
             .iter()
             .map(|c| (c.label.as_str(), c.steps.len()))
             .collect::<Vec<_>>(),
-        vec![("Off", 0), ("Lock", 0), ("Sleep", 1)]
+        vec![("Lock", 0), ("Off", 0), ("Sleep", 1)]
     );
+}
+
+#[gpui_kit::test]
+fn the_icon_is_picked_in_a_dialog(cx: &mut TestAppContext) {
+    write_flow("ui-three-steps", THREE_STEPS);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-three-steps".into()));
+    with(cx, handle, |window, cx| {
+        window.click("flow-icon-button", cx)
+    });
+    settle(cx, handle);
+
+    // The search has the keyboard; Enter takes the first match.
+    with(cx, handle, |window, cx| {
+        assert!(window.find("icon-dialog").visible());
+        assert_eq!(window.find("icon-search").focused(), Some(true));
+        window.input("rock", cx);
+        window.render_frame(cx);
+        assert!(window.try_find("icon-sun").is_none());
+        window.press("enter", cx);
+    });
+    settle(cx, handle);
+    assert_eq!(edited_flow(cx, &view).icon, "rocket");
+    with(cx, handle, |window, cx| {
+        assert!(!window.has_active_dialog(cx))
+    });
+
+    // From the search, Down reaches the icons; the arrows move and a
+    // click picks.
+    with(cx, handle, |window, cx| {
+        window.click("flow-icon-button", cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.press("down", cx);
+        window.render_frame(cx);
+        assert_eq!(window.find("icon-grid").focused(), Some(true));
+        window.press("right", cx);
+        window.press("enter", cx);
+    });
+    settle(cx, handle);
+    // The current icon, rocket, was highlighted; Right moved one on.
+    assert_eq!(edited_flow(cx, &view).icon, "sparkles");
+
+    with(cx, handle, |window, cx| {
+        window.click("flow-icon-button", cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| window.click("icon-sun", cx));
+    settle(cx, handle);
+    assert_eq!(edited_flow(cx, &view).icon, "sun");
+}
+
+#[gpui_kit::test]
+fn the_name_is_edited_in_the_header(cx: &mut TestAppContext) {
+    write_flow("ui-three-steps", THREE_STEPS);
+    let (handle, view) = open(cx, ActivePage::FlowEdit("ui-three-steps".into()));
+    // A named flow opens on its title; Enter edits it in place.
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("flow-title").focused(), Some(true));
+        assert!(window.try_find("flow-name").is_none());
+        window.press("enter", cx);
+    });
+    settle(cx, handle);
+    // The whole name is selected, so typing replaces it.
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("flow-name").focused(), Some(true));
+        window.input("Renamed", cx);
+        window.press("enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("flow-name").is_none());
+        assert_eq!(window.find("flow-title").focused(), Some(true));
+    });
+    assert_eq!(edited_flow(cx, &view).name, "Renamed");
+
+    // A click does the same.
+    with(cx, handle, |window, cx| window.click("flow-title", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("flow-name").focused(), Some(true));
+        window.input("Clicked", cx);
+        window.press("enter", cx);
+    });
+    assert_eq!(edited_flow(cx, &view).name, "Clicked");
+
+    // A new flow starts by asking for its name.
+    let (handle, _) = open(cx, ActivePage::FlowNew(None));
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert_eq!(window.find("flow-name").focused(), Some(true));
+    });
 }
 
 const LOOPS: &str = r#"

@@ -4,10 +4,10 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable,
+    ActiveTheme, Disableable, Icon, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState, NumberInput, Position, Textarea, TextareaState},
+    input::{Input, InputEvent, InputState, NumberInput, Position},
     v_flex,
 };
 
@@ -41,6 +41,13 @@ pub const VARIABLES_CONTEXT: &str = "StepVariables";
 pub mod step_vars {
     gpui::actions!(step_vars, [Prev, Next, Insert]);
 }
+
+pub mod step_lines {
+    gpui::actions!(step_lines, [AddLine]);
+}
+
+/// Around a list of one-line fields: Enter in one adds the next.
+pub const LINES_CONTEXT: &str = "StepLines";
 
 /// Ten minutes: long enough for anything a flow waits for.
 const MAX_WAIT_MS: u64 = 600_000;
@@ -122,24 +129,80 @@ struct Segmented<'a, T> {
 
 /// A text field of the form that takes `{{variables}}`.
 #[derive(Clone)]
-enum Field {
-    Line(Entity<InputState>),
-    Area(Entity<TextareaState>),
-}
+struct Field(Entity<InputState>);
 
 impl Field {
     /// Puts `text` where the cursor was and gives the field the keyboard.
     fn insert(&self, text: &str, window: &mut Window, cx: &mut App) {
+        self.0.update(cx, |input, cx| {
+            input.insert(text.to_string(), window, cx);
+            input.focus(window, cx);
+        })
+    }
+}
+
+/// Which list of one-line fields of the form is meant.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Lines {
+    /// A Choose step's options.
+    Options,
+    /// A menu's choices.
+    Choices,
+}
+
+impl Lines {
+    fn placeholder(self) -> &'static str {
         match self {
-            Field::Line(input) => input.update(cx, |input, cx| {
-                input.insert(text.to_string(), window, cx);
-                input.focus(window, cx);
-            }),
-            Field::Area(input) => input.update(cx, |input, cx| {
-                input.insert(text.to_string(), window, cx);
-                input.focus(window, cx);
-            }),
+            Lines::Options => "Option",
+            Lines::Choices => "Choice",
         }
+    }
+
+    fn row_id(self) -> &'static str {
+        match self {
+            Lines::Options => "step-option",
+            Lines::Choices => "step-choice",
+        }
+    }
+
+    fn remove_id(self) -> &'static str {
+        match self {
+            Lines::Options => "step-option-remove",
+            Lines::Choices => "step-choice-remove",
+        }
+    }
+
+    fn add_id(self) -> &'static str {
+        match self {
+            Lines::Options => "step-option-add",
+            Lines::Choices => "step-choice-add",
+        }
+    }
+
+    fn add_label(self) -> &'static str {
+        match self {
+            Lines::Options => "Add option",
+            Lines::Choices => "Add choice",
+        }
+    }
+}
+
+/// A list of short values, one field each, laid out as a form builder
+/// does: Enter in a field adds the next one, and a button adds one at the
+/// end.
+#[derive(Default)]
+struct LineList {
+    rows: Vec<(Entity<InputState>, Subscription)>,
+}
+
+impl LineList {
+    /// The values typed, trimmed, without the empty fields.
+    fn values(&self, cx: &App) -> Vec<String> {
+        self.rows
+            .iter()
+            .map(|(input, _)| input.read(cx).value().trim().to_string())
+            .filter(|value| !value.is_empty())
+            .collect()
     }
 }
 
@@ -157,8 +220,8 @@ pub struct StepBuilder {
     /// The question of an Ask, Choose or Confirm step, and the title of a
     /// file chooser.
     prompt: Entity<InputState>,
-    /// A Choose step's options, one per line.
-    options: Entity<TextareaState>,
+    /// A Choose step's options, one field each.
+    options: LineList,
     /// A Choose step's list as text to split into lines.
     from: Entity<InputState>,
     /// Whether the Choose step takes its list from `from`.
@@ -182,8 +245,8 @@ pub struct StepBuilder {
     times: Entity<InputState>,
     /// What a Repeat with each step goes through, one line at a time.
     items: Entity<InputState>,
-    /// A menu's choices, one per line.
-    choices: Entity<TextareaState>,
+    /// A menu's choices, one field each.
+    choices: LineList,
     /// The controls of a ready-made action's form, one per field, and
     /// what listens to them.
     action_controls: Vec<ActionControl>,
@@ -236,7 +299,7 @@ impl StepBuilder {
         let mut wait_value = String::from("1000");
         let (mut title, mut body, mut target, mut on_click) =
             (String::new(), String::new(), String::new(), None);
-        let (mut prompt, mut options, mut from) = (String::new(), String::new(), String::new());
+        let (mut prompt, mut options, mut from) = (String::new(), Vec::new(), String::new());
         match initial {
             Some(StepKind::Wait { ms }) => wait_value = ms.to_string(),
             Some(StepKind::Notify {
@@ -256,17 +319,17 @@ impl StepBuilder {
                 options: o,
                 from: f,
             }) => {
-                (prompt, options, from) = (p.clone(), o.join("\n"), f.clone());
+                (prompt, options, from) = (p.clone(), o.clone(), f.clone());
             }
             _ => {}
         }
-        let from_variable = options.trim().is_empty() && !from.trim().is_empty();
+        let from_variable = options.is_empty() && !from.trim().is_empty();
         let (mut if_kind, mut if_op) = (IfKind::Text, 0);
         let (mut if_value, mut if_other, mut if_command) =
             (String::new(), String::new(), String::new());
         let (mut if_from, mut if_to, mut if_class) =
             (String::from("09:00"), String::from("17:00"), String::new());
-        let (mut times, mut items, mut choices) = (String::from("3"), String::new(), String::new());
+        let (mut times, mut items, mut choices) = (String::from("3"), String::new(), Vec::new());
         match initial {
             Some(StepKind::If { condition, not, .. }) => {
                 (if_kind, if_op) = IfKind::of(condition, *not);
@@ -293,11 +356,7 @@ impl StepBuilder {
                 choices: c,
             }) => {
                 prompt = p.clone();
-                choices = c
-                    .iter()
-                    .map(|choice| choice.label.clone())
-                    .collect::<Vec<_>>()
-                    .join("\n");
+                choices = c.iter().map(|choice| choice.label.clone()).collect();
             }
             _ => {}
         }
@@ -324,11 +383,6 @@ impl StepBuilder {
         let notify_target = line(window, cx, "The message", &target);
         let prompt = line(window, cx, "", &prompt);
         let from = line(window, cx, "Text with one option per line", &from);
-        let options = cx.new(|cx| {
-            TextareaState::new(window, cx)
-                .placeholder("One option per line")
-                .default_value(options)
-        });
         let flow_input = line(
             window,
             cx,
@@ -352,11 +406,6 @@ impl StepBuilder {
                 .max(MAX_ROUNDS as f64)
         });
         let items = line(window, cx, "Text with one item per line", &items);
-        let choices = cx.new(|cx| {
-            TextareaState::new(window, cx)
-                .placeholder("One choice per line")
-                .default_value(choices)
-        });
         let output_name = line(window, cx, "Name, such as url", output.unwrap_or_default());
         let variables: Vec<String> = vars::BUILTINS
             .iter()
@@ -405,21 +454,9 @@ impl StepBuilder {
             &items,
             &flow_input,
         ] {
-            let field = Field::Line(input.clone());
+            let field = Field(input.clone());
             subscriptions.push(cx.subscribe_in(
                 input,
-                window,
-                move |this, _, event: &InputEvent, _window, cx| match event {
-                    InputEvent::Change => this.changed(cx),
-                    InputEvent::Focus => this.target = Some(field.clone()),
-                    _ => {}
-                },
-            ));
-        }
-        for area in [&options, &choices] {
-            let field = Field::Area(area.clone());
-            subscriptions.push(cx.subscribe_in(
-                area,
                 window,
                 move |this, _, event: &InputEvent, _window, cx| match event {
                     InputEvent::Change => this.changed(cx),
@@ -440,7 +477,7 @@ impl StepBuilder {
             on_click,
             click_focus: focus::tab_stop(cx),
             prompt,
-            options,
+            options: LineList::default(),
             from,
             from_variable,
             source_focus: focus::tab_stop(cx),
@@ -457,7 +494,7 @@ impl StepBuilder {
             if_app,
             times,
             items,
-            choices,
+            choices: LineList::default(),
             action_controls: Vec::new(),
             _action_subscriptions: Vec::new(),
             auto_output: None,
@@ -473,7 +510,80 @@ impl StepBuilder {
         if let (StepChoice::Do(def), Some(StepKind::Action { args, .. })) = (choice, initial) {
             this.build_action_controls(def, args, window, cx);
         }
+        // A new list starts with two fields to fill in.
+        for (which, values) in [(Lines::Options, options), (Lines::Choices, choices)] {
+            let values = if values.is_empty() {
+                vec![String::new(), String::new()]
+            } else {
+                values
+            };
+            for value in &values {
+                this.add_line(which, usize::MAX, value, window, cx);
+            }
+        }
         this
+    }
+
+    fn lines_mut(&mut self, which: Lines) -> &mut LineList {
+        match which {
+            Lines::Options => &mut self.options,
+            Lines::Choices => &mut self.choices,
+        }
+    }
+
+    /// Adds a field to `which` at `at` (or the end) holding `value`, and
+    /// returns it so the caller can give it the keyboard.
+    fn add_line(
+        &mut self,
+        which: Lines,
+        at: usize,
+        value: &str,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Entity<InputState> {
+        let input = cx.new(|cx| {
+            InputState::new(window, cx)
+                .placeholder(which.placeholder())
+                .default_value(value.to_string())
+        });
+        let field = Field(input.clone());
+        let subscription =
+            cx.subscribe(&input, move |this, _, event: &InputEvent, cx| match event {
+                InputEvent::Change => this.changed(cx),
+                InputEvent::Focus => this.target = Some(field.clone()),
+                _ => {}
+            });
+        let rows = &mut self.lines_mut(which).rows;
+        let at = at.min(rows.len());
+        rows.insert(at, (input.clone(), subscription));
+        input
+    }
+
+    /// Adds an empty field after the one at `ix` (or at the end) and gives
+    /// it the keyboard.
+    fn add_line_after(
+        &mut self,
+        which: Lines,
+        ix: Option<usize>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let at = ix.map_or(usize::MAX, |ix| ix + 1);
+        let next = self.add_line(which, at, "", window, cx);
+        // Once it is on screen; focused before that, it loses the focus.
+        window.on_next_frame(move |window, cx| {
+            next.update(cx, |next, cx| next.focus(window, cx));
+        });
+        self.changed(cx);
+    }
+
+    fn remove_line(&mut self, which: Lines, ix: usize, cx: &mut Context<Self>) {
+        let rows = &mut self.lines_mut(which).rows;
+        if rows.len() > 1 && ix < rows.len() {
+            drop(rows.remove(ix));
+            self.target = None;
+            self.changed(cx);
+        }
     }
 
     pub fn choice(&self) -> StepChoice {
@@ -537,7 +647,7 @@ impl StepBuilder {
                             .placeholder(field.placeholder)
                             .default_value(value)
                     });
-                    let target = Field::Line(input.clone());
+                    let target = Field(input.clone());
                     subscriptions.push(cx.subscribe_in(
                         &input,
                         window,
@@ -726,25 +836,25 @@ impl StepBuilder {
     /// The field a variable goes into when none was focused yet.
     fn default_target(&self) -> Option<Field> {
         match self.choice {
-            StepChoice::Notify => Some(Field::Line(self.notify_title.clone())),
-            StepChoice::Choose if self.from_variable => Some(Field::Line(self.from.clone())),
+            StepChoice::Notify => Some(Field(self.notify_title.clone())),
+            StepChoice::Choose if self.from_variable => Some(Field(self.from.clone())),
             StepChoice::Ask
             | StepChoice::Choose
             | StepChoice::Confirm
             | StepChoice::PickFile
             | StepChoice::PickFolder
-            | StepChoice::Menu => Some(Field::Line(self.prompt.clone())),
-            StepChoice::Each => Some(Field::Line(self.items.clone())),
+            | StepChoice::Menu => Some(Field(self.prompt.clone())),
+            StepChoice::Each => Some(Field(self.items.clone())),
             StepChoice::Do(_) => self
                 .action_controls
                 .iter()
                 .find_map(|control| match control {
-                    ActionControl::Text(input) => Some(Field::Line(input.clone())),
+                    ActionControl::Text(input) => Some(Field(input.clone())),
                     _ => None,
                 }),
             StepChoice::If => match self.if_kind {
-                IfKind::Text => Some(Field::Line(self.if_value.clone())),
-                IfKind::Command => Some(Field::Line(self.if_command.clone())),
+                IfKind::Text => Some(Field(self.if_value.clone())),
+                IfKind::Command => Some(Field(self.if_command.clone())),
                 _ => None,
             },
             _ => None,
@@ -755,7 +865,7 @@ impl StepBuilder {
         let text = format!("{{{{{name}}}}}");
         match self.choice {
             StepChoice::Action(ActionKind::Flow) => {
-                Field::Line(self.flow_input.clone()).insert(&text, window, cx);
+                Field(self.flow_input.clone()).insert(&text, window, cx);
                 self.changed(cx);
                 return;
             }
@@ -863,16 +973,9 @@ impl StepBuilder {
                         from,
                     });
                 }
-                let options: Vec<String> = self
-                    .options
-                    .read(cx)
-                    .value()
-                    .lines()
-                    .map(|line| line.trim().to_string())
-                    .filter(|line| !line.is_empty())
-                    .collect();
+                let options = self.options.values(cx);
                 if options.is_empty() {
-                    return Err("Enter the options, one per line".into());
+                    return Err("Enter at least one option".into());
                 }
                 Ok(StepKind::Choose {
                     prompt,
@@ -917,21 +1020,17 @@ impl StepBuilder {
             StepChoice::Menu => {
                 let prompt = self.question(cx)?;
                 let mut choices: Vec<MenuChoice> = Vec::new();
-                for line in self.choices.read(cx).value().lines() {
-                    let label = line.trim();
-                    if label.is_empty() {
-                        continue;
-                    }
+                for label in self.choices.values(cx) {
                     if choices.iter().any(|c| c.label == label) {
                         return Err(format!("'{label}' is there twice"));
                     }
                     choices.push(MenuChoice {
-                        label: label.to_string(),
+                        label,
                         steps: Vec::new(),
                     });
                 }
                 if choices.is_empty() {
-                    return Err("Enter the choices, one per line".into());
+                    return Err("Enter at least one choice".into());
                 }
                 Ok(StepKind::Menu { prompt, choices })
             }
@@ -1235,11 +1334,7 @@ impl StepBuilder {
                         .small()
                         .into_any_element()
                 } else {
-                    div()
-                        .id("step-options")
-                        .test_support()
-                        .child(Textarea::new(&self.options).h(px(112.)))
-                        .into_any_element()
+                    self.render_lines(Lines::Options, cx)
                 })
                 .into_any_element(),
             StepChoice::If => self.render_if(window, cx),
@@ -1269,15 +1364,67 @@ impl StepBuilder {
                 ))
                 .child(Self::field(
                     "Choices",
-                    div()
-                        .id("step-choices")
-                        .test_support()
-                        .child(Textarea::new(&self.choices).h(px(112.))),
+                    self.render_lines(Lines::Choices, cx),
                 ))
                 .into_any_element(),
             StepChoice::Stop => div().into_any_element(),
             StepChoice::Do(def) => self.render_action(def, window, cx),
         }
+    }
+
+    /// The fields of `which`, each with a button that removes it, and one
+    /// that adds another.
+    fn render_lines(&self, which: Lines, cx: &mut Context<Self>) -> AnyElement {
+        let rows = match which {
+            Lines::Options => &self.options.rows,
+            Lines::Choices => &self.choices.rows,
+        };
+        let only_one = rows.len() <= 1;
+        v_flex()
+            .key_context(LINES_CONTEXT)
+            .gap_1()
+            .children(rows.iter().enumerate().map(|(ix, (input, _))| {
+                h_flex()
+                    .on_action(
+                        cx.listener(move |this, _: &step_lines::AddLine, window, cx| {
+                            this.add_line_after(which, Some(ix), window, cx)
+                        }),
+                    )
+                    .gap_1()
+                    .items_center()
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .child(Input::new(input).id((which.row_id(), ix)).small()),
+                    )
+                    .child(
+                        Button::new((which.remove_id(), ix))
+                            .ghost()
+                            .xsmall()
+                            .icon(Icon::new(Icon::empty()).path("icons/x.svg"))
+                            .tooltip("Remove")
+                            .disabled(only_one)
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(move |this, _, _, cx| this.remove_line(which, ix, cx)),
+                            ),
+                    )
+            }))
+            .child(
+                h_flex().child(
+                    Button::new(which.add_id())
+                        .ghost()
+                        .xsmall()
+                        .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                        .label(which.add_label())
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            this.add_line_after(which, None, window, cx)
+                        })),
+                ),
+            )
+            .into_any_element()
     }
 
     /// A ready-made action's form: one control per field.
