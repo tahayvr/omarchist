@@ -10,25 +10,17 @@ use crate::system::flows::{Flow, icon_path};
 use crate::system::keybinds::chord::Chord;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
+use crate::ui::palette;
 use crate::ui::text::selectable;
 
 /// The flow's icon on a tinted square.
 pub fn icon_tile(icon: &str, size: Pixels, cx: &App) -> impl IntoElement {
-    let theme = cx.theme();
-    div()
-        .size(size)
-        .flex_shrink_0()
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(theme.radius)
-        .bg(theme.primary.opacity(0.12))
-        .text_color(theme.primary)
-        .child(
-            Icon::new(Icon::empty())
-                .path(icon_path(icon))
-                .size(size * 0.5),
-        )
+    palette::tile(
+        Icon::new(Icon::empty()).path(icon_path(icon)),
+        cx.theme().primary,
+        size,
+        cx,
+    )
 }
 
 /// How the flow can be started: its chord, launcher, and startup tags, or

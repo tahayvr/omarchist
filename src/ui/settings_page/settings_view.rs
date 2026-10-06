@@ -7,7 +7,7 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::notify;
 use gpui::*;
 use gpui_component::{
-    Sizable as _,
+    Icon, IconName, Sizable as _,
     button::Button,
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -22,6 +22,7 @@ use crate::system::flows::service;
 use crate::system::ui_theme_watcher;
 use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{FocusSection, FocusableSwitch};
+use crate::ui::palette::{self, Area};
 const KEY_CONTEXT: &str = "SettingsPage";
 
 const FONT_SIZES: &[(&str, &str)] = &[("small", "Small"), ("medium", "Medium"), ("large", "Large")];
@@ -194,7 +195,7 @@ impl SettingsView {
 
     fn set_theme_mode(&mut self, mode: &'static str, cx: &mut Context<Self>) {
         self.change(move |s| s.theme_mode = mode.to_string(), cx);
-        ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+        ui_theme_watcher::apply_ui_theme(cx);
         cx.refresh_windows();
     }
 
@@ -281,16 +282,37 @@ impl SettingsView {
             .into_any_element()
     }
 
-    fn section(&self, id: &'static str, title: &'static str, rows: Vec<AnyElement>) -> AnyElement {
+    /// A group of rows under a title, whose icon wears the colour of the
+    /// area the rows concern.
+    fn section(
+        &self,
+        id: &'static str,
+        title: &'static str,
+        icon: &'static str,
+        area: Area,
+        rows: Vec<AnyElement>,
+        cx: &App,
+    ) -> AnyElement {
         FocusSection::new(id, &self.scroll)
             .child(
                 GroupBox::new()
                     .with_variant(GroupBoxVariant::Outline)
                     .title(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(title),
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .child(palette::tile(
+                                palette::icon(icon),
+                                area.accent(cx),
+                                px(22.),
+                                cx,
+                            ))
+                            .child(
+                                div()
+                                    .text_sm()
+                                    .font_weight(FontWeight::SEMIBOLD)
+                                    .child(title),
+                            ),
                     )
                     .children(rows),
             )
@@ -325,6 +347,8 @@ impl Render for SettingsView {
         let appearance = self.section(
             "settings-appearance",
             "Appearance",
+            "icons/palette.svg",
+            Area::Settings,
             vec![
                 self.render_row(
                     "font-size",
@@ -355,11 +379,14 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         let startup = self.section(
             "settings-startup",
             "Startup",
+            "icons/rocket.svg",
+            Area::Settings,
             vec![
                 self.render_row(
                     "startup-page",
@@ -378,11 +405,14 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         let updates = self.section(
             "settings-updates",
             "Omarchy Updates",
+            "icons/cloud-download.svg",
+            Area::Omarchy,
             vec![
                 self.render_switch(
                     "check-updates",
@@ -417,11 +447,14 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         let designer = self.section(
             "settings-designer",
             "Theme Designer",
+            "icons/pen-tool.svg",
+            Area::Themes,
             vec![
                 self.render_switch(
                     "auto-apply-theme",
@@ -433,11 +466,14 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         let bar = self.section(
             "settings-bar",
             "Bar",
+            "icons/panel-top.svg",
+            Area::Omarchy,
             vec![
                 self.render_row(
                     "bar-widget",
@@ -454,11 +490,14 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         let flows = self.section(
             "settings-flows",
             "Flows",
+            "icons/workflow.svg",
+            Area::Flows,
             vec![
                 self.render_switch(
                     "notify-flows",
@@ -493,6 +532,7 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
             ],
+            cx,
         );
 
         v_flex()
@@ -515,10 +555,21 @@ impl Render for SettingsView {
                                 .pb_8()
                                 .pr_4()
                                 .child(
-                                    div()
-                                        .text_lg()
-                                        .font_weight(FontWeight::SEMIBOLD)
-                                        .child("Settings"),
+                                    h_flex()
+                                        .gap_2()
+                                        .items_center()
+                                        .child(palette::tile(
+                                            Icon::new(IconName::Settings2),
+                                            Area::Settings.accent(cx),
+                                            px(28.),
+                                            cx,
+                                        ))
+                                        .child(
+                                            div()
+                                                .text_lg()
+                                                .font_weight(FontWeight::SEMIBOLD)
+                                                .child("Settings"),
+                                        ),
                                 )
                                 .child(appearance)
                                 .child(startup)

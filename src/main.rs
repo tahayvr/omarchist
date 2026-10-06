@@ -1,5 +1,5 @@
 use gpui::{App, AppContext, WindowOptions};
-use gpui_component::{Root, Theme, ThemeMode, ThemeSet, TitleBar};
+use gpui_component::{Root, TitleBar};
 use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
@@ -11,7 +11,6 @@ use omarchist::ui::app_view::ActivePage;
 use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
-use std::rc::Rc;
 
 /// The page to open: `--view` wins, then the Settings page's startup page
 /// (or the page shown last), then Themes.
@@ -47,7 +46,7 @@ fn set_theme_mode(mode: &str, cx: &mut App) {
     if let Err(e) = config_setup::update_settings(move |s| s.theme_mode = mode.clone()) {
         eprintln!("Failed to save the appearance setting: {e}");
     }
-    ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+    ui_theme_watcher::apply_ui_theme(cx);
     cx.refresh_windows();
 }
 
@@ -84,39 +83,6 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
         }
     })
     .detach();
-}
-
-const THEME_FILE: &str = include_str!("../ui_themes/theme.json");
-
-fn apply_embedded_themes(cx: &mut App) {
-    let theme_set: ThemeSet = match serde_json::from_str(THEME_FILE) {
-        Ok(theme_set) => theme_set,
-        Err(err) => {
-            eprintln!("Failed to parse Omarchist theme JSON: {}", err);
-            return;
-        }
-    };
-
-    let mut light_theme = None;
-    let mut dark_theme = None;
-
-    for theme in theme_set.themes {
-        if theme.mode.is_dark() {
-            dark_theme = Some(theme);
-        } else {
-            light_theme = Some(theme);
-        }
-    }
-
-    if let Some(theme) = light_theme {
-        Theme::global_mut(cx).light_theme = Rc::new(theme);
-    }
-    if let Some(theme) = dark_theme {
-        Theme::global_mut(cx).dark_theme = Rc::new(theme);
-    }
-
-    // Default to dark mode as fallback when omarchy theme is unavailable.
-    Theme::change(ThemeMode::Dark, None, cx);
 }
 
 fn load_custom_fonts(cx: &mut App) {
@@ -224,8 +190,7 @@ fn main() -> ExitCode {
         gpui_component::init(cx);
         omarchist::ui::toasts::install(cx);
         load_custom_fonts(cx);
-        apply_embedded_themes(cx);
-        ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+        ui_theme_watcher::apply_ui_theme(cx);
         ui_theme_watcher::spawn_ui_theme_watcher(cx);
 
         // The menu's light/dark switch is the Settings page's "Look"; the

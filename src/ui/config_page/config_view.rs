@@ -40,6 +40,7 @@ use crate::ui::config_page::pages::{
 };
 use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
+use crate::ui::palette::{self, Area};
 use crate::ui::text::selectable;
 /// A dynamic dropdown with more choices than this is a searchable select.
 const LONG_LIST: usize = 40;
@@ -1075,18 +1076,21 @@ impl ConfigView {
                     PageGroup::Omarchy => "OMARCHY",
                 };
                 children.push(
-                    div()
+                    h_flex()
+                        .gap_2()
                         .px_3()
                         .pt_2()
                         .pb_1()
                         .text_xs()
                         .font_weight(FontWeight::SEMIBOLD)
                         .text_color(muted)
+                        .child(palette::dot(Area::of_group(page.group).accent(cx)))
                         .child(heading)
                         .into_any_element(),
                 );
             }
             let focused = nav_focused && self.active_page == ix;
+            let icon = palette::icon(page.icon).text_color(Area::of_group(page.group).accent(cx));
             children.push(
                 div()
                     .id(("config-page", ix))
@@ -1095,6 +1099,7 @@ impl ConfigView {
                     .border_color(focus::focus_border(focused, transparent, cx))
                     .child(
                         SidebarMenuItem::new(page.title)
+                            .icon(icon)
                             .active(self.active_page == ix)
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 this.nav_focus.focus(window, cx);
@@ -1545,8 +1550,15 @@ impl ConfigView {
                 continue;
             }
             sections.push(
-                v_flex()
-                    .gap_1()
+                h_flex()
+                    .gap_2()
+                    .items_center()
+                    .child(palette::tile(
+                        palette::icon(page.icon),
+                        Area::of_group(page.group).accent(cx),
+                        px(28.),
+                        cx,
+                    ))
                     .child(explain(
                         ("page-desc", page_ix),
                         div().flex().child(

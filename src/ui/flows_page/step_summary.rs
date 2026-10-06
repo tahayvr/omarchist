@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon};
+use gpui_component::Icon;
 
 use crate::system::apps::DesktopApp;
 use crate::system::flows::actions::{self, FieldKind};
@@ -13,6 +13,7 @@ use crate::system::flows::{Flow, OnClick, StepKind, format_duration, vars};
 use crate::system::keybinds::Dispatcher;
 use crate::system::keybinds::action::{Action, ActionKind, program_name};
 use crate::ui::flows_page::step_types::{StepChoice, StepGroup};
+use crate::ui::palette;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepIcon {
@@ -61,18 +62,8 @@ impl StepSummary {
                 .justify_center()
                 .child(self.icon.render(size * 0.86))
                 .into_any_element(),
-            StepIcon::Path(_) => {
-                let accent = self.group.accent(cx);
-                div()
-                    .size(size)
-                    .flex_shrink_0()
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .rounded(cx.theme().radius)
-                    .bg(accent.opacity(0.16))
-                    .text_color(accent)
-                    .child(self.icon.render(size * 0.58))
+            StepIcon::Path(path) => {
+                palette::tile(palette::icon(path), self.group.accent(cx), size, cx)
                     .into_any_element()
             }
         }

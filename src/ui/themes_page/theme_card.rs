@@ -1,10 +1,11 @@
 use crate::system::themes::theme_file_ops::{delete_theme, open_theme_folder};
-use crate::types::themes::ThemeEntry;
+use crate::types::themes::{ThemeEntry, ThemeOrigin};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::notify;
+use crate::ui::palette::Area;
 use crate::ui::text::selectable;
 use crate::ui::theme_apply::apply_theme;
 use gpui::prelude::*;
@@ -56,7 +57,7 @@ impl ThemeCard {
     }
 
     pub fn open_folder(&self) {
-        let is_system = matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
+        let is_system = matches!(self.theme.origin, ThemeOrigin::System);
         let _ = open_theme_folder(&self.theme.dir, is_system);
     }
 
@@ -197,19 +198,23 @@ impl Render for ThemeCard {
                                     )),
                             )
                             .when(self.theme.applied, |row| {
-                                row.child(badge("Applied", theme.primary, theme.radius))
+                                row.child(badge("Applied", theme.green, theme.radius))
                             })
                             .child(badge(
                                 self.theme.origin.badge_text(),
-                                theme.muted_foreground,
+                                // A theme made here wears the Themes colour;
+                                // the others are simply labelled.
+                                match self.theme.origin {
+                                    ThemeOrigin::Omarchist => Area::Themes.accent(cx),
+                                    _ => theme.muted_foreground,
+                                },
                                 theme.radius,
                             )),
                     )
                     .child({
                         let is_editable = self.theme.origin.is_editable();
                         let is_deletable = self.theme.origin.is_deletable();
-                        let is_system =
-                            matches!(self.theme.origin, crate::types::themes::ThemeOrigin::System);
+                        let is_system = matches!(self.theme.origin, ThemeOrigin::System);
                         let theme_dir_clone = self.theme.dir.clone();
                         let theme_entry = self.theme.clone();
                         Button::new(("menu", self.index))

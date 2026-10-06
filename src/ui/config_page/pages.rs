@@ -101,6 +101,9 @@ pub struct GroupDef {
 
 pub struct PageDef {
     pub title: &'static str,
+    /// The Lucide icon the nav and the page's heading show, under
+    /// `assets/icons/`.
+    pub icon: &'static str,
     pub description: &'static str,
     pub group: PageGroup,
     pub groups: &'static [GroupDef],
@@ -243,6 +246,7 @@ const ON_OFF_AUTO: &[(i64, &str)] = &[(0, "Off"), (1, "On"), (2, "Auto")];
 pub const HYPRLAND_PAGES: &[PageDef] = &[
     PageDef {
         title: "General",
+        icon: "icons/settings-2.svg",
         group: PageGroup::Hyprland,
         description: "Borders, gaps, layout, and floating windows",
         groups: &[
@@ -454,6 +458,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Appearance",
+        icon: "icons/palette.svg",
         group: PageGroup::Hyprland,
         description: "Rounding, opacity, dimming, blur, shadows, and animations",
         groups: &[
@@ -809,6 +814,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Layouts",
+        icon: "icons/layout-grid.svg",
         group: PageGroup::Hyprland,
         description: "Dwindle, master, and scrolling layout behaviour",
         groups: &[
@@ -1162,6 +1168,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Keyboard",
+        icon: "icons/keyboard.svg",
         group: PageGroup::Hyprland,
         description: "Layout, repeat, and modifiers",
         groups: &[
@@ -1218,6 +1225,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Mouse",
+        icon: "icons/mouse.svg",
         group: PageGroup::Hyprland,
         description: "Pointer speed, scrolling, and focus",
         groups: &[
@@ -1398,6 +1406,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Touchpad",
+        icon: "icons/touchpad.svg",
         group: PageGroup::Hyprland,
         description: "Tapping, scrolling, and gestures on the touchpad",
         groups: &[
@@ -1497,6 +1506,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Groups",
+        icon: "icons/group.svg",
         group: PageGroup::Hyprland,
         description: "Tabbed window groups and their bar",
         groups: &[
@@ -1737,6 +1747,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Cursor",
+        icon: "icons/mouse-pointer.svg",
         group: PageGroup::Hyprland,
         description: "Hiding, warping, and zooming the pointer",
         groups: &[
@@ -1854,6 +1865,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Windows",
+        icon: "icons/app-window.svg",
         group: PageGroup::Hyprland,
         description: "Focus, workspaces, and fullscreen behaviour",
         groups: &[
@@ -2026,6 +2038,7 @@ pub const HYPRLAND_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "System",
+        icon: "icons/cpu.svg",
         group: PageGroup::Hyprland,
         description: "Rendering, displays, sessions, and XWayland",
         groups: &[
@@ -2283,6 +2296,7 @@ const LAPTOP: Option<&[&str]> = Some(&["omarchy-hw-laptop"]);
 pub const OMARCHY_PAGES: &[PageDef] = &[
     PageDef {
         title: "Lock & Idle",
+        icon: "icons/lock.svg",
         group: PageGroup::Omarchy,
         description: "Screensaver, lock screen, and staying awake",
         groups: &[
@@ -2377,6 +2391,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Power",
+        icon: "icons/power.svg",
         group: PageGroup::Omarchy,
         description: "Power profiles and the battery",
         groups: &[
@@ -2443,6 +2458,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Notifications",
+        icon: "icons/bell.svg",
         group: PageGroup::Omarchy,
         description: "Do not disturb and crash reports",
         groups: &[GroupDef {
@@ -2494,6 +2510,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Default Apps",
+        icon: "icons/blocks.svg",
         group: PageGroup::Omarchy,
         description: "The browser, terminal, and editor Omarchy opens",
         groups: &[GroupDef {
@@ -2575,6 +2592,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Bar",
+        icon: "icons/panel-top.svg",
         group: PageGroup::Omarchy,
         description: "Where the bar sits and how it looks",
         groups: &[GroupDef {
@@ -2627,6 +2645,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Fonts",
+        icon: "icons/type.svg",
         group: PageGroup::Omarchy,
         description: "The monospace font and text size everywhere",
         groups: &[GroupDef {
@@ -2665,6 +2684,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Displays",
+        icon: "icons/monitor.svg",
         group: PageGroup::Omarchy,
         description: "Scale, night light, and the laptop display",
         groups: &[
@@ -2774,6 +2794,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Devices",
+        icon: "icons/usb.svg",
         group: PageGroup::Omarchy,
         description: "Touchpad, touchscreen, and Bluetooth",
         groups: &[
@@ -2836,6 +2857,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Network",
+        icon: "icons/wifi.svg",
         group: PageGroup::Omarchy,
         description: "DNS and Wi-Fi",
         groups: &[GroupDef {
@@ -2882,6 +2904,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Security",
+        icon: "icons/shield.svg",
         group: PageGroup::Omarchy,
         description: "Ways to unlock and log in; each opens a terminal",
         groups: &[GroupDef {
@@ -2937,6 +2960,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
     },
     PageDef {
         title: "Updates & Resets",
+        icon: "icons/refresh-cw.svg",
         group: PageGroup::Omarchy,
         description: "Package channel, firmware, time, and config resets",
         groups: &[
@@ -3053,3 +3077,18 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
         ],
     },
 ];
+
+#[cfg(test)]
+mod tests {
+    use super::pages;
+
+    #[test]
+    fn every_page_icon_is_shipped() {
+        for page in pages() {
+            let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("assets")
+                .join(page.icon);
+            assert!(path.is_file(), "{}: {} is missing", page.title, page.icon);
+        }
+    }
+}

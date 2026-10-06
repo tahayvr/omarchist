@@ -4,7 +4,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::App;
-use gpui_component::{Theme, ThemeConfig, ThemeMode};
+use gpui_component::{Theme, ThemeConfig, ThemeMode, ThemeSet};
 use smol::Timer;
 
 use crate::system::themes::color_utils::{
@@ -316,39 +316,71 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
     })
 }
 
-// Loads the omarchy current theme from `colors.toml` and applies it to the UI,
-// then the look the Settings page forces, if any.
-pub fn load_and_apply_omarchy_theme(cx: &mut App) {
-    let theme_name = get_active_omarchy_theme_name().unwrap_or_else(|| "omarchy".to_string());
-    if let Some(colors_path) = get_colors_toml_path()
-        && let Some(colors) = parse_colors_toml(&colors_path)
-    {
-        let config = build_theme_config(&colors, &theme_name);
-        let mode = config.mode;
-        let config_rc = Rc::new(config);
-        if mode.is_dark() {
-            Theme::global_mut(cx).dark_theme = config_rc;
-        } else {
-            Theme::global_mut(cx).light_theme = config_rc;
+/// The app's own look, a light and a dark theme.
+const THEME_FILE: &str = include_str!("../../ui_themes/theme.json");
+
+fn embedded_themes() -> (Option<ThemeConfig>, Option<ThemeConfig>) {
+    let theme_set: ThemeSet = match serde_json::from_str(THEME_FILE) {
+        Ok(theme_set) => theme_set,
+        Err(err) => {
+            eprintln!("Failed to parse the Omarchist theme JSON: {err}");
+            return (None, None);
         }
-        Theme::change(mode, None, cx);
+    };
+    let mut light = None;
+    let mut dark = None;
+    for theme in theme_set.themes {
+        if theme.mode.is_dark() {
+            dark = Some(theme);
+        } else {
+            light = Some(theme);
+        }
     }
-    // If omarchy theme is unavailable, the embedded theme stays in effect.
-    apply_forced_mode(cx);
+    (light, dark)
 }
 
-/// The Settings page can force light or dark regardless of the desktop
-/// theme (`theme_mode`); `omarchy` follows the theme. Every `Theme::change`
-/// re-applies the theme's own `font.size`, so the user's size is put back
-/// afterwards.
-pub fn apply_forced_mode(cx: &mut App) {
+/// Applies the look the Settings page holds (`theme_mode`): `light` and
+/// `dark` are the app's own themes, with their own palette; `omarchy`
+/// follows the desktop theme, built from its `colors.toml` with its
+/// palette, and falls back to the app's dark theme when that cannot be
+/// read. Every `Theme::change` re-applies the theme's own `font.size`, so
+/// the user's size is put back afterwards.
+pub fn apply_ui_theme(cx: &mut App) {
+    // Start from the app's own themes every time, so a forced mode never
+    // shows the desktop theme's colours left behind by an earlier follow.
+    let (light, dark) = embedded_themes();
+    if let Some(light) = light {
+        Theme::global_mut(cx).light_theme = Rc::new(light);
+    }
+    if let Some(dark) = dark {
+        Theme::global_mut(cx).dark_theme = Rc::new(dark);
+    }
     match crate::system::config::config_setup::settings()
         .theme_mode
         .as_str()
     {
         "light" => Theme::change(ThemeMode::Light, None, cx),
         "dark" => Theme::change(ThemeMode::Dark, None, cx),
-        _ => {}
+        _ => {
+            let theme_name =
+                get_active_omarchy_theme_name().unwrap_or_else(|| "omarchy".to_string());
+            let omarchy = get_colors_toml_path()
+                .and_then(|path| parse_colors_toml(&path))
+                .map(|colors| build_theme_config(&colors, &theme_name));
+            match omarchy {
+                Some(config) => {
+                    let mode = config.mode;
+                    let config = Rc::new(config);
+                    if mode.is_dark() {
+                        Theme::global_mut(cx).dark_theme = config;
+                    } else {
+                        Theme::global_mut(cx).light_theme = config;
+                    }
+                    Theme::change(mode, None, cx);
+                }
+                None => Theme::change(ThemeMode::Dark, None, cx),
+            }
+        }
     }
     apply_font_size(cx);
 }

@@ -12,6 +12,7 @@ pub mod keybinds_page;
 pub mod menu;
 pub mod notify;
 pub mod omarchy_page;
+pub mod palette;
 pub mod settings_page;
 pub mod shortcuts;
 pub mod sidebar_nav;

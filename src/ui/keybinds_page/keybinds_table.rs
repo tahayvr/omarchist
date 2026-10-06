@@ -11,10 +11,14 @@ use gpui_component::{
     tooltip::Tooltip,
 };
 
+use crate::system::flows::StepKind;
 use crate::system::keybinds::{Keybind, Origin};
 use crate::ui::explain::explain;
+use crate::ui::flows_page::step_summary::SummaryContext;
+use crate::ui::flows_page::step_types::StepGroup;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybinds_view::{CopyCommand, DisableRow, EditRow, ResetRow};
+use crate::ui::palette::{self, Area};
 use crate::ui::text::selectable;
 /// How a row relates to the user's overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -192,10 +196,29 @@ impl KeybindsTableDelegate {
         let label = row.bind.label().to_string();
         let undescribed = row.bind.description.is_empty();
 
+        // What the bind does, as the flow editor draws the same action: an
+        // app, a window move, a command, a flow, each in its group's colour.
+        let kind_tile = match StepKind::from_dispatcher(row.bind.dispatcher.clone(), false) {
+            Some(kind) => SummaryContext {
+                apps: &[],
+                flows: &[],
+            }
+            .summarize(&kind)
+            .tile(px(20.), cx),
+            // A Lua function from the user's own config.
+            None => palette::tile(
+                palette::icon("icons/braces.svg"),
+                StepGroup::Script.accent(cx),
+                px(20.),
+                cx,
+            )
+            .into_any_element(),
+        };
         let cell = h_flex()
             .gap_2()
             .items_center()
             .min_w_0()
+            .child(kind_tile)
             .child(
                 div()
                     .min_w_0()
@@ -247,14 +270,18 @@ impl KeybindsTableDelegate {
             .into_any_element()
     }
 
-    fn render_source_cell(&self, row: &KeybindRow, row_ix: usize, _cx: &App) -> AnyElement {
+    fn render_source_cell(&self, row: &KeybindRow, row_ix: usize, cx: &App) -> AnyElement {
         // Folded into the Action cell, a Default origin says nothing worth
         // the space; the other origins and every status still show.
         let origin_tag = (!self.narrow || row.bind.origin != Origin::Default).then(|| {
             match row.bind.origin {
                 Origin::Default => Tag::secondary(),
                 Origin::User => Tag::info(),
-                Origin::Omarchist => Tag::primary(),
+                // Made on this page, so it wears the page's colour.
+                Origin::Omarchist => {
+                    let accent = Area::Keybinds.accent(cx);
+                    Tag::custom(accent.opacity(0.16), accent, accent.opacity(0.4))
+                }
             }
             .rounded(px(0.))
             .child(row.bind.origin.label())

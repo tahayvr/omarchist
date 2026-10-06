@@ -12,6 +12,7 @@ use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::notify;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
+use crate::ui::palette::Area;
 use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
@@ -689,7 +690,7 @@ impl MainWindowView {
                 self.toggle_sidebar(window, cx);
             }
             AppEvent::ReloadUiTheme => {
-                ui_theme_watcher::load_and_apply_omarchy_theme(cx);
+                ui_theme_watcher::apply_ui_theme(cx);
                 cx.refresh_windows();
             }
             AppEvent::Error(message) => notify::error(window, message, cx),
@@ -797,12 +798,21 @@ impl MainWindowView {
     fn sidebar_item(&self, ix: usize, window: &Window, cx: &mut Context<Self>) -> SidebarMenuItem {
         let (label, keys) = SIDEBAR_ITEMS[ix];
         let page = self.page_from_sidebar_index(ix);
-        let icon = match ix {
-            0 => Icon::new(IconName::LayoutDashboard),
-            1 => Icon::new(IconName::Settings),
-            2 => Icon::new(Icon::empty()).path("icons/keyboard.svg"),
-            _ => Icon::new(Icon::empty()).path("icons/workflow.svg"),
+        // Each page's icon wears the page's colour, the same one its
+        // badges and section icons wear elsewhere.
+        let (icon, area) = match ix {
+            0 => (Icon::new(IconName::LayoutDashboard), Area::Themes),
+            1 => (Icon::new(IconName::Settings), Area::Configuration),
+            2 => (
+                Icon::new(Icon::empty()).path("icons/keyboard.svg"),
+                Area::Keybinds,
+            ),
+            _ => (
+                Icon::new(Icon::empty()).path("icons/workflow.svg"),
+                Area::Flows,
+            ),
         };
+        let icon = icon.text_color(area.accent(cx));
         let focused = self.sidebar_focus.is_focused(window) && self.sidebar_index == ix;
         let border = focus::focus_border(focused, cx.theme().transparent, cx);
 

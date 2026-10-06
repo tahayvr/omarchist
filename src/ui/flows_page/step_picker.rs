@@ -12,6 +12,7 @@ use gpui_kit::TestSupportExt;
 
 use crate::ui::flows_page::step_types::{StepChoice, StepGroup, StepType, best_match, search};
 use crate::ui::focus;
+use crate::ui::palette;
 use crate::ui::text::selectable;
 
 pub const GRID_CONTEXT: &str = "StepPicker";
@@ -49,16 +50,7 @@ impl EventEmitter<StepPickerEvent> for StepPicker {}
 
 /// A square holding a step's icon, tinted with its group's colour.
 pub fn icon_tile(icon: &'static str, accent: Hsla, size: Pixels, cx: &App) -> Div {
-    div()
-        .size(size)
-        .flex_shrink_0()
-        .flex()
-        .items_center()
-        .justify_center()
-        .rounded(cx.theme().radius)
-        .bg(accent.opacity(0.16))
-        .text_color(accent)
-        .child(Icon::new(Icon::empty()).path(icon).size(size * 0.58))
+    palette::tile(palette::icon(icon), accent, size, cx)
 }
 
 /// A stable element id for a step type's tile, from its label.
