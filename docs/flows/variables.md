@@ -24,7 +24,7 @@ A name starts with a letter and can contain letters, digits, spaces, `-` and `_`
 
 ## Use a variable
 
-Type `{{name}}` in a step's text field, or pick a variable from the **Insert** row under the fields; it goes where your cursor was. With the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. Outside the text field, Omarchist shows each variable as a token with its name, such as **Clipboard** or **url**. You can use variables in:
+Pick a variable from the **Insert** row under the fields; it goes where your cursor was as a small token, such as **Clipboard** or **url**, and <kbd>Backspace</kbd> removes it whole. With the keyboard, <kbd>Tab</kbd> to the row, choose with <kbd>←</kbd> and <kbd>→</kbd>, and press <kbd>Enter</kbd>. The flow file stores it as `{{name}}`, which you can also type yourself. You can use variables in:
 
 - a **Command**, **Terminal**, or **Web app** step,
 - the text fields of a [ready-made action](/flows/actions),

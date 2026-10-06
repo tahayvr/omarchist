@@ -21,6 +21,7 @@ use crate::system::keybinds::action::{
     Action, ActionKind, AppLaunch, Direction, OMARCHY_ACTIONS, WindowAction, WindowActionKind,
     WindowParam, WorkspaceTarget, omarchy_entry, program_name,
 };
+use crate::ui::flows_page::var_token;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::keybinds_view::keybinds_nav;
 
@@ -224,11 +225,7 @@ impl ActionBuilder {
             });
 
         let text = |window: &mut Window, cx: &mut Context<Self>, placeholder: &str, value: &str| {
-            cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder(placeholder.to_string())
-                    .default_value(value.to_string())
-            })
+            var_token::field(placeholder, value, window, cx)
         };
         let picker = |window: &mut Window,
                       cx: &mut Context<Self>,
@@ -603,21 +600,32 @@ impl ActionBuilder {
         }
     }
 
+    /// Puts the keyboard on the current kind's first control.
+    pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
+        let handle = match self.kind {
+            ActionKind::App => self.app_select.read(cx).focus_handle(cx),
+            ActionKind::WebApp => self.webapp_select.read(cx).focus_handle(cx),
+            ActionKind::Omarchy => self.omarchy_select.read(cx).focus_handle(cx),
+            ActionKind::Window => self.window_select.read(cx).focus_handle(cx),
+            ActionKind::Flow => self.flow_select.read(cx).focus_handle(cx),
+            ActionKind::Terminal => self.terminal_command.read(cx).focus_handle(cx),
+            ActionKind::Command => self.command.read(cx).focus_handle(cx),
+        };
+        handle.focus(window, cx);
+    }
+
     /// Whether the current kind has a field a variable can go into.
     pub fn accepts_variables(&self) -> bool {
         self.variable_target().is_some()
     }
 
-    /// Puts `text` (a `{{variable}}`) where the cursor was in the current
-    /// kind's text field and gives the field the keyboard.
-    pub fn insert_in_field(&mut self, text: &str, window: &mut Window, cx: &mut Context<Self>) {
+    /// Puts the variable where the cursor was in the current kind's text
+    /// field, as a token, and gives the field the keyboard.
+    pub fn insert_in_field(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(input) = self.variable_target().cloned() else {
             return;
         };
-        input.update(cx, |input, cx| {
-            input.insert(text.to_string(), window, cx);
-            input.focus(window, cx);
-        });
+        var_token::insert(&input, name, window, cx);
         self.changed(cx);
     }
 
@@ -921,7 +929,7 @@ impl ActionBuilder {
             }
             ActionKind::WebApp => v_flex()
                 .gap_2()
-                .child(Input::new(&self.webapp_url).small())
+                .child(var_token::with_tokens(Input::new(&self.webapp_url).small()))
                 .child(
                     h_flex()
                         .gap_2()
@@ -951,7 +959,9 @@ impl ActionBuilder {
                 .into_any_element(),
             ActionKind::Terminal => v_flex()
                 .gap_2()
-                .child(Input::new(&self.terminal_command).small())
+                .child(var_token::with_tokens(
+                    Input::new(&self.terminal_command).small(),
+                ))
                 .child(self.focus_switch(
                     "action-terminal-focus",
                     self.terminal_focus,
@@ -1084,7 +1094,7 @@ impl ActionBuilder {
                 .into_any_element(),
             ActionKind::Command => v_flex()
                 .gap_2()
-                .child(Input::new(&self.command).small())
+                .child(var_token::with_tokens(Input::new(&self.command).small()))
                 .into_any_element(),
         }
     }

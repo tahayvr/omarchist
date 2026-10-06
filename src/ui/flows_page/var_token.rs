@@ -1,7 +1,10 @@
 //! Flow variables drawn as tokens: a small pill with an icon and a readable
 //! name, in place of the `{{name}}` text a flow file stores.
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, h_flex};
+use gpui_component::{
+    ActiveTheme, Icon, h_flex,
+    input::{InlineToken, InlineTokenContext, Input, InputContent, InputState},
+};
 
 use crate::system::flows::vars;
 use crate::ui::text::selectable;
@@ -87,4 +90,79 @@ pub fn rich_text(id: &str, text: &str, cx: &App) -> AnyElement {
         .min_w_0()
         .children(parts)
         .into_any_element()
+}
+
+/// A variable as an atomic token inside a text field: the field's text
+/// keeps the `{{name}}` the flow file stores, so what reads the field
+/// sees no difference, while the person sees the pill.
+pub fn inline(name: &str) -> InlineToken {
+    InlineToken::new(name.to_string(), format!("{{{{{name}}}}}")).with_label(describe(name).0)
+}
+
+/// `text` with every `{{name}}` in it attached as a token, as a field is
+/// filled when it opens on saved text.
+pub fn content(text: &str) -> InputContent {
+    vars::references(text)
+        .into_iter()
+        .fold(InputContent::new(text.to_string()), |content, r| {
+            content
+                .clone()
+                .with_token(r.start..r.end, inline(&r.name))
+                .unwrap_or(content)
+        })
+}
+
+/// A single-line field holding `value`, its variables as tokens.
+pub fn field(
+    placeholder: &str,
+    value: &str,
+    window: &mut Window,
+    cx: &mut App,
+) -> Entity<InputState> {
+    let input = cx.new(|cx| InputState::new(window, cx).placeholder(placeholder.to_string()));
+    if !value.is_empty() {
+        input.update(cx, |input, cx| input.set_value(content(value), window, cx));
+    }
+    input
+}
+
+/// Puts the variable where the cursor is, as a token, and gives the field
+/// the keyboard.
+pub fn insert(input: &Entity<InputState>, name: &str, window: &mut Window, cx: &mut App) {
+    input.update(cx, |input, cx| {
+        // Text, should the token be refused (never for a valid name).
+        if input.replace_with_token(inline(name), window, cx).is_err() {
+            input.insert(format!("{{{{{name}}}}}"), window, cx);
+        }
+        input.focus(window, cx);
+    });
+}
+
+/// Draws a token in a field the way [`token`] draws one elsewhere.
+pub fn render_inline(context: &InlineTokenContext, cx: &App) -> AnyElement {
+    let theme = cx.theme();
+    let (label, icon) = describe(context.token().id());
+    h_flex()
+        .id("variable-token")
+        .flex_shrink_0()
+        .gap_1()
+        .items_center()
+        .h(context.line_height())
+        .max_w(context.available_width())
+        .px_1p5()
+        .rounded(theme.radius)
+        .bg(if context.is_selected() {
+            theme.selection
+        } else {
+            theme.primary.opacity(0.14)
+        })
+        .text_color(theme.primary)
+        .child(Icon::new(Icon::empty()).path(icon).size_3())
+        .child(div().min_w_0().text_ellipsis().child(label))
+        .into_any_element()
+}
+
+/// The field drawn with its variables as tokens.
+pub fn with_tokens(input: Input) -> Input {
+    input.token(|context, _, cx| render_inline(context, cx))
 }

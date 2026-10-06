@@ -132,12 +132,10 @@ struct Segmented<'a, T> {
 struct Field(Entity<InputState>);
 
 impl Field {
-    /// Puts `text` where the cursor was and gives the field the keyboard.
-    fn insert(&self, text: &str, window: &mut Window, cx: &mut App) {
-        self.0.update(cx, |input, cx| {
-            input.insert(text.to_string(), window, cx);
-            input.focus(window, cx);
-        })
+    /// Puts the variable where the cursor was, as a token, and gives the
+    /// field the keyboard.
+    fn insert(&self, name: &str, window: &mut Window, cx: &mut App) {
+        var_token::insert(&self.0, name, window, cx);
     }
 }
 
@@ -362,11 +360,7 @@ impl StepBuilder {
         }
 
         let line = |window: &mut Window, cx: &mut Context<Self>, placeholder: &str, value: &str| {
-            cx.new(|cx| {
-                InputState::new(window, cx)
-                    .placeholder(placeholder.to_string())
-                    .default_value(value.to_string())
-            })
+            var_token::field(placeholder, value, window, cx)
         };
         // A number field with a ceiling: a stray digit must not become a
         // pause of centuries.
@@ -541,11 +535,7 @@ impl StepBuilder {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Entity<InputState> {
-        let input = cx.new(|cx| {
-            InputState::new(window, cx)
-                .placeholder(which.placeholder())
-                .default_value(value.to_string())
-        });
+        let input = var_token::field(which.placeholder(), value, window, cx);
         let field = Field(input.clone());
         let subscription =
             cx.subscribe(&input, move |this, _, event: &InputEvent, cx| match event {
@@ -642,11 +632,7 @@ impl StepBuilder {
             let value = def.raw(field, args);
             let control = match field.kind {
                 FieldKind::Text => {
-                    let input = cx.new(|cx| {
-                        InputState::new(window, cx)
-                            .placeholder(field.placeholder)
-                            .default_value(value)
-                    });
+                    let input = var_token::field(field.placeholder, &value, window, cx);
                     let target = Field(input.clone());
                     subscriptions.push(cx.subscribe_in(
                         &input,
@@ -763,16 +749,26 @@ impl StepBuilder {
             }
             StepChoice::Do(_) => match self.action_controls.first() {
                 Some(ActionControl::Text(input) | ActionControl::Number(input)) => input,
-                _ => {
-                    // Past the Change button, onto the first control.
+                Some(ActionControl::Choice(_, handle)) => {
+                    handle.focus(window, cx);
+                    return;
+                }
+                Some(ActionControl::App(picker)) => {
+                    picker.read(cx).focus_handle(cx).focus(window, cx);
+                    return;
+                }
+                Some(ActionControl::Theme(picker)) => {
+                    picker.read(cx).focus_handle(cx).focus(window, cx);
+                    return;
+                }
+                None => {
                     self.back_focus.focus(window, cx);
-                    window.on_next_frame(|window, cx| window.focus_next(cx));
                     return;
                 }
             },
             StepChoice::Action(_) => {
-                self.back_focus.focus(window, cx);
-                window.on_next_frame(|window, cx| window.focus_next(cx));
+                self.action
+                    .update(cx, |builder, cx| builder.focus_entry(window, cx));
                 return;
             }
         };
@@ -862,22 +858,21 @@ impl StepBuilder {
     }
 
     fn insert_variable(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let text = format!("{{{{{name}}}}}");
         match self.choice {
             StepChoice::Action(ActionKind::Flow) => {
-                Field(self.flow_input.clone()).insert(&text, window, cx);
+                Field(self.flow_input.clone()).insert(name, window, cx);
                 self.changed(cx);
                 return;
             }
             StepChoice::Action(_) => {
                 self.action
-                    .update(cx, |builder, cx| builder.insert_in_field(&text, window, cx));
+                    .update(cx, |builder, cx| builder.insert_in_field(name, window, cx));
                 return;
             }
             _ => {}
         }
         if let Some(field) = self.target.clone().or_else(|| self.default_target()) {
-            field.insert(&text, window, cx);
+            field.insert(name, window, cx);
             self.changed(cx);
         }
     }
@@ -1189,7 +1184,9 @@ impl StepBuilder {
                 .when(kind == ActionKind::Flow, |this| {
                     this.child(Self::field(
                         "Input",
-                        Input::new(&self.flow_input).id("flow-input").small(),
+                        var_token::with_tokens(Input::new(&self.flow_input))
+                            .id("flow-input")
+                            .small(),
                     ))
                 })
                 .when(
@@ -1252,11 +1249,15 @@ impl StepBuilder {
                     .gap_3()
                     .child(Self::field(
                         "Title",
-                        Input::new(&self.notify_title).id("notify-title").small(),
+                        var_token::with_tokens(Input::new(&self.notify_title))
+                            .id("notify-title")
+                            .small(),
                     ))
                     .child(Self::field(
                         "Message",
-                        Input::new(&self.notify_body).id("notify-body").small(),
+                        var_token::with_tokens(Input::new(&self.notify_body))
+                            .id("notify-body")
+                            .small(),
                     ))
                     .child(Self::field(
                         "When clicked",
@@ -1285,7 +1286,9 @@ impl StepBuilder {
                                 OnClick::Copy => "What to copy",
                                 OnClick::Open => "What to open",
                             },
-                            Input::new(&self.notify_target).id("notify-target").small(),
+                            var_token::with_tokens(Input::new(&self.notify_target))
+                                .id("notify-target")
+                                .small(),
                         ))
                     })
                     .into_any_element()
@@ -1294,21 +1297,27 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    Input::new(&self.prompt).id("step-prompt").small(),
+                    var_token::with_tokens(Input::new(&self.prompt))
+                        .id("step-prompt")
+                        .small(),
                 ))
                 .into_any_element(),
             StepChoice::PickFile | StepChoice::PickFolder => v_flex()
                 .gap_3()
                 .child(Self::field(
                     "Title",
-                    Input::new(&self.prompt).id("step-prompt").small(),
+                    var_token::with_tokens(Input::new(&self.prompt))
+                        .id("step-prompt")
+                        .small(),
                 ))
                 .into_any_element(),
             StepChoice::Choose => v_flex()
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    Input::new(&self.prompt).id("step-prompt").small(),
+                    var_token::with_tokens(Input::new(&self.prompt))
+                        .id("step-prompt")
+                        .small(),
                 ))
                 .child(Self::field(
                     "Options",
@@ -1329,7 +1338,7 @@ impl StepBuilder {
                     ),
                 ))
                 .child(if self.from_variable {
-                    Input::new(&self.from)
+                    var_token::with_tokens(Input::new(&self.from))
                         .id("step-from")
                         .small()
                         .into_any_element()
@@ -1353,14 +1362,18 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Items",
-                    Input::new(&self.items).id("step-items").small(),
+                    var_token::with_tokens(Input::new(&self.items))
+                        .id("step-items")
+                        .small(),
                 ))
                 .into_any_element(),
             StepChoice::Menu => v_flex()
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    Input::new(&self.prompt).id("step-prompt").small(),
+                    var_token::with_tokens(Input::new(&self.prompt))
+                        .id("step-prompt")
+                        .small(),
                 ))
                 .child(Self::field(
                     "Choices",
@@ -1392,12 +1405,9 @@ impl StepBuilder {
                     )
                     .gap_1()
                     .items_center()
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_w_0()
-                            .child(Input::new(input).id((which.row_id(), ix)).small()),
-                    )
+                    .child(div().flex_1().min_w_0().child(var_token::with_tokens(
+                        Input::new(input).id((which.row_id(), ix)).small(),
+                    )))
                     .child(
                         Button::new((which.remove_id(), ix))
                             .ghost()
@@ -1442,10 +1452,10 @@ impl StepBuilder {
         for (ix, (field, control)) in def.fields.iter().zip(&self.action_controls).enumerate() {
             let id: SharedString = format!("action-{}", field.key).into();
             let element: AnyElement = match control {
-                ActionControl::Text(input) => Input::new(input)
-                    .id(ElementId::Name(id))
-                    .small()
-                    .into_any_element(),
+                ActionControl::Text(input) => {
+                    var_token::with_tokens(Input::new(input).id(ElementId::Name(id)).small())
+                        .into_any_element()
+                }
                 ActionControl::Number(input) => {
                     let unit = match field.kind {
                         FieldKind::Number { unit, .. } => unit,
@@ -1544,14 +1554,26 @@ impl StepBuilder {
         ));
         match kind {
             IfKind::Text => form
-                .child(Input::new(&self.if_value).id("if-value").small())
+                .child(
+                    var_token::with_tokens(Input::new(&self.if_value))
+                        .id("if-value")
+                        .small(),
+                )
                 .child(op_row)
                 // "is empty" and "is not empty" compare with nothing.
                 .when(self.if_op < 4, |this| {
-                    this.child(Input::new(&self.if_other).id("if-other").small())
+                    this.child(
+                        var_token::with_tokens(Input::new(&self.if_other))
+                            .id("if-other")
+                            .small(),
+                    )
                 }),
             IfKind::Command => form
-                .child(Input::new(&self.if_command).id("if-command").small())
+                .child(
+                    var_token::with_tokens(Input::new(&self.if_command))
+                        .id("if-command")
+                        .small(),
+                )
                 .child(op_row),
             IfKind::App => form.child(self.if_app.clone()).child(op_row),
             IfKind::Power => form.child(op_row),

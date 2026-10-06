@@ -28,6 +28,13 @@ pub struct AppPicker {
 impl EventEmitter<AppPickerEvent> for AppPicker {}
 
 impl AppPicker {
+    /// The list's focus handle, for putting the keyboard on it.
+    pub fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.select.read(cx).focus_handle(cx)
+    }
+}
+
+impl AppPicker {
     pub fn new(class: &str, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let select = cx.new(|cx| {
             SelectState::new(SearchableVec::new(Vec::<AppItem>::new()), None, window, cx)

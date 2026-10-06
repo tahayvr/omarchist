@@ -22,6 +22,13 @@ pub struct OptionPicker {
 
 impl EventEmitter<OptionPickerEvent> for OptionPicker {}
 
+impl OptionPicker {
+    /// The list's focus handle, for putting the keyboard on it.
+    pub fn focus_handle(&self, cx: &App) -> FocusHandle {
+        self.select.read(cx).focus_handle(cx)
+    }
+}
+
 /// The names `omarchy-theme-set` takes, as `omarchy-theme-list` prints
 /// them.
 pub fn installed_themes() -> Vec<String> {

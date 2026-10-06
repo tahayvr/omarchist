@@ -1123,10 +1123,5 @@ impl Render for MainWindowView {
                             .child(self.current_page_view()),
                     ),
             )
-            .children(Root::render_dialog_layer(window, cx))
-            .children(Root::render_sheet_layer(window, cx))
-            // Toasts from `window.push_notification` are drawn only by this
-            // layer; without it every notification in the app is invisible.
-            .children(Root::render_notification_layer(window, cx))
     }
 }
