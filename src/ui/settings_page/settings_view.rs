@@ -27,7 +27,7 @@ const KEY_CONTEXT: &str = "SettingsPage";
 
 const FONT_SIZES: &[(&str, &str)] = &[("small", "Small"), ("medium", "Medium"), ("large", "Large")];
 const THEME_MODES: &[(&str, &str)] = &[
-    ("omarchy", "Follow Omarchy"),
+    ("omarchy", "Omarchy"),
     ("light", "Light"),
     ("dark", "Dark"),
 ];

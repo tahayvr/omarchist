@@ -1,7 +1,7 @@
 //! The colours the app's areas wear, all taken from the theme's base
 //! palette so they follow the look: the app's own palette under Light and
 //! Dark (`ui_themes/theme.json`), the running theme's `colors.toml` under
-//! Follow Omarchy (`system::ui_theme_watcher`). A thing that belongs to an
+//! Omarchy (`system::ui_theme_watcher`). A thing that belongs to an
 //! area is drawn in that area's colour wherever it appears: its sidebar
 //! entry, a section's icon, a badge. Flow steps have colours of their own
 //! by group (`flows_page::step_types::StepGroup::accent`), drawn the same

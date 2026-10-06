@@ -176,7 +176,7 @@ impl Render for MainTitleBar {
                                     .separator()
                                     .label("Appearance")
                                     .check_side(Side::Right)
-                                    .menu_with_check("Follow Omarchy", follows, Box::new(super::app_menu::FollowOmarchy))
+                                    .menu_with_check("Omarchy", follows, Box::new(super::app_menu::FollowOmarchy))
                                     .menu_with_check("Light", look == "light", Box::new(super::app_menu::SwitchToLight))
                                     .menu_with_check("Dark", look == "dark", Box::new(super::app_menu::SwitchToDark))
                             }),
