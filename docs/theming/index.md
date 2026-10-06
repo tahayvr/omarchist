@@ -43,7 +43,7 @@ Omarchy generates every app's look from these: terminals, the bar, notifications
 Omarchist keeps themes simple on purpose. If you want to fine-tune individual apps, try [Aether](https://github.com/bjarneo/aether), a visual theme editor made for Omarchy.
 :::
 
-The copy icon <span class="icon-inline icon-inline-copy" aria-hidden="true"></span> next to a color copies its value so you can paste it into another field. **Apply theme** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) switches your desktop to the theme you are editing.
+The copy icon <span class="icon-inline icon-inline-copy" aria-hidden="true"></span> next to a color copies its value so you can paste it into another field. **Apply theme** (<kbd>Ctrl</kbd> + <kbd>S</kbd>), to the right of the tabs, switches your desktop to the theme you are editing; once it is the active theme the button becomes a refresh icon <span class="icon-inline icon-inline-refresh" aria-hidden="true"></span> that applies your latest changes again. Next to each **Window Borders** field, a color picker sets the border's first color; the field itself still takes a full Hyprland value, such as a gradient.
 
 ::: warning
 Omarchist edits only the themes it created. Omarchy's own themes and themes you installed from elsewhere are listed, but you cannot open them in the Theme Designer. Create your own theme instead.

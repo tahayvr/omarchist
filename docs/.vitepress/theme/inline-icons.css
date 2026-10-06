@@ -28,3 +28,9 @@
   -webkit-mask: url("../../theming/images/rotate-ccw.svg") no-repeat center / contain;
   mask: url("../../theming/images/rotate-ccw.svg") no-repeat center / contain;
 }
+
+.icon-inline-refresh {
+  background-color: currentColor;
+  -webkit-mask: url("../../theming/images/refresh-cw.svg") no-repeat center / contain;
+  mask: url("../../theming/images/refresh-cw.svg") no-repeat center / contain;
+}
