@@ -4,6 +4,7 @@
 use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
+use crate::ui::editable_title::title;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
 use crate::ui::flows_page::gallery_view::gallery_nav;
@@ -1282,27 +1283,6 @@ pub const SHORTCUTS: &[Shortcut] = &[
         "Redo"
     ),
     shortcut!(
-        "enter",
-        flow_edit_nav::Rename,
-        Some("FlowTitle"),
-        FLOWS,
-        "Rename the flow"
-    ),
-    shortcut!(
-        "space",
-        flow_edit_nav::Rename,
-        Some("FlowTitle"),
-        FLOWS,
-        "Rename the flow"
-    ),
-    shortcut!(
-        "enter",
-        flow_edit_nav::Rename,
-        Some("FlowRename > Input"),
-        FLOWS,
-        "Keep the new name"
-    ),
-    shortcut!(
         "up",
         flow_edit_nav::StepUp,
         Some("FlowSteps"),
@@ -1392,6 +1372,29 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("FlowSteps"),
         FLOWS,
         "Show a block's steps"
+    ),
+    // A name shown as a title (the flow editor's, the Theme Designer's)
+    // is edited in place.
+    shortcut!(
+        "enter",
+        title::Rename,
+        Some("Title"),
+        GLOBAL,
+        "Edit the name in the title"
+    ),
+    shortcut!(
+        "space",
+        title::Rename,
+        Some("Title"),
+        GLOBAL,
+        "Edit the name in the title"
+    ),
+    shortcut!(
+        "enter",
+        title::Rename,
+        Some("TitleField > Input"),
+        GLOBAL,
+        "Keep the new name"
     ),
     // Dialogs
     shortcut!(

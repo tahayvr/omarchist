@@ -14,7 +14,6 @@ use gpui_component::{
     input::{Input, InputEvent, InputState},
     menu::DropdownMenu,
     switch::Switch,
-    tooltip::Tooltip,
     v_flex,
 };
 
@@ -43,6 +42,7 @@ use crate::system::keybinds::store::{load_overrides, save_overrides};
 use crate::system::keybinds::{BindStatus, Dispatcher, Keybind, Origin};
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
+use crate::ui::editable_title::{Title, TitleState};
 use crate::ui::flows_page::automation_dialog::{
     AutomationDialog, AutomationDialogEvent, EventKind, open_automation_dialog,
 };
@@ -74,10 +74,6 @@ use gpui_kit::TestSupportExt;
 const KEY_CONTEXT: &str = "FlowEditPage";
 /// Wraps the step list: up/down select, Enter edits, Alt+arrows reorder.
 pub const STEPS_CONTEXT: &str = "FlowSteps";
-/// The flow's name in the header: Enter or Space edits it in place.
-pub const TITLE_CONTEXT: &str = "FlowTitle";
-/// Around the field that renames the flow: Enter ends the rename.
-pub const RENAME_CONTEXT: &str = "FlowRename";
 
 pub mod flow_edit_nav {
     gpui::actions!(
@@ -105,7 +101,6 @@ pub mod flow_edit_nav {
             SaveAsTemplate,
             Publish,
             Export,
-            Rename,
         ]
     );
 }
@@ -157,10 +152,8 @@ pub struct FlowEditPage {
     undo: UndoStack,
     name: Entity<InputState>,
     description: Entity<InputState>,
-    /// The name in the header is a text field, not a title, until Enter
-    /// or a click elsewhere.
-    renaming: bool,
-    title_focus: FocusHandle,
+    /// The name in the header, a title until it is clicked.
+    title: TitleState,
     icon_focus: FocusHandle,
     icon_dialog: Option<(Entity<IconDialog>, Subscription)>,
     input_focus: FocusHandle,
@@ -286,12 +279,10 @@ impl FlowEditPage {
                     cx.notify();
                 }
             }),
-            // Leaving the field ends the rename (Enter is a binding). The
-            // window going inactive reads as a blur too, with the field
-            // still focused, so that one is not the end.
+            // Leaving the field ends the rename (Enter is a binding).
             cx.subscribe_in(&name, window, |this, _, event: &InputEvent, window, cx| {
-                if matches!(event, InputEvent::Blur) && window.is_window_active() {
-                    this.renaming = false;
+                if matches!(event, InputEvent::Blur) && TitleState::blur_ends(window) {
+                    this.title.renaming = false;
                     cx.notify();
                 }
             }),
@@ -317,10 +308,9 @@ impl FlowEditPage {
             discarded: false,
             update_note,
             gallery: None,
+            title: TitleState::new(name.clone(), cx),
             name,
             description,
-            renaming: false,
-            title_focus: focus::tab_stop(cx),
             icon_focus: focus::tab_stop(cx),
             icon_dialog: None,
             input_focus: focus::tab_stop(cx),
@@ -357,31 +347,17 @@ impl FlowEditPage {
         if self.name.read(cx).value().trim().is_empty() {
             self.start_rename(window, cx);
         } else {
-            self.title_focus.focus(window, cx);
+            self.title.focus.focus(window, cx);
         }
     }
 
-    /// The field takes the keyboard once it is on screen (a handle focused
-    /// before its element is drawn loses the focus again); until then the
-    /// page has it, so the shortcuts keep working.
     fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.renaming = true;
-        self.focus_handle.focus(window, cx);
-        let name = self.name.clone();
-        window.on_next_frame(move |window, cx| {
-            name.update(cx, |input, cx| {
-                input.focus(window, cx);
-                input.select_all(window, cx);
-            });
-        });
+        self.title.start(&self.focus_handle, window, cx);
         cx.notify();
     }
 
     fn stop_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.renaming = false;
-        self.focus_handle.focus(window, cx);
-        let title = self.title_focus.clone();
-        window.on_next_frame(move |window, cx| title.focus(window, cx));
+        self.title.stop(&self.focus_handle, window, cx);
         cx.notify();
     }
 
@@ -1439,55 +1415,31 @@ impl FlowEditPage {
             .on_click(cx.listener(|this, _, window, cx| this.choose_icon(window, cx)))
     }
 
-    /// The flow's name: a title that a click, Enter or Space turns into
-    /// the field that edits it.
-    fn render_title(&self, window: &Window, cx: &mut Context<Self>) -> AnyElement {
-        if self.renaming {
-            return div()
-                .key_context(RENAME_CONTEXT)
-                .on_action(cx.listener(|this, _: &Rename, window, cx| this.stop_rename(window, cx)))
-                .flex_1()
-                .min_w_0()
-                .child(Input::new(&self.name).id("flow-name").small())
-                .into_any_element();
-        }
-        let theme = cx.theme();
-        let name = self.name.read(cx).value().trim().to_string();
-        let ring = focus::focus_border(self.title_focus.is_focused(window), theme.transparent, cx);
-        div()
-            .id("flow-title")
-            .test_support()
-            .key_context(TITLE_CONTEXT)
-            .track_focus(&self.title_focus)
-            .on_action(cx.listener(|this, _: &Rename, window, cx| this.start_rename(window, cx)))
-            .min_w_0()
-            .px_1p5()
-            .py_0p5()
-            .rounded(theme.radius)
-            .border_1()
-            .border_color(ring)
-            .font_weight(FontWeight::SEMIBOLD)
-            .truncate()
-            .when(name.is_empty(), |this| {
-                this.text_color(theme.muted_foreground)
-            })
-            .hover(|this| this.bg(theme.secondary))
-            .cursor_pointer()
-            .tooltip(|window, cx| Tooltip::new("Rename").build(window, cx))
-            .child(if name.is_empty() {
-                "New flow".to_string()
-            } else {
-                name
-            })
-            .on_click(cx.listener(|this, _, window, cx| this.start_rename(window, cx)))
-            .into_any_element()
-    }
-
     fn render_header(&self, window: &Window, cx: &mut Context<Self>) -> impl IntoElement {
         let icon_button = self.render_icon_button(cx).into_any_element();
-        let title = self.render_title(window, cx);
-        let theme = cx.theme();
-        let dirty = self.is_dirty(cx);
+        let view = cx.entity();
+        let on_start = {
+            let view = view.clone();
+            move |window: &mut Window, cx: &mut App| {
+                view.update(cx, |this, cx| this.start_rename(window, cx))
+            }
+        };
+        let on_stop = move |window: &mut Window, cx: &mut App| {
+            view.update(cx, |this, cx| this.stop_rename(window, cx))
+        };
+        let name = self.name.read(cx).value().trim().to_string();
+        let title = self.title.render(
+            Title {
+                id: "flow-title",
+                field_id: "flow-name",
+                text: &name,
+                placeholder: "New flow",
+                on_start: Box::new(on_start),
+                on_stop: Box::new(on_stop),
+            },
+            window,
+            cx,
+        );
         h_flex()
             .gap_3()
             .items_center()
@@ -1511,15 +1463,7 @@ impl FlowEditPage {
                     .gap_1()
                     .items_center()
                     .child(icon_button)
-                    .child(title)
-                    .when(dirty, |this| {
-                        this.child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child(selectable("flow-unsaved", "Unsaved")),
-                        )
-                    }),
+                    .child(title),
             )
             .child(
                 h_flex()
@@ -1530,7 +1474,15 @@ impl FlowEditPage {
                             .compact()
                             .disabled(!self.undo.can_undo())
                             .icon(Icon::new(Icon::empty()).path("icons/undo-2.svg"))
-                            .tooltip_with_action("Undo", &Undo, Some(KEY_CONTEXT))
+                            .tooltip_with_action(
+                                if self.undo.can_undo() {
+                                    "Undo"
+                                } else {
+                                    "Nothing to undo"
+                                },
+                                &Undo,
+                                Some(KEY_CONTEXT),
+                            )
                             .cursor_pointer()
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.undo(false, window, cx)),
@@ -1542,7 +1494,15 @@ impl FlowEditPage {
                             .compact()
                             .disabled(!self.undo.can_redo())
                             .icon(Icon::new(Icon::empty()).path("icons/redo-2.svg"))
-                            .tooltip_with_action("Redo", &Redo, Some(KEY_CONTEXT))
+                            .tooltip_with_action(
+                                if self.undo.can_redo() {
+                                    "Redo"
+                                } else {
+                                    "Nothing to redo"
+                                },
+                                &Redo,
+                                Some(KEY_CONTEXT),
+                            )
                             .cursor_pointer()
                             .on_click(
                                 cx.listener(|this, _, window, cx| this.undo(true, window, cx)),
@@ -1754,29 +1714,17 @@ impl FlowEditPage {
                             .child(selectable("keybind-external", "Set in your bindings.lua")),
                     )
                 }),
-            None => h_flex()
-                .gap_2()
-                .items_center()
-                .child(
-                    Button::new("flow-keybind-assign")
-                        .outline()
-                        .xsmall()
-                        .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
-                        .label("Assign a keybind")
-                        .disabled(is_new)
-                        .cursor_pointer()
-                        .on_click(
-                            cx.listener(|this, _, window, cx| this.assign_keybind(window, cx)),
-                        ),
-                )
-                .when(is_new, |this| {
-                    this.child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(selectable("keybind-after-saving", "after saving")),
-                    )
-                }),
+            None => h_flex().child(
+                Button::new("flow-keybind-assign")
+                    .outline()
+                    .xsmall()
+                    .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
+                    .label("Assign a keybind")
+                    .disabled(is_new)
+                    .when(is_new, |this| this.tooltip("Save the flow first"))
+                    .cursor_pointer()
+                    .on_click(cx.listener(|this, _, window, cx| this.assign_keybind(window, cx))),
+            ),
         };
 
         let switch = |id: &'static str, label: &'static str, checked: bool| {

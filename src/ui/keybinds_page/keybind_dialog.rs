@@ -539,6 +539,12 @@ impl KeybindDialog {
                             .small()
                             .label(save_label)
                             .disabled(!self.is_rebindable() || self.chord_error.is_some())
+                            .when(!self.is_rebindable(), |this| {
+                                this.tooltip("These keys cannot be changed, only disabled")
+                            })
+                            .when(self.chord_error.is_some(), |this| {
+                                this.tooltip("Fix the keys first")
+                            })
                             .cursor_pointer()
                             .on_click(cx.listener(|this, _, _, cx| this.on_save(cx))),
                     ),

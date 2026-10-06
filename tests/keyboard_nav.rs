@@ -5,7 +5,7 @@ mod common;
 
 use std::time::Duration;
 
-use common::{assert_page, open};
+use common::{assert_page, open, settle, with};
 use gpui_kit::component::WindowExt;
 use gpui_kit::test::{TestAppContextExt, TestWindowExt};
 use gpui_kit::{AppContext, TestAppContext};
@@ -218,6 +218,31 @@ async fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestApp
             .is_some_and(|toast| toast.visible())
     })
     .await;
+}
+
+#[gpui_kit::test]
+fn the_theme_is_renamed_from_its_title(cx: &mut TestAppContext) {
+    omarchist::system::themes::theme_management::create_theme_from_defaults("ui-rename")
+        .expect("a theme in the test home");
+    let (handle, view) = open(cx, ActivePage::ThemeEdit("ui-rename".into()));
+    with(cx, handle, |window, cx| window.click("theme-title", cx));
+    settle(cx, handle);
+    // The whole name is selected, so typing replaces it; Enter keeps it.
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("theme-name").focused(), Some(true));
+        window.input("UI Renamed", cx);
+        window.press("enter", cx);
+    });
+    settle(cx, handle);
+    // The folder moved to the slug, and the page reopened under it.
+    assert_page(cx, &view, ActivePage::ThemeEdit("ui-renamed".into()));
+    let themes = common::home().join(".config/omarchy/themes");
+    assert!(themes.join("ui-renamed/omarchist.json").exists());
+    assert!(!themes.join("ui-rename").exists());
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("theme-name").is_none());
+        assert!(window.find("theme-title").visible());
+    });
 }
 
 #[gpui_kit::test]

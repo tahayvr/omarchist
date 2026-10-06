@@ -824,7 +824,11 @@ impl FlowEditPage {
                             .disabled(self.running)
                             .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                             .tooltip_with_action(
-                                "Run only this step",
+                                if self.running {
+                                    "Wait for the run to finish"
+                                } else {
+                                    "Run only this step"
+                                },
                                 &TestStep,
                                 Some(STEPS_CONTEXT),
                             )
@@ -840,7 +844,7 @@ impl FlowEditPage {
                             .tab_stop(false)
                             .disabled(first)
                             .icon(Icon::new(Icon::empty()).path("icons/arrow-up.svg"))
-                            .tooltip("Move up")
+                            .tooltip(if first { "Already first" } else { "Move up" })
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
                                 this.move_step(&p_up, false, window, cx);
@@ -853,7 +857,7 @@ impl FlowEditPage {
                             .tab_stop(false)
                             .disabled(last)
                             .icon(Icon::new(Icon::empty()).path("icons/arrow-down.svg"))
-                            .tooltip("Move down")
+                            .tooltip(if last { "Already last" } else { "Move down" })
                             .on_click(cx.listener(move |this, _, window, cx| {
                                 cx.stop_propagation();
                                 this.move_step(&p_down, true, window, cx);

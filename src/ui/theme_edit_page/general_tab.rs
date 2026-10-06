@@ -6,9 +6,7 @@ use crate::ui::theme_edit_page::shared::{
 };
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Sizable,
-    button::Button,
-    h_flex,
+    ActiveTheme,
     input::{Input, InputEvent, InputState},
     label::Label,
 };
@@ -24,7 +22,6 @@ pub struct GeneralTab {
     theme_data: EditingTheme,
     /// Folder name the tab saves to; only a rename changes it.
     original_theme_name: String,
-    name_input: Entity<InputState>,
     author_input: Entity<InputState>,
     is_saving: bool,
     error_message: Option<String>,
@@ -46,8 +43,6 @@ impl GeneralTab {
 
         let author_value = theme_data.author.clone().unwrap_or_default();
 
-        let name_input = cx.new(|cx| InputState::new(window, cx).default_value(&theme_data.name));
-
         let author_input = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder("Enter author name...")
@@ -57,27 +52,11 @@ impl GeneralTab {
         let tab = Self {
             theme_data,
             original_theme_name,
-            name_input,
             author_input,
             is_saving: false,
             error_message: None,
             scroll: scroll.clone(),
         };
-
-        cx.subscribe_in(
-            &tab.name_input,
-            window,
-            |this, _input_state, event: &InputEvent, window, cx| {
-                if let InputEvent::Change = event {
-                    let new_name = this.name_input.read(cx).value().to_string();
-                    if new_name != this.theme_data.name {
-                        this.theme_data.name = new_name;
-                        this.save(window, cx);
-                    }
-                }
-            },
-        )
-        .detach();
 
         cx.subscribe_in(
             &tab.author_input,
@@ -148,8 +127,10 @@ impl GeneralTab {
         self.save(window, cx);
     }
 
-    fn rename_theme(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let new_name = self.theme_data.name.clone();
+    /// Renames the theme's folder to `new_name` (as a slug, which becomes
+    /// the name too) and tells the page, which reopens it.
+    pub fn rename(&mut self, new_name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let new_name = new_name.trim().to_string();
         let old_name = self.original_theme_name.clone();
 
         if new_name == old_name || new_name.is_empty() {
@@ -168,8 +149,6 @@ impl GeneralTab {
                 self.is_saving = false;
                 self.original_theme_name = folder.clone();
                 self.theme_data.name = folder.clone();
-                self.name_input
-                    .update(cx, |input, cx| input.set_value(folder.clone(), window, cx));
                 if folder != old_name {
                     // Omarchy still points at the old folder name; move it
                     // along so Refresh Theme and the switcher keep working.
@@ -194,40 +173,7 @@ impl Render for GeneralTab {
         let is_light = self.theme_data.is_light_theme;
         let _viewport_width = window.viewport_size().width;
 
-        let current_name = self.name_input.read(cx).value().to_string();
-        let can_rename = current_name != self.original_theme_name && !current_name.is_empty();
-
         tab_container()
-            .child(focus_section(
-                "general-name",
-                &self.scroll,
-                form_section()
-                    .child(
-                        Label::new("Theme Name")
-                            .text_sm()
-                            .text_color(cx.theme().muted_foreground),
-                    )
-                    .child(
-                        h_flex()
-                            .gap_2()
-                            .flex_wrap()
-                            .child(
-                                div()
-                                    .w_80()
-                                    .child(Input::new(&self.name_input).cleanable(true)),
-                            )
-                            .child(
-                                Button::new("rename-btn")
-                                    .label("Rename")
-                                    .small()
-                                    .disabled(!can_rename)
-                                    .cursor_pointer()
-                                    .on_click(cx.listener(|this, _, window, cx| {
-                                        this.rename_theme(window, cx);
-                                    })),
-                            ),
-                    ),
-            ))
             .child(focus_section(
                 "general-author",
                 &self.scroll,

@@ -4,7 +4,7 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, Icon, Sizable,
+    ActiveTheme, Disableable, Icon, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     input::{Input, InputEvent, InputState, NumberInput, Position},
@@ -1402,8 +1402,12 @@ impl StepBuilder {
                         Button::new((which.remove_id(), ix))
                             .ghost()
                             .xsmall()
-                            .icon(Icon::new(Icon::empty()).path("icons/x.svg"))
-                            .tooltip("Remove")
+                            .icon(Icon::new(IconName::Close))
+                            .tooltip(if only_one {
+                                "The last one stays"
+                            } else {
+                                "Remove"
+                            })
                             .disabled(only_one)
                             .cursor_pointer()
                             .on_click(

@@ -482,6 +482,14 @@ impl Render for GalleryDetail {
                                         // Opening what is installed needs
                                         // nothing from the network.
                                         .disabled(!ready && label != "Open")
+                                        .when(!ready && label != "Open", |this| {
+                                            this.tooltip(match &self.loaded {
+                                                Loaded::Failed(_) => {
+                                                    "The flow could not be fetched"
+                                                }
+                                                _ => "Fetching the flow…",
+                                            })
+                                        })
                                         .cursor_pointer()
                                         .on_click(
                                             cx.listener(|this, _, window, cx| this.act(window, cx)),

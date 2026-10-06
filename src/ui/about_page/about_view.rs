@@ -134,7 +134,7 @@ impl Render for AboutView {
                     .gap_4()
                     .child(
                         Button::new("x-com")
-                            .icon(Icon::new(Icon::empty()).path("icons/x.svg").size_8())
+                            .icon(Icon::new(Icon::empty()).path("icons/brand-x.svg").size_8())
                             .ghost()
                             .cursor_pointer()
                             .large()

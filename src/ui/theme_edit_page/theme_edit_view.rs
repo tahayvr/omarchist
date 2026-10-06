@@ -2,6 +2,7 @@ use crate::system::themes::theme_management::load_theme_for_editing;
 use crate::types::themes::EditingTheme;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
+use crate::ui::editable_title::{Title, TitleState};
 use crate::ui::focus::{self, tab_strip_container};
 use crate::ui::menu::app_menu;
 use crate::ui::theme_apply::apply_theme;
@@ -15,6 +16,7 @@ use gpui_component::{
     ActiveTheme,
     button::Button,
     h_flex,
+    input::{InputEvent, InputState},
     tab::{Tab, TabBar},
     v_flex,
 };
@@ -55,6 +57,8 @@ actions!(theme_edit, [ApplyTheme, LeaveField]);
 
 pub struct ThemeEditPage {
     theme_name: String,
+    /// The name in the header, a title until it is clicked.
+    title: TitleState,
     active_tab: usize,
     tab_count: usize,
     error_message: Option<String>,
@@ -94,6 +98,18 @@ impl ThemeEditPage {
         // Shared by every tab so focused sections can scroll into view.
         let scroll = ScrollHandle::new();
 
+        let name_input = cx.new(|cx| InputState::new(window, cx).default_value(&theme_data.name));
+        // Leaving the field ends the rename (Enter is a binding).
+        cx.subscribe_in(
+            &name_input,
+            window,
+            |this, _, event: &InputEvent, window, cx| {
+                if matches!(event, InputEvent::Blur) && TitleState::blur_ends(window) {
+                    this.finish_rename(window, cx);
+                }
+            },
+        )
+        .detach();
         let general_tab = cx
             .new(|cx| GeneralTab::new(theme_name.clone(), theme_data.clone(), &scroll, window, cx));
         // Reopening the page under the new name rebuilds every tab from disk.
@@ -120,6 +136,7 @@ impl ThemeEditPage {
 
         Self {
             theme_name,
+            title: TitleState::new(name_input, cx),
             active_tab: 0,
             tab_count,
             error_message: load_error,
@@ -137,6 +154,32 @@ impl ThemeEditPage {
     /// Focuses the tab strip, the page's first control after Back/Apply.
     pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
         self.tabs_focus.focus(window, cx);
+    }
+
+    fn start_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.title.start(&self.focus_handle, window, cx);
+        cx.notify();
+    }
+
+    /// Keeps what was typed: the General tab renames the theme's folder,
+    /// and the page reopens under the new name. An empty field changes
+    /// nothing.
+    fn finish_rename(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.title.renaming {
+            return;
+        }
+        self.title.stop(&self.focus_handle, window, cx);
+        let name = self.title.input.read(cx).value().trim().to_string();
+        if name.is_empty() {
+            let current = self.general_tab.read(cx).theme_data().name.clone();
+            self.title
+                .input
+                .update(cx, |input, cx| input.set_value(current, window, cx));
+        } else {
+            self.general_tab
+                .update(cx, |tab, cx| tab.rename(&name, window, cx));
+        }
+        cx.notify();
     }
 
     fn apply_theme(&self, window: &mut Window, cx: &mut App) {
@@ -200,6 +243,29 @@ impl ThemeEditPage {
 
 impl Render for ThemeEditPage {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        let view = cx.entity();
+        let on_start = {
+            let view = view.clone();
+            move |window: &mut Window, cx: &mut App| {
+                view.update(cx, |this, cx| this.start_rename(window, cx))
+            }
+        };
+        let on_stop = move |window: &mut Window, cx: &mut App| {
+            view.update(cx, |this, cx| this.finish_rename(window, cx))
+        };
+        let name = self.general_tab.read(cx).theme_data().name.clone();
+        let title = self.title.render(
+            Title {
+                id: "theme-title",
+                field_id: "theme-name",
+                text: &name,
+                placeholder: "Untitled theme",
+                on_start: Box::new(on_start),
+                on_stop: Box::new(on_stop),
+            },
+            window,
+            cx,
+        );
         let theme = cx.theme();
 
         v_flex()
@@ -250,6 +316,7 @@ impl Render for ThemeEditPage {
                                 this.navigate_back(window, cx);
                             })),
                     )
+                    .child(title)
                     .child(
                         Button::new("apply-theme-btn")
                             .label("Apply theme")
