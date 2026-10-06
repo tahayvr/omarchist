@@ -3,6 +3,7 @@
 //! flow to the editor's review screen; an update opens the installed flow
 //! with the new steps, unsaved, after showing what changes.
 use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::heading;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -277,13 +278,7 @@ impl Render for GalleryDetail {
         let list_focused = self.list_focus.is_focused(window);
         let ring = focus::focus_border(list_focused, theme.border, cx);
         let view = cx.entity();
-        let heading = |text: &'static str| {
-            div()
-                .text_xs()
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(muted)
-                .child(text)
-        };
+        let heading = |text: &'static str, cx: &App| heading::section(text, cx);
         let mut facts = vec![
             entry.category.clone(),
             format!("Version {}", entry.version),
@@ -374,7 +369,7 @@ impl Render for GalleryDetail {
                 })
                 .when(!entry.requires.is_empty(), |this| {
                     this.child(
-                        v_flex().gap_1p5().child(heading("NEEDS")).child(
+                        v_flex().gap_1p5().child(heading("Needs", cx)).child(
                             h_flex()
                                 .id("gallery-detail-needs")
                                 .test_support()
@@ -398,7 +393,7 @@ impl Render for GalleryDetail {
                             .id("gallery-detail-risks")
                             .test_support()
                             .gap_1p5()
-                            .child(heading("WORTH KNOWING"))
+                            .child(heading("Worth knowing", cx))
                             .children(entry.risks.iter().enumerate().map(|(ix, what)| {
                                 let danger = risks::level_of(what) == Level::Danger;
                                 h_flex()
@@ -423,11 +418,14 @@ impl Render for GalleryDetail {
                 .child(
                     v_flex()
                         .gap_1p5()
-                        .child(heading(if update.is_some() && self.installed.is_some() {
-                            "WHAT CHANGES"
-                        } else {
-                            "STEPS"
-                        }))
+                        .child(heading(
+                            if update.is_some() && self.installed.is_some() {
+                                "What changes"
+                            } else {
+                                "Steps"
+                            },
+                            cx,
+                        ))
                         .child(
                             div()
                                 .id("gallery-detail-steps")

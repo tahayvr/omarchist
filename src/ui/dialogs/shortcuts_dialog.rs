@@ -5,6 +5,7 @@ use gpui_component::{ActiveTheme, WindowExt, h_flex, scroll::ScrollableElement, 
 use gpui_kit::TestSupportExt;
 
 use crate::ui::focus;
+use crate::ui::heading;
 use crate::ui::shortcuts;
 
 /// Renders a keystroke such as `ctrl-shift-r` as keycaps.
@@ -93,13 +94,7 @@ pub fn open_shortcuts_dialog(window: &mut Window, cx: &mut App) {
         let groups = shortcuts::help_rows().into_iter().map(|(group, rows)| {
             v_flex()
                 .gap_1p5()
-                .child(
-                    div()
-                        .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(muted)
-                        .child(group.to_uppercase()),
-                )
+                .child(heading::section(group, cx))
                 .children(rows.into_iter().map(|(label, keys)| {
                     h_flex()
                         .justify_between()

@@ -4,6 +4,7 @@
 use std::collections::HashMap;
 
 use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::heading;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -652,13 +653,7 @@ impl Render for GalleryView {
             .copied()
             .collect();
         let nothing_loaded = self.catalog.is_none();
-        let label = |text: &'static str| {
-            div()
-                .text_xs()
-                .font_weight(FontWeight::MEDIUM)
-                .text_color(muted)
-                .child(text)
-        };
+        let label = |text: &'static str, cx: &App| heading::section(text, cx);
 
         v_flex()
             .id("gallery-page")
@@ -803,7 +798,7 @@ impl Render for GalleryView {
                                         this.child(
                                             v_flex()
                                                 .gap_3()
-                                                .child(label("FEATURED"))
+                                                .child(label("Featured", cx))
                                                 .child(self.render_grid(&featured, 0, columns, cx)),
                                         )
                                     })
@@ -812,7 +807,7 @@ impl Render for GalleryView {
                                             v_flex()
                                                 .gap_3()
                                                 .when(!featured.is_empty(), |this| {
-                                                    this.child(label("ALL FLOWS"))
+                                                    this.child(label("All flows", cx))
                                                 })
                                                 .child(self.render_grid(
                                                     &rest,

@@ -12,6 +12,7 @@ use gpui_kit::TestSupportExt;
 
 use crate::ui::flows_page::step_types::{StepChoice, StepGroup, StepType, best_match, search};
 use crate::ui::focus;
+use crate::ui::heading;
 use crate::ui::palette;
 use crate::ui::text::selectable;
 
@@ -302,14 +303,10 @@ impl Render for StepPicker {
         let mut selected_child = None;
         for (group, rows) in &layout {
             children.push(
-                div()
+                heading::section(group.label(), cx)
                     .pt_2()
                     .pb_1()
                     .px_1p5()
-                    .text_xs()
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(theme.muted_foreground)
-                    .child(group.label().to_uppercase())
                     .into_any_element(),
             );
             for row in rows {

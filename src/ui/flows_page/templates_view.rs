@@ -1,6 +1,7 @@
 //! The Templates page: the user's own templates and the built-in ones as
 //! cards. Picking one opens the editor on a new flow made from it.
 use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::heading;
 use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -242,13 +243,7 @@ impl TemplatesView {
     ) -> impl IntoElement {
         v_flex()
             .gap_3()
-            .child(
-                div()
-                    .text_xs()
-                    .font_weight(FontWeight::MEDIUM)
-                    .text_color(cx.theme().muted_foreground)
-                    .child(label),
-            )
+            .child(heading::section(label, cx))
             .child(self.render_cards(group, templates, summaries, columns, cx))
     }
 }

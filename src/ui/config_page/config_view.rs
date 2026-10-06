@@ -40,6 +40,7 @@ use crate::ui::config_page::pages::{
 };
 use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
+use crate::ui::heading;
 use crate::ui::palette::{self, Area};
 use crate::ui::text::selectable;
 /// A dynamic dropdown with more choices than this is a searchable select.
@@ -1064,7 +1065,6 @@ impl ConfigView {
         let nav_focused = self.nav_focus.is_focused(window);
         let radius = cx.theme().radius;
         let transparent = cx.theme().transparent;
-        let muted = cx.theme().muted_foreground;
 
         let mut children: Vec<AnyElement> = Vec::new();
         let mut last_group = None;
@@ -1081,11 +1081,8 @@ impl ConfigView {
                         .px_3()
                         .pt_2()
                         .pb_1()
-                        .text_xs()
-                        .font_weight(FontWeight::SEMIBOLD)
-                        .text_color(muted)
                         .child(palette::dot(Area::of_group(page.group).accent(cx)))
-                        .child(heading)
+                        .child(heading::section(heading, cx))
                         .into_any_element(),
                 );
             }
@@ -1460,12 +1457,7 @@ impl ConfigView {
             .child(
                 GroupBox::new()
                     .with_variant(GroupBoxVariant::Outline)
-                    .title(
-                        div()
-                            .text_sm()
-                            .font_weight(FontWeight::SEMIBOLD)
-                            .child(group.title),
-                    )
+                    .title(heading::section(group.title, cx))
                     .children(items),
             )
             .into_any_element(),

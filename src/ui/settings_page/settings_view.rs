@@ -22,6 +22,7 @@ use crate::system::flows::service;
 use crate::system::ui_theme_watcher;
 use crate::ui::explain::{explain, explained_label};
 use crate::ui::focus::{FocusSection, FocusableSwitch};
+use crate::ui::heading;
 use crate::ui::palette::{self, Area};
 const KEY_CONTEXT: &str = "SettingsPage";
 
@@ -304,12 +305,7 @@ impl SettingsView {
                                 px(22.),
                                 cx,
                             ))
-                            .child(
-                                div()
-                                    .text_sm()
-                                    .font_weight(FontWeight::SEMIBOLD)
-                                    .child(title),
-                            ),
+                            .child(heading::section(title, cx)),
                     )
                     .children(rows),
             )

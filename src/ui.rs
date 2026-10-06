@@ -8,6 +8,7 @@ pub mod editable_title;
 pub mod explain;
 pub mod flows_page;
 pub mod focus;
+pub mod heading;
 pub mod keybinds_page;
 pub mod menu;
 pub mod notify;

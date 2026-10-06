@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::heading;
 use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -1161,11 +1162,7 @@ impl FlowEditPage {
     // MARK: Render
 
     pub(super) fn section_title(text: &'static str, cx: &App) -> Div {
-        div()
-            .text_xs()
-            .font_weight(FontWeight::MEDIUM)
-            .text_color(cx.theme().muted_foreground)
-            .child(text)
+        heading::section(text, cx)
     }
 
     fn label(text: &'static str) -> Div {

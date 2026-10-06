@@ -4,6 +4,7 @@ use crate::system::themes::theme_file_ops::{
 };
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
+use crate::ui::heading;
 use crate::ui::theme_edit_page::shared::{IMAGE_EXTENSIONS, focus_section, tab_container};
 use anyhow;
 use gpui::prelude::FluentBuilder;
@@ -289,11 +290,7 @@ impl BackgroundsTab {
 
         v_flex()
             .gap_3()
-            .child(
-                Label::new("Boot Logo")
-                    .text_lg()
-                    .font_weight(FontWeight::MEDIUM),
-            )
+            .child(heading::section("Boot logo", cx))
             .child(preview)
             .when(editable, |section| {
                 section.child(
@@ -367,11 +364,7 @@ impl Render for BackgroundsTab {
                 h_flex()
                     .items_center()
                     .justify_between()
-                    .child(
-                        Label::new("Background Images")
-                            .text_lg()
-                            .font_weight(FontWeight::MEDIUM),
-                    )
+                    .child(heading::section("Background images", cx))
                     .child(
                         Button::new("add-images-btn")
                             .label("Add images")

@@ -6,6 +6,7 @@ use gpui_component::{
 };
 
 use crate::system::omarchy::release_notes::fetch_latest_release_notes;
+use crate::ui::heading;
 use crate::ui::omarchy_page::updates::{OmarchyUpdates, UpdateState};
 use crate::ui::text::selectable;
 
@@ -277,15 +278,12 @@ impl Render for OmarchyView {
                                 .rounded_full()
                                 .bg(cx.theme().accent_foreground),
                         )
+                        .child(heading::section("Latest release notes", cx))
                         .child(
                             div()
-                                .text_sm()
-                                .font_weight(FontWeight::SEMIBOLD)
-                                .text_color(cx.theme().foreground)
-                                .child(selectable(
-                                    "release-notes-title",
-                                    format!("Latest release notes  ·  {tag}"),
-                                )),
+                                .text_xs()
+                                .text_color(cx.theme().muted_foreground)
+                                .child(selectable("release-notes-title", tag)),
                         ),
                 )
                 .child(
