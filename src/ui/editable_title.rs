@@ -102,8 +102,9 @@ impl TitleState {
             return div()
                 .key_context(FIELD_CONTEXT)
                 .on_action(move |_: &title::Rename, window, cx| on_stop(window, cx))
-                .flex_1()
-                .min_w_0()
+                // As wide as a name, not the row.
+                .w(px(320.))
+                .max_w_full()
                 .child(Input::new(&self.input).id(field_id).small())
                 .into_any_element();
         }
