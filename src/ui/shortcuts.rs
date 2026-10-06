@@ -1439,6 +1439,10 @@ pub fn key_bindings() -> Vec<KeyBinding> {
         gpui::NoAction,
         Some(focus::DIALOG_BODY_CONTEXT),
     ));
+    // The same for the kit's own dialogs (the confirmations): Enter would
+    // otherwise run the confirming button, a destructive one too, before
+    // any button has focus. With this, Enter acts on the focused button.
+    bindings.push(KeyBinding::new("enter", gpui::NoAction, Some("Dialog")));
     bindings
 }
 

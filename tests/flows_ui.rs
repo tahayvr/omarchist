@@ -1875,8 +1875,12 @@ fn a_flow_becomes_a_template_and_the_template_can_be_deleted(cx: &mut TestAppCon
     });
     settle(cx, handle);
     with(cx, handle, |window, cx| {
-        assert!(window.find("confirm-dialog").visible());
-        window.click("confirm-ok", cx);
+        assert!(window.has_active_dialog(cx), "asks before discarding");
+        // Enter alone confirms nothing: no button has focus yet.
+        window.press("enter", cx);
+        assert!(window.has_active_dialog(cx));
+        assert!(template("user:ui-keeper").is_some());
+        window.click("ok", cx);
     });
     settle(cx, handle);
     assert!(template("user:ui-keeper").is_none());
