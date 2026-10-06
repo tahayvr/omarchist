@@ -1,7 +1,9 @@
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
 use crate::ui::app_events::{AppEvent, emit};
-use crate::ui::color_utils::{hex_to_hsla, hex6};
+use crate::ui::color_utils::{
+    hex_to_hsla, hex6, hypr_color, hypr_color_text, with_first_hypr_color,
+};
 use crate::ui::notify;
 use crate::ui::theme_edit_page::shared::{
     color_picker_with_clipboard, field_grid, field_label, focus_section, section_title,
@@ -10,7 +12,8 @@ use crate::ui::theme_edit_page::shared::{
 use gpui::*;
 use gpui_component::{
     Colorize,
-    color_picker::{ColorPickerEvent, ColorPickerState},
+    color_picker::{ColorPicker, ColorPickerEvent, ColorPickerState},
+    h_flex,
     input::{Input, InputEvent, InputState},
     v_flex,
 };
@@ -42,7 +45,9 @@ pub struct ColorsTab {
     // Free text because Hyprland border specs can be gradients
     // ("rgba(..ee) rgba(..ee) 45deg"), which a color picker cannot express.
     active_border_input: Entity<InputState>,
+    active_border_picker: Entity<ColorPickerState>,
     inactive_border_input: Entity<InputState>,
+    inactive_border_picker: Entity<ColorPickerState>,
     /// Bumped on every edit; a pending save only runs if it is still the
     /// latest, so a dragged slider writes once, not once per frame.
     edit_generation: u64,
@@ -140,14 +145,14 @@ impl ColorsTab {
         let bright_white_picker =
             Self::create_color_picker(window, cx, &colors.color15, |c, v| c.color15 = v);
 
-        let active_border_input = Self::border_input(
+        let (active_border_input, active_border_picker) = Self::border_input(
             window,
             cx,
             colors.hyprland_active_border.as_deref(),
             "Default: accent color",
             |c, v| c.hyprland_active_border = v,
         );
-        let inactive_border_input = Self::border_input(
+        let (inactive_border_input, inactive_border_picker) = Self::border_input(
             window,
             cx,
             colors.hyprland_inactive_border.as_deref(),
@@ -180,7 +185,9 @@ impl ColorsTab {
             bright_cyan_picker,
             bright_white_picker,
             active_border_input,
+            active_border_picker,
             inactive_border_input,
+            inactive_border_picker,
             edit_generation: 0,
             saved_generation: 0,
             border_invalid: false,
@@ -188,19 +195,30 @@ impl ColorsTab {
         }
     }
 
+    /// A border is Hyprland's own text (a color, or a gradient of colors
+    /// and an angle), so it stays a text field; the picker beside it holds
+    /// the first color and writes it back in place, keeping the rest.
     fn border_input(
         window: &mut Window,
         cx: &mut Context<Self>,
         value: Option<&str>,
         placeholder: &str,
         setter: fn(&mut ColorsConfig, Option<String>),
-    ) -> Entity<InputState> {
+    ) -> (Entity<InputState>, Entity<ColorPickerState>) {
         let input = cx.new(|cx| {
             InputState::new(window, cx)
                 .placeholder(placeholder.to_string())
                 .default_value(value.unwrap_or_default().to_string())
         });
+        let picker = cx.new(|cx| {
+            let state = ColorPickerState::new(window, cx);
+            match value.and_then(hypr_color) {
+                Some(color) => state.default_value(color),
+                None => state,
+            }
+        });
 
+        let input_picker = picker.clone();
         cx.subscribe_in(
             &input,
             window,
@@ -217,6 +235,11 @@ impl ColorsTab {
                         return;
                     }
                     this.border_invalid = false;
+                    // The picker follows the text; neither setter emits.
+                    input_picker.update(cx, |picker, cx| match hypr_color(trimmed) {
+                        Some(color) => picker.set_value(color, window, cx),
+                        None => picker.clear_value(window, cx),
+                    });
                     let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
                     setter(&mut this.theme_data.colors, value);
                     this.schedule_save(window, cx);
@@ -225,7 +248,24 @@ impl ColorsTab {
         )
         .detach();
 
-        input
+        let picker_input = input.clone();
+        cx.subscribe_in(
+            &picker,
+            window,
+            move |this, _, event: &ColorPickerEvent, window, cx| {
+                if let ColorPickerEvent::Change(Some(color)) = event {
+                    let current = picker_input.read(cx).value().to_string();
+                    let text = with_first_hypr_color(current.trim(), &hypr_color_text(*color));
+                    picker_input.update(cx, |input, cx| input.set_value(text.clone(), window, cx));
+                    this.border_invalid = false;
+                    setter(&mut this.theme_data.colors, Some(text));
+                    this.schedule_save(window, cx);
+                }
+            },
+        )
+        .detach();
+
+        (input, picker)
     }
 
     fn update_colors<F>(&mut self, updater: F)
@@ -381,21 +421,41 @@ impl Render for ColorsTab {
             ],
         );
 
-        let border_input = |label: &'static str, state: &Entity<InputState>| {
-            v_flex()
-                .gap_2()
-                .child(field_label(label, None))
-                .child(Input::new(state).cleanable(true))
-                .into_any_element()
-        };
+        let border_input =
+            |label: &'static str, state: &Entity<InputState>, picker: &Entity<ColorPickerState>| {
+                v_flex()
+                    .gap_2()
+                    .child(field_label(label, None))
+                    .child(
+                        h_flex()
+                            .gap_2()
+                            .items_center()
+                            .child(ColorPicker::new(picker))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .child(Input::new(state).cleanable(true)),
+                            ),
+                    )
+                    .into_any_element()
+            };
         let borders = v_flex()
             .gap_1()
             .child(section_title("Window Borders"))
             .child(field_grid(
                 (columns / 4).max(1),
                 vec![
-                    border_input("Active Border", &self.active_border_input),
-                    border_input("Inactive Border", &self.inactive_border_input),
+                    border_input(
+                        "Active Border",
+                        &self.active_border_input,
+                        &self.active_border_picker,
+                    ),
+                    border_input(
+                        "Inactive Border",
+                        &self.inactive_border_input,
+                        &self.inactive_border_picker,
+                    ),
                 ],
             ));
 
