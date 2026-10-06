@@ -2,11 +2,10 @@ use crate::system::themes::theme_file_ops::{
     add_background_image, boot_logo, list_background_images, remove_background_image,
     remove_boot_logo, render_boot_preview, set_boot_logo,
 };
+use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::text::selectable;
-use crate::ui::theme_edit_page::shared::{
-    IMAGE_EXTENSIONS, error_message, focus_section, tab_container,
-};
+use crate::ui::theme_edit_page::shared::{IMAGE_EXTENSIONS, focus_section, tab_container};
 use anyhow;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
@@ -30,12 +29,10 @@ pub struct BackgroundsTab {
     theme_name: String,
     is_system_theme: bool,
     images: Vec<BackgroundImage>,
-    error_message: Option<String>,
     is_loading: bool,
     boot_logo: Option<PathBuf>,
     /// Set while a logo is copied or its preview rendered.
     boot_busy: bool,
-    boot_error: Option<String>,
     scroll: ScrollHandle,
 }
 
@@ -51,11 +48,9 @@ impl BackgroundsTab {
             theme_name: theme_name.clone(),
             is_system_theme,
             images: Vec::new(),
-            error_message: None,
             is_loading: true,
             boot_logo: boot_logo(&theme_name, is_system_theme),
             boot_busy: false,
-            boot_error: None,
             scroll: scroll.clone(),
         };
 
@@ -66,7 +61,6 @@ impl BackgroundsTab {
 
     fn load_images(&mut self, cx: &mut Context<Self>) {
         self.is_loading = true;
-        self.error_message = None;
 
         match list_background_images(&self.theme_name, self.is_system_theme) {
             Ok(paths) => {
@@ -80,9 +74,10 @@ impl BackgroundsTab {
                     })
                     .collect();
             }
-            Err(e) => {
-                self.error_message = Some(format!("Failed to load backgrounds: {}", e));
-            }
+            Err(e) => emit(
+                cx,
+                AppEvent::Error(format!("Could not load the backgrounds: {e}")),
+            ),
         }
 
         self.is_loading = false;
@@ -90,8 +85,6 @@ impl BackgroundsTab {
     }
 
     fn add_images(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        self.error_message = None;
-
         let theme_name = self.theme_name.clone();
         let is_system_theme = self.is_system_theme;
 
@@ -130,12 +123,14 @@ impl BackgroundsTab {
                     this.load_images(cx);
 
                     if !errors.is_empty() {
-                        this.error_message = Some(format!(
-                            "Added {} images. Not added: {}",
-                            added_count,
-                            errors.join("; ")
-                        ));
-                        cx.notify();
+                        emit(
+                            cx,
+                            AppEvent::Warning(format!(
+                                "Added {} images. Not added: {}",
+                                added_count,
+                                errors.join("; ")
+                            )),
+                        );
                     }
                 });
             }
@@ -166,15 +161,14 @@ impl BackgroundsTab {
     }
 
     fn delete_image(&mut self, filename: &str, _window: &mut Window, cx: &mut Context<Self>) {
-        self.error_message = None;
-
         match remove_background_image(&self.theme_name, self.is_system_theme, filename) {
             Ok(()) => {
                 self.images.retain(|img| img.filename != filename);
             }
-            Err(e) => {
-                self.error_message = Some(format!("Could not remove the image: {e}"));
-            }
+            Err(e) => emit(
+                cx,
+                AppEvent::Error(format!("Could not remove the image: {e}")),
+            ),
         }
 
         cx.notify();
@@ -210,7 +204,9 @@ impl BackgroundsTab {
             this.update(cx, |this, cx| {
                 this.boot_busy = false;
                 this.boot_logo = boot_logo(&this.theme_name, this.is_system_theme);
-                this.boot_error = result.err().map(|e| e.to_string());
+                if let Err(e) = result {
+                    emit(cx, AppEvent::Error(e.to_string()));
+                }
                 // gpui caches decoded images by path; the file changed.
                 this.forget_boot_images(cx);
                 cx.notify();
@@ -239,7 +235,9 @@ impl BackgroundsTab {
                 .await;
             this.update(cx, |this, cx| {
                 this.boot_busy = false;
-                this.boot_error = result.err().map(|e| e.to_string());
+                if let Err(e) = result {
+                    emit(cx, AppEvent::Error(e.to_string()));
+                }
                 this.forget_boot_images(cx);
                 cx.notify();
             })
@@ -252,9 +250,8 @@ impl BackgroundsTab {
         match remove_boot_logo(&self.theme_name) {
             Ok(()) => {
                 self.boot_logo = None;
-                self.boot_error = None;
             }
-            Err(e) => self.boot_error = Some(e.to_string()),
+            Err(e) => emit(cx, AppEvent::Error(e.to_string())),
         }
         cx.notify();
     }
@@ -298,7 +295,6 @@ impl BackgroundsTab {
                     .font_weight(FontWeight::MEDIUM),
             )
             .child(preview)
-            .children(self.boot_error.clone().map(|e| error_message(e, cx)))
             .when(editable, |section| {
                 section.child(
                     h_flex()
@@ -484,11 +480,6 @@ impl Render for BackgroundsTab {
                     grid.into_any_element()
                 },
             ))
-            .children(
-                self.error_message
-                    .as_ref()
-                    .map(|msg| error_message(msg.clone(), cx)),
-            )
             .child(Separator::horizontal())
             .child(focus_section(
                 "backgrounds-boot-logo",

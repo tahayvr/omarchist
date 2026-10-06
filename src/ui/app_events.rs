@@ -17,6 +17,10 @@ pub enum AppEvent {
     RefreshThemes,
     ToggleSidebar,
     ReloadUiTheme,
+    /// A failure to report as an error toast, from code without a window.
+    Error(String),
+    /// A caveat to report as a warning toast, from code without a window.
+    Warning(String),
 }
 
 #[derive(Default)]

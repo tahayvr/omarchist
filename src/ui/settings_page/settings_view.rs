@@ -3,9 +3,11 @@
 //! lives in `~/.config/omarchist/settings.json` (`config_setup.rs`).
 use std::rc::Rc;
 
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::notify;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable as _, WindowExt as _,
+    ActiveTheme, Sizable as _,
     button::Button,
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -59,7 +61,6 @@ pub struct SettingsView {
     automations_pending: bool,
     /// A failed write of settings.json, shown on the next render (which
     /// has the window).
-    save_error: Option<String>,
     pub focus_handle: FocusHandle,
     scroll: ScrollHandle,
 }
@@ -72,7 +73,6 @@ impl SettingsView {
             bar_widget_pending: false,
             automations_on: service::is_enabled(),
             automations_pending: false,
-            save_error: None,
             focus_handle: cx.focus_handle(),
             scroll: ScrollHandle::new(),
         }
@@ -89,7 +89,10 @@ impl SettingsView {
         if let Err(e) = update_settings(change) {
             // The control already shows the new value; say that it will
             // not survive a restart.
-            self.save_error = Some(format!("Settings could not be saved: {e}"));
+            emit(
+                cx,
+                AppEvent::Error(format!("Settings could not be saved: {e}")),
+            );
         }
         cx.notify();
     }
@@ -135,12 +138,13 @@ impl SettingsView {
             this.update_in(cx, |this, window, cx| {
                 this.automations_pending = false;
                 this.automations_on = now_on;
-                let message = match result {
-                    Ok(()) if on => "Automations are on".to_string(),
-                    Ok(()) => "Automations are off".to_string(),
-                    Err(e) => format!("Could not change automations: {e}"),
-                };
-                window.push_notification(message, cx);
+                match result {
+                    Ok(()) if on => notify::success(window, "Automations are on", cx),
+                    Ok(()) => notify::success(window, "Automations are off", cx),
+                    Err(e) => {
+                        notify::error(window, format!("Could not change automations: {e}"), cx)
+                    }
+                }
                 cx.notify();
             })
             .ok();
@@ -177,9 +181,12 @@ impl SettingsView {
                         "Omarchist is on the bar. Move it with the bar's Edit Layout.".to_string()
                     }
                     Ok(()) => "Omarchist was removed from the bar.".to_string(),
-                    Err(e) => e.to_string(),
+                    Err(e) => {
+                        notify::error(window, e.to_string(), cx);
+                        return;
+                    }
                 };
-                window.push_notification(message, cx);
+                notify::success(window, message, cx);
             })
             .ok();
         })
@@ -302,10 +309,7 @@ impl SettingsView {
 }
 
 impl Render for SettingsView {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        if let Some(message) = self.save_error.take() {
-            window.push_notification(message, cx);
-        }
+    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let s = self.settings.clone();
         let font_size: &'static str = FONT_SIZES
             .iter()

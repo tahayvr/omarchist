@@ -1,11 +1,11 @@
 use gpui::FontWeight;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, Sizable, WindowExt, button::*, h_flex, v_flex};
+use gpui_component::{ActiveTheme, Icon, Sizable, button::*, h_flex, v_flex};
 
 use gpui_base::TestSupportExt;
 
+use crate::ui::notify;
 use crate::ui::text::selectable;
-
 const KEY_CONTEXT: &str = "AboutView";
 const ISSUES_URL: &str = "https://github.com/tahayvr/omarchist/issues/new";
 
@@ -124,7 +124,7 @@ impl Render for AboutView {
                             .tooltip("Versions to paste into a bug report")
                             .on_click(|_, window, cx| {
                                 cx.write_to_clipboard(ClipboardItem::new_string(debug_info()));
-                                window.push_notification("Debug info copied", cx);
+                                notify::success(window, "Debug info copied", cx);
                             }),
                     ),
             )

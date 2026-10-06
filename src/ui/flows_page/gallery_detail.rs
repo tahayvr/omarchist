@@ -2,6 +2,7 @@
 //! needs, what a reader should know, and every step. Installing hands the
 //! flow to the editor's review screen; an update opens the installed flow
 //! with the new steps, unsaved, after showing what changes.
+use crate::ui::app_events::{AppEvent, emit};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -20,7 +21,6 @@ use crate::system::flows::risks::{self, Level};
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::load_flow;
 use crate::system::flows::{Flow, Step};
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::gallery_view::count_label;

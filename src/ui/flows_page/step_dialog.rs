@@ -1,9 +1,10 @@
 //! The dialog that adds or edits one step of a flow. Adding starts on the
 //! list of step types; picking one shows its form.
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable, WindowExt,
+    Sizable, WindowExt,
     button::{Button, ButtonVariants},
     h_flex, v_flex,
 };
@@ -12,7 +13,6 @@ use crate::system::flows::{StepKind, StepPath};
 use crate::ui::flows_page::step_builder::{StepBuilder, StepBuilderEvent};
 use crate::ui::flows_page::step_picker::{StepPicker, StepPickerEvent};
 use crate::ui::focus;
-use crate::ui::text::selectable;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum StepDialogMode {
@@ -43,7 +43,6 @@ pub struct StepDialog {
     stage: Stage,
     picker: Entity<StepPicker>,
     builder: Entity<StepBuilder>,
-    error: Option<String>,
     body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -69,12 +68,10 @@ impl StepDialog {
                 window,
                 |this, _, event: &StepBuilderEvent, window, cx| match event {
                     StepBuilderEvent::Changed => {
-                        this.error = None;
                         cx.notify();
                     }
                     StepBuilderEvent::ChangeType => {
                         this.stage = Stage::Pick;
-                        this.error = None;
                         this.picker
                             .update(cx, |picker, cx| picker.focus_search(window, cx));
                         cx.notify();
@@ -107,7 +104,6 @@ impl StepDialog {
             mode,
             picker,
             builder,
-            error: None,
             body_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -139,17 +135,13 @@ impl StepDialog {
                 cx.emit(StepDialogEvent::Save(self.mode.clone(), step, output));
                 window.close_dialog(cx);
             }
-            Err(error) => {
-                self.error = Some(error);
-                cx.notify();
-            }
+            Err(error) => notify::error(window, error, cx),
         }
     }
 }
 
 impl Render for StepDialog {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let theme = cx.theme();
         let save_label = match self.mode {
             StepDialogMode::Add { .. } => "Add step",
             StepDialogMode::Edit(_) => "Save step",
@@ -166,19 +158,6 @@ impl Render for StepDialog {
                     self.picker.clone().into_any_element()
                 } else {
                     self.builder.clone().into_any_element()
-                })
-                .when_some(self.error.clone(), |this, error| {
-                    this.child(
-                        div()
-                            .px_3()
-                            .py_2()
-                            .rounded(theme.radius)
-                            .border_1()
-                            .border_color(theme.danger.opacity(0.4))
-                            .bg(theme.danger.opacity(0.08))
-                            .text_sm()
-                            .child(selectable("step-error", error)),
-                    )
                 })
                 .child(
                     h_flex()

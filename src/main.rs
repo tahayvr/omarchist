@@ -222,6 +222,7 @@ fn main() -> ExitCode {
             }
         });
         gpui_component::init(cx);
+        omarchist::ui::toasts::install(cx);
         load_custom_fonts(cx);
         apply_embedded_themes(cx);
         ui_theme_watcher::load_and_apply_omarchy_theme(cx);

@@ -2,6 +2,7 @@
 //! for, its details, and whether to ask before running.
 use std::collections::HashSet;
 
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -19,7 +20,6 @@ use crate::ui::flows_page::app_picker::{AppPicker, AppPickerEvent};
 use crate::ui::flows_page::step_builder::{VARIABLES_CONTEXT, step_vars};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::LabeledItem;
-use crate::ui::text::selectable;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AutomationDialogEvent {
@@ -243,7 +243,6 @@ pub struct AutomationDialog {
     known: Vec<String>,
     ask: bool,
     enabled: bool,
-    error: Option<String>,
     body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -336,8 +335,7 @@ impl AutomationDialog {
                     }
                 },
             ),
-            cx.subscribe_in(&app, window, |this, _, _: &AppPickerEvent, _, cx| {
-                this.error = None;
+            cx.subscribe_in(&app, window, |_, _, _: &AppPickerEvent, _, cx| {
                 cx.notify();
             }),
         ];
@@ -345,9 +343,8 @@ impl AutomationDialog {
             subscriptions.push(cx.subscribe_in(
                 input,
                 window,
-                |this, _, event: &InputEvent, _, cx| {
+                |_, _, event: &InputEvent, _, cx| {
                     if matches!(event, InputEvent::Change) {
-                        this.error = None;
                         cx.notify();
                     }
                 },
@@ -370,7 +367,6 @@ impl AutomationDialog {
             known: Vec::new(),
             ask: initial.is_some_and(|a| a.ask),
             enabled: initial.is_none_or(|a| a.enabled),
-            error: None,
             body_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         };
@@ -384,7 +380,6 @@ impl AutomationDialog {
             return;
         }
         self.kind = kind;
-        self.error = None;
         self.known.clear();
         self.name
             .update(cx, |input, cx| input.set_value("", window, cx));
@@ -498,10 +493,7 @@ impl AutomationDialog {
                 cx.emit(AutomationDialogEvent::Save(self.index, automation));
                 window.close_dialog(cx);
             }
-            Err(error) => {
-                self.error = Some(error);
-                cx.notify();
-            }
+            Err(error) => notify::error(window, error, cx),
         }
     }
 
@@ -647,7 +639,6 @@ impl AutomationDialog {
                                         this.name.update(cx, |input, cx| {
                                             input.set_value(value, window, cx)
                                         });
-                                        this.error = None;
                                         cx.notify();
                                     }))
                             }),
@@ -662,7 +653,6 @@ impl AutomationDialog {
 impl Render for AutomationDialog {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let fields = self.render_fields(window, cx);
-        let theme = cx.theme();
         let view = cx.entity();
         focus::dialog_body("automation-dialog", &self.body_focus, move |window, cx| {
             view.update(cx, |this, cx| this.save(window, cx));
@@ -691,19 +681,6 @@ impl Render for AutomationDialog {
                             })),
                     ),
                 )
-                .when_some(self.error.clone(), |this, error| {
-                    this.child(
-                        div()
-                            .px_3()
-                            .py_2()
-                            .rounded(theme.radius)
-                            .border_1()
-                            .border_color(theme.danger.opacity(0.4))
-                            .bg(theme.danger.opacity(0.08))
-                            .text_sm()
-                            .child(selectable("automation-error", error)),
-                    )
-                })
                 .child(
                     h_flex()
                         .justify_end()

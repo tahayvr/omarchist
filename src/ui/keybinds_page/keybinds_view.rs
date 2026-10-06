@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::WindowExt;
@@ -472,7 +473,8 @@ impl KeybindsView {
             return;
         };
         if row.kind == RowKind::UnboundByUser {
-            window.push_notification(
+            notify::warning(
+                window,
                 "This keybind was removed in your ~/.config/hypr/bindings.lua; edit it there",
                 cx,
             );
@@ -577,7 +579,8 @@ impl KeybindsView {
             return;
         }
         if row.bind.origin == Origin::Omarchist || row.kind != RowKind::Plain {
-            window.push_notification(
+            notify::warning(
+                window,
                 match row.kind {
                     RowKind::Disabled => "This keybind is already disabled",
                     RowKind::UnboundByUser => {
@@ -648,7 +651,7 @@ impl KeybindsView {
             cx.write_to_clipboard(ClipboardItem::new_string(
                 row.bind.dispatcher.text().to_string(),
             ));
-            window.push_notification("Command copied", cx);
+            notify::success(window, "Command copied", cx);
         }
     }
 
@@ -664,7 +667,8 @@ impl KeybindsView {
         cx: &mut Context<Self>,
     ) {
         if self.overrides_broken {
-            window.push_notification(
+            notify::warning(
+                window,
                 "keybinds.json could not be read; fix or remove it before changing keybinds",
                 cx,
             );
@@ -675,7 +679,7 @@ impl KeybindsView {
         let mut overrides = match load_overrides() {
             Ok(overrides) => overrides,
             Err(e) => {
-                window.push_notification(format!("Could not read keybinds.json: {e}"), cx);
+                notify::error(window, format!("Could not read keybinds.json: {e}"), cx);
                 return;
             }
         };
@@ -684,9 +688,9 @@ impl KeybindsView {
             Ok(hook_restored) => {
                 self.overrides = overrides;
                 self.close_dialog(window, cx);
-                window.push_notification(success, cx);
+                notify::success(window, success, cx);
                 if hook_restored {
-                    window.push_notification(HOOK_RESTORED_MESSAGE, cx);
+                    notify::info(window, HOOK_RESTORED_MESSAGE, cx);
                 }
                 self.pending_reselect = reselect;
                 // Reload, then ask Hyprland what it rejected: a bind it
@@ -697,12 +701,13 @@ impl KeybindsView {
                         .await;
                     this.update_in(cx, |this, window, cx| {
                         match verdict {
-                            Ok(Some(errors)) => window.push_notification(
+                            Ok(Some(errors)) => notify::error(
+                                window,
                                 format!("Hyprland rejected part of omarchist.lua: {errors}"),
                                 cx,
                             ),
                             Ok(None) => {}
-                            Err(e) => window.push_notification(e.to_string(), cx),
+                            Err(e) => notify::error(window, e.to_string(), cx),
                         }
                         this.refresh(window, cx);
                     })
@@ -711,7 +716,7 @@ impl KeybindsView {
                 .detach();
             }
             Err(e) => {
-                window.push_notification(format!("Could not save the keybind: {e}"), cx);
+                notify::error(window, format!("Could not save the keybind: {e}"), cx);
             }
         }
     }

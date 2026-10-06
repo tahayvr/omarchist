@@ -10,7 +10,6 @@ use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
 use crate::ui::theme_edit_page::icons_tab::IconsTab;
-use crate::ui::theme_edit_page::shared::error_message;
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -61,7 +60,6 @@ pub struct ThemeEditPage {
     title: TitleState,
     active_tab: usize,
     tab_count: usize,
-    error_message: Option<String>,
     general_tab: Entity<GeneralTab>,
     colors_tab: Entity<ColorsTab>,
     backgrounds_tab: Entity<BackgroundsTab>,
@@ -133,13 +131,15 @@ impl ThemeEditPage {
         let focus_handle = cx.focus_handle();
         let tabs_focus = focus::tab_stop(cx);
         tabs_focus.focus(window, cx);
+        if let Some(error) = load_error {
+            emit(cx, AppEvent::Error(error));
+        }
 
         Self {
             theme_name,
             title: TitleState::new(name_input, cx),
             active_tab: 0,
             tab_count,
-            error_message: load_error,
             general_tab,
             colors_tab,
             backgrounds_tab,
@@ -377,11 +377,6 @@ impl Render for ThemeEditPage {
                                     ),
                             ),
                     ),
-            )
-            .children(
-                self.error_message
-                    .as_ref()
-                    .map(|error| error_message(error.clone(), cx)),
             )
             .child(
                 div()

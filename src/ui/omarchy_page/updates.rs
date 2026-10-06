@@ -9,7 +9,6 @@ use crate::system::notify;
 use crate::system::omarchy::updates::{
     UpdateCheck, check_for_updates, installed_version, update_in_progress,
 };
-
 /// How long a disabled background check sleeps before looking at the
 /// setting again.
 const DISABLED_RECHECK: Duration = Duration::from_secs(60 * 60);

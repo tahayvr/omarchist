@@ -931,24 +931,15 @@ impl ActionBuilder {
                 .gap_2()
                 .child(var_token::with_tokens(Input::new(&self.webapp_url).small()))
                 .child(
-                    h_flex()
-                        .gap_2()
-                        .items_center()
-                        .child(
-                            div()
-                                .text_xs()
-                                .text_color(theme.muted_foreground)
-                                .child("or pick one you have installed"),
-                        )
-                        .child(
-                            div().flex_1().min_w_0().child(
-                                Select::new(&self.webapp_select)
-                                    .placeholder("Installed web apps")
-                                    .search_placeholder("Search web apps")
-                                    .menu_max_h(px(320.))
-                                    .small(),
-                            ),
+                    h_flex().gap_2().items_center().child(
+                        div().flex_1().min_w_0().child(
+                            Select::new(&self.webapp_select)
+                                .placeholder("Or one you have installed")
+                                .search_placeholder("Search web apps")
+                                .menu_max_h(px(320.))
+                                .small(),
                         ),
+                    ),
                 )
                 .child(self.focus_switch(
                     "action-webapp-focus",
@@ -1099,11 +1090,15 @@ impl ActionBuilder {
         }
     }
 
-    fn render_preview(&self, cx: &App) -> impl IntoElement {
+    /// What the action runs, once the form describes one.
+    fn render_preview(&self, cx: &App) -> Option<impl IntoElement> {
         let theme = cx.theme();
-        let row = h_flex().gap_2().items_start().text_xs();
-        match self.dispatcher(cx) {
-            Ok(dispatcher) => row
+        let dispatcher = self.dispatcher(cx).ok()?;
+        Some(
+            h_flex()
+                .gap_2()
+                .items_start()
+                .text_xs()
                 .child(
                     div()
                         .flex_shrink_0()
@@ -1127,12 +1122,7 @@ impl ActionBuilder {
                             cx,
                         )),
                 ),
-            Err(message) => row.child(
-                div()
-                    .text_color(theme.muted_foreground)
-                    .child(selectable("preview-error", message)),
-            ),
-        }
+        )
     }
 }
 
@@ -1144,6 +1134,6 @@ impl Render for ActionBuilder {
                 this.child(self.render_kinds(window, cx))
             })
             .child(self.render_body(window, cx))
-            .child(self.render_preview(cx))
+            .children(self.render_preview(cx))
     }
 }

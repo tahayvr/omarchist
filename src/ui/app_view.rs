@@ -10,6 +10,7 @@ use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, GalleryView
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
+use crate::ui::notify;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::sidebar_nav;
@@ -152,9 +153,7 @@ impl MainWindowView {
     ) -> Self {
         // The Themes page is the default landing page — created eagerly.
         let themes_view = cx.new(|cx| ThemesPage::new(window, cx));
-        let themes_root = cx
-            .new(|cx| Root::new(themes_view.clone(), window, cx))
-            .into();
+        let themes_root = themes_view.clone().into();
 
         let focus_handle = cx.focus_handle();
         let sidebar_focus = focus::tab_stop(cx);
@@ -208,7 +207,8 @@ impl MainWindowView {
 
         if !crate::system::omarchy_paths::is_quattro_installed() {
             window.defer(cx, |window, cx| {
-                window.push_notification(
+                notify::warning(
+                    window,
                     "Omarchist 2 needs Omarchy 4 (Quattro), which was not found; Hyprland \
                      settings, keybinds and the bar widget are not applied on this system",
                     cx,
@@ -221,7 +221,8 @@ impl MainWindowView {
             .swap(false, std::sync::atomic::Ordering::SeqCst)
         {
             window.defer(cx, |window, cx| {
-                window.push_notification(
+                notify::warning(
+                    window,
                     "settings.json could not be read; it was kept as settings.json.broken and \
                      the defaults were restored",
                     cx,
@@ -319,10 +320,7 @@ impl MainWindowView {
             ActivePage::ThemeEdit(theme_name) => {
                 let theme_edit_view =
                     cx.new(|cx| ThemeEditPage::new(theme_name.clone(), window, cx));
-                self.theme_edit_root = Some(
-                    cx.new(|cx| Root::new(theme_edit_view.clone(), window, cx))
-                        .into(),
-                );
+                self.theme_edit_root = Some(theme_edit_view.clone().into());
                 self.theme_edit_view = Some(theme_edit_view);
             }
             ActivePage::Configuration => match &self.config_view {
@@ -331,10 +329,7 @@ impl MainWindowView {
                 Some(view) => view.update(cx, |view, cx| view.refresh_omarchy_values(window, cx)),
                 None => {
                     let config_view = cx.new(|cx| ConfigView::new(window, cx));
-                    self.config_root = Some(
-                        cx.new(|cx| Root::new(config_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.config_root = Some(config_view.clone().into());
                     self.config_view = Some(config_view);
                 }
             },
@@ -344,10 +339,7 @@ impl MainWindowView {
                 Some(view) => view.update(cx, |view, cx| view.refresh(window, cx)),
                 None => {
                     let keybinds_view = cx.new(|cx| KeybindsView::new(window, cx));
-                    self.keybinds_root = Some(
-                        cx.new(|cx| Root::new(keybinds_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.keybinds_root = Some(keybinds_view.clone().into());
                     self.keybinds_view = Some(keybinds_view);
                 }
             },
@@ -357,8 +349,7 @@ impl MainWindowView {
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
                     let view = cx.new(|cx| TemplatesView::new(window, cx));
-                    self.flow_templates_root =
-                        Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                    self.flow_templates_root = Some(view.clone().into());
                     self.flow_templates_view = Some(view);
                 }
             },
@@ -367,18 +358,14 @@ impl MainWindowView {
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
                     let view = cx.new(|cx| GalleryView::new(window, cx));
-                    self.flow_gallery_root =
-                        Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                    self.flow_gallery_root = Some(view.clone().into());
                     self.flow_gallery_view = Some(view);
                 }
             },
             ActivePage::Flows => {
                 if self.flows_root.is_none() {
                     let flows_view = cx.new(|cx| FlowsView::new(window, cx));
-                    self.flows_root = Some(
-                        cx.new(|cx| Root::new(flows_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.flows_root = Some(flows_view.clone().into());
                     self.flows_view = Some(flows_view);
                 } else if let Some(view) = &self.flows_view {
                     // Coming back from the editor: show what it saved.
@@ -400,27 +387,21 @@ impl MainWindowView {
                     _ => unreachable!(),
                 };
                 let view = cx.new(|cx| FlowEditPage::new(source, window, cx));
-                self.flow_edit_root = Some(cx.new(|cx| Root::new(view.clone(), window, cx)).into());
+                self.flow_edit_root = Some(view.clone().into());
                 self.flow_edit_view = Some(view);
             }
             ActivePage::Settings => match &self.settings_view {
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
                     let settings_view = cx.new(SettingsView::new);
-                    self.settings_root = Some(
-                        cx.new(|cx| Root::new(settings_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.settings_root = Some(settings_view.clone().into());
                     self.settings_view = Some(settings_view);
                 }
             },
             ActivePage::About => {
                 if self.about_root.is_none() {
                     let about_view = cx.new(AboutView::new);
-                    self.about_root = Some(
-                        cx.new(|cx| Root::new(about_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.about_root = Some(about_view.clone().into());
                     self.about_view = Some(about_view);
                 }
             }
@@ -429,10 +410,7 @@ impl MainWindowView {
                 updates.update(cx, |updates, cx| updates.refresh_if_stale(cx));
                 if self.omarchy_root.is_none() {
                     let omarchy_view = cx.new(|cx| OmarchyView::new(updates, cx));
-                    self.omarchy_root = Some(
-                        cx.new(|cx| Root::new(omarchy_view.clone(), window, cx))
-                            .into(),
-                    );
+                    self.omarchy_root = Some(omarchy_view.clone().into());
                     self.omarchy_view = Some(omarchy_view);
                 }
             }
@@ -477,7 +455,7 @@ impl MainWindowView {
                 // Deferred: at startup this runs before the window's `Root`
                 // exists, and notifications live on the `Root`.
                 let message = crate::error::Error::NotOmarchistTheme(name).to_string();
-                window.defer(cx, move |window, cx| window.push_notification(message, cx));
+                window.defer(cx, move |window, cx| notify::error(window, message, cx));
                 ActivePage::Themes
             }
             page => page,
@@ -680,8 +658,10 @@ impl MainWindowView {
                 Err(e) => Err(e),
             };
             this.update_in(cx, |_, window, cx| match result {
-                Ok((flow, outcome)) => window.push_notification(outcome.summary(&flow), cx),
-                Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
+                Ok((flow, outcome)) => {
+                    notify::result(window, outcome.is_ok(), outcome.summary(&flow), cx)
+                }
+                Err(e) => notify::error(window, format!("Could not run the flow: {e}"), cx),
             })
             .ok();
         })
@@ -712,6 +692,8 @@ impl MainWindowView {
                 ui_theme_watcher::load_and_apply_omarchy_theme(cx);
                 cx.refresh_windows();
             }
+            AppEvent::Error(message) => notify::error(window, message, cx),
+            AppEvent::Warning(message) => notify::warning(window, message, cx),
         }
     }
 

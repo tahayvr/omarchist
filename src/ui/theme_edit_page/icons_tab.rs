@@ -1,9 +1,10 @@
+use crate::ui::app_events::{AppEvent, emit};
 use gpui::*;
 use gpui_component::{h_flex, radio::Radio};
 
 use crate::system::themes::icons::{self, ICON_THEMES};
 use crate::ui::theme_edit_page::shared::{
-    error_message, field_grid, section_title, tab_container, tab_grid_columns,
+    field_grid, section_title, tab_container, tab_grid_columns,
 };
 
 /// The Yaru icon color, one radio per variant, written to `icons.theme` as
@@ -12,7 +13,6 @@ pub struct IconsTab {
     theme_name: String,
     /// What `icons.theme` holds, if the theme ships one.
     selected: Option<String>,
-    error_message: Option<String>,
 }
 
 impl IconsTab {
@@ -20,7 +20,6 @@ impl IconsTab {
         let mut tab = Self {
             theme_name,
             selected: None,
-            error_message: None,
         };
         tab.refresh(cx);
         tab
@@ -31,9 +30,8 @@ impl IconsTab {
         match icons::read(&self.theme_name) {
             Ok(selected) => {
                 self.selected = selected;
-                self.error_message = None;
             }
-            Err(e) => self.error_message = Some(e.to_string()),
+            Err(e) => emit(cx, AppEvent::Error(e.to_string())),
         }
         cx.notify();
     }
@@ -42,11 +40,11 @@ impl IconsTab {
         match icons::write(&self.theme_name, icon_theme) {
             Ok(()) => {
                 self.selected = Some(icon_theme.to_string());
-                self.error_message = None;
             }
-            Err(e) => {
-                self.error_message = Some(format!("Could not save the icon color: {e}"));
-            }
+            Err(e) => emit(
+                cx,
+                AppEvent::Error(format!("Could not save the icon color: {e}")),
+            ),
         }
         cx.notify();
     }
@@ -82,10 +80,5 @@ impl Render for IconsTab {
         tab_container()
             .child(section_title("Icon color"))
             .child(field_grid(tab_grid_columns(window).min(4), cells))
-            .children(
-                self.error_message
-                    .as_ref()
-                    .map(|msg| error_message(msg.clone(), cx)),
-            )
     }
 }

@@ -1,9 +1,8 @@
 use crate::system::themes::theme_management::{rename_theme, update_theme};
 use crate::types::themes::EditingTheme;
+use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::focus::FocusableSwitch;
-use crate::ui::theme_edit_page::shared::{
-    error_message, focus_section, form_section, tab_container,
-};
+use crate::ui::theme_edit_page::shared::{focus_section, form_section, tab_container};
 use gpui::*;
 use gpui_component::{
     ActiveTheme,
@@ -24,7 +23,6 @@ pub struct GeneralTab {
     original_theme_name: String,
     author_input: Entity<InputState>,
     is_saving: bool,
-    error_message: Option<String>,
     /// The entries with a file or bundle of their own, read when the tab is
     /// shown (not on every render: it stats every override file).
     scroll: ScrollHandle,
@@ -54,7 +52,6 @@ impl GeneralTab {
             original_theme_name,
             author_input,
             is_saving: false,
-            error_message: None,
             scroll: scroll.clone(),
         };
 
@@ -88,13 +85,11 @@ impl GeneralTab {
         }
 
         if self.original_theme_name.is_empty() {
-            self.error_message = Some("Theme name cannot be empty".to_string());
-            cx.notify();
+            emit(cx, AppEvent::Error("Theme name cannot be empty".into()));
             return;
         }
 
         self.is_saving = true;
-        self.error_message = None;
         cx.notify();
 
         // Save using the ORIGINAL theme name (folder name); the display name
@@ -115,7 +110,7 @@ impl GeneralTab {
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(e.to_string());
+                emit(cx, AppEvent::Error(e.to_string()));
             }
         }
 
@@ -138,7 +133,6 @@ impl GeneralTab {
         }
 
         self.is_saving = true;
-        self.error_message = None;
         cx.notify();
 
         let was_applied = crate::system::ui_theme_watcher::get_active_omarchy_theme_name()
@@ -160,7 +154,10 @@ impl GeneralTab {
             }
             Err(e) => {
                 self.is_saving = false;
-                self.error_message = Some(format!("Could not rename the theme: {}", e));
+                emit(
+                    cx,
+                    AppEvent::Error(format!("Could not rename the theme: {e}")),
+                );
             }
         }
 
@@ -207,10 +204,5 @@ impl Render for GeneralTab {
                             })),
                     ),
             ))
-            .children(
-                self.error_message
-                    .as_ref()
-                    .map(|msg| error_message(msg.clone(), cx)),
-            )
     }
 }

@@ -141,6 +141,7 @@ pub fn open(
     cx.update(|cx| {
         cx.set_global(AppEvents::default());
         gpui_kit::init(cx);
+        omarchist::ui::toasts::install(cx);
         cx.bind_keys(omarchist::ui::shortcuts::key_bindings());
     });
     let mut main_view = None;

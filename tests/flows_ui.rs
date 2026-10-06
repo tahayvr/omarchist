@@ -236,6 +236,23 @@ fn a_step_without_its_question_is_not_added(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+fn a_refused_save_is_one_error_toast(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::FlowNew(None));
+    open_add_step(cx, handle);
+    pick_step_type(cx, handle, "choose");
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.notifications(cx).len(), 0);
+        window.press("ctrl-enter", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx), "the dialog stays open");
+        assert_eq!(window.notifications(cx).len(), 1);
+    });
+    assert!(edited_flow(cx, &view).steps.is_empty());
+}
+
+#[gpui_kit::test]
 fn choose_takes_its_options_from_a_list(cx: &mut TestAppContext) {
     let (handle, view) = open(cx, ActivePage::FlowNew(None));
     open_add_step(cx, handle);
@@ -2105,7 +2122,10 @@ fn publishing_makes_the_flow_ready_and_hands_it_to_github(cx: &mut TestAppContex
     });
     settle(cx, handle);
     with(cx, handle, |window, cx| {
-        assert!(window.find("publish-error").visible());
+        // Refused with an error toast; the dialog stays.
+        assert!(window.try_find("publish-dialog").is_some());
+        assert_eq!(window.notifications(cx).len(), 1);
+        window.clear_notifications(cx);
         window.click("publish-license", cx);
         window.click("publish-submit", cx);
     });

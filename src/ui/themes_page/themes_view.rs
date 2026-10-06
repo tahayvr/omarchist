@@ -4,16 +4,16 @@ use crate::types::themes::ThemeOrigin;
 use crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog;
 use crate::ui::focus::{self, tab_strip_container};
 use crate::ui::menu::app_menu::NewTheme;
+use crate::ui::notify;
 use crate::ui::themes_page::theme_grid::{self, ThemeFilter, ThemeGrid};
 use gpui::*;
 use gpui_component::{
-    Icon, Sizable as _, WindowExt,
+    Icon, Sizable as _,
     button::{Button, ButtonVariants as _},
     h_flex,
     tab::{Tab, TabBar},
     v_flex,
 };
-
 const KEY_CONTEXT: &str = "ThemesPage";
 const TAB_COUNT: usize = 2;
 
@@ -76,7 +76,7 @@ impl ThemesPage {
                     grid.update_themes(themes, cx);
                 });
                 for error in errors {
-                    window.push_notification(error, cx);
+                    notify::error(window, error, cx);
                 }
                 cx.notify();
             })

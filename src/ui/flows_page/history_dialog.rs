@@ -1,5 +1,6 @@
 //! A flow's last runs: how each ended, when, what started it, and, opened
 //! up, what every step did.
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -78,7 +79,7 @@ impl HistoryDialog {
                 self.open = None;
                 self.selected = 0;
             }
-            Err(e) => window.push_notification(e.to_string(), cx),
+            Err(e) => notify::error(window, e.to_string(), cx),
         }
         cx.notify();
     }

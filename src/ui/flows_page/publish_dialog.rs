@@ -1,6 +1,7 @@
 //! Makes a flow ready for the gallery and hands it to GitHub in the
 //! browser, where the author proposes the file and the reviewers take it
 //! from there. Nothing is sent from the app itself.
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -17,7 +18,6 @@ use crate::system::flows::Flow;
 use crate::system::flows::catalog::{self, CATEGORIES, Index};
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
-use crate::ui::text::selectable;
 
 pub struct PublishDialog {
     flow: Flow,
@@ -28,7 +28,6 @@ pub struct PublishDialog {
     category: usize,
     /// The author releases the flow under the gallery's license.
     agreed: bool,
-    error: Option<String>,
     body_focus: FocusHandle,
     category_focus: FocusHandle,
 }
@@ -79,7 +78,6 @@ impl PublishDialog {
             index,
             category,
             agreed: false,
-            error: None,
             body_focus: cx.focus_handle(),
             category_focus: focus::tab_stop(cx),
         }
@@ -95,11 +93,14 @@ impl PublishDialog {
         let author = self.author.read(cx).value().trim().to_string();
         let tags = parse_tags(&self.tags.read(cx).value());
         if !self.agreed {
-            self.error = Some(format!(
-                "A flow in the gallery is released under {}",
-                catalog::LICENSE
-            ));
-            cx.notify();
+            notify::error(
+                window,
+                format!(
+                    "A flow in the gallery is released under {}",
+                    catalog::LICENSE
+                ),
+                cx,
+            );
             return;
         }
         let submission = match catalog::prepare_submission(
@@ -111,8 +112,7 @@ impl PublishDialog {
         ) {
             Ok(submission) => submission,
             Err(e) => {
-                self.error = Some(e.to_string());
-                cx.notify();
+                notify::error(window, e.to_string(), cx);
                 return;
             }
         };
@@ -125,7 +125,8 @@ impl PublishDialog {
         cx.write_to_clipboard(ClipboardItem::new_string(submission.toml.clone()));
         cx.open_url(&submission.url);
         window.close_dialog(cx);
-        window.push_notification(
+        notify::success(
+            window,
             if submission.update {
                 format!(
                     "Copied version {}. On GitHub, replace the file's text with it and propose the change.",
@@ -225,26 +226,10 @@ impl Render for PublishDialog {
                             .checked(self.agreed)
                             .on_change(cx.listener(|this, checked, _, cx| {
                                 this.agreed = *checked;
-                                this.error = None;
                                 cx.notify();
                             })),
                     ),
                 )
-                .when_some(self.error.clone(), |this, error| {
-                    this.child(
-                        div()
-                            .id("publish-error")
-                            .test_support()
-                            .px_3()
-                            .py_2()
-                            .rounded(theme.radius)
-                            .border_1()
-                            .border_color(theme.danger.opacity(0.4))
-                            .bg(theme.danger.opacity(0.08))
-                            .text_sm()
-                            .child(selectable("publish-error-text", error)),
-                    )
-                })
                 .child(
                     h_flex()
                         .justify_end()

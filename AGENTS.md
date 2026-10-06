@@ -189,6 +189,7 @@ Three patterns the whole app follows:
 
 - **A thing shown is edited where it is shown.** The flow editor's and the Theme Designer's names are titles that a click (or Enter/Space on them) turns into a field (`src/ui/editable_title.rs`, `TitleState`), and the flow's icon is a button that opens a picker dialog; none has a second copy in a form below. Prefer this to a Details form for anything that has a natural place on the page.
 - **A setting is one row: its label on the left, its control on the right** (`FlowEditPage::row`, `FocusableSwitch::between()`), one row per setting, wrapping under the label only when the card is too narrow. Never a row of several switches, and never a label above a control that is a button or a switch.
+- **Every message is a toast of one of four kinds, never an element on the page** (`ui::notify`): `success` for work completed ("Saved 'x'", "Command copied"), `info` for neutral news, `warning` for a refusal or a caveat ("Give the flow a name first", "A flow is already running"), `error` for a failure ("Could not save the flow: …"); `notify::result` picks success or error from how something ended. From code without a window, `AppEvent::Error`/`AppEvent::Warning`. Never a bare `push_notification`. Validation says nothing until the person acts (Save, Submit) and then is an error toast with the dialog left open; what a control needs is in its tooltip. Nothing is drawn into a page or dialog for a message, so the layout never shifts. What stays on the page is a *standing state* that is still true while the person looks and needs something from them: a page that cannot work (Configuration without a readable `state.json`, the Keybinds table without a scan), files that could not be read, a gallery that cannot be reached (with Try again), a flow under review, what a flow needs that is missing, and the outcome of a run under its steps.
 - **A disabled button says why in its tooltip** ("Save the flow first", "Nothing to undo", "Already first"): gpui-component shows a button's tooltip while it is disabled, so a note next to the button is never needed.
 - **A list of short values is one field per value, never a textarea** (`step_builder::LineList`): a new list starts with two empty fields, Enter in a field adds the next one after it, a button adds one at the end, and each field has a remove button (the last one stays).
 
@@ -278,8 +279,9 @@ Components that need state use the Entity pattern:
 
 ```rust
 let view = cx.new(|cx| MyComponent::new(cx));
-let root = cx.new(|cx| Root::new(view, window, cx)).into();
 ```
+
+Only the window's view is wrapped in a `Root` (`main.rs`, `tests/common`): since GPUI Kit 0.7 every `Root` mounts every layer and plugin (dialogs, toasts, `ui::toasts`), so a page wrapped in its own `Root` draws them a second time. Pages are held as plain `AnyView`s.
 
 ### Auto-save Theme Editing
 

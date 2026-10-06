@@ -4,6 +4,8 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -40,7 +42,6 @@ use crate::system::keybinds::overrides::Override;
 use crate::system::keybinds::replay::scan_keybinds;
 use crate::system::keybinds::store::{load_overrides, save_overrides};
 use crate::system::keybinds::{BindStatus, Dispatcher, Keybind, Origin};
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::editable_title::{Title, TitleState};
 use crate::ui::flows_page::automation_dialog::{
@@ -213,7 +214,7 @@ impl FlowEditPage {
                     // The file is on the page as broken; there is nothing
                     // to edit, and a new flow under its name would replace
                     // it. Back to the list.
-                    window.push_notification(format!("Could not read the flow: {e}"), cx);
+                    notify::error(window, format!("Could not read the flow: {e}"), cx);
                     emit(cx, AppEvent::Navigate(ActivePage::Flows));
                     Flow::new(String::new(), String::new())
                 }
@@ -227,7 +228,7 @@ impl FlowEditPage {
             FlowEditSource::Update(id, _) => match load_flow(id) {
                 Ok(flow) => flow,
                 Err(e) => {
-                    window.push_notification(format!("Could not read the flow: {e}"), cx);
+                    notify::error(window, format!("Could not read the flow: {e}"), cx);
                     emit(cx, AppEvent::Navigate(ActivePage::Flows));
                     Flow::new(String::new(), String::new())
                 }
@@ -449,7 +450,7 @@ impl FlowEditPage {
     fn save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let mut flow = self.current(cx);
         if flow.name.is_empty() {
-            window.push_notification("Give the flow a name first", cx);
+            notify::warning(window, "Give the flow a name first", cx);
             self.focus_entry(window, cx);
             return;
         }
@@ -462,7 +463,7 @@ impl FlowEditPage {
         };
         match result {
             Ok(()) => {
-                window.push_notification(format!("Saved '{}'", flow.name), cx);
+                notify::success(window, format!("Saved '{}'", flow.name), cx);
                 // Clean before anything navigates, or the reopen below would
                 // ask to discard the flow that was just saved.
                 self.flow = flow.clone();
@@ -482,7 +483,7 @@ impl FlowEditPage {
                     emit(cx, AppEvent::Navigate(ActivePage::FlowEdit(flow.id)));
                 }
             }
-            Err(e) => window.push_notification(format!("Could not save the flow: {e}"), cx),
+            Err(e) => notify::error(window, format!("Could not save the flow: {e}"), cx),
         }
     }
 
@@ -492,11 +493,11 @@ impl FlowEditPage {
         }
         let flow = self.current(cx);
         if flow.enabled_steps() == 0 {
-            window.push_notification("Add a step to run", cx);
+            notify::warning(window, "Add a step to run", cx);
             return;
         }
         if let Err(e) = flow.validate_content() {
-            window.push_notification(format!("Cannot run the flow: {e}"), cx);
+            notify::error(window, format!("Cannot run the flow: {e}"), cx);
             return;
         }
         self.start_run(flow, None, window, cx);
@@ -515,7 +516,7 @@ impl FlowEditPage {
         }
         let flow = self.current(cx);
         if let Err(e) = flow.validate_step(path) {
-            window.push_notification(format!("Cannot run the step: {e}"), cx);
+            notify::error(window, format!("Cannot run the step: {e}"), cx);
             return;
         }
         let needs = flow.needs_at(path);
@@ -681,7 +682,7 @@ impl FlowEditPage {
                         }
                         None => outcome.summary(&flow),
                     };
-                    window.push_notification(message, cx);
+                    notify::result(window, outcome.is_ok(), message, cx);
                     cx.notify();
                 }
                 return;
@@ -726,7 +727,7 @@ impl FlowEditPage {
     /// states (they are kept by position).
     pub(super) fn refuse_while_running(&self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.running {
-            window.push_notification("Stop the flow before changing its steps", cx);
+            notify::warning(window, "Stop the flow before changing its steps", cx);
         }
         self.running
     }
@@ -745,7 +746,7 @@ impl FlowEditPage {
     /// Opens the flow's run history. A flow that was never saved has none.
     fn show_history(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.is_new() {
-            window.push_notification("Save the flow to keep a history of its runs", cx);
+            notify::warning(window, "Save the flow to keep a history of its runs", cx);
             return;
         }
         let name = self.name.read(cx).value().trim().to_string();
@@ -757,16 +758,19 @@ impl FlowEditPage {
     fn save_as_template(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let flow = self.current(cx);
         if flow.name.is_empty() {
-            window.push_notification("Give the flow a name first", cx);
+            notify::warning(window, "Give the flow a name first", cx);
             self.focus_entry(window, cx);
             return;
         }
-        let message = match save_user_template(&flow) {
-            Ok(false) => format!("Saved '{}' as a template", flow.name),
-            Ok(true) => format!("Updated the template '{}'", flow.name),
-            Err(e) => format!("Could not save the template: {e}"),
-        };
-        window.push_notification(message, cx);
+        match save_user_template(&flow) {
+            Ok(false) => {
+                notify::success(window, format!("Saved '{}' as a template", flow.name), cx)
+            }
+            Ok(true) => {
+                notify::success(window, format!("Updated the template '{}'", flow.name), cx)
+            }
+            Err(e) => notify::error(window, format!("Could not save the template: {e}"), cx),
+        }
     }
 
     // MARK: Sharing
@@ -774,7 +778,7 @@ impl FlowEditPage {
     fn export(&self, window: &mut Window, cx: &mut Context<Self>) {
         let mut flow = self.current(cx);
         if flow.name.is_empty() {
-            window.push_notification("Give the flow a name first", cx);
+            notify::warning(window, "Give the flow a name first", cx);
             return;
         }
         if flow.id.is_empty() {
@@ -805,7 +809,7 @@ impl FlowEditPage {
         if let Some(StepKind::Action { action, .. }) = &initial
             && crate::system::flows::actions::find(action).is_none()
         {
-            window.push_notification("This step needs a newer Omarchist to edit", cx);
+            notify::warning(window, "This step needs a newer Omarchist to edit", cx);
             return;
         }
         // A step can use what the steps written before it save, and what
@@ -861,7 +865,7 @@ impl FlowEditPage {
             return;
         }
         if self.is_new() {
-            window.push_notification("Save the flow first, then assign a keybind", cx);
+            notify::warning(window, "Save the flow first, then assign a keybind", cx);
             return;
         }
         let name = self.name.read(cx).value().trim().to_string();
@@ -917,7 +921,8 @@ impl FlowEditPage {
         match result {
             Ok(hook_restored) => {
                 crate::system::hyprland_config::manager::reload_hyprland();
-                window.push_notification(
+                notify::success(
+                    window,
                     if removing {
                         "Keybind removed"
                     } else {
@@ -926,11 +931,11 @@ impl FlowEditPage {
                     cx,
                 );
                 if hook_restored {
-                    window.push_notification(HOOK_RESTORED_MESSAGE, cx);
+                    notify::info(window, HOOK_RESTORED_MESSAGE, cx);
                 }
                 self.load_context(cx);
             }
-            Err(e) => window.push_notification(format!("Could not save the keybind: {e}"), cx),
+            Err(e) => notify::error(window, format!("Could not save the keybind: {e}"), cx),
         }
     }
 
@@ -996,13 +1001,13 @@ impl FlowEditPage {
             this.update_in(cx, |this, window, cx| {
                 this.service_pending = false;
                 this.service_on = result.is_ok();
-                window.push_notification(
-                    match result {
-                        Ok(()) => "Automations are on".to_string(),
-                        Err(e) => format!("Could not turn automations on: {e}"),
-                    },
-                    cx,
-                );
+                match result {
+                    Ok(()) => notify::success(window, "Automations are on", cx),
+                    Err(e) => {
+                        notify::error(window, format!("Could not turn automations on: {e}"), cx)
+                    }
+                }
+
                 cx.notify();
             })
             .ok();
@@ -1360,7 +1365,7 @@ impl FlowEditPage {
     fn publish(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let flow = self.current(cx);
         if flow.name.is_empty() {
-            window.push_notification("Give the flow a name first", cx);
+            notify::warning(window, "Give the flow a name first", cx);
             self.focus_entry(window, cx);
             return;
         }
@@ -1795,7 +1800,7 @@ impl FlowEditPage {
                                     .value(self.flow.command())
                                     .tooltip("Copy the command")
                                     .on_copied(|_, window, cx| {
-                                        window.push_notification("Command copied", cx)
+                                        notify::success(window, "Command copied", cx)
                                     }),
                             )
                         }),

@@ -14,6 +14,7 @@
 // recordable; the stop button or clicking elsewhere cancels.
 use std::time::Duration;
 
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -26,7 +27,6 @@ use crate::system::keybinds::chord::{Chord, ModMask};
 use crate::system::keybinds::keymap::{keystroke_to_chord, modifiers_to_modmask};
 use crate::system::keybinds::submap;
 use crate::ui::keybinds_page::chord_chips::{chord_chips, modifier_chips};
-use crate::ui::text::selectable;
 
 actions!(
     keystroke_input,
@@ -53,7 +53,6 @@ pub struct KeystrokeInput {
     outer_focus: FocusHandle,
     inner_focus: FocusHandle,
     intercept: Option<Subscription>,
-    submap_error: Option<String>,
     search_mode: bool,
     _subscriptions: Vec<Subscription>,
 }
@@ -93,7 +92,6 @@ impl KeystrokeInput {
             outer_focus,
             inner_focus,
             intercept: None,
-            submap_error: None,
             search_mode,
             _subscriptions: subscriptions,
         }
@@ -121,7 +119,6 @@ impl KeystrokeInput {
 
     pub fn start_recording(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.chord = None;
-        self.submap_error = None;
         let held = window.modifiers();
         self.pending = held.modified().then(|| modifiers_to_modmask(&held));
         self.inner_focus.focus(window, cx);
@@ -153,7 +150,7 @@ impl KeystrokeInput {
         cx.notify();
     }
 
-    fn on_inner_focus_in(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_inner_focus_in(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.intercept.is_none() {
             let listener = cx.listener(|this, event: &KeystrokeEvent, window, cx| {
                 this.handle_keystroke(&event.keystroke, window, cx);
@@ -161,9 +158,11 @@ impl KeystrokeInput {
             self.intercept = Some(cx.intercept_keystrokes(listener));
         }
         if let Err(e) = submap::enter_recording_submap() {
-            self.submap_error = Some(format!(
-                "Hyprland may still intercept bound keys: {e}. Use the text field below."
-            ));
+            notify::warning(
+                window,
+                format!("Hyprland may still intercept bound keys: {e}. Use the text field below."),
+                cx,
+            );
         }
         cx.emit(KeystrokeInputEvent::Started);
         cx.notify();
@@ -310,125 +309,112 @@ impl Render for KeystrokeInput {
         let record_icon = Icon::new(Icon::empty()).path("icons/circle.svg").size_4();
         let stop_icon = Icon::new(Icon::empty()).path("icons/square.svg").size_4();
 
-        div()
-            .w_full()
-            .child(
-                h_flex()
-                    .id("keystroke-input")
-                    .track_focus(&self.outer_focus)
-                    .key_context(KEY_CONTEXT)
-                    .on_action(cx.listener(|this, _: &StartRecording, window, cx| {
-                        this.start_recording(window, cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &StopRecording, window, cx| {
-                        this.stop_recording(window, cx);
-                    }))
-                    .on_action(cx.listener(|this, _: &ClearKeystrokes, window, cx| {
-                        this.clear(window, cx);
-                    }))
-                    .w_full()
-                    .min_h(px(44.))
-                    .px_2()
-                    .py_1()
-                    .gap_2()
-                    .items_center()
-                    .justify_between()
-                    .rounded(theme.radius)
-                    .border_1()
-                    .border_color(if focused { theme.ring } else { theme.border })
-                    .bg(if recording {
-                        theme.primary.opacity(0.08)
-                    } else {
-                        theme.background
-                    })
-                    .child(
-                        h_flex()
-                            .w(slot_width)
-                            .flex_none()
-                            .justify_start()
-                            .when(recording, |this| this.child(self.render_status_pill(cx))),
-                    )
-                    .child(
-                        h_flex()
-                            .id("keystroke-input-inner")
-                            .track_focus(&self.inner_focus)
-                            .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                if !this.is_recording(window) {
-                                    this.start_recording(window, cx);
-                                }
-                            }))
-                            .cursor_pointer()
-                            .flex_1()
-                            .min_w_0()
-                            .h_full()
-                            .py_1()
-                            .justify_center()
-                            .items_center()
-                            .child(self.render_content(recording, cx)),
-                    )
-                    .child(
-                        h_flex()
-                            .w(slot_width)
-                            .flex_none()
-                            .gap_1()
-                            .justify_end()
-                            .map(|this| {
-                                if recording {
-                                    this.child(
-                                        Button::new("keystroke-input-stop")
-                                            .ghost()
-                                            .xsmall()
-                                            .icon(stop_icon)
-                                            .tooltip("Stop recording")
-                                            .cursor_pointer()
-                                            .on_click(cx.listener(|this, _, window, cx| {
-                                                this.stop_recording(window, cx);
-                                            })),
-                                    )
-                                } else {
-                                    this.child(
-                                        Button::new("keystroke-input-record")
-                                            .ghost()
-                                            .xsmall()
-                                            .icon(record_icon)
-                                            .tooltip("Record a key combination")
-                                            .cursor_pointer()
-                                            .on_click(cx.listener(|this, _, window, cx| {
-                                                this.start_recording(window, cx);
-                                            })),
-                                    )
-                                    .when(
-                                        self.chord.is_some(),
-                                        |this| {
-                                            this.child(
-                                                Button::new("keystroke-input-clear")
-                                                    .ghost()
-                                                    .xsmall()
-                                                    .icon(IconName::Delete)
-                                                    .tooltip("Clear")
-                                                    .cursor_pointer()
-                                                    .on_click(cx.listener(
-                                                        |this, _, window, cx| {
-                                                            this.clear(window, cx);
-                                                        },
-                                                    )),
-                                            )
-                                        },
-                                    )
-                                }
-                            }),
-                    ),
-            )
-            .when_some(self.submap_error.clone(), |this, error| {
-                this.child(
-                    div()
-                        .mt_1()
-                        .text_xs()
-                        .text_color(theme.warning)
-                        .child(selectable("submap-error", error)),
+        div().w_full().child(
+            h_flex()
+                .id("keystroke-input")
+                .track_focus(&self.outer_focus)
+                .key_context(KEY_CONTEXT)
+                .on_action(cx.listener(|this, _: &StartRecording, window, cx| {
+                    this.start_recording(window, cx);
+                }))
+                .on_action(cx.listener(|this, _: &StopRecording, window, cx| {
+                    this.stop_recording(window, cx);
+                }))
+                .on_action(cx.listener(|this, _: &ClearKeystrokes, window, cx| {
+                    this.clear(window, cx);
+                }))
+                .w_full()
+                .min_h(px(44.))
+                .px_2()
+                .py_1()
+                .gap_2()
+                .items_center()
+                .justify_between()
+                .rounded(theme.radius)
+                .border_1()
+                .border_color(if focused { theme.ring } else { theme.border })
+                .bg(if recording {
+                    theme.primary.opacity(0.08)
+                } else {
+                    theme.background
+                })
+                .child(
+                    h_flex()
+                        .w(slot_width)
+                        .flex_none()
+                        .justify_start()
+                        .when(recording, |this| this.child(self.render_status_pill(cx))),
                 )
-            })
+                .child(
+                    h_flex()
+                        .id("keystroke-input-inner")
+                        .track_focus(&self.inner_focus)
+                        .on_modifiers_changed(cx.listener(Self::on_modifiers_changed))
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            if !this.is_recording(window) {
+                                this.start_recording(window, cx);
+                            }
+                        }))
+                        .cursor_pointer()
+                        .flex_1()
+                        .min_w_0()
+                        .h_full()
+                        .py_1()
+                        .justify_center()
+                        .items_center()
+                        .child(self.render_content(recording, cx)),
+                )
+                .child(
+                    h_flex()
+                        .w(slot_width)
+                        .flex_none()
+                        .gap_1()
+                        .justify_end()
+                        .map(|this| {
+                            if recording {
+                                this.child(
+                                    Button::new("keystroke-input-stop")
+                                        .ghost()
+                                        .xsmall()
+                                        .icon(stop_icon)
+                                        .tooltip("Stop recording")
+                                        .cursor_pointer()
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.stop_recording(window, cx);
+                                        })),
+                                )
+                            } else {
+                                this.child(
+                                    Button::new("keystroke-input-record")
+                                        .ghost()
+                                        .xsmall()
+                                        .icon(record_icon)
+                                        .tooltip("Record a key combination")
+                                        .cursor_pointer()
+                                        .on_click(cx.listener(|this, _, window, cx| {
+                                            this.start_recording(window, cx);
+                                        })),
+                                )
+                                .when(
+                                    self.chord.is_some(),
+                                    |this| {
+                                        this.child(
+                                            Button::new("keystroke-input-clear")
+                                                .ghost()
+                                                .xsmall()
+                                                .icon(IconName::Delete)
+                                                .tooltip("Clear")
+                                                .cursor_pointer()
+                                                .on_click(cx.listener(|this, _, window, cx| {
+                                                    this.clear(window, cx);
+                                                })),
+                                        )
+                                    },
+                                )
+                            }
+                        }),
+                ),
+        )
     }
 }
 

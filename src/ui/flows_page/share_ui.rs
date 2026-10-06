@@ -2,12 +2,13 @@
 //! flows around: the export and import prompts and the warning banner.
 use std::path::PathBuf;
 
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::notify;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, IconName, WindowExt, h_flex};
+use gpui_component::{ActiveTheme, Icon, IconName, h_flex};
 
 use crate::system::flows::Flow;
 use crate::system::flows::share::{ImportSource, export_file_name, export_toml, read_import};
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::text::selectable;
 
@@ -17,7 +18,7 @@ pub fn export_flow<V: 'static>(flow: &Flow, window: &mut Window, cx: &mut Contex
     let text = match export_toml(flow) {
         Ok(text) => text,
         Err(e) => {
-            window.push_notification(format!("Could not export the flow: {e}"), cx);
+            notify::error(window, format!("Could not export the flow: {e}"), cx);
             return;
         }
     };
@@ -29,8 +30,8 @@ pub fn export_flow<V: 'static>(flow: &Flow, window: &mut Window, cx: &mut Contex
         if let Ok(Ok(Some(path))) = receiver.await {
             let written = std::fs::write(&path, text);
             this.update_in(cx, |_, window, cx| match written {
-                Ok(()) => window.push_notification(format!("Exported to {}", path.display()), cx),
-                Err(e) => window.push_notification(format!("Could not write the file: {e}"), cx),
+                Ok(()) => notify::success(window, format!("Exported to {}", path.display()), cx),
+                Err(e) => notify::error(window, format!("Could not write the file: {e}"), cx),
             })
             .ok();
         }
@@ -69,7 +70,7 @@ pub fn import_flow_path<V: 'static>(path: PathBuf, window: &mut Window, cx: &mut
                 cx,
                 AppEvent::Navigate(ActivePage::FlowImport(Box::new(imported))),
             ),
-            Err(e) => window.push_notification(format!("Could not import the flow: {e}"), cx),
+            Err(e) => notify::error(window, format!("Could not import the flow: {e}"), cx),
         })
         .ok();
     })

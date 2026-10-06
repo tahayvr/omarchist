@@ -1,9 +1,11 @@
 use crate::system::themes::theme_management::update_theme;
 use crate::types::themes::{ColorsConfig, EditingTheme};
+use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::color_utils::{hex_to_hsla, hex6};
+use crate::ui::notify;
 use crate::ui::theme_edit_page::shared::{
-    color_picker_with_clipboard, error_message, field_grid, field_label, focus_section,
-    section_title, tab_container, tab_grid_columns,
+    color_picker_with_clipboard, field_grid, field_label, focus_section, section_title,
+    tab_container, tab_grid_columns,
 };
 use gpui::*;
 use gpui_component::{
@@ -46,7 +48,9 @@ pub struct ColorsTab {
     edit_generation: u64,
     /// The generation the last completed (or in-flight) save carried.
     saved_generation: u64,
-    error_message: Option<String>,
+    /// The border field holds text that is not a color; said once, when
+    /// it stops being one.
+    border_invalid: bool,
     scroll: ScrollHandle,
 }
 
@@ -179,7 +183,7 @@ impl ColorsTab {
             inactive_border_input,
             edit_generation: 0,
             saved_generation: 0,
-            error_message: None,
+            border_invalid: false,
             scroll: scroll.clone(),
         }
     }
@@ -206,10 +210,13 @@ impl ColorsTab {
                     let trimmed = raw.trim();
                     if let Err(e) = validate_border(trimmed) {
                         // Keep the last valid value on disk; say why.
-                        this.error_message = Some(e);
-                        cx.notify();
+                        if !this.border_invalid {
+                            notify::error(window, e, cx);
+                        }
+                        this.border_invalid = true;
                         return;
                     }
+                    this.border_invalid = false;
                     let value = (!trimmed.is_empty()).then(|| trimmed.to_string());
                     setter(&mut this.theme_data.colors, value);
                     this.schedule_save(window, cx);
@@ -231,7 +238,6 @@ impl ColorsTab {
     /// Saves 300 ms after the last edit, off the UI thread.
     fn schedule_save(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
         self.edit_generation += 1;
-        self.error_message = None;
         cx.notify();
         let generation = self.edit_generation;
         cx.spawn(async move |this, cx| {
@@ -245,9 +251,10 @@ impl ColorsTab {
             };
             let result = cx.background_spawn(async move { save() }).await;
             this.update(cx, |this, cx| {
-                if this.edit_generation == generation {
-                    this.error_message = result.err().map(|e| e.to_string());
-                    cx.notify();
+                if this.edit_generation == generation
+                    && let Err(e) = result
+                {
+                    emit(cx, AppEvent::Error(e.to_string()));
                 }
             })
             .ok();
@@ -262,8 +269,9 @@ impl ColorsTab {
             return;
         }
         let save = self.pending_save();
-        self.error_message = save().err().map(|e| e.to_string());
-        cx.notify();
+        if let Err(e) = save() {
+            emit(cx, AppEvent::Error(e.to_string()));
+        }
     }
 
     /// The save for the current snapshot, to run on any thread. Only the
@@ -297,7 +305,7 @@ fn validate_border(value: &str) -> std::result::Result<(), String> {
 }
 
 impl Render for ColorsTab {
-    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
         // One column per ANSI color, so each bright color sits under its
         // normal one; halved on narrower windows so the pairs stay together.
         let columns = match tab_grid_columns(window) {
@@ -398,10 +406,5 @@ impl Render for ColorsTab {
             .child(focus_section("colors-normal", &self.scroll, normal))
             .child(focus_section("colors-bright", &self.scroll, bright))
             .child(focus_section("colors-borders", &self.scroll, borders))
-            .children(
-                self.error_message
-                    .as_ref()
-                    .map(|msg| error_message(msg.clone(), cx)),
-            )
     }
 }

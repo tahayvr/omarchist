@@ -149,21 +149,6 @@ pub fn tab_container() -> Div {
     v_flex().gap_6().pt_4().pb_4()
 }
 
-pub fn error_message(text: impl Into<SharedString>, cx: &App) -> Div {
-    let theme = cx.theme();
-    div()
-        .p_2()
-        .bg(theme.danger.opacity(0.1))
-        .border_1()
-        .border_color(theme.danger)
-        .child(
-            div()
-                .text_sm()
-                .text_color(theme.danger)
-                .child(selectable("error-message", text)),
-        )
-}
-
 /// Lays `cells` out in rows of `columns` equal-width cells. The last row is
 /// padded with empty cells so every column keeps its width, which is what
 /// lines the fields of one row up with the fields of the next.

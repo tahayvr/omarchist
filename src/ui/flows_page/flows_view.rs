@@ -2,10 +2,12 @@
 // the editor. Cards form one tab stop with a roving index.
 use std::collections::HashMap;
 
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable, WindowExt,
+    ActiveTheme, Icon, IconName, Sizable,
     button::{Button, ButtonVariants, DropdownButton},
     h_flex,
     input::{Input, InputEvent, InputState},
@@ -25,7 +27,6 @@ use crate::system::flows::{Flow, run_command_id, unique_id};
 use crate::system::keybinds::chord::Chord;
 use crate::system::keybinds::replay::scan_keybinds;
 use crate::system::keybinds::{BindStatus, Dispatcher};
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
@@ -283,7 +284,7 @@ impl FlowsView {
             return;
         };
         let Some(entry) = gallery.index.entry(&slug) else {
-            window.push_notification("The gallery no longer lists this flow", cx);
+            notify::info(window, "The gallery no longer lists this flow", cx);
             return;
         };
         open_gallery_detail(
@@ -401,11 +402,11 @@ impl FlowsView {
             return;
         };
         if self.running.is_some() {
-            window.push_notification("A flow is already running", cx);
+            notify::warning(window, "A flow is already running", cx);
             return;
         }
         if flow.enabled_steps() == 0 {
-            window.push_notification("This flow has no steps to run", cx);
+            notify::warning(window, "This flow has no steps to run", cx);
             return;
         }
         self.running = Some(flow.id.clone());
@@ -421,8 +422,10 @@ impl FlowsView {
                         .insert(flow.id.clone(), (run.started, run.result));
                 }
                 match outcome {
-                    Ok(outcome) => window.push_notification(outcome.summary(&flow), cx),
-                    Err(e) => window.push_notification(format!("Could not run the flow: {e}"), cx),
+                    Ok(outcome) => {
+                        notify::result(window, outcome.is_ok(), outcome.summary(&flow), cx)
+                    }
+                    Err(e) => notify::error(window, format!("Could not run the flow: {e}"), cx),
                 }
                 cx.notify();
             })
@@ -445,10 +448,10 @@ impl FlowsView {
         copy.triggers = Default::default();
         match save_new_flow(&copy) {
             Ok(()) => {
-                window.push_notification(format!("Created '{}'", copy.name), cx);
+                notify::success(window, format!("Created '{}'", copy.name), cx);
                 self.refresh(cx);
             }
-            Err(e) => window.push_notification(format!("Could not duplicate the flow: {e}"), cx),
+            Err(e) => notify::error(window, format!("Could not duplicate the flow: {e}"), cx),
         }
     }
 
@@ -472,12 +475,10 @@ impl FlowsView {
                 let name = flow.name.clone();
                 view.update(cx, |this, cx| match delete_flow(&id) {
                     Ok(()) => {
-                        window.push_notification(format!("Deleted '{name}'"), cx);
+                        notify::success(window, format!("Deleted '{name}'"), cx);
                         this.refresh(cx);
                     }
-                    Err(e) => {
-                        window.push_notification(format!("Could not delete the flow: {e}"), cx)
-                    }
+                    Err(e) => notify::error(window, format!("Could not delete the flow: {e}"), cx),
                 });
             },
             window,
@@ -925,12 +926,21 @@ impl Render for FlowsView {
             }))
             .on_action(cx.listener(|this, action: &FlowAsTemplate, window, cx| {
                 if let Some(flow) = this.flow_at(action.0) {
-                    let message = match save_user_template(flow) {
-                        Ok(false) => format!("Saved '{}' as a template", flow.name),
-                        Ok(true) => format!("Updated the template '{}'", flow.name),
-                        Err(e) => format!("Could not save the template: {e}"),
-                    };
-                    window.push_notification(message, cx);
+                    match save_user_template(flow) {
+                        Ok(false) => notify::success(
+                            window,
+                            format!("Saved '{}' as a template", flow.name),
+                            cx,
+                        ),
+                        Ok(true) => notify::success(
+                            window,
+                            format!("Updated the template '{}'", flow.name),
+                            cx,
+                        ),
+                        Err(e) => {
+                            notify::error(window, format!("Could not save the template: {e}"), cx)
+                        }
+                    }
                     this.refresh(cx);
                 }
             }))

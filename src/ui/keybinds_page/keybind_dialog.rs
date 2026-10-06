@@ -10,6 +10,7 @@
 // writes them (`KeybindsView::handle_dialog_event`).
 use std::rc::Rc;
 
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::Disableable;
@@ -80,7 +81,6 @@ pub struct KeybindDialog {
     conflicts: Vec<String>,
     lost_siblings: Vec<String>,
     confirm_pending: bool,
-    error: Option<String>,
     /// Focus scope of the dialog body.
     body_focus: FocusHandle,
     _subscriptions: Vec<Subscription>,
@@ -194,7 +194,6 @@ impl KeybindDialog {
             conflicts: Vec::new(),
             lost_siblings: Vec::new(),
             confirm_pending: false,
-            error: None,
             body_focus: cx.focus_handle(),
             _subscriptions: subscriptions,
         };
@@ -288,7 +287,6 @@ impl KeybindDialog {
     /// "save anyway" confirmation.
     fn recompute(&mut self, cx: &mut Context<Self>) {
         self.confirm_pending = false;
-        self.error = None;
 
         let exclude = self.original().map(Keybind::identity);
         let release = self.original().is_some_and(|b| b.options.release);
@@ -369,12 +367,9 @@ impl KeybindDialog {
         Ok(override_)
     }
 
-    fn on_save(&mut self, cx: &mut Context<Self>) {
+    fn on_save(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.build_override(cx) {
-            Err(message) => {
-                self.error = Some(message);
-                cx.notify();
-            }
+            Err(message) => notify::error(window, message, cx),
             Ok(override_) => {
                 if !self.conflicts.is_empty() && !self.confirm_pending {
                     self.confirm_pending = true;
@@ -542,11 +537,9 @@ impl KeybindDialog {
                             .when(!self.is_rebindable(), |this| {
                                 this.tooltip("These keys cannot be changed, only disabled")
                             })
-                            .when(self.chord_error.is_some(), |this| {
-                                this.tooltip("Fix the keys first")
-                            })
+                            .when_some(self.chord_error.clone(), |this, error| this.tooltip(error))
                             .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.on_save(cx))),
+                            .on_click(cx.listener(|this, _, window, cx| this.on_save(window, cx))),
                     ),
             )
             .into_any_element()
@@ -559,8 +552,8 @@ impl Render for KeybindDialog {
         let rebindable = self.is_rebindable();
         let view = cx.entity();
 
-        focus::dialog_body("keybind-dialog", &self.body_focus, move |_, cx| {
-            view.update(cx, |this, cx| this.on_save(cx));
+        focus::dialog_body("keybind-dialog", &self.body_focus, move |window, cx| {
+            view.update(cx, |this, cx| this.on_save(window, cx));
         })
         .child(
             v_flex()
@@ -588,14 +581,6 @@ impl Render for KeybindDialog {
                     };
                     this.child(self.render_field("Keys", None, chips, cx))
                 })
-                .when_some(self.chord_error.clone(), |this, error| {
-                    this.child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.danger)
-                            .child(selectable("chord-error", error)),
-                    )
-                })
                 .child(self.render_field(
                     "Description",
                     None,
@@ -619,9 +604,6 @@ impl Render for KeybindDialog {
                     let list = self.lost_siblings.join(", ");
                     let text = format!("Also removes {list}, which cannot be restored.");
                     this.child(self.render_notice("lost-siblings-notice", text, theme.warning, cx))
-                })
-                .when_some(self.error.clone(), |this, error| {
-                    this.child(self.render_notice("error-notice", error, theme.danger, cx))
                 })
                 .child(self.render_footer(cx)),
         )

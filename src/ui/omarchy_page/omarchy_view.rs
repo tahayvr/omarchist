@@ -1,7 +1,8 @@
+use crate::ui::notify;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable, WindowExt, button::Button, button::ButtonVariants, h_flex,
-    text::TextView, text::TextViewStyle, v_flex,
+    ActiveTheme, Sizable, button::Button, button::ButtonVariants, h_flex, text::TextView,
+    text::TextViewStyle, v_flex,
 };
 
 use crate::system::omarchy::release_notes::fetch_latest_release_notes;
@@ -102,7 +103,7 @@ impl OmarchyView {
             Ok(()) => self
                 .updates
                 .update(cx, |updates, cx| updates.watch_running_update(cx)),
-            Err(e) => window.push_notification(format!("Could not start the update: {e}"), cx),
+            Err(e) => notify::error(window, format!("Could not start the update: {e}"), cx),
         }
     }
 

@@ -1,9 +1,11 @@
 //! The Templates page: the user's own templates and the built-in ones as
 //! cards. Picking one opens the editor on a new flow made from it.
+use crate::ui::app_events::{AppEvent, emit};
+use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, Sizable, WindowExt,
+    ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
     input::{Input, InputEvent, InputState},
@@ -14,7 +16,6 @@ use gpui_kit::TestSupportExt;
 use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::Flow;
 use crate::system::flows::templates::{Template, delete_user_template, templates};
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::template_card;
@@ -147,8 +148,9 @@ impl TemplatesView {
                 view.update(cx, |this, cx| {
                     match delete_user_template(&key) {
                         Ok(()) => this.templates.retain(|t| t.key != key),
-                        Err(e) => window
-                            .push_notification(format!("Could not delete the template: {e}"), cx),
+                        Err(e) => {
+                            notify::error(window, format!("Could not delete the template: {e}"), cx)
+                        }
                     }
                     // The card that had the keyboard is gone, and closing
                     // the dialog would hand the keyboard back to it.

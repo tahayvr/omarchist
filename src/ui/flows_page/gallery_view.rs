@@ -3,6 +3,7 @@
 //! review screen, so nothing from here is saved or run without a look.
 use std::collections::HashMap;
 
+use crate::ui::app_events::{AppEvent, emit};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -19,11 +20,9 @@ use crate::system::config::config_setup::settings;
 use crate::system::flows::StepKind;
 use crate::system::flows::catalog::{self, CATEGORIES, Catalog, Entry, Standing};
 use crate::system::flows::store::load_flows;
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
-use crate::ui::flows_page::share_ui::warning_banner;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
@@ -216,6 +215,9 @@ impl GalleryView {
                 this.loading = false;
                 match loaded {
                     Ok(catalog) => {
+                        if let Some(notice) = catalog.notice.clone() {
+                            emit(cx, AppEvent::Warning(notice));
+                        }
                         this.catalog = Some(catalog);
                         this.error = None;
                     }
@@ -649,7 +651,6 @@ impl Render for GalleryView {
             .filter(|entry| !featured.iter().any(|f| f.slug == entry.slug))
             .copied()
             .collect();
-        let notice = self.catalog.as_ref().and_then(|c| c.notice.clone());
         let nothing_loaded = self.catalog.is_none();
         let label = |text: &'static str| {
             div()
@@ -741,14 +742,6 @@ impl Render for GalleryView {
                             .cursor_pointer()
                             .on_click(move |_, _, cx| cx.open_url(&url)),
                     ),
-                )
-            })
-            .when_some(notice, |this, notice| {
-                this.child(
-                    div()
-                        .id("gallery-notice")
-                        .test_support()
-                        .child(warning_banner("gallery-notice-text", notice, cx)),
                 )
             })
             .child(

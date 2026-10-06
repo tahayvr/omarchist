@@ -4,13 +4,14 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::color_utils::hex_to_hsla;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
+use crate::ui::notify;
 use crate::ui::text::selectable;
 use crate::ui::theme_apply::apply_theme;
 use gpui::prelude::*;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, IconName, Sizable, WindowExt, button::*, h_flex, menu::DropdownMenu,
-    menu::PopupMenuItem, v_flex,
+    ActiveTheme, IconName, Sizable, button::*, h_flex, menu::DropdownMenu, menu::PopupMenuItem,
+    v_flex,
 };
 use std::path::PathBuf;
 
@@ -100,11 +101,11 @@ fn confirm_delete_theme(theme: &ThemeEntry, window: &mut Window, cx: &mut App) {
                 handle
                     .update(cx, |_, window, cx| match result {
                         Ok(()) => {
-                            window.push_notification(format!("Deleted '{title}'"), cx);
+                            notify::success(window, format!("Deleted '{title}'"), cx);
                             emit(cx, AppEvent::RefreshThemes);
                         }
                         Err(e) => {
-                            window.push_notification(format!("Could not delete '{title}': {e}"), cx)
+                            notify::error(window, format!("Could not delete '{title}': {e}"), cx)
                         }
                     })
                     .ok();

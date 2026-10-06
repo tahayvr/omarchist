@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::ui::app_events::{AppEvent, emit};
 use anyhow;
 use gpui::*;
 use gpui_component::{
@@ -13,12 +14,11 @@ use gpui_component::{
 use crate::system::themes::theme_management::{
     create_theme_from_defaults, generate_unique_theme_name, slugify_theme_name, unique_theme_name,
 };
-use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::theme_creation_progress_dialog::open_theme_creation_progress_dialog;
 use crate::ui::focus;
+use crate::ui::notify;
 use crate::ui::theme_edit_page::shared::IMAGE_EXTENSIONS;
-
 pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
     let body_focus = cx.focus_handle();
     let trap_focus = body_focus.clone();
@@ -108,15 +108,17 @@ pub fn open_create_theme_dialog(window: &mut Window, cx: &mut App) {
 
                                                     let msg =
                                                         format!("Created '{created_theme_name}'");
-                                                    window.push_notification(msg, cx);
+                                                    notify::success(window, msg, cx);
 
                                                     cx.refresh_windows();
                                                 }
                                                 Err(e) => {
                                                     window.close_dialog(cx);
-                                                    let msg =
-                                                        format!("Could not create the theme: {e}");
-                                                    window.push_notification(msg, cx);
+                                                    notify::error(
+                                                        window,
+                                                        format!("Could not create the theme: {e}"),
+                                                        cx,
+                                                    );
                                                 }
                                             }
                                         }),

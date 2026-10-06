@@ -1597,21 +1597,6 @@ impl StepBuilder {
         .into_any_element()
     }
 
-    /// Why the form is not a step yet. The action builder shows its own.
-    fn render_problem(&self, cx: &App) -> Option<AnyElement> {
-        if matches!(self.choice, StepChoice::Action(_)) {
-            return None;
-        }
-        let message = self.step(cx).err()?;
-        Some(
-            div()
-                .text_xs()
-                .text_color(cx.theme().muted_foreground)
-                .child(selectable("step-problem", message))
-                .into_any_element(),
-        )
-    }
-
     /// The variables this step can use, as tokens that insert them.
     fn render_variables(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
         if !self.takes_variables(cx) {
@@ -1713,7 +1698,6 @@ impl Render for StepBuilder {
             .child(self.render_body(window, cx))
             .children(self.render_variables(window, cx))
             .children(self.render_output(cx))
-            .children(self.render_problem(cx))
     }
 }
 
