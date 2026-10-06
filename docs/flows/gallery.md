@@ -15,7 +15,7 @@ Open it with **Gallery** on the Flows page, with **Flows → Gallery** in the ti
 
 - Type in the search box to search names, descriptions, authors, and tags.
 - The row under it narrows the list to one category. **Installed** shows the flows you have from the gallery.
-- **Popular** puts the most installed first. **Newest** puts the latest additions and updates first.
+- **Newest** puts the latest additions and updates first. **Popular** puts the most installed first.
 
 A card shows the flow's icon and name, who made it, the icons of its steps, and how often it was installed. A check mark next to an author's name means the reviewers know their work.
 

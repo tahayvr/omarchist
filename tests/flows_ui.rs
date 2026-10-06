@@ -1937,8 +1937,8 @@ fn listed(
 #[gpui_kit::test]
 fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
     let (handle, view) = open_gallery(cx);
-    // The most installed first.
-    assert_eq!(listed(cx, &view), vec!["pause", "breathe", "careful"]);
+    // The newest first; the install counts order the list only on request.
+    assert_eq!(listed(cx, &view), vec!["breathe", "careful", "pause"]);
     with(cx, handle, |window, cx| {
         assert_eq!(window.find("gallery-search").focused(), Some(true));
         assert!(window.find(("gallery-card", 2usize)).visible());
@@ -1946,10 +1946,10 @@ fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
         // Only the categories that hold a flow are offered.
         assert!(window.find("gallery-filter-focus").visible());
         assert!(window.try_find("gallery-filter-web").is_none());
-        window.click("gallery-sort-newest", cx);
+        window.click("gallery-sort-popular", cx);
     });
     settle(cx, handle);
-    assert_eq!(listed(cx, &view), vec!["breathe", "careful", "pause"]);
+    assert_eq!(listed(cx, &view), vec!["pause", "breathe", "careful"]);
 
     with(cx, handle, |window, cx| {
         window.click("gallery-filter-focus", cx)

@@ -157,7 +157,9 @@ impl GalleryView {
             loading: false,
             installed: HashMap::new(),
             filter: Filter::All,
-            sort: Sort::Popular,
+            // Newest by default: install counts are unsigned and sent by
+            // anyone, so they order the list only when asked to.
+            sort: Sort::Newest,
             filter_focus: focus::tab_stop(cx),
             sort_focus: focus::tab_stop(cx),
             author: String::new(),
