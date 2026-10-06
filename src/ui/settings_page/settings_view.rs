@@ -7,7 +7,7 @@ use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::notify;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable as _,
+    Sizable as _,
     button::Button,
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -20,9 +20,8 @@ use crate::system::bar_widget;
 use crate::system::config::config_setup::{SettingsConfig, settings, update_settings};
 use crate::system::flows::service;
 use crate::system::ui_theme_watcher;
+use crate::ui::explain::explain;
 use crate::ui::focus::{FocusSection, FocusableSwitch};
-use crate::ui::text::selectable;
-
 const KEY_CONTEXT: &str = "SettingsPage";
 
 const FONT_SIZES: &[(&str, &str)] = &[("small", "Small"), ("medium", "Medium"), ("large", "Large")];
@@ -205,9 +204,8 @@ impl SettingsView {
         label: &'static str,
         description: &'static str,
         control: AnyElement,
-        cx: &App,
+        _cx: &App,
     ) -> impl IntoElement {
-        let theme = cx.theme();
         h_flex()
             .id(id)
             .w_full()
@@ -215,19 +213,11 @@ impl SettingsView {
             .items_center()
             .justify_between()
             .py_2()
-            .child(
-                v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap_0p5()
-                    .child(div().text_sm().child(label))
-                    .child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.muted_foreground)
-                            .child(selectable("desc", description)),
-                    ),
-            )
+            .child(div().flex_1().min_w_0().child(explain(
+                SharedString::from(format!("{id}-desc")),
+                div().text_sm().child(label),
+                description,
+            )))
             .child(div().flex_none().child(control))
     }
 

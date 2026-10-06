@@ -12,10 +12,10 @@ use gpui_component::{
 };
 
 use crate::system::keybinds::{Keybind, Origin};
+use crate::ui::explain::explain;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::keybinds_page::keybinds_view::{CopyCommand, DisableRow, EditRow, ResetRow};
 use crate::ui::text::selectable;
-
 /// How a row relates to the user's overrides.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RowKind {
@@ -155,17 +155,17 @@ impl KeybindsTableDelegate {
     fn render_edit_cell(&self, row: &KeybindRow, row_ix: usize, cx: &App) -> AnyElement {
         let theme = cx.theme();
         if !row.bind.is_rebindable() && row.kind != RowKind::UnboundByUser {
-            return h_flex()
-                .id(("kb-fn", row_ix))
-                .h_full()
-                .items_center()
-                .text_color(theme.muted_foreground)
-                .child(Icon::new(Icon::empty()).path("icons/ban.svg").size_4())
-                .tooltip(|window, cx| {
-                    Tooltip::new("Runs a Lua function: the keys cannot be changed, only disabled")
-                        .build(window, cx)
-                })
-                .into_any_element();
+            return explain(
+                ("kb-fn-why", row_ix),
+                h_flex()
+                    .id(("kb-fn", row_ix))
+                    .h_full()
+                    .items_center()
+                    .text_color(theme.muted_foreground)
+                    .child(Icon::new(Icon::empty()).path("icons/ban.svg").size_4()),
+                "Runs a Lua function: the keys cannot be changed, only disabled.",
+            )
+            .into_any_element();
         }
         if row.kind == RowKind::UnboundByUser {
             return div().into_any_element();
@@ -207,19 +207,15 @@ impl KeybindsTableDelegate {
             )
             .when(row.conflict, |this| {
                 let others = row.conflicts_with.join(", ");
-                this.child(
+                this.child(explain(
+                    ("kb-conflict-why", row_ix),
                     div()
                         .id(("kb-conflict", row_ix))
                         .flex_shrink_0()
                         .text_color(theme.warning)
-                        .child(Icon::new(IconName::TriangleAlert).size_4())
-                        .tooltip(move |window, cx| {
-                            Tooltip::new(format!(
-                                "Also bound to: {others}. Hyprland runs all of them."
-                            ))
-                            .build(window, cx)
-                        }),
-                )
+                        .child(Icon::new(IconName::TriangleAlert).size_4()),
+                    format!("Also bound to: {others}. Hyprland runs all of them."),
+                ))
             });
         // Rows have a fixed height, so the folded Source tags sit inline
         // after the (truncating) label.
@@ -286,16 +282,16 @@ impl KeybindsTableDelegate {
             _ => None,
         };
 
-        h_flex()
+        let tags = h_flex()
             .id(("kb-source", row_ix))
             .gap_1()
             .items_center()
             .children(origin_tag)
-            .children(status_tag)
-            .when_some(note, |this, note| {
-                this.tooltip(move |window, cx| Tooltip::new(note.clone()).build(window, cx))
-            })
-            .into_any_element()
+            .children(status_tag);
+        match note {
+            Some(note) => explain(("kb-source-why", row_ix), tags, note).into_any_element(),
+            None => tags.into_any_element(),
+        }
     }
 }
 

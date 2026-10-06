@@ -5,6 +5,7 @@ pub mod color_utils;
 pub mod config_page;
 pub mod dialogs;
 pub mod editable_title;
+pub mod explain;
 pub mod flows_page;
 pub mod focus;
 pub mod keybinds_page;

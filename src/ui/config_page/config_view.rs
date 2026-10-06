@@ -38,9 +38,9 @@ use crate::ui::config_page::pages::{
     FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items, page,
     page_count, pages,
 };
+use crate::ui::explain::explain;
 use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::text::selectable;
-
 /// A dynamic dropdown with more choices than this is a searchable select.
 const LONG_LIST: usize = 40;
 
@@ -1397,19 +1397,11 @@ impl ConfigView {
                     .gap_4()
                     .items_center()
                     .justify_between()
-                    .child(
-                        v_flex()
-                            .flex_1()
-                            .min_w_0()
-                            .gap_0p5()
-                            .child(div().text_sm().child(item.label))
-                            .child(
-                                div()
-                                    .text_xs()
-                                    .text_color(theme.muted_foreground)
-                                    .child(selectable("desc", item.description)),
-                            ),
-                    )
+                    .child(div().flex_1().min_w_0().child(explain(
+                        SharedString::from(format!("desc-{}", item.id)),
+                        div().text_sm().child(item.label),
+                        item.description,
+                    )))
                     .child(
                         h_flex()
                             .flex_none()
@@ -1555,18 +1547,14 @@ impl ConfigView {
             sections.push(
                 v_flex()
                     .gap_1()
-                    .child(
+                    .child(explain(
+                        ("page-desc", page_ix),
                         div()
                             .text_lg()
                             .font_weight(FontWeight::SEMIBOLD)
                             .child(page.title),
-                    )
-                    .child(
-                        div()
-                            .text_sm()
-                            .text_color(muted)
-                            .child(selectable(("page-desc", page_ix), page.description)),
-                    )
+                        page.description,
+                    ))
                     .into_any_element(),
             );
             if loading {

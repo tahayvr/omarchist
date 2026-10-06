@@ -77,8 +77,8 @@ pub mod keybinds_nav {
     #[action(namespace = keybinds, no_json)]
     pub struct SetFilter(pub usize);
 }
+use crate::ui::explain::explain;
 use keybinds_nav::*;
-
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = keybinds, no_json)]
 pub struct EditRow(pub usize);
@@ -1027,11 +1027,11 @@ impl KeybindsView {
             .gap_x_4()
             .text_xs()
             .text_color(theme.muted_foreground)
-            .child(div().flex_none().child(selectable("kb-summary", summary)))
-            .child(div().min_w_0().truncate().child(selectable(
+            .child(explain(
                 "kb-footer-note",
-                "Changes are written to ~/.config/hypr/omarchist.lua and applied immediately",
-            )))
+                div().flex_none().child(selectable("kb-summary", summary)),
+                "Changes are written to ~/.config/hypr/omarchist.lua and applied immediately.",
+            ))
     }
 }
 
