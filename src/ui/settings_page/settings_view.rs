@@ -26,11 +26,8 @@ use crate::ui::palette::{self, Area};
 const KEY_CONTEXT: &str = "SettingsPage";
 
 const FONT_SIZES: &[(&str, &str)] = &[("small", "Small"), ("medium", "Medium"), ("large", "Large")];
-const THEME_MODES: &[(&str, &str)] = &[
-    ("omarchy", "Omarchy"),
-    ("light", "Light"),
-    ("dark", "Dark"),
-];
+const THEME_MODES: &[(&str, &str)] =
+    &[("omarchy", "Omarchy"), ("light", "Light"), ("dark", "Dark")];
 const STARTUP_PAGES: &[(&str, &str)] = &[
     ("themes", "Themes"),
     ("config", "Configuration"),

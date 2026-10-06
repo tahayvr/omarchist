@@ -246,6 +246,7 @@ impl Render for OmarchyView {
                 paragraph_gap: rems(0.75),
                 heading_base_font_size: px(15.),
                 highlight_theme,
+                is_dark,
                 heading_font_size: Some(std::sync::Arc::new(|level, base_size| match level {
                     1 => base_size * 1.45,
                     2 => base_size * 1.25,
