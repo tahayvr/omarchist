@@ -12,8 +12,8 @@ use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
 use crate::ui::theme_edit_page::icons_tab::IconsTab;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme,
-    button::Button,
+    ActiveTheme, Icon, Sizable,
+    button::{Button, ButtonVariants},
     h_flex,
     input::{InputEvent, InputState},
     tab::{Tab, TabBar},
@@ -267,6 +267,8 @@ impl Render for ThemeEditPage {
             cx,
         );
         let theme = cx.theme();
+        let applied = crate::system::ui_theme_watcher::get_active_omarchy_theme_name().as_deref()
+            == Some(self.theme_name.as_str());
 
         v_flex()
             .id("theme-edit-page")
@@ -318,26 +320,7 @@ impl Render for ThemeEditPage {
                     )
                     .child(title)
                     .child(
-                        Button::new("apply-theme-btn")
-                            .label("Apply theme")
-                            .compact()
-                            .tooltip_with_action(
-                                "Apply this theme now",
-                                &ApplyTheme,
-                                Some(KEY_CONTEXT),
-                            )
-                            .cursor_pointer()
-                            .on_click(
-                                cx.listener(|this, _, window, cx| this.apply_theme(window, cx)),
-                            ),
-                    )
-                    .child(
                         tab_strip_container("theme-edit-tabs-strip", &self.tabs_focus, window, cx)
-                            .flex_1()
-                            // Wide enough for the four tabs, so in a narrow
-                            // window the strip drops under the buttons
-                            // instead of clipping its end.
-                            .min_w(px(440.))
                             .on_action(cx.listener(
                                 |this, _: &focus::tab_strip::Prev, window, cx| {
                                     this.prev_tab(window, cx);
@@ -376,7 +359,41 @@ impl Render for ThemeEditPage {
                                             .map(|tab| Tab::new().label(tab.as_str())),
                                     ),
                             ),
-                    ),
+                    )
+                    .child(div().flex_1())
+                    .child(if applied {
+                        // The theme is the one on screen: applying it again
+                        // is a refresh, as on the Keybinds and Configuration
+                        // pages.
+                        Button::new("apply-theme-btn")
+                            .ghost()
+                            .small()
+                            .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
+                            .tooltip_with_action(
+                                "Re-apply the theme",
+                                &ApplyTheme,
+                                Some(KEY_CONTEXT),
+                            )
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.apply_theme(window, cx)),
+                            )
+                    } else {
+                        Button::new("apply-theme-btn")
+                            .primary()
+                            .small()
+                            .icon(Icon::new(Icon::empty()).path("icons/check.svg"))
+                            .label("Apply theme")
+                            .tooltip_with_action(
+                                "Apply this theme now",
+                                &ApplyTheme,
+                                Some(KEY_CONTEXT),
+                            )
+                            .cursor_pointer()
+                            .on_click(
+                                cx.listener(|this, _, window, cx| this.apply_theme(window, cx)),
+                            )
+                    }),
             )
             .child(
                 div()

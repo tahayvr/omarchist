@@ -136,8 +136,9 @@ impl Render for ThemesPage {
             .child(
                 h_flex()
                     .gap_3()
+                    .justify_between()
                     .child(
-                        div().flex_1().min_w_0().child(
+                        div().min_w_0().child(
                             tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)
                                 .on_action(cx.listener(
                                     |this, _: &focus::tab_strip::Prev, _, cx| {
