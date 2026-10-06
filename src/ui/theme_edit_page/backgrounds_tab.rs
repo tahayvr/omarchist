@@ -4,13 +4,13 @@ use crate::system::themes::theme_file_ops::{
 };
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
-use crate::ui::text::selectable;
 use crate::ui::theme_edit_page::shared::{IMAGE_EXTENSIONS, focus_section, tab_container};
 use anyhow;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable, IconName, Sizable,
+    ActiveTheme, Disableable, Sizable,
+    attachment::{Attachment, AttachmentContent, AttachmentMedia, AttachmentTitle},
     button::{Button, ButtonVariants},
     h_flex,
     label::Label,
@@ -424,55 +424,19 @@ impl Render for BackgroundsTab {
                             image_index += 1;
 
                             row = row.child(
-                                v_flex()
-                                    .w(px(150.))
-                                    .gap_2()
-                                    .child(
-                                        div()
-                                            .relative()
-                                            .w(px(150.))
-                                            .h(px(100.))
-                                            .overflow_hidden()
-                                            .border_1()
-                                            .border_color(cx.theme().border)
-                                            .child(
-                                                img(path)
-                                                    .w_full()
-                                                    .h_full()
-                                                    .object_fit(ObjectFit::Cover),
-                                            )
-                                            .child(
-                                                div().absolute().top_1().right_1().child(
-                                                    Button::new(("delete-bg", current_index))
-                                                        .icon(IconName::Close)
-                                                        .small()
-                                                        .danger()
-                                                        .cursor_pointer()
-                                                        .on_click(cx.listener({
-                                                            let filename = filename.clone();
-                                                            move |this, _, window, cx| {
-                                                                this.confirm_delete_image(
-                                                                    filename.clone(),
-                                                                    window,
-                                                                    cx,
-                                                                );
-                                                            }
-                                                        })),
-                                                ),
-                                            ),
+                                Attachment::new()
+                                    .id(("bg-image", current_index))
+                                    .axis(Axis::Vertical)
+                                    .large()
+                                    .media(AttachmentMedia::new().src(path))
+                                    .content(
+                                        AttachmentContent::new()
+                                            .title(AttachmentTitle::new(filename.clone())),
                                     )
-                                    .child(
-                                        div().w(px(150.)).child(
-                                            div()
-                                                .text_xs()
-                                                .text_color(cx.theme().muted_foreground)
-                                                .truncate()
-                                                .child(selectable(
-                                                    ("bg-filename", current_index),
-                                                    filename.clone(),
-                                                )),
-                                        ),
-                                    ),
+                                    .tooltip(filename.clone())
+                                    .on_remove(cx.listener(move |this, _, window, cx| {
+                                        this.confirm_delete_image(filename.clone(), window, cx);
+                                    })),
                             );
                         }
                         grid = grid.child(row);
