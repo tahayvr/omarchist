@@ -1608,6 +1608,10 @@ impl ConfigView {
     }
 }
 
+/// The page is centred and never wider than this: a setting's label and
+/// its control stay within a glance of each other on a wide screen.
+const PAGE_WIDTH: f32 = 1160.;
+
 impl Render for ConfigView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         if std::mem::take(&mut self.inputs_stale) {
@@ -1626,29 +1630,37 @@ impl Render for ConfigView {
                 }),
             )
             .size_full()
-            .gap_4()
+            .items_center()
             .child(
-                div().w(px(320.)).child(
-                    Input::new(&self.search)
-                        .cleanable(true)
-                        .small()
-                        .prefix(Icon::new(IconName::Search).size_4()),
-                ),
-            )
-            // Problems stay in view above the scrolling column, whatever
-            // page or scroll position the user is on.
-            .children(self.render_banners(cx))
-            .child(
-                // Not `h_flex`: its `items_center` would stop the content pane from
-                // filling the row height, which it needs to scroll.
-                div()
-                    .flex()
-                    .flex_row()
+                v_flex()
+                    .w_full()
+                    .max_w(px(PAGE_WIDTH))
                     .flex_1()
                     .min_h_0()
-                    .child(self.render_nav(window, cx))
-                    .child(self.render_content(cx))
-                    .vertical_scrollbar(&self.scroll),
+                    .gap_4()
+                    .child(
+                        div().w(px(320.)).child(
+                            Input::new(&self.search)
+                                .cleanable(true)
+                                .small()
+                                .prefix(Icon::new(IconName::Search).size_4()),
+                        ),
+                    )
+                    // Problems stay in view above the scrolling column, whatever
+                    // page or scroll position the user is on.
+                    .children(self.render_banners(cx))
+                    .child(
+                        // Not `h_flex`: its `items_center` would stop the content pane from
+                        // filling the row height, which it needs to scroll.
+                        div()
+                            .flex()
+                            .flex_row()
+                            .flex_1()
+                            .min_h_0()
+                            .child(self.render_nav(window, cx))
+                            .child(self.render_content(cx))
+                            .vertical_scrollbar(&self.scroll),
+                    ),
             )
     }
 }

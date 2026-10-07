@@ -1043,14 +1043,15 @@ impl KeybindsView {
         }
     }
 
-    /// Sizes the table's columns to the width it will get.
+    /// Sizes the table's columns to the width it will get: what the window
+    /// leaves beside the sidebar, and never more than the page is wide.
     fn fit_table(&mut self, window: &Window, cx: &mut Context<Self>) {
         let sidebar = if self.sidebar_collapsed {
             px(48.)
         } else {
             px(255.)
         };
-        let available = window.viewport_size().width - sidebar - px(48.);
+        let available = (window.viewport_size().width - sidebar - px(48.)).min(px(PAGE_WIDTH));
         self.table.update(cx, |table, cx| {
             if table.delegate_mut().fit_width(available) {
                 // Rebuilds the column groups: the count may have changed.
@@ -1059,6 +1060,10 @@ impl KeybindsView {
         });
     }
 }
+
+/// The page is centred and never wider than this, so the table's rows stay
+/// readable on a wide screen.
+const PAGE_WIDTH: f32 = 1400.;
 
 impl Render for KeybindsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
@@ -1134,88 +1139,106 @@ impl Render for KeybindsView {
             }))
             .size_full()
             .p_4()
-            .gap_3()
+            .items_center()
             .child(
-                h_flex()
+                v_flex()
                     .w_full()
-                    .flex_wrap()
-                    .gap_2()
-                    .items_center()
-                    .child(
-                        div()
-                            .key_context(SEARCH_CONTEXT)
-                            .flex_1()
-                            .min_w(px(220.))
-                            .map(|this| {
-                                if self.chord_search_on {
-                                    this.child(self.chord_search.clone())
-                                } else {
-                                    this.child(
-                                        Input::new(&self.search)
-                                            .cleanable(true)
-                                            .prefix(Icon::new(IconName::Search).size_4()),
-                                    )
-                                }
-                            }),
-                    )
-                    .child({
-                        let button = Button::new("kb-chord-search")
-                            .small()
-                            .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
-                            .tooltip_with_action(
-                                if self.chord_search_on {
-                                    "Back to text search"
-                                } else {
-                                    "Search by pressing keys"
-                                },
-                                &ToggleChordSearch,
-                                Some(KEY_CONTEXT),
-                            )
-                            .cursor_pointer();
-                        let button = if self.chord_search_on {
-                            button.primary()
-                        } else {
-                            button.ghost()
-                        };
-                        button.on_click(cx.listener(|this, _, window, cx| {
-                            this.toggle_chord_search(window, cx);
-                        }))
-                    })
-                    .child(self.render_filters(window, cx))
-                    .child(
-                        Button::new("kb-add")
-                            .primary()
-                            .small()
-                            .icon(IconName::Plus)
-                            .label("Add keybind")
-                            .tooltip_with_action("Add keybind", &AddKeybind, Some(KEY_CONTEXT))
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, window, cx| this.open_add(window, cx))),
-                    )
-                    .child(
-                        Button::new("kb-refresh")
-                            .ghost()
-                            .small()
-                            .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
-                            .tooltip_with_action(
-                                "Rescan your Hyprland config",
-                                &focus::ReloadPage,
-                                None,
-                            )
-                            .cursor_pointer()
-                            .loading(self.loading)
-                            .on_click(cx.listener(|this, _, window, cx| this.refresh(window, cx))),
-                    ),
-            )
-            .children(self.render_notice(cx))
-            .child(
-                div()
-                    .key_context(TABLE_CONTEXT)
+                    .max_w(px(PAGE_WIDTH))
                     .flex_1()
                     .min_h_0()
-                    .w_full()
-                    .child(DataTable::new(&self.table).stripe(true).bordered(true)),
+                    .gap_3()
+                    .child(
+                        h_flex()
+                            .w_full()
+                            .flex_wrap()
+                            .gap_2()
+                            .items_center()
+                            .child(
+                                div()
+                                    .key_context(SEARCH_CONTEXT)
+                                    .flex_1()
+                                    .min_w(px(220.))
+                                    .map(|this| {
+                                        if self.chord_search_on {
+                                            this.child(self.chord_search.clone())
+                                        } else {
+                                            this.child(
+                                                Input::new(&self.search)
+                                                    .cleanable(true)
+                                                    .prefix(Icon::new(IconName::Search).size_4()),
+                                            )
+                                        }
+                                    }),
+                            )
+                            .child({
+                                let button = Button::new("kb-chord-search")
+                                    .small()
+                                    .icon(Icon::new(Icon::empty()).path("icons/keyboard.svg"))
+                                    .tooltip_with_action(
+                                        if self.chord_search_on {
+                                            "Back to text search"
+                                        } else {
+                                            "Search by pressing keys"
+                                        },
+                                        &ToggleChordSearch,
+                                        Some(KEY_CONTEXT),
+                                    )
+                                    .cursor_pointer();
+                                let button = if self.chord_search_on {
+                                    button.primary()
+                                } else {
+                                    button.ghost()
+                                };
+                                button.on_click(cx.listener(|this, _, window, cx| {
+                                    this.toggle_chord_search(window, cx);
+                                }))
+                            })
+                            .child(self.render_filters(window, cx))
+                            .child(
+                                Button::new("kb-add")
+                                    .primary()
+                                    .small()
+                                    .icon(IconName::Plus)
+                                    .label("Add keybind")
+                                    .tooltip_with_action(
+                                        "Add keybind",
+                                        &AddKeybind,
+                                        Some(KEY_CONTEXT),
+                                    )
+                                    .cursor_pointer()
+                                    .on_click(
+                                        cx.listener(|this, _, window, cx| {
+                                            this.open_add(window, cx)
+                                        }),
+                                    ),
+                            )
+                            .child(
+                                Button::new("kb-refresh")
+                                    .ghost()
+                                    .small()
+                                    .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
+                                    .tooltip_with_action(
+                                        "Rescan your Hyprland config",
+                                        &focus::ReloadPage,
+                                        None,
+                                    )
+                                    .cursor_pointer()
+                                    .loading(self.loading)
+                                    .on_click(
+                                        cx.listener(|this, _, window, cx| this.refresh(window, cx)),
+                                    ),
+                            ),
+                    )
+                    .children(self.render_notice(cx))
+                    .child(
+                        div()
+                            .key_context(TABLE_CONTEXT)
+                            .flex_1()
+                            .min_h_0()
+                            .w_full()
+                            .child(DataTable::new(&self.table).stripe(true).bordered(true)),
+                    )
+                    .child(self.render_footer(cx)),
             )
-            .child(self.render_footer(cx))
     }
 }
