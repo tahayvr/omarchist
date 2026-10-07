@@ -97,10 +97,10 @@ pub fn focus_border(focused: bool, base: Hsla, cx: &App) -> Hsla {
 
 type ChangeHandler = Rc<dyn Fn(&bool, &mut Window, &mut App)>;
 
-/// A `Switch` with a clickable label and a focus ring around the row. The
-/// switch itself is the tab stop (gpui-component's `Switch` handles Tab,
-/// Enter, and Space); the row only tracks a non-stop handle so it can draw
-/// the ring while the switch inside it has focus.
+/// A `Switch` with a clickable label. The switch itself is the tab stop
+/// and draws the focus ring (gpui-component's `Switch` handles Tab, Enter,
+/// Space and the ring); the row adds nothing of its own, so a focused
+/// switch is ringed once, never the whole row as well.
 #[derive(IntoElement)]
 pub struct FocusableSwitch {
     id: ElementId,
@@ -155,24 +155,14 @@ impl FocusableSwitch {
 }
 
 impl RenderOnce for FocusableSwitch {
-    fn render(self, window: &mut Window, cx: &mut App) -> impl IntoElement {
-        let focus_handle = window
-            .use_keyed_state(self.id.clone(), cx, |_, cx| {
-                cx.focus_handle().tab_stop(false)
-            })
-            .read(cx)
-            .clone();
-        let focused = focus_handle.contains_focused(window, cx);
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
         let checked = self.checked;
         let disabled = self.disabled;
         let on_change = self.on_change.clone();
-        let radius = cx.theme().radius;
-        let ring = focus_border(focused, cx.theme().transparent, cx);
 
         h_flex()
             .id(self.id)
             .test_support()
-            .track_focus(&focus_handle)
             .gap_3()
             .items_center()
             // The row never grows past its cell: a long label wraps in
@@ -182,9 +172,6 @@ impl RenderOnce for FocusableSwitch {
             .when(self.between, |this| this.w_full().justify_between())
             .px_1()
             .py_0p5()
-            .rounded(radius)
-            .border_1()
-            .border_color(ring)
             .when(!disabled, |this| this.cursor_pointer())
             .when_some(self.label.clone(), |this, label| {
                 this.child(div().min_w_0().flex_shrink(1.).child(label))
