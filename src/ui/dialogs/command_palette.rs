@@ -38,26 +38,30 @@ fn entry(label: &'static str, keywords: &'static [&'static str], action: impl Ac
     }
 }
 
-/// The palette's contents; shortcut hints come from the keymap.
+/// The palette's contents; shortcut hints come from the keymap. The kit
+/// filters the rows and keeps their order, so the first row the query
+/// matches is the one Enter runs: a keyword is never a word of another
+/// row's label (a test checks), or typing that word would run the wrong
+/// command.
 fn groups() -> Vec<Group> {
     vec![
         Group {
             title: "Go to",
             entries: vec![
-                entry("Themes", &["page", "gallery"], app_menu::NavigateToThemes),
+                entry("Themes", &["page"], app_menu::NavigateToThemes),
                 entry(
                     "Configuration",
-                    &["page", "hyprland", "settings"],
+                    &["page", "hyprland"],
                     app_menu::NavigateToConfig,
                 ),
                 entry(
                     "Keybinds",
-                    &["page", "shortcuts", "hyprland"],
+                    &["page", "hyprland", "binds"],
                     app_menu::NavigateToKeybinds,
                 ),
                 entry(
                     "Flows",
-                    &["page", "automation", "shortcuts", "actions"],
+                    &["page", "automation", "actions"],
                     app_menu::NavigateToFlows,
                 ),
                 entry(
@@ -65,17 +69,17 @@ fn groups() -> Vec<Group> {
                     &["page", "update", "release notes"],
                     app_menu::NavigateToOmarchy,
                 ),
-                entry("Settings", &["page", "font"], app_menu::NavigateToSettings),
+                entry("Settings", &["page"], app_menu::NavigateToSettings),
                 entry("About", &["page", "version"], app_menu::NavigateToAbout),
             ],
         },
         Group {
             title: "Themes",
             entries: vec![
-                entry("New theme", &["new", "add"], app_menu::NewTheme),
+                entry("New theme", &["create"], app_menu::NewTheme),
                 entry(
                     "Re-apply theme",
-                    &["refresh", "reload", "colors"],
+                    &["refresh", "colors"],
                     app_menu::RefreshTheme,
                 ),
             ],
@@ -84,14 +88,14 @@ fn groups() -> Vec<Group> {
             title: "Keybinds",
             entries: vec![entry(
                 "Add keybind",
-                &["new", "bind", "shortcut"],
+                &["create", "bind", "shortcut"],
                 app_menu::NewKeybind,
             )],
         },
         Group {
             title: "Flows",
             entries: vec![
-                entry("New flow", &["create", "add"], app_menu::NewFlow),
+                entry("New flow", &["create"], app_menu::NewFlow),
                 entry(
                     "New from template",
                     &["create", "templates"],
@@ -112,7 +116,7 @@ fn groups() -> Vec<Group> {
         Group {
             title: "View",
             entries: vec![
-                entry("Reload the current page", &["refresh"], focus::ReloadPage),
+                entry("Reload", &["refresh", "rescan"], focus::ReloadPage),
                 entry(
                     "Toggle sidebar",
                     &["collapse", "expand"],
@@ -120,19 +124,15 @@ fn groups() -> Vec<Group> {
                 ),
                 entry(
                     "Follow Omarchy's appearance",
-                    &["theme", "mode", "auto"],
+                    &["look", "mode", "auto"],
                     app_menu::FollowOmarchy,
                 ),
                 entry(
                     "Light appearance",
-                    &["theme", "mode"],
+                    &["look", "mode"],
                     app_menu::SwitchToLight,
                 ),
-                entry(
-                    "Dark appearance",
-                    &["theme", "mode"],
-                    app_menu::SwitchToDark,
-                ),
+                entry("Dark appearance", &["look", "mode"], app_menu::SwitchToDark),
                 entry(
                     "Font size: Small",
                     &["text", "zoom"],
@@ -232,4 +232,36 @@ fn palette_item(entry: &Entry) -> CommandItem {
                 .child(label)
                 .when_some(kbd, |this, kbd| this.child(kbd))
         })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::groups;
+
+    /// Typing a command's own name must run that command: with the rows
+    /// filtered in order, a keyword that is a word of a later row's label
+    /// would put the wrong row first.
+    #[test]
+    fn no_keyword_is_a_word_of_another_label() {
+        let entries: Vec<(&str, &[&str])> = groups()
+            .iter()
+            .flat_map(|group| group.entries.iter().map(|e| (e.label, e.keywords)))
+            .collect();
+        for (label, keywords) in &entries {
+            for keyword in keywords.iter() {
+                for (other, _) in &entries {
+                    if other == label {
+                        continue;
+                    }
+                    let shadowed = other
+                        .split(|c: char| !c.is_alphanumeric())
+                        .any(|word| word.eq_ignore_ascii_case(keyword));
+                    assert!(
+                        !shadowed,
+                        "'{label}' has the keyword '{keyword}', a word of '{other}'"
+                    );
+                }
+            }
+        }
+    }
 }

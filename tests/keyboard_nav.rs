@@ -196,6 +196,26 @@ async fn command_palette_runs_the_chosen_command(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
+async fn command_palette_runs_the_command_named_by_the_query(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::Themes);
+    // "settings" is also a word people reach Configuration with, but the
+    // command named Settings comes first.
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.press("ctrl-shift-p", cx);
+        window.render_frame(cx);
+        window.input("settings", cx);
+        window.press("enter", cx);
+    })
+    .unwrap();
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, cx| {
+        !window.has_active_dialog(cx)
+    })
+    .await;
+    cx.run_until_parked();
+    assert_page(cx, &view, ActivePage::Settings);
+}
+
+#[gpui_kit::test]
 async fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestAppContext) {
     let (handle, view) = open(cx, ActivePage::Themes);
     cx.update_window(handle.into(), |_, window, cx| {
