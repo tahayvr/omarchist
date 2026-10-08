@@ -10,6 +10,8 @@ use smol::Timer;
 use crate::system::themes::color_utils::{
     adjust_lightness, darken, is_dark_color, lighten, with_alpha,
 };
+use crate::system::themes::theme_management::colors::read_colors_toml;
+use crate::types::themes::ColorsConfig;
 
 const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
@@ -33,21 +35,93 @@ fn get_colors_toml_path() -> Option<PathBuf> {
 
 fn parse_colors_toml(path: &PathBuf) -> Option<HashMap<String, String>> {
     let content = std::fs::read_to_string(path).ok()?;
+    Some(resolved_colors(&content))
+}
+
+/// The palette as Omarchy's own resolver reads it. Quattro's themes name
+/// their colours (`blue`, `bright_blue`, `selection`) rather than numbering
+/// them, so the file goes through the same alias-aware reader the Theme
+/// Designer uses; only keys the file sets end up in the map, and
+/// `build_theme_config` derives the rest.
+fn resolved_colors(content: &str) -> HashMap<String, String> {
+    let blank = ColorsConfig {
+        mode: String::new(),
+        accent: String::new(),
+        foreground: String::new(),
+        background: String::new(),
+        selection_foreground: String::new(),
+        selection_background: String::new(),
+        color0: String::new(),
+        color1: String::new(),
+        color2: String::new(),
+        color3: String::new(),
+        color4: String::new(),
+        color5: String::new(),
+        color6: String::new(),
+        color7: String::new(),
+        color8: String::new(),
+        color9: String::new(),
+        color10: String::new(),
+        color11: String::new(),
+        color12: String::new(),
+        color13: String::new(),
+        color14: String::new(),
+        color15: String::new(),
+        hyprland_active_border: None,
+        hyprland_inactive_border: None,
+        extra: Vec::new(),
+    };
+    let colors = read_colors_toml(content, &blank);
+    let extra = |key: &str| {
+        colors
+            .extra
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, v)| v.clone())
+    };
     let mut map = HashMap::new();
-
-    for line in content.lines() {
-        let line = line.trim();
-        if line.is_empty() || line.starts_with('#') {
-            continue;
+    let mut put = |key: &str, value: String| {
+        if !value.trim().is_empty() {
+            map.insert(key.to_string(), value);
         }
-        if let Some((key, value)) = line.split_once('=') {
-            let key = key.trim().to_string();
-            let value = value.trim().trim_matches('"').to_string();
-            map.insert(key, value);
-        }
+    };
+    put("mode", colors.mode.clone());
+    put("accent", colors.accent.clone());
+    put("foreground", colors.foreground.clone());
+    put("background", colors.background.clone());
+    // Omarchy reads `selection` where a theme has no `selection_background`.
+    put(
+        "selection_background",
+        if colors.selection_background.is_empty() {
+            extra("selection").unwrap_or_default()
+        } else {
+            colors.selection_background.clone()
+        },
+    );
+    for (ix, value) in [
+        &colors.color0,
+        &colors.color1,
+        &colors.color2,
+        &colors.color3,
+        &colors.color4,
+        &colors.color5,
+        &colors.color6,
+        &colors.color7,
+        &colors.color8,
+        &colors.color9,
+        &colors.color10,
+        &colors.color11,
+        &colors.color12,
+        &colors.color13,
+        &colors.color14,
+        &colors.color15,
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        put(&format!("color{ix}"), value.clone());
     }
-
-    Some(map)
+    map
 }
 
 fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> ThemeConfig {
@@ -118,7 +192,12 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
         .cloned()
         .unwrap_or_else(|| lighten(&c6, 0.2));
 
-    let is_dark = is_dark_color(&bg);
+    // The file says which mode it is for; the background decides otherwise.
+    let is_dark = match colors.get("mode").map(String::as_str) {
+        Some("dark") => true,
+        Some("light") => false,
+        _ => is_dark_color(&bg),
+    };
     let mode_str = if is_dark { "dark" } else { "light" };
 
     // Make UI surface colors from the background
@@ -453,4 +532,44 @@ pub fn spawn_ui_theme_watcher(cx: &mut App) {
         }
     })
     .detach();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{build_theme_config, resolved_colors};
+
+    /// A Quattro theme names its colours; none of the numbered keys appear.
+    const MATTE: &str = r##"mode = "dark"
+accent = "#e68e0d"
+selection = "#2a2a2a"
+background = "#121212"
+foreground = "#bebebe"
+red = "#D35F5F"
+yellow = "#b91c1c"
+green = "#FFC107"
+cyan = "#bebebe"
+blue = "#e68e0d"
+magenta = "#D35F5F"
+bright_blue = "#f59e0b"
+"##;
+
+    #[test]
+    fn named_colours_are_the_palette_the_ui_follows() {
+        let colors = resolved_colors(MATTE);
+        assert_eq!(colors["color4"], "#e68e0d");
+        assert_eq!(colors["color3"], "#b91c1c");
+        assert_eq!(colors["color12"], "#f59e0b");
+        assert_eq!(colors["selection_background"], "#2a2a2a");
+        assert!(
+            !colors.contains_key("color9"),
+            "an unset key is derived later"
+        );
+        let config = build_theme_config(&colors, "matte-black");
+        assert!(config.mode.is_dark());
+        let json = serde_json::to_value(&config).unwrap();
+        assert_eq!(json["colors"]["base.blue"], "#e68e0d");
+        assert_eq!(json["colors"]["base.green"], "#FFC107");
+        assert_eq!(json["colors"]["base.blue.light"], "#f59e0b");
+        assert_eq!(json["colors"]["selection.background"], "#2a2a2a");
+    }
 }
