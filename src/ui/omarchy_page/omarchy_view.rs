@@ -152,7 +152,7 @@ impl OmarchyView {
                 .child(
                     Button::new("check-updates")
                         .ghost()
-                        .xsmall()
+                        .small()
                         .label("Check again")
                         .cursor_pointer()
                         .on_click(cx.listener(|this, _, _, cx| this.check_again(cx))),
@@ -198,7 +198,7 @@ impl OmarchyView {
                         .child(
                             Button::new("check-updates")
                                 .ghost()
-                                .xsmall()
+                                .small()
                                 .label("Try again")
                                 .cursor_pointer()
                                 .on_click(cx.listener(|this, _, _, cx| this.check_again(cx))),

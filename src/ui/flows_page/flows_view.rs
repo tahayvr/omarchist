@@ -7,10 +7,10 @@ use crate::ui::notify;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable,
+    ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants, DropdownButton},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
     menu::DropdownMenu,
     v_flex,
 };
@@ -39,6 +39,7 @@ use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::menu::app_menu;
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 
 const KEY_CONTEXT: &str = "FlowsPage";
 /// Wraps the search box so Down and Escape hand off from inside the input.
@@ -499,23 +500,16 @@ impl FlowsView {
         // With no flows yet, the empty state offers the templates and a
         // create button, so the header does not repeat it.
         let show_new = !(self.loaded && self.flows.is_empty());
-        h_flex()
-            .gap_3()
-            .items_center()
-            .flex_wrap()
+        toolbar::bar()
             .child(
                 div()
                     .id("flows-search")
                     .key_context(SEARCH_CONTEXT)
-                    .w(px(320.))
-                    .child(
-                        Input::new(&self.search)
-                            .cleanable(true)
-                            .small()
-                            .prefix(Icon::new(IconName::Search).size_4()),
-                    ),
+                    .w(px(toolbar::SEARCH_WIDTH))
+                    .max_w_full()
+                    .child(toolbar::search_input(&self.search)),
             )
-            .child(div().flex_1())
+            .child(toolbar::spacer())
             .child(
                 Button::new("browse-gallery")
                     .icon(Icon::new(Icon::empty()).path("icons/store.svg"))

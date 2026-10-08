@@ -9,7 +9,7 @@ use gpui_component::{
     ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
     v_flex,
 };
 use gpui_kit::TestSupportExt;
@@ -24,6 +24,7 @@ use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::menu::app_menu;
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 
 const KEY_CONTEXT: &str = "FlowTemplatesPage";
 /// Wraps the search box so Escape clears it before it leaves the page.
@@ -280,44 +281,26 @@ impl Render for TemplatesView {
             .size_full()
             .gap_6()
             .child(
-                h_flex()
-                    .gap_3()
-                    .items_center()
-                    .flex_wrap()
+                toolbar::bar()
                     .child(
-                        Button::new("templates-back")
-                            .label("Back")
-                            .compact()
-                            .tooltip_with_action(
-                                "Back to Flows",
-                                &app_menu::NavigateBack,
-                                Some(KEY_CONTEXT),
-                            )
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
+                        toolbar::back(
+                            "templates-back",
+                            "Back to Flows",
+                            &app_menu::NavigateBack,
+                            Some(KEY_CONTEXT),
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
                     )
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child("Templates"))
+                    .child(toolbar::title("Templates"))
                     .child(
                         div()
                             .key_context(SEARCH_CONTEXT)
                             .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
                                 this.clear_search(window, cx)
                             }))
-                            .flex_1()
-                            .min_w(px(200.))
-                            .max_w(px(420.))
-                            .child(
-                                Input::new(&self.search)
-                                    .id("templates-search")
-                                    .small()
-                                    .cleanable(true)
-                                    .prefix(
-                                        Icon::new(Icon::empty())
-                                            .path("icons/search.svg")
-                                            .size_4()
-                                            .text_color(muted),
-                                    ),
-                            ),
+                            .w(px(toolbar::SEARCH_WIDTH))
+                            .max_w_full()
+                            .child(toolbar::search_input(&self.search).id("templates-search")),
                     ),
             )
             .child(

@@ -11,7 +11,7 @@ use gpui_component::{
     ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
     tag::Tag,
     v_flex,
 };
@@ -29,6 +29,7 @@ use crate::ui::focus;
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 
 const KEY_CONTEXT: &str = "FlowGalleryPage";
 /// Wraps the search box so Escape clears it before it leaves the page.
@@ -665,50 +666,32 @@ impl Render for GalleryView {
             .size_full()
             .gap_4()
             .child(
-                h_flex()
-                    .gap_3()
-                    .items_center()
-                    .flex_wrap()
+                toolbar::bar()
                     .child(
-                        Button::new("gallery-back")
-                            .label("Back")
-                            .compact()
-                            .tooltip_with_action(
-                                "Back to Flows",
-                                &app_menu::NavigateBack,
-                                Some(KEY_CONTEXT),
-                            )
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
+                        toolbar::back(
+                            "gallery-back",
+                            "Back to Flows",
+                            &app_menu::NavigateBack,
+                            Some(KEY_CONTEXT),
+                        )
+                        .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
                     )
-                    .child(div().font_weight(FontWeight::SEMIBOLD).child("Gallery"))
+                    .child(toolbar::title("Gallery"))
                     .child(
                         div()
                             .key_context(SEARCH_CONTEXT)
                             .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
                                 this.clear_search(window, cx)
                             }))
-                            .flex_1()
-                            .min_w(px(200.))
-                            .max_w(px(420.))
-                            .child(
-                                Input::new(&self.search)
-                                    .id("gallery-search")
-                                    .small()
-                                    .cleanable(true)
-                                    .prefix(
-                                        Icon::new(Icon::empty())
-                                            .path("icons/search.svg")
-                                            .size_4()
-                                            .text_color(muted),
-                                    ),
-                            ),
+                            .w(px(toolbar::SEARCH_WIDTH))
+                            .max_w_full()
+                            .child(toolbar::search_input(&self.search).id("gallery-search")),
                     )
-                    .child(div().flex_1())
+                    .child(toolbar::spacer())
                     .child(
                         Button::new("gallery-reload")
                             .ghost()
-                            .compact()
+                            .small()
                             .loading(self.loading)
                             .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
                             .tooltip_with_action("Reload", &focus::ReloadPage, None)

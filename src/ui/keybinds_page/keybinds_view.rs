@@ -16,7 +16,7 @@ use gpui_component::{
     ActiveTheme, Icon, IconName, Sizable,
     button::{Button, ButtonVariants},
     h_flex,
-    input::{Input, InputEvent, InputState},
+    input::{InputEvent, InputState},
     table::{DataTable, TableDelegate, TableEvent, TableState},
     v_flex,
 };
@@ -78,6 +78,7 @@ pub mod keybinds_nav {
     pub struct SetFilter(pub usize);
 }
 use crate::ui::explain::explain;
+use crate::ui::toolbar;
 use keybinds_nav::*;
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = keybinds, no_json)]
@@ -1148,25 +1149,17 @@ impl Render for KeybindsView {
                     .min_h_0()
                     .gap_3()
                     .child(
-                        h_flex()
-                            .w_full()
-                            .flex_wrap()
-                            .gap_2()
-                            .items_center()
+                        toolbar::bar()
                             .child(
                                 div()
                                     .key_context(SEARCH_CONTEXT)
-                                    .flex_1()
-                                    .min_w(px(220.))
+                                    .w(px(toolbar::SEARCH_WIDTH))
+                                    .max_w_full()
                                     .map(|this| {
                                         if self.chord_search_on {
                                             this.child(self.chord_search.clone())
                                         } else {
-                                            this.child(
-                                                Input::new(&self.search)
-                                                    .cleanable(true)
-                                                    .prefix(Icon::new(IconName::Search).size_4()),
-                                            )
+                                            this.child(toolbar::search_input(&self.search))
                                         }
                                     }),
                             )
@@ -1193,6 +1186,7 @@ impl Render for KeybindsView {
                                     this.toggle_chord_search(window, cx);
                                 }))
                             })
+                            .child(toolbar::spacer())
                             .child(self.render_filters(window, cx))
                             .child(
                                 Button::new("kb-add")

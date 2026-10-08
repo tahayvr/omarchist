@@ -10,11 +10,11 @@ use crate::ui::theme_edit_page::backgrounds_tab::BackgroundsTab;
 use crate::ui::theme_edit_page::colors_tab::ColorsTab;
 use crate::ui::theme_edit_page::general_tab::{GeneralTab, GeneralTabEvent};
 use crate::ui::theme_edit_page::icons_tab::IconsTab;
+use crate::ui::toolbar;
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, Sizable,
     button::{Button, ButtonVariants},
-    h_flex,
     input::{InputEvent, InputState},
     tab::{Tab, TabBar},
     v_flex,
@@ -300,23 +300,17 @@ impl Render for ThemeEditPage {
                 this.tabs_focus.focus(window, cx);
             }))
             .child(
-                h_flex()
-                    .gap_4()
-                    .items_center()
-                    .flex_wrap()
+                toolbar::bar()
                     .child(
-                        Button::new("back-btn")
-                            .label("Back")
-                            .compact()
-                            .tooltip_with_action(
-                                "Back to Themes",
-                                &app_menu::NavigateBack,
-                                Some(KEY_CONTEXT),
-                            )
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.navigate_back(window, cx);
-                            })),
+                        toolbar::back(
+                            "back-btn",
+                            "Back to Themes",
+                            &app_menu::NavigateBack,
+                            Some(KEY_CONTEXT),
+                        )
+                        .on_click(cx.listener(|this, _, window, cx| {
+                            this.navigate_back(window, cx);
+                        })),
                     )
                     .child(title)
                     .child(

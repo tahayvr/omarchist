@@ -4,8 +4,8 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable, WindowExt, h_flex,
-    input::{Input, InputEvent, InputState},
+    ActiveTheme, Icon, WindowExt, h_flex,
+    input::{InputEvent, InputState},
     tooltip::Tooltip,
     v_flex,
 };
@@ -14,6 +14,7 @@ use gpui_kit::TestSupportExt;
 use crate::system::flows::ICONS;
 use crate::ui::focus;
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 
 pub const GRID_CONTEXT: &str = "IconPicker";
 pub const SEARCH_CONTEXT: &str = "IconPickerSearch";
@@ -197,13 +198,7 @@ impl Render for IconDialog {
                             this.grid_focus.focus(window, cx);
                             cx.notify();
                         }))
-                        .child(
-                            Input::new(&self.search)
-                                .id("icon-search")
-                                .small()
-                                .prefix(Icon::new(IconName::Search).small())
-                                .cleanable(true),
-                        ),
+                        .child(toolbar::search_input(&self.search).id("icon-search")),
                 )
                 .child(
                     v_flex()

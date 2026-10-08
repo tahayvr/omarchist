@@ -4,8 +4,8 @@
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Icon, IconName, Sizable, h_flex,
-    input::{Input, InputEvent, InputState},
+    ActiveTheme, h_flex,
+    input::{InputEvent, InputState},
     v_flex,
 };
 use gpui_kit::TestSupportExt;
@@ -15,6 +15,7 @@ use crate::ui::focus;
 use crate::ui::heading;
 use crate::ui::palette;
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 
 pub const GRID_CONTEXT: &str = "StepPicker";
 /// The row of group filters: one tab stop, arrows move the filter.
@@ -344,13 +345,7 @@ impl Render for StepPicker {
                         this.grid_focus.focus(window, cx);
                         cx.notify();
                     }))
-                    .child(
-                        Input::new(&self.search)
-                            .id("step-search")
-                            .small()
-                            .prefix(Icon::new(IconName::Search).small())
-                            .cleanable(true),
-                    ),
+                    .child(toolbar::search_input(&self.search).id("step-search")),
             )
             .child(self.render_groups(window, cx))
             .child(

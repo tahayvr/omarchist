@@ -16,11 +16,11 @@ use std::time::Duration;
 
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Disableable as _, Icon, IconName, IndexPath, Sizable as _,
+    ActiveTheme, Disableable as _, Icon, IndexPath, Sizable as _,
     button::{Button, ButtonVariants as _},
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
-    input::{Input, InputEvent, InputState, NumberInput},
+    input::{InputEvent, InputState, NumberInput},
     menu::{DropdownMenu, PopupMenuItem},
     scroll::ScrollableElement as _,
     select::{SearchableVec, Select, SelectEvent, SelectItem, SelectState},
@@ -43,6 +43,7 @@ use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::heading;
 use crate::ui::palette::{self, Area};
 use crate::ui::text::selectable;
+use crate::ui::toolbar;
 /// A dynamic dropdown with more choices than this is a searchable select.
 const LONG_LIST: usize = 40;
 
@@ -1638,14 +1639,7 @@ impl Render for ConfigView {
                     .flex_1()
                     .min_h_0()
                     .gap_4()
-                    .child(
-                        div().w(px(320.)).child(
-                            Input::new(&self.search)
-                                .cleanable(true)
-                                .small()
-                                .prefix(Icon::new(IconName::Search).size_4()),
-                        ),
-                    )
+                    .child(toolbar::search(toolbar::search_input(&self.search)))
                     // Problems stay in view above the scrolling column, whatever
                     // page or scroll position the user is on.
                     .children(self.render_banners(cx))

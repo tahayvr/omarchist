@@ -1,6 +1,6 @@
 use gpui::FontWeight;
 use gpui::*;
-use gpui_component::{ActiveTheme, Icon, Sizable, button::*, h_flex, v_flex};
+use gpui_component::{ActiveTheme, Icon, button::*, h_flex, v_flex};
 
 use gpui_base::TestSupportExt;
 
@@ -137,7 +137,6 @@ impl Render for AboutView {
                             .icon(Icon::new(Icon::empty()).path("icons/brand-x.svg").size_8())
                             .ghost()
                             .cursor_pointer()
-                            .large()
                             .tooltip("X")
                             .on_click(|_, _, cx| cx.open_url("https://x.com/tahayvr/")),
                     )
@@ -146,7 +145,6 @@ impl Render for AboutView {
                             .icon(Icon::new(Icon::empty()).path("icons/github.svg").size_8())
                             .ghost()
                             .cursor_pointer()
-                            .large()
                             .tooltip("GitHub")
                             .on_click(|_, _, cx| {
                                 cx.open_url("https://github.com/tahayvr/omarchist")
@@ -157,7 +155,6 @@ impl Render for AboutView {
                             .label("Docs")
                             .ghost()
                             .cursor_pointer()
-                            .large()
                             .on_click(|_, _, cx| cx.open_url("https://omarchist.com/")),
                     ),
             )

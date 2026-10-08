@@ -22,3 +22,4 @@ pub mod theme_apply;
 pub mod theme_edit_page;
 pub mod themes_page;
 pub mod toasts;
+pub mod toolbar;
