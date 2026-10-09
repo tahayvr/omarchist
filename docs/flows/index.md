@@ -4,7 +4,7 @@ outline: deep
 
 # Flows
 
-A **flow** strings actions together and runs them in order, like Shortcuts on a Mac: open your browser, a terminal, and your music, then say good morning. Build it once on the **Flows** page (<kbd>Ctrl</kbd> + <kbd>4</kbd>) and start it from a keybind, the app launcher, at startup, or from any script.
+A **flow** strings actions together and runs them in order, like Shortcuts on a Mac: open your browser and a terminal, then say good morning. Build it once on the **Flows** page (<kbd>Ctrl</kbd> + <kbd>4</kbd>) and start it from a keybind, the app launcher, at startup, or from any script.
 
 <img src="/images/flows-light.webp" alt="Flows page" class="screenshot light-only">
 <img src="/images/flows-dark.webp" alt="Flows page" class="screenshot dark-only">
@@ -77,7 +77,7 @@ A template is a flow to start new flows from. Omarchist ships thirty built-in on
 
 | Template | What it does |
 | --- | --- |
-| **Morning start** | Opens your browser, a terminal, and music, then says hello. |
+| **Morning start** | Opens your browser and a terminal, then says hello. |
 | **Focus mode** | Moves to workspace 2 and opens your editor. |
 | **Wrap up** | Gives you five seconds, then locks the screen. |
 | **Deep work** | Silences notifications for 25 minutes, then reminds you to take a 5-minute break. |
@@ -143,7 +143,7 @@ on_error = "stop"
 
 [meta]
 author = "Taha"
-requires = ["spotify"]
+requires = ["jq"]
 
 [triggers]
 launcher = true
