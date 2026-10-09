@@ -7,6 +7,7 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 use serde_json::Value;
 
@@ -138,12 +139,42 @@ pub fn ensure_current() -> Result<Option<String>> {
         return Ok(None);
     }
     install()?;
-    rescan()?;
     if !newer {
+        rescan()?;
         return Ok(None);
     }
+    // A restart rescans on its own, and it must not hang on a rescan the
+    // shell's IPC fails to answer, which it does now and then.
     run("omarchy-restart-shell", &[])?;
+    // The restart script can report success while its new instance has
+    // refused to start ("already running", when the old one was still on
+    // its way out); a shell that is not back is launched the way Omarchy
+    // launches it, from Hyprland, so it gets the session's environment.
+    if !shell_answers(Duration::from_secs(3)) {
+        let _ = Command::new("hyprctl")
+            .args(["dispatch", "hl.dsp.exec_cmd(\"omarchy-launch-shell\")"])
+            .output();
+    }
     Ok(Some(embedded))
+}
+
+/// Whether the shell answers a ping within `wait`.
+fn shell_answers(wait: Duration) -> bool {
+    let deadline = Instant::now() + wait;
+    loop {
+        let ok = Command::new("omarchy-shell")
+            .args(["shell", "ping"])
+            .env("OMARCHY_SHELL_IPC_TIMEOUT", "0.5s")
+            .output()
+            .is_ok_and(|out| out.status.success());
+        if ok {
+            return true;
+        }
+        if Instant::now() >= deadline {
+            return false;
+        }
+        std::thread::sleep(Duration::from_millis(200));
+    }
 }
 
 fn rescan() -> Result<()> {
