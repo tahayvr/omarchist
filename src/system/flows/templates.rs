@@ -236,7 +236,9 @@ mod tests {
 
     #[test]
     fn a_flow_saved_as_a_template_loses_its_id_and_triggers() {
-        let dir = std::env::temp_dir().join(format!("omarchist-templates-{}", std::process::id()));
+        // A folder of its own: the tests run in parallel in one process.
+        let dir =
+            std::env::temp_dir().join(format!("omarchist-templates-save-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let mut flow = Flow::new("morning".into(), "Morning Start!".into());
         flow.steps = vec![super::super::Step::new(super::super::StepKind::Wait {
@@ -287,7 +289,8 @@ mod tests {
 
     #[test]
     fn a_user_template_file_is_read_without_an_id() {
-        let dir = std::env::temp_dir().join(format!("omarchist-templates-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("omarchist-templates-read-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
         let path = dir.join("night-shift.flow.toml");
         fs::write(&path, "name = \"Night shift\"\nid = \"whatever\"\n").unwrap();
