@@ -949,9 +949,14 @@ impl FlowsView {
     }
 }
 
+/// The page is centred and never wider than this, so a card's description
+/// and its step strip stay within a glance of its name on a wide screen.
+const PAGE_WIDTH: f32 = 1400.;
+
 impl Render for FlowsView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
-        let width = window.viewport_size().width;
+        // Columns from the width the grid gets, never more than the page.
+        let width = window.viewport_size().width.min(px(PAGE_WIDTH));
         self.columns = if width < px(700.) {
             1
         } else if width < px(1100.) {
@@ -967,7 +972,7 @@ impl Render for FlowsView {
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
             .size_full()
-            .gap_4()
+            .items_center()
             .on_action(cx.listener(|this, _: &FocusSearch, window, cx| {
                 this.focus_entry(window, cx);
             }))
@@ -1059,31 +1064,40 @@ impl Render for FlowsView {
             .on_action(cx.listener(|this, _: &GridDown, _, cx| this.move_row(true, cx)))
             .on_action(cx.listener(|this, _: &GridFirst, _, cx| this.set_focused(0, cx)))
             .on_action(cx.listener(|this, _: &GridLast, _, cx| this.set_focused(usize::MAX, cx)))
-            .child(self.render_toolbar(cx))
-            .children(self.render_problems(cx))
-            .map(|this| {
-                let scroll = div()
-                    .id("flows-grid")
+            .child(
+                v_flex()
+                    .w_full()
+                    .max_w(px(PAGE_WIDTH))
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
-                    .pb_8();
-                if self.filtered.is_empty() {
-                    // The empty state's buttons are ordinary tab stops, so it
-                    // stays outside the grid's roving focus container.
-                    this.child(scroll.child(self.render_empty(cx)))
-                } else {
-                    this.child(
-                        scroll
-                            .key_context(GRID_CONTEXT)
-                            .track_focus(&self.grid_focus)
-                            .flex()
-                            .flex_col()
-                            .gap_4()
-                            .children(self.render_grid(window, cx)),
-                    )
-                }
-            })
+                    .gap_4()
+                    .child(self.render_toolbar(cx))
+                    .children(self.render_problems(cx))
+                    .map(|this| {
+                        let scroll = div()
+                            .id("flows-grid")
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.scroll)
+                            .pb_8();
+                        if self.filtered.is_empty() {
+                            // The empty state's buttons are ordinary tab stops,
+                            // so it stays outside the grid's roving focus
+                            // container.
+                            this.child(scroll.child(self.render_empty(cx)))
+                        } else {
+                            this.child(
+                                scroll
+                                    .key_context(GRID_CONTEXT)
+                                    .track_focus(&self.grid_focus)
+                                    .flex()
+                                    .flex_col()
+                                    .gap_4()
+                                    .children(self.render_grid(window, cx)),
+                            )
+                        }
+                    }),
+            )
     }
 }
