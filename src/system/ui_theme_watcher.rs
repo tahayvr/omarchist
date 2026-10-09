@@ -462,9 +462,9 @@ pub fn apply_ui_theme(cx: &mut App) {
         }
     }
     apply_font_size(cx);
-    // Toasts rise from the bottom right, away from every page's toolbar
-    // and the editors' Save and Run, which sit top right.
-    Theme::global_mut(cx).notification.placement = gpui::Anchor::BottomRight;
+    // Toasts keep the corner `ui::toasts::install` chose; a theme change
+    // must not put them back over the toolbars.
+    Theme::global_mut(cx).notification.placement = crate::ui::toasts::PLACEMENT;
 }
 
 /// The text size the Settings page holds, in pixels.

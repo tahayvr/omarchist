@@ -11,6 +11,7 @@ use common::{
 };
 use gpui_kit::TestAppContext;
 use gpui_kit::component::WindowExt;
+use gpui_kit::test::TestAppContextExt;
 use gpui_kit::test::TestWindowExt;
 use omarchist::ActivePage;
 use omarchist::system::flows::{OnClick, StepKind};
@@ -1830,6 +1831,50 @@ fn changes_to_the_flow_are_undone_and_redone(cx: &mut TestAppContext) {
 
 use omarchist::system::flows::templates::template;
 use omarchist::ui::flows_page::flow_edit_view::flow_edit_nav::SaveAsTemplate;
+
+#[gpui_kit::test]
+async fn a_flow_deleted_from_its_menu_leaves_the_toolbar_clickable(cx: &mut TestAppContext) {
+    write_flow("ui-doomed", &PRINTS.replace("ui-prints", "ui-doomed"));
+    let (handle, view) = open(cx, ActivePage::Flows);
+    settle(cx, handle);
+    with(cx, handle, |window, cx| window.input("ui-doomed", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        window.click(("more-flow", 0usize), cx)
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        // Delete is the last item of the card's menu; items are their index.
+        let delete = (0..8usize)
+            .rev()
+            .find(|ix| window.try_find(*ix).is_some())
+            .expect("the menu is open");
+        window.click(delete, cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(window.has_active_dialog(cx), "the delete asks first");
+        window.click("ok", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert!(!window.has_active_dialog(cx), "the dialog is gone");
+        // The toast may still be sliding in from the bottom edge.
+        assert!(
+            window.try_find("notification").is_some(),
+            "the delete is confirmed by a toast"
+        );
+        // The toolbar must still take a click while the toast shows.
+        window.click("browse-templates", cx);
+    });
+    // The page's reload after the delete is still in flight; the
+    // navigation lands once the executor has run it all.
+    cx.wait_for(handle.into(), Duration::from_secs(2), |_, cx| {
+        *view.read(cx).active_page() == ActivePage::FlowTemplates
+    })
+    .await;
+    common::assert_page(cx, &view, ActivePage::FlowTemplates);
+}
 
 #[gpui_kit::test]
 fn a_flow_becomes_a_template_and_the_template_can_be_deleted(cx: &mut TestAppContext) {

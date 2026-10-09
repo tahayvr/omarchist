@@ -185,8 +185,14 @@ impl KeybindsTableDelegate {
             .cursor_pointer()
             .child(Icon::new(Icon::empty()).path("icons/pencil.svg").size_4())
             .tooltip(|window, cx| Tooltip::new("Edit").build(window, cx))
-            .on_click(move |_, window, cx| {
-                window.dispatch_action(Box::new(EditRow(row_ix)), cx);
+            // On the page's handle, as the context menu dispatches: a
+            // window-level dispatch goes to whatever is focused, which can
+            // be nothing after a dialog.
+            .on_click({
+                let page_focus = self.page_focus.clone();
+                move |_, window, cx| {
+                    page_focus.dispatch_action(&EditRow(row_ix), window, cx);
+                }
             })
             .into_any_element()
     }

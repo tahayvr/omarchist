@@ -61,9 +61,17 @@ impl Render for ToastsAboveDialogs {
 
 impl RootPlugin for ToastsAboveDialogs {}
 
-/// Registers the plugin for every window opened afterwards; call it after
-/// the kit's own `init`, which registers the layers it draws over.
+/// Where toasts rise from: the bottom right, away from every page's
+/// toolbar and the editors' Save and Run, which sit top right. A toast at
+/// the top covered those buttons for as long as it showed.
+pub const PLACEMENT: Anchor = Anchor::BottomRight;
+
+/// Registers the plugin for every window opened afterwards and sets the
+/// toast corner; call it after the kit's own `init`, which registers the
+/// layers it draws over. The app and the headless tests both call it, so a
+/// test window's toasts rise where the app's do.
 pub fn install(cx: &mut App) {
+    gpui_component::Theme::global_mut(cx).notification.placement = PLACEMENT;
     gpui_base::Root::register_plugin(cx, |_, cx| ToastsAboveDialogs {
         state: ToastStackState::default(),
         focus: cx.focus_handle().tab_stop(true),
