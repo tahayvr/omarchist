@@ -71,7 +71,7 @@ use crate::ui::keybinds_page::keybind_dialog::{
 };
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 use gpui_kit::TestSupportExt;
 
 const KEY_CONTEXT: &str = "FlowEditPage";
@@ -1453,7 +1453,8 @@ impl FlowEditPage {
         let on_stop = move |window: &mut Window, cx: &mut App| {
             view.update(cx, |this, cx| this.stop_rename(window, cx))
         };
-        let name = self.name.read(cx).value().trim().to_string();
+        // Drawn as a title; the field keeps the name as typed.
+        let name = title_case(self.name.read(cx).value().trim());
         let title = self.title.render(
             Title {
                 id: "flow-title",

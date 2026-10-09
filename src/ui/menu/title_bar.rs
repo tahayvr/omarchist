@@ -116,7 +116,7 @@ impl Render for MainTitleBar {
                                         }
                                         flows.iter().fold(menu, |menu, flow| {
                                             menu.menu_with_icon(
-                                                flow.name.clone(),
+                                                crate::ui::text::title_case(&flow.name),
                                                 Icon::empty().path(icon_path(&flow.icon)),
                                                 Box::new(app_menu::RunFlow(flow.id.clone())),
                                             )

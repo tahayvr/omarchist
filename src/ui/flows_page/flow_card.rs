@@ -12,7 +12,7 @@ use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::palette;
 use crate::ui::palette::Area;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 
 /// The flow's icon on a tinted square.
 pub fn icon_tile(icon: &str, size: Pixels, cx: &App) -> impl IntoElement {
@@ -204,7 +204,7 @@ pub fn template_card(
                         .child(
                             div()
                                 .font_weight(FontWeight::SEMIBOLD)
-                                .child(selectable("template-name", flow.name.clone())),
+                                .child(selectable("template-name", title_case(&flow.name))),
                         ),
                 )
                 .child(

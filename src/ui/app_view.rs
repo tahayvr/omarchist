@@ -103,6 +103,9 @@ impl ActivePage {
 }
 
 pub struct MainWindowView {
+    /// Whether the Flows page polls the run registry; `main.rs` turns it
+    /// on, headless tests leave it off.
+    watch_runs: bool,
     title_bar: Entity<MainTitleBar>,
     active_page: ActivePage,
     // Default page — always present
@@ -161,6 +164,7 @@ impl MainWindowView {
         let initial_sidebar_index = Self::sidebar_index_for(&initial_page).unwrap_or(0);
 
         let mut view = Self {
+            watch_runs: false,
             title_bar,
             active_page: ActivePage::Themes,
             themes_root,
@@ -366,6 +370,9 @@ impl MainWindowView {
             ActivePage::Flows => {
                 if self.flows_root.is_none() {
                     let flows_view = cx.new(|cx| FlowsView::new(window, cx));
+                    if self.watch_runs {
+                        flows_view.update(cx, |view, cx| view.watch_runs(cx));
+                    }
                     self.flows_root = Some(flows_view.clone().into());
                     self.flows_view = Some(flows_view);
                 } else if let Some(view) = &self.flows_view {
@@ -801,6 +808,15 @@ impl MainWindowView {
     fn move_sidebar_index(&mut self, index: usize, cx: &mut Context<Self>) {
         self.sidebar_index = index.min(SIDEBAR_ITEMS.len() - 1);
         cx.notify();
+    }
+
+    /// Starts the Flows page's poll of the run registry, now and for every
+    /// Flows page made later. `main.rs` calls it; tests never do.
+    pub fn watch_runs(&mut self, cx: &mut Context<Self>) {
+        self.watch_runs = true;
+        if let Some(view) = &self.flows_view {
+            view.update(cx, |view, cx| view.watch_runs(cx));
+        }
     }
 
     /// One sidebar page entry, with its focus ring.

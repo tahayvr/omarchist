@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tahayvr.omarchist",
   "name": "Omarchist",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "author": "tahayvr",
   "license": "MIT",
   "description": "Run and stop your Omarchist flows and open Omarchist from the bar.",

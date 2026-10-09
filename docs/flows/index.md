@@ -77,36 +77,36 @@ A template is a flow to start new flows from. Omarchist ships thirty built-in on
 
 | Template | What it does |
 | --- | --- |
-| **Morning start** | Opens your browser and a terminal, then says hello. |
-| **Focus mode** | Moves to workspace 2 and opens your editor. |
-| **Wrap up** | Gives you five seconds, then locks the screen. |
-| **Deep work** | Silences notifications for 25 minutes, then reminds you to take a 5-minute break. |
+| **Morning Start** | Opens your browser and a terminal, then says hello. |
+| **Focus Mode** | Moves to workspace 2 and opens your editor. |
+| **Wrap Up** | Gives you five seconds, then locks the screen. |
+| **Deep Work** | Silences notifications for 25 minutes, then reminds you to take a 5-minute break. |
 | **Meeting** | Unmutes your mic, keeps the screen awake, silences notifications, and opens Google Meet. |
 | **Present** | Hides the bar, silences notifications, keeps the screen awake with no screensaver, and moves to an empty workspace. |
-| **Done presenting** | Undoes **Present**: the bar, notifications, idle, and the screensaver come back. |
-| **Wind down** | Turns on the night light, dims the screen to 30%, and lowers the volume to 20%. |
-| **Battery saver** | Switches to the power-saver profile, dims the screen to 40%, and turns off the keyboard backlight. |
-| **Fix my connection** | Restarts Wi-Fi, Bluetooth, and audio. |
-| **Search selection** | Searches the web for the text you have selected, or for the words you start it with. Uses [input](/flows/input) in a [ready-made action](/flows/actions). |
-| **Daily note** | Opens today's note (`~/Notes/<date>.md`) in your editor, creating it the first time. |
-| **Clipboard log** | Adds what you copied to `~/clipboard-log.txt`, with the date and time, and shows it. |
-| **Where am I** | Shows the app, window and workspace you are on. |
-| **Quick note** | Asks for a line and adds it to `~/Notes/inbox.md`. Click the notification to open the file. Uses [steps that ask](/flows/asking). |
-| **Close an app** | Lists the apps that are open and closes the one you pick, after you confirm. |
-| **Wallpaper from a file** | Sets a picture as your wallpaper: the file you start it on, or one you pick. |
-| **Empty the trash** | Asks first, then empties the trash. |
-| **Open copied link** | Opens the link on your clipboard, or tells you there is none. Uses [If and Stop](/flows/logic). |
-| **Power by charger** | On battery: the power-saver profile and a dimmer screen. Plugged in: balanced and bright. |
+| **Done Presenting** | Undoes **Present**: the bar, notifications, idle, and the screensaver come back. |
+| **Wind Down** | Turns on the night light, dims the screen to 30%, and lowers the volume to 20%. |
+| **Battery Saver** | Switches to the power-saver profile, dims the screen to 40%, and turns off the keyboard backlight. |
+| **Fix My Connection** | Restarts Wi-Fi, Bluetooth, and audio. |
+| **Search Selection** | Searches the web for the text you have selected, or for the words you start it with. Uses [input](/flows/input) in a [ready-made action](/flows/actions). |
+| **Daily Note** | Opens today's note (`~/Notes/<date>.md`) in your editor, creating it the first time. |
+| **Clipboard Log** | Adds what you copied to `~/clipboard-log.txt`, with the date and time, and shows it. |
+| **Where Am I** | Shows the app, window and workspace you are on. |
+| **Quick Note** | Asks for a line and adds it to `~/Notes/inbox.md`. Click the notification to open the file. Uses [steps that ask](/flows/asking). |
+| **Close an App** | Lists the apps that are open and closes the one you pick, after you confirm. |
+| **Wallpaper from a File** | Sets a picture as your wallpaper: the file you start it on, or one you pick. |
+| **Empty the Trash** | Asks first, then empties the trash. |
+| **Open Copied Link** | Opens the link on your clipboard, or tells you there is none. Uses [If and Stop](/flows/logic). |
+| **Power by Charger** | On battery: the power-saver profile and a dimmer screen. Plugged in: balanced and bright. |
 | **Leave** | A menu to lock, suspend, restart, or shut down. Restart and shut down ask first. |
-| **Open my sites** | Opens each link of a list in your browser. |
-| **Four pomodoros** | Four rounds of 25 minutes of focus and a 5-minute break. |
-| **Look up text on screen** | Lets you drag over any text on screen, even in a picture, and searches the web for it. Uses [ready-made actions](/flows/actions). |
-| **Weather now** | Shows the weather where you are, from wttr.in, in a notification. |
-| **Tidy copied text** | Trims what you copied, turns it into Title Case, and copies it back. |
-| **Pick a color** | Pick any color on screen; click the notification to copy its code. |
-| **Archive files** | Packs the files you start it on into one archive in your home folder. Made for the **Files menu**. |
-| **Low battery** | Switches to power saver, dims the screen, and tells you. Made for the battery [automation](/flows/automations). |
-| **Headphones on** | Sets a comfortable volume when your headphones connect. Made for the Bluetooth automation. |
+| **Open My Sites** | Opens each link of a list in your browser. |
+| **Four Pomodoros** | Four rounds of 25 minutes of focus and a 5-minute break. |
+| **Look up Text on Screen** | Lets you drag over any text on screen, even in a picture, and searches the web for it. Uses [ready-made actions](/flows/actions). |
+| **Weather Now** | Shows the weather where you are, from wttr.in, in a notification. |
+| **Tidy Copied Text** | Trims what you copied, turns it into Title Case, and copies it back. |
+| **Pick a Color** | Pick any color on screen; click the notification to copy its code. |
+| **Archive Files** | Packs the files you start it on into one archive in your home folder. Made for the **Files menu**. |
+| **Low Battery** | Switches to power saver, dims the screen, and tells you. Made for the battery [automation](/flows/automations). |
+| **Headphones On** | Sets a comfortable volume when your headphones connect. Made for the Bluetooth automation. |
 
 ### Your own templates
 

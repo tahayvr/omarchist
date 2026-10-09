@@ -40,7 +40,7 @@ Panel {
     property var flows: []
     readonly property var runningFlows: root.flows.filter(function (flow) { return flow.running === true })
     readonly property string barTooltip: root.runningFlows.length === 0 ? "Omarchist"
-        : root.runningFlows.length === 1 ? "Omarchist · " + root.runningFlows[0].name + " is running"
+        : root.runningFlows.length === 1 ? "Omarchist · " + root.titleCase(root.runningFlows[0].name) + " is running"
         : "Omarchist · " + root.runningFlows.length + " flows are running"
     readonly property var views: [
         { label: "Themes", view: "themes", glyph: "\u{f03d8}", font: "" },
@@ -58,6 +58,22 @@ Panel {
     property string section: "views"
     property int viewIndex: 0
     property int flowIndex: 0
+
+    // Flow names are drawn as titles, as Omarchist draws them: every word
+    // capitalised but the connectors, the first and last always.
+    readonly property var connectors: ["a", "an", "the", "and", "or", "but", "nor", "of", "on", "in", "at", "to", "by", "for", "from", "with", "as", "up", "off", "into", "onto", "per", "via", "vs"]
+    function titleCase(name) {
+        var words = String(name).split(" ")
+        for (var i = 0; i < words.length; i++) {
+            var word = words[i]
+            if (i !== 0 && i !== words.length - 1 && root.connectors.indexOf(word.toLowerCase()) !== -1) {
+                words[i] = word.toLowerCase()
+            } else if (!/[A-Z]/.test(word.slice(1))) {
+                words[i] = word.charAt(0).toUpperCase() + word.slice(1)
+            }
+        }
+        return words.join(" ")
+    }
 
     function refresh() {
         if (!listProc.running) listProc.running = true
@@ -395,7 +411,7 @@ Panel {
                                         Text {
                                             width: parent.width
                                             textFormat: Text.PlainText
-                                            text: row.modelData.name
+                                            text: root.titleCase(row.modelData.name)
                                             color: root.fg
                                             font.family: root.face
                                             font.pixelSize: Style.font.body
@@ -441,7 +457,7 @@ Panel {
 
                                     PanelToolTip {
                                         visible: rowMouse.containsMouse
-                                        text: (row.running ? "Stop " : "Run ") + row.modelData.name
+                                        text: (row.running ? "Stop " : "Run ") + root.titleCase(row.modelData.name)
                                         fontFamily: root.face
                                     }
                                 }

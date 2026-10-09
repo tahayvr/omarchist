@@ -29,7 +29,7 @@ use crate::ui::flows_page::share_ui::warning_banner;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::flows_page::var_token;
 use crate::ui::focus;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 
 /// A flow on this machine that came from the gallery.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -509,7 +509,7 @@ pub fn open_gallery_detail(
     window: &mut Window,
     cx: &mut App,
 ) -> Entity<GalleryDetail> {
-    let title: SharedString = entry.name.clone().into();
+    let title: SharedString = title_case(&entry.name).into();
     let dialog = cx.new(|cx| GalleryDetail::new(entry, installs, verified, installed, cx));
     let view = dialog.clone();
     let list_focus = dialog.read(cx).list_focus.clone();

@@ -41,7 +41,7 @@ use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, impo
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::menu::app_menu;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 use crate::ui::toolbar;
 
 const KEY_CONTEXT: &str = "FlowsPage";
@@ -203,13 +203,14 @@ impl FlowsView {
             _subscriptions: subscriptions,
         };
         view.refresh(cx);
-        view.watch_runs(cx);
         view
     }
 
     /// Keeps `running_ids` current: the registry is a handful of small
     /// files, read off the UI thread, and the cards only redraw on a change.
-    fn watch_runs(&self, cx: &mut Context<Self>) {
+    /// Started from `main.rs`, like every loop that never ends: a headless
+    /// test window has none, so its scheduler sees only the test's own work.
+    pub fn watch_runs(&self, cx: &mut Context<Self>) {
         cx.spawn(async move |this, cx| {
             loop {
                 let ids: HashSet<String> = cx
@@ -666,11 +667,9 @@ impl FlowsView {
                             .flex_1()
                             .min_w_0()
                             .gap_0p5()
-                            .child(
-                                div().font_weight(FontWeight::SEMIBOLD).truncate().child(
-                                    selectable(("flow-name", filtered_ix), flow.name.clone()),
-                                ),
-                            )
+                            .child(div().font_weight(FontWeight::SEMIBOLD).truncate().child(
+                                selectable(("flow-name", filtered_ix), title_case(&flow.name)),
+                            ))
                             .child(
                                 div()
                                     .text_sm()

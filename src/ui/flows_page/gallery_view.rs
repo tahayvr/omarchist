@@ -28,7 +28,7 @@ use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 use crate::ui::toolbar;
 
 const KEY_CONTEXT: &str = "FlowGalleryPage";
@@ -407,10 +407,9 @@ impl GalleryView {
                                     .min_w_0()
                                     .gap_0p5()
                                     .child(
-                                        div()
-                                            .font_weight(FontWeight::SEMIBOLD)
-                                            .truncate()
-                                            .child(selectable("gallery-name", entry.name.clone())),
+                                        div().font_weight(FontWeight::SEMIBOLD).truncate().child(
+                                            selectable("gallery-name", title_case(&entry.name)),
+                                        ),
                                     )
                                     .child(
                                         h_flex()

@@ -13,7 +13,7 @@ use gpui_kit::TestSupportExt;
 use crate::system::flows::history::{self, Run, RunResult, StepResult};
 use crate::ui::flows_page::var_token;
 use crate::ui::focus;
-use crate::ui::text::selectable;
+use crate::ui::text::{selectable, title_case};
 
 pub const HISTORY_CONTEXT: &str = "RunHistory";
 
@@ -333,7 +333,7 @@ pub fn open_history_dialog(
     let dialog = cx.new(|cx| HistoryDialog::new(id, cx));
     let view = dialog.clone();
     let list_focus = dialog.read(cx).list_focus.clone();
-    let title: SharedString = format!("Runs of {name}").into();
+    let title: SharedString = format!("Runs of {}", title_case(name)).into();
     window.open_dialog(cx, move |d, window, _| {
         d.title(title.clone())
             .w(focus::dialog_width(640., window))
