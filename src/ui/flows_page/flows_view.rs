@@ -551,9 +551,9 @@ impl FlowsView {
     // MARK: Render
 
     fn render_toolbar(&self, cx: &mut Context<Self>) -> impl IntoElement {
-        // The toolbar never changes shape: deleting the last flow must not
-        // pull Templates and New flow out from under the pointer (the empty
-        // state offers them too, as its call to action).
+        // With no flows yet, the empty state offers the templates and a
+        // create button, so the header does not repeat it.
+        let show_new = !(self.loaded && self.flows.is_empty());
         toolbar::bar()
             .child(
                 div()
@@ -581,39 +581,43 @@ impl FlowsView {
                         }
                     }),
             )
-            .child(
-                Button::new("browse-templates")
-                    .label("Templates")
-                    .outline()
-                    .small()
-                    .tooltip_with_action("Templates", &BrowseTemplates, Some(KEY_CONTEXT))
-                    .cursor_pointer()
-                    .on_click({
-                        let page = self.focus_handle.clone();
-                        move |_, window, cx| page.dispatch_action(&BrowseTemplates, window, cx)
-                    }),
-            )
-            // A split button: the main half starts a blank flow, the
-            // arrow offers the other ways in.
-            .child(
-                DropdownButton::new("new-flow")
-                    .primary()
-                    .small()
-                    .button(
-                        Button::new("new-flow-main")
-                            .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
-                            .label("New flow")
-                            .tooltip_with_action("New flow", &NewFlow, Some(KEY_CONTEXT))
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
-                    )
-                    .dropdown_menu(|menu, _, _| {
-                        menu.menu("From scratch", Box::new(NewFlow))
-                            .menu("From template", Box::new(BrowseTemplates))
-                            .menu("From the gallery", Box::new(app_menu::OpenGallery))
-                            .menu("Import flow", Box::new(ImportFlow))
-                    }),
-            )
+            .when(show_new, |this| {
+                this.child(
+                    Button::new("browse-templates")
+                        .label("Templates")
+                        .outline()
+                        .small()
+                        .tooltip_with_action("Templates", &BrowseTemplates, Some(KEY_CONTEXT))
+                        .cursor_pointer()
+                        .on_click({
+                            let page = self.focus_handle.clone();
+                            move |_, window, cx| page.dispatch_action(&BrowseTemplates, window, cx)
+                        }),
+                )
+            })
+            .when(show_new, |this| {
+                // A split button: the main half starts a blank flow, the
+                // arrow offers the other ways in.
+                this.child(
+                    DropdownButton::new("new-flow")
+                        .primary()
+                        .small()
+                        .button(
+                            Button::new("new-flow-main")
+                                .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
+                                .label("New flow")
+                                .tooltip_with_action("New flow", &NewFlow, Some(KEY_CONTEXT))
+                                .cursor_pointer()
+                                .on_click(cx.listener(|this, _, _, cx| this.new_flow(cx))),
+                        )
+                        .dropdown_menu(|menu, _, _| {
+                            menu.menu("From scratch", Box::new(NewFlow))
+                                .menu("From template", Box::new(BrowseTemplates))
+                                .menu("From the gallery", Box::new(app_menu::OpenGallery))
+                                .menu("Import flow", Box::new(ImportFlow))
+                        }),
+                )
+            })
     }
 
     fn render_card(
