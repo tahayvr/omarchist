@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "tahayvr.omarchist",
   "name": "Omarchist",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "author": "tahayvr",
   "license": "MIT",
   "description": "Run and stop your Omarchist flows and open Omarchist from the bar.",
@@ -13,9 +13,9 @@
     "category": "Apps",
     "allowMultiple": false,
     "defaultSection": "right",
-    "defaults": { "icon": "\udb82\udc43" },
+    "defaults": { "icon": "" },
     "schema": [
-      { "key": "icon", "type": "string", "label": "Bar icon" }
+      { "key": "icon", "type": "string", "label": "Bar icon (a glyph; empty for the Omarchist logo)" }
     ]
   }
 }

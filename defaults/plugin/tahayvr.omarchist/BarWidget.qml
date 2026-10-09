@@ -5,7 +5,10 @@
 // `command` file next to this one.
 //
 // Every icon is a font glyph (Material Design Nerd Font, and the `omarchy`
-// font's logo) so it takes the bar's theme colors like Omarchy's own panels.
+// font's logo) so it takes the bar's theme colors like Omarchy's own panels;
+// the bar icon itself is Omarchist's logo, drawn as its pixels in the same
+// colors (a glyph of the user's choosing replaces it through the "icon"
+// setting).
 import QtQuick
 import QtQuick.Controls
 import Quickshell
@@ -18,7 +21,8 @@ Panel {
     moduleName: "tahayvr.omarchist"
     ipcTarget: "tahayvr.omarchist"
 
-    readonly property string icon: root.setting("icon", "\u{f0843}")
+    // A glyph to show instead of the logo; empty keeps the logo.
+    readonly property string icon: root.setting("icon", "")
     readonly property string pluginDir: Quickshell.env("HOME") + "/.config/omarchy/plugins/tahayvr.omarchist"
     readonly property string flowsDir: Quickshell.env("HOME") + "/.config/omarchist/flows"
     // Every `omarchist flow run` keeps a file here for as long as it runs.
@@ -191,11 +195,43 @@ Panel {
     }
     Timer { id: debounce; interval: 200; onTriggered: root.refresh() }
 
+    // The app icon, one tone: its rectangles on the 256 px canvas of
+    // `assets/logo/omarchist.png`, scaled to the button's optical canvas
+    // and filled with the color a glyph would take.
+    Component {
+        id: logo
+        Canvas {
+            id: mark
+            anchors.fill: parent
+            readonly property color tint: button.active && button.useActiveColor ? button.activeColor : button.foreground
+            onTintChanged: requestPaint()
+            onWidthChanged: requestPaint()
+            onPaint: {
+                var ctx = getContext("2d")
+                ctx.reset()
+                ctx.fillStyle = mark.tint
+                var unit = Math.min(width, height) / 256
+                var ox = (width - 256 * unit) / 2
+                var oy = (height - 256 * unit) / 2
+                var rects = [
+                    [7, 27, 23, 202], [95, 27, 23, 202], [21, 14, 84, 23], [21, 219, 84, 23],
+                    [138, 27, 23, 202], [226, 27, 23, 202], [151, 14, 84, 23], [151, 219, 84, 23],
+                    [185, 14, 16, 228]
+                ]
+                for (var i = 0; i < rects.length; i++) {
+                    var r = rects[i]
+                    ctx.fillRect(ox + r[0] * unit, oy + r[1] * unit, r[2] * unit, r[3] * unit)
+                }
+            }
+        }
+    }
+
     BarIconButton {
         id: button
         anchors.fill: parent
         bar: root.bar
         text: root.icon
+        iconComponent: root.icon === "" ? logo : null
         // Tinted while a flow runs, like Omarchy's own indicators.
         active: root.runningFlows.length > 0
         tooltipText: root.opened ? "" : root.barTooltip
