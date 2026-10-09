@@ -112,19 +112,22 @@ pub fn disable() -> Result<()> {
 }
 
 /// At startup: an enabled widget gets this build's files when they are
-/// newer or the binary moved. The shell keeps the widget it already
-/// created until it restarts, but the widget watches the command file, so
-/// a moved binary takes effect at once.
-pub fn ensure_current() -> Result<()> {
+/// newer or the binary moved. A moved binary takes effect at once, since
+/// the widget watches the command file; new files only take effect when
+/// the shell restarts, because it keeps the widget it already created, so
+/// a newer version restarts the shell. Returns the version that was put
+/// in place, when one was.
+pub fn ensure_current() -> Result<Option<String>> {
     if !is_enabled() {
-        return Ok(());
+        return Ok(None);
     }
     let dir = plugin_dir().ok_or(Error::UnknownDirectory("home"))?;
     let saved_command = fs::read_to_string(dir.join(COMMAND_FILE)).unwrap_or_default();
     let command = current_command()?;
     let installed = installed_version();
     let embedded = embedded_version()?;
-    if installed.as_deref() != Some(embedded.as_str()) {
+    let newer = installed.as_deref() != Some(embedded.as_str());
+    if newer {
         eprintln!(
             "Refreshing the bar widget: version {} -> {embedded}",
             installed.as_deref().unwrap_or("none")
@@ -132,10 +135,15 @@ pub fn ensure_current() -> Result<()> {
     } else if saved_command.trim() != command {
         eprintln!("Refreshing the bar widget: binary moved to {command}");
     } else {
-        return Ok(());
+        return Ok(None);
     }
     install()?;
-    rescan()
+    rescan()?;
+    if !newer {
+        return Ok(None);
+    }
+    run("omarchy-restart-shell", &[])?;
+    Ok(Some(embedded))
 }
 
 fn rescan() -> Result<()> {

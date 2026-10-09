@@ -67,6 +67,12 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
                 instance::Accepted::Rejected => continue,
                 instance::Accepted::Gone => break,
             };
+            // A stop is answered without the window coming forward: the
+            // bar widget and `flow stop` ask for one.
+            if let Some(id) = request.stop {
+                omarchist::system::flows::running::stop_local(&id);
+                continue;
+            }
             let page = match (request.view.as_deref(), request.theme) {
                 (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
                 (Some(view), _) => ActivePage::from_view_name(view),
@@ -116,6 +122,7 @@ fn main() -> ExitCode {
 
     // A running window takes the request instead of a second window opening.
     let request = instance::OpenRequest {
+        stop: None,
         view: cli_args.view.map(|view| view.name().to_string()),
         theme: cli_args.theme.clone(),
     };
@@ -168,12 +175,26 @@ fn main() -> ExitCode {
         if let Some(listener) = listener {
             serve_open_requests(listener, cx);
         }
-        if settings.settings.bar_widget && quattro {
-            std::thread::spawn(|| {
-                if let Err(e) = omarchist::system::bar_widget::ensure_current() {
-                    eprintln!("Failed to refresh the bar widget: {e}");
+        // The bar's layout says whether the widget is on, whatever the
+        // setting last recorded (`omarchy bar` changes the layout too).
+        if quattro && omarchist::system::bar_widget::is_enabled() {
+            cx.spawn(async move |cx| {
+                let refreshed = cx
+                    .background_spawn(async { omarchist::system::bar_widget::ensure_current() })
+                    .await;
+                match refreshed {
+                    Ok(Some(version)) => omarchist::ui::app_events::emit_async(
+                        cx,
+                        AppEvent::Success(format!("Bar widget updated to {version}")),
+                    ),
+                    Ok(None) => {}
+                    Err(e) => omarchist::ui::app_events::emit_async(
+                        cx,
+                        AppEvent::Error(format!("Could not refresh the bar widget: {e}")),
+                    ),
                 }
-            });
+            })
+            .detach();
         }
         // Launcher entries, startup hooks and the automations service name
         // the binary; keep them pointing at this one.

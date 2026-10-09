@@ -19,6 +19,8 @@ pub enum AppEvent {
     ReloadUiTheme,
     /// A failure to report as an error toast, from code without a window.
     Error(String),
+    /// Work completed off the UI thread, shown as a success toast.
+    Success(String),
     /// A caveat to report as a warning toast, from code without a window.
     Warning(String),
 }

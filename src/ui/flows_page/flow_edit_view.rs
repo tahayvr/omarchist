@@ -4,6 +4,7 @@ use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
+use crate::system::flows::running;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::heading;
 use crate::ui::notify;
@@ -385,6 +386,12 @@ impl FlowEditPage {
         self.flow.id.is_empty()
     }
 
+    /// The id of the saved flow this page holds with nothing unsaved, so a
+    /// navigation to that flow can keep the page as it is.
+    pub fn saved_id(&self, cx: &App) -> Option<&str> {
+        (!self.is_new() && !self.is_dirty(cx)).then_some(self.flow.id.as_str())
+    }
+
     /// Installed apps and other flows (for step summaries) and the keybinds
     /// (for the trigger row and the keybind dialog), off the UI thread.
     fn load_context(&mut self, cx: &mut Context<Self>) {
@@ -480,7 +487,16 @@ impl FlowEditPage {
                 }
                 cx.notify();
                 if was_new {
-                    // Reopen under the new id so triggers can refer to it.
+                    // A run started before the save is registered without
+                    // an id; it takes the new one so a stop can find it.
+                    if self.running {
+                        running::relabel_local(&flow);
+                    }
+                    // The page now holds a saved flow: the main view takes
+                    // the new id (so Back, triggers and a reopen refer to
+                    // it) and keeps this page, with a run in progress and
+                    // the marks under its steps.
+                    self.load_context(cx);
                     emit(cx, AppEvent::Navigate(ActivePage::FlowEdit(flow.id)));
                 }
             }
@@ -602,14 +618,22 @@ impl FlowEditPage {
                     let _ = tx.send_blocking(RunMessage::Event(run_id, event));
                 }),
                 None => {
+                    // Seen by the bar widget and the Flows page, which can
+                    // stop it as the Stop button here does.
+                    let _registered = running::register_in_app(&flow, "Editor", cancel.clone());
                     let mut recorder = Recorder::new(&flow, "Editor");
                     let outcome = runner.run(&flow, &mut |event| {
                         recorder.event(&event);
                         let _ = tx.send_blocking(RunMessage::Event(run_id, event));
                     });
-                    // A flow that was never saved has no history to add to.
+                    // A flow that was never saved has no history to add to;
+                    // one saved during the run has the id it was given then.
                     let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
-                    if let Err(e) = history::record(&flow.id, &run) {
+                    let id = _registered
+                        .as_ref()
+                        .and_then(|r| r.flow_id())
+                        .unwrap_or_else(|| flow.id.clone());
+                    if let Err(e) = history::record(&id, &run) {
                         eprintln!("{e}");
                     }
                     outcome

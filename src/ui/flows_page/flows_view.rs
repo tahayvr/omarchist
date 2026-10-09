@@ -1,6 +1,7 @@
 // The Flows page: every flow as a card, with search, run, and the way into
 // the editor. Cards form one tab stop with a roving index.
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
+use std::time::Duration;
 
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::notify;
@@ -19,6 +20,7 @@ use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::flows::catalog::{self, Catalog, Standing};
 use crate::system::flows::history;
 use crate::system::flows::runner::run_in_thread;
+use crate::system::flows::running;
 use crate::system::flows::store::{
     BrokenFlow, delete_flow, existing_ids, load_flows_with_broken, save_new_flow,
 };
@@ -30,7 +32,8 @@ use crate::system::keybinds::{BindStatus, Dispatcher};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::flow_card::{
-    LastRun, icon_tile, last_run, step_count_label, step_strip, template_card, trigger_chips,
+    LastRun, icon_tile, last_run, running_mark, step_count_label, step_strip, template_card,
+    trigger_chips,
 };
 use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
@@ -159,6 +162,9 @@ pub struct FlowsView {
     columns: usize,
     /// Id of the flow running from this page, if any.
     running: Option<String>,
+    /// Every flow running anywhere (a keybind, the bar, an automation,
+    /// the editor), read from the run registry every other second.
+    running_ids: HashSet<String>,
     scroll: ScrollHandle,
     _subscriptions: Vec<Subscription>,
 }
@@ -192,11 +198,58 @@ impl FlowsView {
             focused: None,
             columns: 1,
             running: None,
+            running_ids: HashSet::new(),
             scroll: ScrollHandle::new(),
             _subscriptions: subscriptions,
         };
         view.refresh(cx);
+        view.watch_runs(cx);
         view
+    }
+
+    /// Keeps `running_ids` current: the registry is a handful of small
+    /// files, read off the UI thread, and the cards only redraw on a change.
+    fn watch_runs(&self, cx: &mut Context<Self>) {
+        cx.spawn(async move |this, cx| {
+            loop {
+                let ids: HashSet<String> = cx
+                    .background_spawn(async {
+                        running::list().into_iter().map(|run| run.id).collect()
+                    })
+                    .await;
+                let alive = this
+                    .update(cx, |this, cx| {
+                        if this.running_ids != ids {
+                            this.running_ids = ids;
+                            cx.notify();
+                        }
+                    })
+                    .is_ok();
+                if !alive {
+                    break;
+                }
+                cx.background_executor().timer(Duration::from_secs(2)).await;
+            }
+        })
+        .detach();
+    }
+
+    /// Asks every run of the flow to stop, wherever it was started.
+    fn stop(&mut self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(flow) = self.flow_at(filtered_ix).cloned() else {
+            return;
+        };
+        let id = flow.id.clone();
+        cx.spawn_in(window, async move |_, cx| {
+            let stopped = cx.background_spawn(async move { running::stop(&id) }).await;
+            if stopped == 0 {
+                cx.update(|window, cx| {
+                    notify::info(window, format!("'{}' is not running", flow.name), cx)
+                })
+                .ok();
+            }
+        })
+        .detach();
     }
 
     pub fn focus_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
@@ -569,7 +622,8 @@ impl FlowsView {
     ) -> impl IntoElement {
         let theme = cx.theme();
         let focused = grid_focused && self.focused == Some(filtered_ix);
-        let running = self.running.as_deref() == Some(&flow.id);
+        let running =
+            self.running.as_deref() == Some(&flow.id) || self.running_ids.contains(&flow.id);
         let description = if flow.description.trim().is_empty() {
             step_count_label(flow)
         } else {
@@ -636,20 +690,33 @@ impl FlowsView {
                         h_flex()
                             .gap_0p5()
                             .flex_shrink_0()
-                            .child(
+                            .child(if running {
+                                // The play button becomes Stop while the
+                                // flow runs, wherever it was started.
+                                Button::new(("stop-flow", filtered_ix))
+                                    .ghost()
+                                    .xsmall()
+                                    .tab_stop(false)
+                                    .icon(Icon::new(Icon::empty()).path("icons/square.svg"))
+                                    .tooltip("Stop")
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(move |this, _, window, cx| {
+                                        cx.stop_propagation();
+                                        this.stop(filtered_ix, window, cx);
+                                    }))
+                            } else {
                                 Button::new(("run-flow", filtered_ix))
                                     .ghost()
                                     .xsmall()
                                     .tab_stop(false)
-                                    .loading(running)
                                     .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                                     .tooltip_with_action("Run", &RunSelected, Some(GRID_CONTEXT))
                                     .cursor_pointer()
                                     .on_click(cx.listener(move |this, _, window, cx| {
                                         cx.stop_propagation();
                                         this.run(filtered_ix, window, cx);
-                                    })),
-                            )
+                                    }))
+                            })
                             .child(
                                 Button::new(("edit-flow", filtered_ix))
                                     .ghost()
@@ -710,11 +777,17 @@ impl FlowsView {
                         self.standing(flow).as_ref(),
                         cx,
                     ))
-                    .children(
-                        self.last_runs
-                            .get(&flow.id)
-                            .map(|last| last_run(filtered_ix, *last, cx)),
-                    ),
+                    .child(if running {
+                        running_mark(filtered_ix, cx).into_any_element()
+                    } else {
+                        div()
+                            .children(
+                                self.last_runs
+                                    .get(&flow.id)
+                                    .map(|last| last_run(filtered_ix, *last, cx)),
+                            )
+                            .into_any_element()
+                    }),
             )
     }
 

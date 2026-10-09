@@ -11,6 +11,7 @@ use crate::system::keybinds::chord::Chord;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::keybinds_page::chord_chips::chord_chips;
 use crate::ui::palette;
+use crate::ui::palette::Area;
 use crate::ui::text::selectable;
 
 /// The flow's icon on a tinted square.
@@ -113,6 +114,22 @@ pub fn last_run(ix: usize, (started, result): LastRun, cx: &App) -> impl IntoEle
                 .text_color(color),
         )
         .child(history::ago(started, chrono::Local::now().timestamp()))
+}
+
+/// "Running", in the Flows colour, while the flow runs anywhere.
+pub fn running_mark(ix: usize, cx: &App) -> impl IntoElement {
+    let accent = Area::Flows.accent(cx);
+    h_flex()
+        .id(("flow-running", ix))
+        .test_support()
+        .flex_shrink_0()
+        .gap_1()
+        .items_center()
+        .text_xs()
+        .font_weight(FontWeight::MEDIUM)
+        .text_color(accent)
+        .child(Icon::new(Icon::empty()).path("icons/play.svg").size_3())
+        .child("Running")
 }
 
 /// The steps as a row of small icons joined by chevrons, so a card shows

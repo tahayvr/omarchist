@@ -18,6 +18,8 @@ omarchy bar move tahayvr.omarchist --section left --index 1
 
 Switch the setting off to take the widget off the bar. The files stay, so switching it back on is instant. To delete them too, run `omarchy plugin remove tahayvr.omarchist`.
 
+When an Omarchist update brings a newer widget, the app installs it at its next start and restarts the shell so the bar picks it up, and says so with a notification.
+
 ## Use it
 
 - **Click** the widget to open its panel.

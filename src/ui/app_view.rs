@@ -378,6 +378,14 @@ impl MainWindowView {
             | ActivePage::FlowNew(_)
             | ActivePage::FlowImport(_)
             | ActivePage::FlowUpdate(..) => {
+                // The editor that just saved this flow (a first save gives
+                // it its id) stays, run in progress and all.
+                if let ActivePage::FlowEdit(id) = page
+                    && let Some(view) = &self.flow_edit_view
+                    && view.read(cx).saved_id(cx) == Some(id.as_str())
+                {
+                    return;
+                }
                 let source = match page {
                     ActivePage::FlowEdit(id) => FlowEditSource::Existing(id.clone()),
                     ActivePage::FlowNew(template) => FlowEditSource::New(template.clone()),
@@ -695,6 +703,7 @@ impl MainWindowView {
             }
             AppEvent::Error(message) => notify::error(window, message, cx),
             AppEvent::Warning(message) => notify::warning(window, message, cx),
+            AppEvent::Success(message) => notify::success(window, message, cx),
         }
     }
 

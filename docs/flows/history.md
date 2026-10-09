@@ -37,7 +37,7 @@ What started a run reads as **Keybind**, **Launcher**, **Startup**, **Files menu
 
 ## Stop a running flow
 
-**Stop** in the editor ends the run you started there. The [bar widget](/configuring/bar-widget) shows every flow that is running, with a stop button. From a terminal, use the flow's name or id:
+A flow that is running shows **Running** on its card on the Flows page, with a stop button in place of the play button, and the [bar widget](/configuring/bar-widget) lists it with a stop button too, whatever started it: a keybind, an automation, the editor, or a card. **Stop** in the editor ends the run you started there. From a terminal, use the flow's name or id:
 
 ```bash
 omarchist flow stop morning-start

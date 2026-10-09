@@ -26,6 +26,18 @@ pub struct OpenRequest {
     pub view: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub theme: Option<String>,
+    /// The id of a flow whose runs inside the window should stop.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stop: Option<String>,
+}
+
+/// Asks the running window to stop its runs of the flow `id`. `false`
+/// when no window answered.
+pub fn request_stop(id: &str) -> bool {
+    forward(&OpenRequest {
+        stop: Some(id.to_string()),
+        ..OpenRequest::default()
+    })
 }
 
 pub fn socket_path() -> Option<PathBuf> {
@@ -152,6 +164,7 @@ mod tests {
         let request = OpenRequest {
             view: Some("themes".into()),
             theme: Some("my-theme".into()),
+            stop: None,
         };
         let line = serde_json::to_string(&request).unwrap();
         assert!(!line.contains('\n'));
@@ -183,7 +196,8 @@ mod tests {
             server.join().unwrap(),
             Accepted::Request(OpenRequest {
                 view: Some("flows".into()),
-                theme: None
+                theme: None,
+                stop: None,
             })
         );
         std::fs::remove_dir_all(&dir).ok();
