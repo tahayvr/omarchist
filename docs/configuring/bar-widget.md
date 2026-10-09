@@ -33,7 +33,7 @@ The list updates as you add, rename, or delete flows in Omarchist, and as flows 
 
 ## Change the icon
 
-The widget shows a Nerd Font glyph, a dashboard by default. Change it with the bar's settings for the widget:
+The widget shows the Omarchist logo in the bar's colors. To show a Nerd Font glyph instead, set it with the bar's settings for the widget; an empty value brings the logo back:
 
 ```bash
 omarchy bar set tahayvr.omarchist icon "󰐊"
@@ -41,4 +41,4 @@ omarchy bar set tahayvr.omarchist icon "󰐊"
 
 ## How it works
 
-The widget is a panel built from Omarchy's own `qs.Ui` parts, like the Power and Agents panels. Every icon is a Nerd Font glyph, so it takes the bar's colors and font and follows your theme. It runs `omarchist flow list --json` to read your flows and whether each is running, `omarchist flow run <id>` to run one, and `omarchist flow stop <id>` to stop one. Omarchist writes the path of its own binary into a `command` file in the widget's folder when it installs the widget, and the widget watches that file, so it works even when `omarchist` is not on your `PATH` and follows the binary when Omarchist moves. When you update Omarchist, the app refreshes the widget's files on its next start; the shell loads new widget files when it restarts.
+The widget is a panel built from Omarchy's own `qs.Ui` parts, like the Power and Agents panels. Every icon inside it is a Nerd Font glyph, and the logo on the bar is drawn in the same color, so the widget takes the bar's colors and font and follows your theme. It runs `omarchist flow list --json` to read your flows and whether each is running, `omarchist flow run <id>` to run one, and `omarchist flow stop <id>` to stop one. Omarchist writes the path of its own binary into a `command` file in the widget's folder when it installs the widget, and the widget watches that file, so it works even when `omarchist` is not on your `PATH` and follows the binary when Omarchist moves. When you update Omarchist, the app refreshes the widget's files on its next start; the shell loads new widget files when it restarts.

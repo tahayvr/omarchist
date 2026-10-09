@@ -41,7 +41,7 @@ The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own optio
 
 | Section | Options |
 | --- | --- |
-| **Appearance** | Font size. Look: follow the desktop theme's light or dark mode, or force one. The gear menu's light and dark switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. |
+| **Appearance** | Font size. Look: **Omarchy** colors the app with your desktop theme's palette, including its accent and terminal colors; **Light** and **Dark** use Omarchist's own. The gear menu's Appearance switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. |
 | **Startup** | The page Omarchist opens on when you start it without `--view`, or the page you used last. |
 | **Omarchy Updates** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. |
 | **Theme Designer** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |

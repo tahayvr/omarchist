@@ -32,9 +32,9 @@ Four tabs make a complete theme:
 
 | Tab | What it sets |
 | --- | --- |
-| **General** | The author and **Light mode**, saved as `mode` in `colors.toml`. To rename the theme, click its name in the header. |
+| **General** | The author and **Light mode**, saved as `mode` in `colors.toml`. To rename the theme, click its name in the header, or press <kbd>Enter</kbd> on it. |
 | **Colors** | Accent, background, foreground, selection, and the 16 ANSI colors, plus the window border colors (any Hyprland color, gradients included). Everything else is generated from these. |
-| **Backgrounds** | Wallpapers, copied into the theme folder, and the optional [boot logo](#boot-logo). |
+| **Backgrounds** | Wallpapers, shown as cards with a remove button and copied into the theme folder, and the optional [boot logo](#boot-logo). |
 | **Icons** | The Yaru icon color for GTK apps and the file manager, saved as `icons.theme`. A theme made from an image starts with the color closest to its accent. |
 
 Omarchy generates every app's look from these: terminals, the bar, notifications, btop, Neovim, VS Code, and the rest. You do not set them one by one.

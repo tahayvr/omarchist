@@ -11,14 +11,14 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 
 Each card shows a flow's steps and how it can be started. **Run** starts it, the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates it, saves it as a [template](#your-own-templates), exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
 
-**New flow** starts a blank flow. **Templates**, next to it, opens the starter flows and your own templates. **Gallery** opens the flows other people shared; see [Gallery](/flows/gallery). Its arrow offers **From scratch**, **From template**, **From the gallery**, and **Import flow**. The **Flows** menu in the title bar has the same from any page, plus **Run** for every saved flow.
+**New flow** starts a blank flow; its arrow offers **From scratch**, **From template**, **From the gallery**, and **Import flow**. **Templates**, next to it, opens the starter flows and your own templates. **Gallery** opens the flows other people shared; see [Gallery](/flows/gallery). The **Flows** menu in the title bar has the same from any page, plus **Run** for every saved flow.
 
 ## Building a flow
 
 <img src="/images/flow-editor-light.webp" alt="Flow editor" class="screenshot light-only">
 <img src="/images/flow-editor-dark.webp" alt="Flow editor" class="screenshot dark-only">
 
-Click the name in the header to change it, and the icon next to it to pick another. Then press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) for each step.
+Click the name in the header to change it, and the icon next to it to pick another from a searchable grid. Then press **Add step** (<kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd>) for each step. Every step wears the color of its group, so a glance at a card or a step list tells apps, desktop actions, questions, and logic apart.
 
 | Step | Does |
 | --- | --- |
@@ -36,13 +36,13 @@ Click the name in the header to change it, and the icon next to it to pick anoth
 <img src="/images/add-step-light.webp" alt="The list of step types" class="screenshot light-only">
 <img src="/images/add-step-dark.webp" alt="The list of step types" class="screenshot dark-only">
 
-**Add step** opens a list of every kind of step, grouped and searchable: type a few letters and press <kbd>Enter</kbd>, or move with the arrow keys. The row under the search narrows the list to one group. **Change** in a step's form goes back to the list.
+**Add step** opens a list of every kind of step, grouped and searchable: type a few letters and press <kbd>Enter</kbd>, or move with the arrow keys. The row under the search narrows the list to one group. **Change** in a step's form goes back to the list. A **Choose from a list** step takes its options one per field: <kbd>Enter</kbd> in a field adds the next one, and each has a remove button.
 
 A command step starts its program and moves on, which is what opening an app needs; a program that cannot start still fails the step. Turn on **Wait until it finishes** when the next step depends on it having completed; the step list marks such steps with *waits*. The switch on a step turns it off without removing it; the arrows move it up and down. **Keep going when a step fails** lets the rest of the flow run after an error.
 
 A step can pass what it produced to later steps: save its output under a name and use it as `{{name}}`. See [Variables](/flows/variables).
 
-A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install.
+A step whose program is not installed says so under the command. Nothing stops you from saving; it tells you what to install. Anything that goes wrong, such as a save the flow refuses, shows up as a notification in the corner, never as text in the page.
 
 **Run** (<kbd>Ctrl</kbd> + <kbd>Enter</kbd>) runs the flow as it is in the editor, showing each step's result and, under a failed step, why it failed. **Stop** ends the run after the current step and stops a command the flow is waiting for. Every run, from here or from anywhere else, is kept in the flow's [run history](/flows/history). **Save** (<kbd>Ctrl</kbd> + <kbd>S</kbd>) writes it; leaving with unsaved changes asks first, and so does closing Omarchist.
 

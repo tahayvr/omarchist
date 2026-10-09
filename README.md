@@ -67,6 +67,10 @@ Start from a template or from the Gallery, where people share flows that reviewe
 
 Every page, dialog, and control works without a mouse. `Ctrl+/` lists every shortcut and `Ctrl+Shift+P` opens a command palette.
 
+### Follows your theme
+
+Omarchist colors itself with your Omarchy theme: its accent, its background, and its terminal colors, which tell the pages and the kinds of steps apart. Or pick Omarchist's own light or dark look in Settings.
+
 ## Acknowledgements
 
 - Thanks [@dhh](https://github.com/dhh) for Omarchy

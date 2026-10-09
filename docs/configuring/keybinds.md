@@ -9,7 +9,7 @@ The **Keybinds** page (<kbd>Ctrl</kbd> + <kbd>3</kbd>) lists every keyboard shor
 <img src="/images/keybinds-light.webp" alt="Keybinds page" class="screenshot light-only">
 <img src="/images/keybinds-dark.webp" alt="Keybinds page" class="screenshot dark-only">
 
-Each row shows the bind's description, its keys, the command or dispatcher it runs, and where it comes from: **Default** binds ship with Omarchy, **User** binds come from your own config files (usually `~/.config/hypr/bindings.lua`), and **Omarchist** binds are the ones you added here. A second tag says what happened to a bind:
+Each row shows what the bind does, with an icon for its kind (an app, a window action, a command, a flow), its keys, the command or dispatcher it runs, and where it comes from: **Default** binds ship with Omarchy, **User** binds come from your own config files (usually `~/.config/hypr/bindings.lua`), and **Omarchist** binds are the ones you added here. A second tag says what happened to a bind:
 
 | Tag | Meaning |
 | --- | --- |
