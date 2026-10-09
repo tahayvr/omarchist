@@ -249,10 +249,14 @@ impl TemplatesView {
     }
 }
 
+/// The page is centred and never wider than this, like the Flows page.
+const PAGE_WIDTH: f32 = 1400.;
+
 impl Render for TemplatesView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let muted = cx.theme().muted_foreground;
-        let width = window.viewport_size().width;
+        // Columns from the width the grid gets, never more than the page.
+        let width = window.viewport_size().width.min(px(PAGE_WIDTH));
         let columns = if width < px(700.) {
             1
         } else if width < px(1100.) {
@@ -279,87 +283,99 @@ impl Render for TemplatesView {
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &app_menu::NavigateBack, _, cx| this.back(cx)))
             .size_full()
-            .gap_6()
+            .items_center()
             .child(
-                toolbar::bar()
-                    .child(
-                        toolbar::back(
-                            "templates-back",
-                            "Back to Flows",
-                            &app_menu::NavigateBack,
-                            Some(KEY_CONTEXT),
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
-                    )
-                    .child(toolbar::title("Templates"))
-                    .child(
-                        div()
-                            .key_context(SEARCH_CONTEXT)
-                            .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
-                                this.clear_search(window, cx)
-                            }))
-                            .w(px(toolbar::SEARCH_WIDTH))
-                            .max_w_full()
-                            .child(toolbar::search_input(&self.search).id("templates-search")),
-                    ),
-            )
-            .child(
-                div()
-                    .id("templates-scroll")
+                v_flex()
+                    .w_full()
+                    .max_w(px(PAGE_WIDTH))
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
-                    .pb_8()
-                    .when(!self.loaded, |this| {
-                        this.child(
-                            div()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(selectable("templates-loading", "Loading templates…")),
-                        )
-                    })
-                    .when(nothing, |this| {
-                        this.child(
-                            div()
-                                .id("templates-none")
-                                .test_support()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(selectable("templates-no-match", "No template matches")),
-                        )
-                    })
-                    .when(self.loaded && !nothing, |this| {
-                        this.child(
-                            focus::scroll_area(&self.scroll).child(
-                                v_flex()
-                                    .gap_8()
-                                    .max_w(px(1200.))
-                                    // The user's own come first: they are
-                                    // the ones made for this machine.
-                                    .when(!user.is_empty(), |this| {
-                                        this.child(self.render_group(
-                                            "YOURS",
-                                            "user-template",
-                                            &user,
-                                            &summaries,
-                                            columns,
-                                            cx,
-                                        ))
-                                    })
-                                    .when(!built_in.is_empty(), |this| {
-                                        this.child(self.render_group(
-                                            "BUILT IN",
-                                            "built-in-template",
-                                            &built_in,
-                                            &summaries,
-                                            columns,
-                                            cx,
-                                        ))
-                                    }),
+                    .gap_6()
+                    .child(
+                        toolbar::bar()
+                            .child(
+                                toolbar::back(
+                                    "templates-back",
+                                    "Back to Flows",
+                                    &app_menu::NavigateBack,
+                                    Some(KEY_CONTEXT),
+                                )
+                                .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
+                            )
+                            .child(toolbar::title("Templates"))
+                            .child(
+                                div()
+                                    .key_context(SEARCH_CONTEXT)
+                                    .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
+                                        this.clear_search(window, cx)
+                                    }))
+                                    .w(px(toolbar::SEARCH_WIDTH))
+                                    .max_w_full()
+                                    .child(
+                                        toolbar::search_input(&self.search).id("templates-search"),
+                                    ),
                             ),
-                        )
-                    }),
+                    )
+                    .child(
+                        div()
+                            .id("templates-scroll")
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.scroll)
+                            .pb_8()
+                            .when(!self.loaded, |this| {
+                                this.child(
+                                    div().text_sm().text_color(muted).child(selectable(
+                                        "templates-loading",
+                                        "Loading templates…",
+                                    )),
+                                )
+                            })
+                            .when(nothing, |this| {
+                                this.child(
+                                    div()
+                                        .id("templates-none")
+                                        .test_support()
+                                        .text_sm()
+                                        .text_color(muted)
+                                        .child(selectable(
+                                            "templates-no-match",
+                                            "No template matches",
+                                        )),
+                                )
+                            })
+                            .when(self.loaded && !nothing, |this| {
+                                this.child(
+                                    focus::scroll_area(&self.scroll).child(
+                                        v_flex()
+                                            .gap_8()
+                                            // The user's own come first: they are
+                                            // the ones made for this machine.
+                                            .when(!user.is_empty(), |this| {
+                                                this.child(self.render_group(
+                                                    "YOURS",
+                                                    "user-template",
+                                                    &user,
+                                                    &summaries,
+                                                    columns,
+                                                    cx,
+                                                ))
+                                            })
+                                            .when(!built_in.is_empty(), |this| {
+                                                this.child(self.render_group(
+                                                    "BUILT IN",
+                                                    "built-in-template",
+                                                    &built_in,
+                                                    &summaries,
+                                                    columns,
+                                                    cx,
+                                                ))
+                                            }),
+                                    ),
+                                )
+                            }),
+                    ),
             )
     }
 }

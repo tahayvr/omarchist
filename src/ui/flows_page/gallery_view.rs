@@ -625,11 +625,15 @@ impl GalleryView {
     }
 }
 
+/// The page is centred and never wider than this, like the Flows page.
+const PAGE_WIDTH: f32 = 1400.;
+
 impl Render for GalleryView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let muted = theme.muted_foreground;
-        let width = window.viewport_size().width;
+        // Columns from the width the grid gets, never more than the page.
+        let width = window.viewport_size().width.min(px(PAGE_WIDTH));
         let columns = if width < px(700.) {
             1
         } else if width < px(1100.) {
@@ -663,147 +667,160 @@ impl Render for GalleryView {
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &app_menu::NavigateBack, _, cx| this.back(cx)))
             .size_full()
-            .gap_4()
+            .items_center()
             .child(
-                toolbar::bar()
-                    .child(
-                        toolbar::back(
-                            "gallery-back",
-                            "Back to Flows",
-                            &app_menu::NavigateBack,
-                            Some(KEY_CONTEXT),
-                        )
-                        .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
-                    )
-                    .child(toolbar::title("Gallery"))
-                    .child(
-                        div()
-                            .key_context(SEARCH_CONTEXT)
-                            .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
-                                this.clear_search(window, cx)
-                            }))
-                            .w(px(toolbar::SEARCH_WIDTH))
-                            .max_w_full()
-                            .child(toolbar::search_input(&self.search).id("gallery-search")),
-                    )
-                    .child(toolbar::spacer())
-                    .child(
-                        Button::new("gallery-reload")
-                            .ghost()
-                            .small()
-                            .loading(self.loading)
-                            .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
-                            .tooltip_with_action("Reload", &focus::ReloadPage, None)
-                            .cursor_pointer()
-                            .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
-                    ),
-            )
-            .when(!nothing_loaded, |this| {
-                this.child(
-                    h_flex()
-                        .gap_3()
-                        .items_start()
-                        .justify_between()
-                        .child(self.render_filters(window, cx))
-                        .child(self.render_sort(window, cx)),
-                )
-            })
-            // What is still in review is on GitHub, not in the gallery yet.
-            .when(self.filter == Filter::Mine, |this| {
-                let url = catalog::submissions_url(&self.author);
-                this.child(
-                    h_flex().child(
-                        Button::new("gallery-my-requests")
-                            .ghost()
-                            .small()
-                            .icon(Icon::new(Icon::empty()).path("icons/external-link.svg"))
-                            .label("Your pull requests on GitHub")
-                            .cursor_pointer()
-                            .on_click(move |_, _, cx| cx.open_url(&url)),
-                    ),
-                )
-            })
-            .child(
-                div()
-                    .id("gallery-scroll")
+                v_flex()
+                    .w_full()
+                    .max_w(px(PAGE_WIDTH))
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .track_scroll(&self.scroll)
-                    .pb_8()
-                    .when(nothing_loaded && self.loading, |this| {
+                    .gap_4()
+                    .child(
+                        toolbar::bar()
+                            .child(
+                                toolbar::back(
+                                    "gallery-back",
+                                    "Back to Flows",
+                                    &app_menu::NavigateBack,
+                                    Some(KEY_CONTEXT),
+                                )
+                                .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
+                            )
+                            .child(toolbar::title("Gallery"))
+                            .child(
+                                div()
+                                    .key_context(SEARCH_CONTEXT)
+                                    .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
+                                        this.clear_search(window, cx)
+                                    }))
+                                    .w(px(toolbar::SEARCH_WIDTH))
+                                    .max_w_full()
+                                    .child(
+                                        toolbar::search_input(&self.search).id("gallery-search"),
+                                    ),
+                            )
+                            .child(toolbar::spacer())
+                            .child(
+                                Button::new("gallery-reload")
+                                    .ghost()
+                                    .small()
+                                    .loading(self.loading)
+                                    .icon(Icon::new(Icon::empty()).path("icons/refresh-cw.svg"))
+                                    .tooltip_with_action("Reload", &focus::ReloadPage, None)
+                                    .cursor_pointer()
+                                    .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
+                            ),
+                    )
+                    .when(!nothing_loaded, |this| {
                         this.child(
-                            div()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(selectable("gallery-loading", "Opening the gallery…")),
-                        )
-                    })
-                    .when(nothing_loaded && !self.loading, |this| {
-                        this.child(
-                            v_flex()
-                                .id("gallery-unreachable")
-                                .test_support()
+                            h_flex()
                                 .gap_3()
                                 .items_start()
-                                .child(div().text_sm().text_color(muted).child(selectable(
-                                    "gallery-error",
-                                    self.error.clone().unwrap_or_else(|| {
-                                        "The gallery could not be opened".to_string()
-                                    }),
-                                )))
-                                .child(
-                                    Button::new("gallery-retry")
-                                        .outline()
-                                        .small()
-                                        .label("Try again")
-                                        .cursor_pointer()
-                                        .on_click(cx.listener(|this, _, _, cx| this.refresh(cx))),
-                                ),
+                                .justify_between()
+                                .child(self.render_filters(window, cx))
+                                .child(self.render_sort(window, cx)),
                         )
                     })
-                    .when(!nothing_loaded && entries.is_empty(), |this| {
+                    // What is still in review is on GitHub, not in the gallery yet.
+                    .when(self.filter == Filter::Mine, |this| {
+                        let url = catalog::submissions_url(&self.author);
                         this.child(
-                            div()
-                                .id("gallery-none")
-                                .test_support()
-                                .text_sm()
-                                .text_color(muted)
-                                .child(selectable("gallery-no-match", "No flow matches")),
-                        )
-                    })
-                    .when(!entries.is_empty(), |this| {
-                        this.child(
-                            focus::scroll_area(&self.scroll).child(
-                                v_flex()
-                                    .gap_8()
-                                    .max_w(px(1200.))
-                                    .when(!featured.is_empty(), |this| {
-                                        this.child(
-                                            v_flex()
-                                                .gap_3()
-                                                .child(label("Featured", cx))
-                                                .child(self.render_grid(&featured, 0, columns, cx)),
-                                        )
-                                    })
-                                    .when(!rest.is_empty(), |this| {
-                                        this.child(
-                                            v_flex()
-                                                .gap_3()
-                                                .when(!featured.is_empty(), |this| {
-                                                    this.child(label("All flows", cx))
-                                                })
-                                                .child(self.render_grid(
-                                                    &rest,
-                                                    featured.len(),
-                                                    columns,
-                                                    cx,
-                                                )),
-                                        )
-                                    }),
+                            h_flex().child(
+                                Button::new("gallery-my-requests")
+                                    .ghost()
+                                    .small()
+                                    .icon(Icon::new(Icon::empty()).path("icons/external-link.svg"))
+                                    .label("Your pull requests on GitHub")
+                                    .cursor_pointer()
+                                    .on_click(move |_, _, cx| cx.open_url(&url)),
                             ),
                         )
-                    }),
+                    })
+                    .child(
+                        div()
+                            .id("gallery-scroll")
+                            .flex_1()
+                            .min_h_0()
+                            .overflow_y_scroll()
+                            .track_scroll(&self.scroll)
+                            .pb_8()
+                            .when(nothing_loaded && self.loading, |this| {
+                                this.child(
+                                    div().text_sm().text_color(muted).child(selectable(
+                                        "gallery-loading",
+                                        "Opening the gallery…",
+                                    )),
+                                )
+                            })
+                            .when(nothing_loaded && !self.loading, |this| {
+                                this.child(
+                                    v_flex()
+                                        .id("gallery-unreachable")
+                                        .test_support()
+                                        .gap_3()
+                                        .items_start()
+                                        .child(div().text_sm().text_color(muted).child(selectable(
+                                            "gallery-error",
+                                            self.error.clone().unwrap_or_else(|| {
+                                                "The gallery could not be opened".to_string()
+                                            }),
+                                        )))
+                                        .child(
+                                            Button::new("gallery-retry")
+                                                .outline()
+                                                .small()
+                                                .label("Try again")
+                                                .cursor_pointer()
+                                                .on_click(
+                                                    cx.listener(|this, _, _, cx| this.refresh(cx)),
+                                                ),
+                                        ),
+                                )
+                            })
+                            .when(!nothing_loaded && entries.is_empty(), |this| {
+                                this.child(
+                                    div()
+                                        .id("gallery-none")
+                                        .test_support()
+                                        .text_sm()
+                                        .text_color(muted)
+                                        .child(selectable("gallery-no-match", "No flow matches")),
+                                )
+                            })
+                            .when(!entries.is_empty(), |this| {
+                                this.child(
+                                    focus::scroll_area(&self.scroll).child(
+                                        v_flex()
+                                            .gap_8()
+                                            .when(!featured.is_empty(), |this| {
+                                                this.child(
+                                                    v_flex()
+                                                        .gap_3()
+                                                        .child(label("Featured", cx))
+                                                        .child(self.render_grid(
+                                                            &featured, 0, columns, cx,
+                                                        )),
+                                                )
+                                            })
+                                            .when(!rest.is_empty(), |this| {
+                                                this.child(
+                                                    v_flex()
+                                                        .gap_3()
+                                                        .when(!featured.is_empty(), |this| {
+                                                            this.child(label("All flows", cx))
+                                                        })
+                                                        .child(self.render_grid(
+                                                            &rest,
+                                                            featured.len(),
+                                                            columns,
+                                                            cx,
+                                                        )),
+                                                )
+                                            }),
+                                    ),
+                                )
+                            }),
+                    ),
             )
     }
 }
