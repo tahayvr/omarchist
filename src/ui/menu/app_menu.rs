@@ -23,7 +23,7 @@ actions!(
         NewKeybind,
         NewFlow,
         NewFlowFromTemplate,
-        OpenGallery,
+        OpenCatalog,
         ImportFlow,
         // Theme edit actions
         ThemeEditNextTab,

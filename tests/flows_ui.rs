@@ -1943,35 +1943,35 @@ fn a_flow_becomes_a_template_and_the_template_can_be_deleted(cx: &mut TestAppCon
     common::assert_page(cx, &view, ActivePage::FlowTemplates);
 }
 
-// MARK: The gallery
+// MARK: The catalog
 
 use omarchist::system::flows::catalog;
 use omarchist::system::flows::store::load_flow;
 use omarchist::ui::flows_page::flow_edit_view::flow_edit_nav::Publish;
 
-/// The Gallery page with the tests' gallery loaded.
-fn open_gallery(
+/// The Catalog page with the tests' catalog loaded.
+fn open_catalog(
     cx: &mut TestAppContext,
 ) -> (
     gpui_kit::WindowHandle<gpui_kit::component::Root>,
     gpui_kit::Entity<omarchist::MainWindowView>,
 ) {
-    common::gallery();
-    let (handle, view) = open(cx, ActivePage::FlowGallery);
+    common::catalog();
+    let (handle, view) = open(cx, ActivePage::FlowCatalog);
     wait_real(cx, handle, Duration::from_secs(10), |window, _| {
-        window.try_find(("gallery-card", 0usize)).is_some()
+        window.try_find(("catalog-card", 0usize)).is_some()
     });
     (handle, view)
 }
 
-/// The slugs the Gallery page lists, in its order.
+/// The slugs the Catalog page lists, in its order.
 fn listed(
     cx: &mut TestAppContext,
     view: &gpui_kit::Entity<omarchist::MainWindowView>,
 ) -> Vec<String> {
     cx.update(|cx| {
-        let gallery = view.read(cx).flow_gallery().expect("the gallery page");
-        gallery
+        let catalog = view.read(cx).flow_catalog().expect("the catalog page");
+        catalog
             .read(cx)
             .shown()
             .iter()
@@ -1981,24 +1981,24 @@ fn listed(
 }
 
 #[gpui_kit::test]
-fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
-    let (handle, view) = open_gallery(cx);
+fn the_catalog_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
+    let (handle, view) = open_catalog(cx);
     // The newest first; the install counts order the list only on request.
     assert_eq!(listed(cx, &view), vec!["breathe", "careful", "pause"]);
     with(cx, handle, |window, cx| {
-        assert_eq!(window.find("gallery-search").focused(), Some(true));
-        assert!(window.find(("gallery-card", 2usize)).visible());
-        assert!(window.try_find("gallery-notice").is_none());
+        assert_eq!(window.find("catalog-search").focused(), Some(true));
+        assert!(window.find(("catalog-card", 2usize)).visible());
+        assert!(window.try_find("catalog-notice").is_none());
         // Only the categories that hold a flow are offered.
-        assert!(window.find("gallery-filter-focus").visible());
-        assert!(window.try_find("gallery-filter-web").is_none());
-        window.click("gallery-sort-popular", cx);
+        assert!(window.find("catalog-filter-focus").visible());
+        assert!(window.try_find("catalog-filter-web").is_none());
+        window.click("catalog-sort-popular", cx);
     });
     settle(cx, handle);
     assert_eq!(listed(cx, &view), vec!["pause", "breathe", "careful"]);
 
     with(cx, handle, |window, cx| {
-        window.click("gallery-filter-focus", cx)
+        window.click("catalog-filter-focus", cx)
     });
     settle(cx, handle);
     assert_eq!(listed(cx, &view), vec!["pause"]);
@@ -2009,7 +2009,7 @@ fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
 
     // The search reads names, descriptions and authors.
     with(cx, handle, |window, cx| {
-        window.click("gallery-search", cx);
+        window.click("catalog-search", cx);
         window.input("grace", cx);
     });
     settle(cx, handle);
@@ -2017,12 +2017,12 @@ fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
     with(cx, handle, |window, cx| window.input(" nothing", cx));
     settle(cx, handle);
     with(cx, handle, |window, cx| {
-        assert!(window.find("gallery-none").visible());
+        assert!(window.find("catalog-none").visible());
         window.press("escape", cx);
     });
     settle(cx, handle);
     assert_eq!(listed(cx, &view).len(), 3);
-    common::assert_page(cx, &view, ActivePage::FlowGallery);
+    common::assert_page(cx, &view, ActivePage::FlowCatalog);
     // Escape in the empty box leaves.
     with(cx, handle, |window, cx| window.press("escape", cx));
     settle(cx, handle);
@@ -2030,24 +2030,24 @@ fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_gallery_flow_is_installed_from_its_dialog(cx: &mut TestAppContext) {
-    let (handle, view) = open_gallery(cx);
+fn a_catalog_flow_is_installed_from_its_dialog(cx: &mut TestAppContext) {
+    let (handle, view) = open_catalog(cx);
     // "Careful" is the last card: the least installed, by name.
     with(cx, handle, |window, cx| {
-        window.click(("gallery-card", 2usize), cx)
+        window.click(("catalog-card", 2usize), cx)
     });
     wait_real(cx, handle, Duration::from_secs(10), |window, _| {
-        window.try_find("gallery-detail-risks").is_some()
+        window.try_find("catalog-detail-risks").is_some()
     });
     with(cx, handle, |window, _| {
-        assert!(window.find("gallery-detail").visible());
-        assert!(window.find("gallery-detail-needs").visible());
+        assert!(window.find("catalog-detail").visible());
+        assert!(window.find("catalog-detail-needs").visible());
         assert!(
-            window.find("gallery-step-code-0").visible(),
+            window.find("catalog-step-code-0").visible(),
             "the command a step runs is shown in full"
         );
         assert_eq!(
-            window.find("gallery-detail-list").focused(),
+            window.find("catalog-detail-list").focused(),
             Some(true),
             "the steps have the keyboard, to scroll through"
         );
@@ -2056,7 +2056,7 @@ fn a_gallery_flow_is_installed_from_its_dialog(cx: &mut TestAppContext) {
     // Ctrl+Enter is the dialog's main button once the steps are fetched.
     wait_real(cx, handle, Duration::from_secs(10), |window, cx| {
         window.press("ctrl-enter", cx);
-        window.try_find("gallery-detail").is_none()
+        window.try_find("catalog-detail").is_none()
     });
     settle(cx, handle);
 
@@ -2122,8 +2122,8 @@ wait = true
 }
 
 #[gpui_kit::test]
-fn an_update_from_the_gallery_is_one_change_to_undo(cx: &mut TestAppContext) {
-    common::gallery();
+fn an_update_from_the_catalog_is_one_change_to_undo(cx: &mut TestAppContext) {
+    common::catalog();
     // Installed as version 1, which waited a second and said nothing.
     write_flow(
         "ui-pause",
@@ -2151,12 +2151,12 @@ ms = 1000
     let (handle, view) = open(cx, ActivePage::FlowEdit("ui-pause".into()));
     settle(cx, handle);
     with(cx, handle, |window, cx| {
-        window.click("flow-gallery-update", cx)
+        window.click("flow-catalog-update", cx)
     });
     // The dialog compares the saved steps with the new version's.
     wait_real(cx, handle, Duration::from_secs(10), |window, cx| {
         window.press("ctrl-enter", cx);
-        window.try_find("gallery-detail").is_none()
+        window.try_find("catalog-detail").is_none()
     });
     settle(cx, handle);
 
@@ -2180,7 +2180,7 @@ ms = 1000
     );
 
     with(cx, handle, |window, cx| {
-        assert!(window.try_find("flow-gallery-update").is_none());
+        assert!(window.try_find("flow-catalog-update").is_none());
         window.click("flow-steps", cx);
         window.press("ctrl-z", cx);
     });
@@ -2192,7 +2192,7 @@ ms = 1000
 
 #[gpui_kit::test]
 fn publishing_makes_the_flow_ready_and_hands_it_to_github(cx: &mut TestAppContext) {
-    common::gallery();
+    common::catalog();
     let toml = THREE_STEPS
         .replace("ui-three-steps", "ui-shared")
         .replace("UI three steps", "UI shared");

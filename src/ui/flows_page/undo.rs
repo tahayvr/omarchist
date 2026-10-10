@@ -15,7 +15,7 @@ struct Snapshot {
     on_error: OnError,
     input: InputFallback,
     triggers: Triggers,
-    /// Changed only by an update from the gallery, which must go back
+    /// Changed only by an update from the catalog, which must go back
     /// whole: old steps under a new version would hide the update.
     meta: Meta,
 }

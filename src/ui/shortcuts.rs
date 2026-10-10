@@ -5,9 +5,9 @@ use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
 use crate::ui::editable_title::title;
+use crate::ui::flows_page::catalog_view::catalog_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
 use crate::ui::flows_page::flows_view::flows_nav;
-use crate::ui::flows_page::gallery_view::gallery_nav;
 use crate::ui::flows_page::history_dialog::history_nav;
 use crate::ui::flows_page::icon_dialog::icon_picker_nav;
 use crate::ui::flows_page::step_builder::{step_lines, step_vars};
@@ -1201,23 +1201,23 @@ pub const SHORTCUTS: &[Shortcut] = &[
     shortcut!(
         "escape",
         app_menu::NavigateBack,
-        Some("FlowGalleryPage"),
+        Some("FlowCatalogPage"),
         FLOWS,
         "Back to Flows"
     ),
     shortcut!(
         "alt-left",
         app_menu::NavigateBack,
-        Some("FlowGalleryPage"),
+        Some("FlowCatalogPage"),
         FLOWS,
         "Back to Flows"
     ),
     shortcut!(
         "escape",
-        gallery_nav::ClearSearch,
-        Some("GallerySearch > Input"),
+        catalog_nav::ClearSearch,
+        Some("CatalogSearch > Input"),
         FLOWS,
-        "Clear the gallery search"
+        "Clear the catalog search"
     ),
     shortcut!(
         "delete",

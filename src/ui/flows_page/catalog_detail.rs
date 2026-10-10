@@ -1,6 +1,6 @@
-//! One flow of the gallery, opened from its card: who made it, what it
+//! One flow of the catalog, opened from its card: who made it, what it
 //! needs, what a reader should know, and every step with the command it
-//! runs in full. This dialog is where a gallery flow is read before it
+//! runs in full. This dialog is where a catalog flow is read before it
 //! reaches the machine: Install writes the flow file and opens the editor
 //! on the installed flow. An update opens the installed flow with the new
 //! steps, unsaved, after showing what changes.
@@ -27,8 +27,8 @@ use crate::system::flows::share::Imported;
 use crate::system::flows::store::{existing_ids, load_flow, save_new_flow};
 use crate::system::flows::{Flow, InputFallback, OnError, Step, StepKind, unique_id};
 use crate::ui::app_view::ActivePage;
+use crate::ui::flows_page::catalog_view::count_label;
 use crate::ui::flows_page::flow_card::icon_tile;
-use crate::ui::flows_page::gallery_view::count_label;
 use crate::ui::flows_page::share_ui::warning_banner;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::flows_page::var_token;
@@ -36,12 +36,12 @@ use crate::ui::focus;
 use crate::ui::notify;
 use crate::ui::text::{selectable, title_case};
 
-/// A flow on this machine that came from the gallery.
+/// A flow on this machine that came from the catalog.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Installed {
     /// The saved flow's id.
     pub id: String,
-    /// The gallery version it was installed from.
+    /// The catalog version it was installed from.
     pub version: u32,
 }
 
@@ -55,7 +55,7 @@ enum Loaded {
     Failed(String),
 }
 
-pub struct GalleryDetail {
+pub struct CatalogDetail {
     entry: Entry,
     installs: u64,
     verified: bool,
@@ -69,7 +69,7 @@ pub struct GalleryDetail {
     scroll: ScrollHandle,
 }
 
-impl GalleryDetail {
+impl CatalogDetail {
     fn new(
         entry: Entry,
         installs: u64,
@@ -175,7 +175,7 @@ impl GalleryDetail {
             notify::error(window, format!("Could not install the flow: {e}"), cx);
             return;
         }
-        if settings().gallery_count_installs
+        if settings().catalog_count_installs
             && let Some((slug, version)) = catalog::source_of(&flow)
         {
             cx.background_spawn(async move { catalog::count_install(&slug, version) })
@@ -221,7 +221,7 @@ impl GalleryDetail {
         div()
             .text_xs()
             .text_color(theme.muted_foreground)
-            .child(selectable("gallery-detail-behaviour", facts.join(" · ")))
+            .child(selectable("catalog-detail-behaviour", facts.join(" · ")))
             .into_any_element()
     }
 
@@ -282,20 +282,20 @@ impl GalleryDetail {
                     .min_w_0()
                     .text_sm()
                     .child(var_token::rich_text(
-                        &format!("gallery-step-{ix}"),
+                        &format!("catalog-step-{ix}"),
                         &summary.title,
                         cx,
                     ))
                     .when_some(detail, |this, detail| {
                         this.child(div().text_xs().text_color(theme.muted_foreground).child(
-                            var_token::rich_text(&format!("gallery-step-detail-{ix}"), &detail, cx),
+                            var_token::rich_text(&format!("catalog-step-detail-{ix}"), &detail, cx),
                         ))
                     })
                     // The command itself, whole, where it cannot be missed.
                     .when_some(code, |this, code| {
                         this.child(
                             div()
-                                .id(ElementId::Name(format!("gallery-step-code-{ix}").into()))
+                                .id(ElementId::Name(format!("catalog-step-code-{ix}").into()))
                                 .test_support()
                                 .mt_1()
                                 .px_2()
@@ -304,7 +304,7 @@ impl GalleryDetail {
                                 .bg(theme.secondary)
                                 .text_sm()
                                 .child(var_token::rich_text(
-                                    &format!("gallery-step-command-{ix}"),
+                                    &format!("catalog-step-command-{ix}"),
                                     code,
                                     cx,
                                 )),
@@ -329,8 +329,8 @@ impl GalleryDetail {
                 .into_any_element()
         };
         match &self.loaded {
-            Loaded::Loading => note("gallery-steps-loading", "Fetching the steps…".to_string()),
-            Loaded::Failed(error) => note("gallery-steps-error", error.clone()),
+            Loaded::Loading => note("catalog-steps-loading", "Fetching the steps…".to_string()),
+            Loaded::Failed(error) => note("catalog-steps-error", error.clone()),
             Loaded::Ready {
                 diff: Some(rows), ..
             } => v_flex()
@@ -361,7 +361,7 @@ impl GalleryDetail {
     }
 }
 
-impl Render for GalleryDetail {
+impl Render for CatalogDetail {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let muted = theme.muted_foreground;
@@ -388,7 +388,7 @@ impl Render for GalleryDetail {
             (None, _) => None,
         };
 
-        focus::dialog_body("gallery-detail", &self.body_focus, move |window, cx| {
+        focus::dialog_body("catalog-detail", &self.body_focus, move |window, cx| {
             view.update(cx, |this, cx| this.act(window, cx));
         })
         .child(
@@ -410,7 +410,7 @@ impl Render for GalleryDetail {
                                         .items_center()
                                         .text_sm()
                                         .child(selectable(
-                                            "gallery-detail-author",
+                                            "catalog-detail-author",
                                             format!("by {}", entry.author),
                                         ))
                                         .when(self.verified, |this| {
@@ -424,7 +424,7 @@ impl Render for GalleryDetail {
                                 )
                                 .child(
                                     div().text_xs().text_color(muted).child(selectable(
-                                        "gallery-detail-facts",
+                                        "catalog-detail-facts",
                                         facts.join(" · "),
                                     )),
                                 ),
@@ -436,7 +436,7 @@ impl Render for GalleryDetail {
                         })),
                 )
                 .child(div().text_sm().child(selectable(
-                    "gallery-detail-description",
+                    "catalog-detail-description",
                     entry.description.clone(),
                 )))
                 .children(match &self.loaded {
@@ -457,11 +457,11 @@ impl Render for GalleryDetail {
                 })
                 .when_some(entry.yanked.clone(), |this, reason| {
                     this.child(warning_banner(
-                        "gallery-detail-pulled",
+                        "catalog-detail-pulled",
                         if reason.is_empty() {
-                            "Pulled from the gallery".to_string()
+                            "Pulled from the catalog".to_string()
                         } else {
-                            format!("Pulled from the gallery: {reason}")
+                            format!("Pulled from the catalog: {reason}")
                         },
                         cx,
                     ))
@@ -470,7 +470,7 @@ impl Render for GalleryDetail {
                     this.child(
                         v_flex().gap_1p5().child(heading("Needs", cx)).child(
                             h_flex()
-                                .id("gallery-detail-needs")
+                                .id("catalog-detail-needs")
                                 .test_support()
                                 .gap_1()
                                 .flex_wrap()
@@ -489,7 +489,7 @@ impl Render for GalleryDetail {
                 .when(!entry.risks.is_empty(), |this| {
                     this.child(
                         v_flex()
-                            .id("gallery-detail-risks")
+                            .id("catalog-detail-risks")
                             .test_support()
                             .gap_1p5()
                             .child(heading("Worth knowing", cx))
@@ -510,7 +510,7 @@ impl Render for GalleryDetail {
                                                 theme.warning
                                             }),
                                     )
-                                    .child(selectable(("gallery-risk", ix), what.clone()))
+                                    .child(selectable(("catalog-risk", ix), what.clone()))
                             })),
                     )
                 })
@@ -527,7 +527,7 @@ impl Render for GalleryDetail {
                         ))
                         .child(
                             div()
-                                .id("gallery-detail-steps")
+                                .id("catalog-detail-steps")
                                 .max_h(focus::dialog_height(380., window))
                                 .overflow_y_scroll()
                                 .track_scroll(&self.scroll)
@@ -536,7 +536,7 @@ impl Render for GalleryDetail {
                                 .border_color(ring)
                                 .child(
                                     focus::scroll_area(&self.scroll)
-                                        .id("gallery-detail-list")
+                                        .id("catalog-detail-list")
                                         .test_support()
                                         .track_focus(&self.list_focus)
                                         .p_1()
@@ -549,7 +549,7 @@ impl Render for GalleryDetail {
                         .justify_between()
                         .gap_2()
                         .child(
-                            Button::new("gallery-report")
+                            Button::new("catalog-report")
                                 .ghost()
                                 .small()
                                 .icon(Icon::new(Icon::empty()).path("icons/flag.svg"))
@@ -564,7 +564,7 @@ impl Render for GalleryDetail {
                             h_flex()
                                 .gap_2()
                                 .child(
-                                    Button::new("gallery-close")
+                                    Button::new("catalog-close")
                                         .outline()
                                         .small()
                                         .label("Close")
@@ -572,7 +572,7 @@ impl Render for GalleryDetail {
                                         .on_click(|_, window, cx| window.close_dialog(cx)),
                                 )
                                 .children(action.map(|label| {
-                                    Button::new("gallery-act")
+                                    Button::new("catalog-act")
                                         .primary()
                                         .small()
                                         .when(label == "Install", |this| {
@@ -603,18 +603,18 @@ impl Render for GalleryDetail {
     }
 }
 
-/// Opens the details of one gallery flow. `installed` names the copy of
+/// Opens the details of one catalog flow. `installed` names the copy of
 /// it on this machine, when there is one.
-pub fn open_gallery_detail(
+pub fn open_catalog_detail(
     entry: Entry,
     installs: u64,
     verified: bool,
     installed: Option<Installed>,
     window: &mut Window,
     cx: &mut App,
-) -> Entity<GalleryDetail> {
+) -> Entity<CatalogDetail> {
     let title: SharedString = title_case(&entry.name).into();
-    let dialog = cx.new(|cx| GalleryDetail::new(entry, installs, verified, installed, cx));
+    let dialog = cx.new(|cx| CatalogDetail::new(entry, installs, verified, installed, cx));
     let view = dialog.clone();
     let list_focus = dialog.read(cx).list_focus.clone();
     window.open_dialog(cx, move |d, window, _| {

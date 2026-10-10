@@ -1,4 +1,4 @@
-//! Makes a flow ready for the gallery and hands it to GitHub in the
+//! Makes a flow ready for the catalog and hands it to GitHub in the
 //! browser, where the author proposes the file and the reviewers take it
 //! from there. Nothing is sent from the app itself.
 use crate::ui::notify;
@@ -21,12 +21,12 @@ use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 
 pub struct PublishDialog {
     flow: Flow,
-    /// The gallery as last seen, to tell a new flow from a new version.
+    /// The catalog as last seen, to tell a new flow from a new version.
     index: Option<Index>,
     author: Entity<InputState>,
     tags: Entity<InputState>,
     category: usize,
-    /// The author releases the flow under the gallery's license.
+    /// The author releases the flow under the catalog's license.
     agreed: bool,
     body_focus: FocusHandle,
     category_focus: FocusHandle,
@@ -55,7 +55,7 @@ impl PublishDialog {
     fn new(flow: Flow, index: Option<Index>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         // A flow published before starts from what it was published with.
         let author = match flow.meta.author.trim() {
-            "" => settings().gallery_author,
+            "" => settings().catalog_author,
             author => author.to_string(),
         };
         let category = CATEGORIES
@@ -96,7 +96,7 @@ impl PublishDialog {
             notify::error(
                 window,
                 format!(
-                    "A flow in the gallery is released under {}",
+                    "A flow in the catalog is released under {}",
                     catalog::LICENSE
                 ),
                 cx,
@@ -117,7 +117,7 @@ impl PublishDialog {
             }
         };
         let name = author.trim_start_matches('@').to_string();
-        if let Err(e) = update_settings(|settings| settings.gallery_author = name) {
+        if let Err(e) = update_settings(|settings| settings.catalog_author = name) {
             eprintln!("{e}");
         }
         // The text travels on the clipboard too: GitHub's page for a new
@@ -268,7 +268,7 @@ pub fn open_publish_dialog(
     let view = dialog.clone();
     let body_focus = dialog.read(cx).body_focus.clone();
     window.open_dialog(cx, move |d, window, _| {
-        d.title("Publish to the gallery")
+        d.title("Publish to the catalog")
             .w(focus::dialog_width(520., window))
             .overlay(true)
             .keyboard(true)

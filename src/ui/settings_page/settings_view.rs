@@ -502,11 +502,11 @@ impl Render for SettingsView {
                 )
                 .into_any_element(),
                 self.render_switch(
-                    "gallery-count-installs",
-                    "Count My Installs in the Gallery",
-                    "Saving a flow from the gallery sends the flow's name, and nothing about you",
-                    s.gallery_count_installs,
-                    |s, v| s.gallery_count_installs = v,
+                    "catalog-count-installs",
+                    "Count My Installs in the Catalog",
+                    "Saving a flow from the catalog sends the flow's name, and nothing about you",
+                    s.catalog_count_installs,
+                    |s, v| s.catalog_count_installs = v,
                     cx,
                 )
                 .into_any_element(),

@@ -90,7 +90,7 @@ pub enum Command {
         #[arg(short, long)]
         yes: bool,
     },
-    /// Tools for the repository behind the gallery; what its CI runs
+    /// Tools for the repository behind the catalog; what its CI runs
     #[command(hide = true)]
     Catalog {
         #[command(subcommand)]
@@ -189,7 +189,7 @@ pub enum FlowCommand {
         /// Print JSON: one report per file
         #[arg(long)]
         json: bool,
-        /// Also apply the gallery's rules for a published flow
+        /// Also apply the catalog's rules for a published flow
         #[arg(long)]
         catalog: bool,
     },
@@ -591,7 +591,7 @@ fn export(name: &str, output: Option<&PathBuf>) -> ExitCode {
 
 /// Checks flow files and prints what each does, needs, and risks. Fails
 /// when any of them is not a valid flow (or, with `for_catalog`, not ready
-/// for the gallery).
+/// for the catalog).
 fn check(files: &[PathBuf], json: bool, for_catalog: bool) -> ExitCode {
     let reports: Vec<catalog::Report> = files
         .iter()

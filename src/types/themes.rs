@@ -47,7 +47,7 @@ fn default_version() -> String {
 }
 
 // Theme colors structure, used for the read-only preview swatches shown in
-// the theme gallery (any theme folder, not just ones Omarchist authored).
+// the theme catalog (any theme folder, not just ones Omarchist authored).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ThemeColors {
     pub primary: PrimaryColors,

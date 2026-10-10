@@ -107,7 +107,7 @@ impl Render for MainTitleBar {
                                 let flows = load_flows().unwrap_or_default();
                                 menu.menu("New flow", Box::new(app_menu::NewFlow))
                                     .menu("New from template", Box::new(app_menu::NewFlowFromTemplate))
-                                    .menu("Gallery", Box::new(app_menu::OpenGallery))
+                                    .menu("Catalog", Box::new(app_menu::OpenCatalog))
                                     .menu("Import flow…", Box::new(app_menu::ImportFlow))
                                     .separator()
                                     .submenu("Run", window, cx, move |menu, _, _| {

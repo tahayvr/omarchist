@@ -1,8 +1,8 @@
-//! The gallery: flows people shared, reviewed in a public repository and
+//! The catalog: flows people shared, reviewed in a public repository and
 //! listed in a signed index. This module reads that index for the app
 //! (`load`, `fetch_flow`), builds it for the repository's CI (`build`,
 //! `sign`), and checks a flow file the same way on both sides
-//! (`check_file`). Nothing from the gallery is saved or run by this code:
+//! (`check_file`). Nothing from the catalog is saved or run by this code:
 //! a flow comes back as an [`Imported`] for the editor's review screen.
 use std::collections::HashMap;
 use std::fs;
@@ -25,15 +25,15 @@ use super::risks::{self, Risk};
 use super::share::{Imported, SHARED_SUFFIX};
 use super::{Flow, ICONS, Step, StepKind, Triggers, is_slug, parse_flow, requirements, slug};
 
-/// Where the app reads the gallery from. `OMARCHIST_CATALOG_URL` names
+/// Where the app reads the catalog from. `OMARCHIST_CATALOG_URL` names
 /// another one (a `file://` folder works too), for a catalog of your own
 /// or a test.
 pub const DEFAULT_URL: &str = "https://flows.omarchist.com";
 /// The repository flows are published to and reviewed in.
 pub const REPO: &str = "tahayvr/omarchist-flows";
-/// The one license every flow in the gallery carries.
+/// The one license every flow in the catalog carries.
 pub const LICENSE: &str = "CC0-1.0";
-/// What `meta.source` of a flow installed from the gallery starts with.
+/// What `meta.source` of a flow installed from the catalog starts with.
 pub const SOURCE_PREFIX: &str = "catalog:";
 
 pub const CATEGORIES: &[&str] = &[
@@ -62,7 +62,7 @@ const TIMEOUT: Duration = Duration::from_secs(15);
 const MAX_STEPS: usize = 100;
 const MAX_TAGS: usize = 5;
 
-/// The list of everything in the gallery, as the catalog's CI writes it.
+/// The list of everything in the catalog, as the catalog's CI writes it.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct Index {
     pub version: u32,
@@ -181,7 +181,7 @@ pub fn required_programs(flow: &Flow) -> Vec<String> {
     programs
 }
 
-/// `1`, `2`, `3`: the gallery's versions are whole numbers that only grow.
+/// `1`, `2`, `3`: the catalog's versions are whole numbers that only grow.
 pub fn version_of(flow: &Flow) -> Option<u32> {
     flow.meta
         .version
@@ -199,7 +199,7 @@ fn is_github_name(name: &str) -> bool {
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
 }
 
-/// What keeps a flow out of the gallery, beyond being a valid flow.
+/// What keeps a flow out of the catalog, beyond being a valid flow.
 pub fn catalog_errors(flow: &Flow) -> Vec<String> {
     let mut errors = Vec::new();
     let mut need = |ok: bool, message: &str| {
@@ -281,7 +281,7 @@ pub fn catalog_errors(flow: &Flow) -> Vec<String> {
 }
 
 /// Checks a flow's text: that it parses and validates, and, with
-/// `for_catalog`, that it meets the gallery's rules. `file` only names it.
+/// `for_catalog`, that it meets the catalog's rules. `file` only names it.
 pub fn check_text(file: &str, content: &str, for_catalog: bool) -> Report {
     let mut report = Report {
         file: file.to_string(),
@@ -618,7 +618,7 @@ fn trusted_keys() -> Vec<String> {
 fn verified_index(bytes: &[u8], keys: &[String]) -> Result<Index> {
     let unsigned = || {
         Error::Invalid(
-            "The gallery's list is not signed with a key this Omarchist trusts".to_string(),
+            "The catalog's list is not signed with a key this Omarchist trusts".to_string(),
         )
     };
     let published: SignedIndex = serde_json::from_slice(bytes).map_err(|_| unsigned())?;
@@ -629,10 +629,10 @@ fn verified_index(bytes: &[u8], keys: &[String]) -> Result<Index> {
         return Err(unsigned());
     }
     serde_json::from_str(&published.signed)
-        .map_err(|e| Error::json("Failed to read the gallery's list", e))
+        .map_err(|e| Error::json("Failed to read the catalog's list", e))
 }
 
-// MARK: Reading the gallery (the app)
+// MARK: Reading the catalog (the app)
 
 pub fn base_url() -> String {
     match std::env::var("OMARCHIST_CATALOG_URL") {
@@ -651,7 +651,7 @@ pub fn cache_dir() -> Result<PathBuf> {
         .ok_or(Error::UnknownDirectory("cache"))
 }
 
-/// Reads `path` under the gallery's address, refusing more than `limit`
+/// Reads `path` under the catalog's address, refusing more than `limit`
 /// bytes. A `file://` address is read from disk.
 fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
     if let Some(dir) = base.strip_prefix("file://") {
@@ -662,7 +662,7 @@ fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
         if size > limit {
             return Err(Error::Invalid(format!("{path} is too large")));
         }
-        return fs::read(&file).map_err(|e| Error::io("Failed to read the gallery", e));
+        return fs::read(&file).map_err(|e| Error::io("Failed to read the catalog", e));
     }
     let url = format!("{base}/{path}");
     let mut response = isahc::Request::get(&url)
@@ -673,12 +673,12 @@ fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
             concat!("omarchist/", env!("CARGO_PKG_VERSION")),
         )
         .body(())
-        .map_err(|e| Error::Network(format!("Invalid gallery address: {e}")))?
+        .map_err(|e| Error::Network(format!("Invalid catalog address: {e}")))?
         .send()
-        .map_err(|e| Error::Network(format!("Could not reach the gallery: {e}")))?;
+        .map_err(|e| Error::Network(format!("Could not reach the catalog: {e}")))?;
     if !response.status().is_success() {
         return Err(Error::Network(format!(
-            "The gallery answered with status {}",
+            "The catalog answered with status {}",
             response.status()
         )));
     }
@@ -687,14 +687,14 @@ fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
         .body_mut()
         .take(limit + 1)
         .read_to_end(&mut bytes)
-        .map_err(|e| Error::Network(format!("Could not read from the gallery: {e}")))?;
+        .map_err(|e| Error::Network(format!("Could not read from the catalog: {e}")))?;
     if bytes.len() as u64 > limit {
         return Err(Error::Invalid(format!("{path} is too large")));
     }
     Ok(bytes)
 }
 
-/// The gallery as the app shows it.
+/// The catalog as the app shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Catalog {
     pub index: Index,
@@ -721,7 +721,7 @@ fn read_cache(dir: &Path, keys: &[String]) -> Option<Catalog> {
 }
 
 /// Whether the kept copy is missing or older than a day: time to look
-/// for updates to the flows installed from the gallery.
+/// for updates to the flows installed from the catalog.
 pub fn is_stale() -> bool {
     let Ok(dir) = cache_dir() else {
         return false;
@@ -733,12 +733,12 @@ pub fn is_stale() -> bool {
         .is_none_or(|age| age > Duration::from_secs(24 * 60 * 60))
 }
 
-/// The copy of the gallery kept from the last visit, if there is one.
+/// The copy of the catalog kept from the last visit, if there is one.
 pub fn cached() -> Option<Catalog> {
     read_cache(&cache_dir().ok()?, &trusted_keys())
 }
 
-/// Fetches the gallery, checks its signature, and keeps a copy. When it
+/// Fetches the catalog, checks its signature, and keeps a copy. When it
 /// cannot be reached, or what came back does not check out, the copy from
 /// the last visit is returned with a notice saying so.
 pub fn load() -> Result<Catalog> {
@@ -754,7 +754,7 @@ fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {
     let fall_back = |why: String| match kept.clone() {
         Some(mut catalog) => {
             catalog.notice = Some(format!(
-                "{why} Showing the gallery as of {}.",
+                "{why} Showing the catalog as of {}.",
                 catalog.index.generated
             ));
             Ok(catalog)
@@ -773,7 +773,7 @@ fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {
     {
         return Ok(kept.clone());
     }
-    // Counts are a nicety: without them the gallery still opens.
+    // Counts are a nicety: without them the catalog still opens.
     let installs_bytes = get(base, INSTALLS_PATH, MAX_INDEX_BYTES).ok();
     let installs: HashMap<String, u64> = installs_bytes
         .as_deref()
@@ -782,9 +782,9 @@ fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {
         .unwrap_or_default();
 
     if fs::create_dir_all(cache).is_ok() {
-        let _ = write_atomic(&cache.join("index.json"), &bytes, "the gallery cache");
+        let _ = write_atomic(&cache.join("index.json"), &bytes, "the catalog cache");
         if let Ok(text) = serde_json::to_string(&installs) {
-            let _ = write_atomic(&cache.join("installs.json"), text, "the gallery cache");
+            let _ = write_atomic(&cache.join("installs.json"), text, "the catalog cache");
         }
     }
     Ok(Catalog {
@@ -794,7 +794,7 @@ fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {
     })
 }
 
-/// A flow's file from the gallery, checked against the hash its entry
+/// A flow's file from the catalog, checked against the hash its entry
 /// promises, as a flow ready for the review screen: no id, no triggers,
 /// and `meta.source` saying where it came from. A copy is kept, so a
 /// second look needs no network.
@@ -804,7 +804,7 @@ pub fn fetch_flow(entry: &Entry) -> Result<Imported> {
 
 fn fetch_flow_from(base: &str, cache: &Path, entry: &Entry) -> Result<Imported> {
     if !is_slug(&entry.slug) {
-        return Err(Error::Invalid("The gallery named a flow oddly".to_string()));
+        return Err(Error::Invalid("The catalog named a flow oddly".to_string()));
     }
     let matches = |bytes: &[u8]| hex::encode(Sha256::digest(bytes)) == entry.sha256;
     let kept = cache
@@ -817,14 +817,14 @@ fn fetch_flow_from(base: &str, cache: &Path, entry: &Entry) -> Result<Imported> 
             let bytes = get(base, &path, MAX_FLOW_BYTES)?;
             if !matches(&bytes) {
                 return Err(Error::Invalid(format!(
-                    "'{}' is not the file the gallery lists; it was not opened",
+                    "'{}' is not the file the catalog lists; it was not opened",
                     entry.name
                 )));
             }
             if let Some(dir) = kept.parent()
                 && fs::create_dir_all(dir).is_ok()
             {
-                let _ = write_atomic(&kept, &bytes, "the gallery cache");
+                let _ = write_atomic(&kept, &bytes, "the catalog cache");
             }
             bytes
         }
@@ -836,11 +836,11 @@ fn fetch_flow_from(base: &str, cache: &Path, entry: &Entry) -> Result<Imported> 
     flow.validate_content()?;
     Ok(Imported {
         flow,
-        origin: format!("the gallery, by {}", entry.author),
+        origin: format!("the catalog, by {}", entry.author),
     })
 }
 
-/// Tells the gallery a flow was installed, so its count grows. Nothing
+/// Tells the catalog a flow was installed, so its count grows. Nothing
 /// about the person or the machine is sent: the flow's slug and version.
 /// Failing is fine and silent.
 pub fn count_install(slug: &str, version: u32) {
@@ -862,7 +862,7 @@ pub fn count_install(slug: &str, version: u32) {
 
 // MARK: Installed flows
 
-/// The gallery flow and version a saved flow was installed from.
+/// The catalog flow and version a saved flow was installed from.
 pub fn source_of(flow: &Flow) -> Option<(String, u32)> {
     let (slug, version) = flow
         .meta
@@ -872,7 +872,7 @@ pub fn source_of(flow: &Flow) -> Option<(String, u32)> {
     Some((slug.to_string(), version.parse().ok()?))
 }
 
-/// What the gallery says about a flow installed from it.
+/// What the catalog says about a flow installed from it.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Standing {
     /// Its newest version is the installed one.
@@ -881,7 +881,7 @@ pub enum Standing {
     Update(u32),
     /// It was pulled, for this reason.
     Pulled(String),
-    /// The gallery no longer lists it.
+    /// The catalog no longer lists it.
     Gone,
 }
 
@@ -996,7 +996,7 @@ pub fn diff_steps(old: &Flow, new: &Flow) -> Vec<DiffRow> {
 
 // MARK: Publishing
 
-/// A flow made ready for the gallery, and where to hand it in.
+/// A flow made ready for the catalog, and where to hand it in.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Submission {
     pub slug: String,
@@ -1004,7 +1004,7 @@ pub struct Submission {
     /// The file's text, as it goes into the repository.
     pub toml: String,
     pub version: u32,
-    /// Whether the gallery already has this flow, by the same author.
+    /// Whether the catalog already has this flow, by the same author.
     pub update: bool,
     /// GitHub's page for proposing the file, in the browser.
     pub url: String,
@@ -1018,8 +1018,8 @@ fn encode(text: &str) -> String {
     percent_encoding::utf8_percent_encode(text, percent_encoding::NON_ALPHANUMERIC).to_string()
 }
 
-/// Strips what belongs to this machine, adds the gallery's metadata, and
-/// checks the result as the gallery's CI will. `index` is the gallery as
+/// Strips what belongs to this machine, adds the catalog's metadata, and
+/// checks the result as the catalog's CI will. `index` is the catalog as
 /// last seen, to tell a new flow from a new version of one's own.
 pub fn prepare_submission(
     flow: &Flow,
@@ -1044,7 +1044,7 @@ pub fn prepare_submission(
         && !entry.author.eq_ignore_ascii_case(&shared.meta.author)
     {
         return Err(Error::Invalid(format!(
-            "The gallery already has '{}', by {}. Give yours another name.",
+            "The catalog already has '{}', by {}. Give yours another name.",
             entry.name, entry.author
         )));
     }
@@ -1236,13 +1236,13 @@ mod tests {
     }
 
     #[test]
-    fn a_flow_is_checked_for_the_gallerys_rules() {
+    fn a_flow_is_checked_for_the_catalogs_rules() {
         let good = check_text("good.flow.toml", &shared("Pause", "ada", 1, 500), true);
         assert!(good.ok, "{:?}", good.errors);
         assert_eq!((good.steps, good.version), (1, Some(1)));
         assert_eq!(good.summary, vec!["1. wait 500 ms"]);
 
-        // Fine as a flow, not ready for the gallery.
+        // Fine as a flow, not ready for the catalog.
         let mut flow = Flow::new("saved".into(), "Hi".into());
         flow.triggers.launcher = true;
         flow.steps = vec![Step::new(StepKind::flow("other"))];
@@ -1347,7 +1347,7 @@ mod tests {
     }
 
     #[test]
-    fn the_gallery_loads_checks_its_signature_and_survives_being_offline() {
+    fn the_catalog_loads_checks_its_signature_and_survives_being_offline() {
         let scratch = Scratch::new("load");
         scratch.write("pause", &shared("Pause", "ada", 1, 500));
         let first = scratch.publish(None, 100).unwrap();
@@ -1376,7 +1376,7 @@ mod tests {
         // With no copy to fall back on, it is an error.
         assert!(load_from(&scratch.base(), &scratch.0.join("empty"), &keys()).is_err());
 
-        // Offline: the gallery and the flow already looked at still open.
+        // Offline: the catalog and the flow already looked at still open.
         let nowhere = format!("file://{}", scratch.0.join("gone").display());
         let offline = load_from(&nowhere, &scratch.cache(), &keys()).unwrap();
         assert_eq!(offline.index, first);
@@ -1390,7 +1390,7 @@ mod tests {
         assert!(
             refused
                 .to_string()
-                .contains("not the file the gallery lists")
+                .contains("not the file the catalog lists")
         );
 
         // An older list than the one already seen is a replay.
@@ -1421,7 +1421,7 @@ mod tests {
         assert_eq!(
             standing(&flow, &index(entry(1, None))),
             None,
-            "not from the gallery"
+            "not from the catalog"
         );
         flow.meta.source = "https://example.com/pause.flow.toml".into();
         assert_eq!(source_of(&flow), None);
@@ -1492,7 +1492,7 @@ mod tests {
     }
 
     #[test]
-    fn a_flow_is_made_ready_for_the_gallery() {
+    fn a_flow_is_made_ready_for_the_catalog() {
         let mut flow = Flow::new("my-pause".into(), "Pause".into());
         flow.description = "Waits a moment, as a test.".into();
         flow.triggers.startup = true;
@@ -1515,7 +1515,7 @@ mod tests {
         assert_eq!(report.author, "ada");
         assert!(!new.toml.contains("triggers") && !new.toml.contains("catalog:other"));
 
-        // The gallery has it already: one's own gets a new version, and
+        // The catalog has it already: one's own gets a new version, and
         // somebody else's name is taken.
         let index = |author: &str| Index {
             flows: vec![Entry {
@@ -1533,7 +1533,7 @@ mod tests {
         let taken = prepare_submission(&flow, "ada", "Focus", &tags, Some(&index("grace")));
         assert!(taken.unwrap_err().to_string().contains("by grace"));
 
-        // What the gallery would refuse is refused here first.
+        // What the catalog would refuse is refused here first.
         assert!(prepare_submission(&flow, "ada", "Nonsense", &tags, None).is_err());
         assert!(prepare_submission(&flow, "not a name!", "Focus", &tags, None).is_err());
 

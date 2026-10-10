@@ -31,11 +31,11 @@ use crate::system::keybinds::replay::scan_keybinds;
 use crate::system::keybinds::{BindStatus, Dispatcher};
 use crate::ui::app_view::ActivePage;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
+use crate::ui::flows_page::catalog_detail::{Installed, open_catalog_detail};
 use crate::ui::flows_page::flow_card::{
     LastRun, icon_tile, last_run, running_mark, step_count_label, step_strip, template_card,
     trigger_chips,
 };
-use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
 use crate::ui::flows_page::share_ui::{export_flow, import_flow_from_dialog, import_flow_path};
 use crate::ui::flows_page::step_summary::SummaryContext;
@@ -105,7 +105,7 @@ pub struct FlowAsTemplate(pub usize);
 
 #[derive(Action, Clone, PartialEq, Eq, Debug)]
 #[action(namespace = flows, no_json)]
-pub struct FlowInGallery(pub usize);
+pub struct FlowInCatalog(pub usize);
 
 /// When each flow last ran and how it ended, keyed by flow id.
 fn last_runs(flows: &[Flow]) -> HashMap<String, LastRun> {
@@ -145,9 +145,9 @@ pub struct FlowsView {
     chords: HashMap<String, Chord>,
     /// Read with the flows, and again after a run from this page.
     last_runs: HashMap<String, LastRun>,
-    /// The copy of the gallery kept from the last look, for the flows
+    /// The copy of the catalog kept from the last look, for the flows
     /// installed from it: an update, or word that one was pulled.
-    gallery: Option<Catalog>,
+    catalog: Option<Catalog>,
     apps: Vec<DesktopApp>,
     /// For the empty state's cards; reloaded with the flows.
     templates: Vec<Template>,
@@ -188,7 +188,7 @@ impl FlowsView {
             filtered: Vec::new(),
             chords: HashMap::new(),
             last_runs: HashMap::new(),
-            gallery: None,
+            catalog: None,
             apps: Vec::new(),
             templates: Vec::new(),
             broken: Vec::new(),
@@ -268,30 +268,30 @@ impl FlowsView {
                         .as_ref()
                         .map(|(flows, _)| last_runs(flows))
                         .unwrap_or_default();
-                    // Only someone who installed from the gallery has a
+                    // Only someone who installed from the catalog has a
                     // reason to hear from it.
-                    let from_gallery = flows.as_ref().is_ok_and(|(flows, _)| {
+                    let from_catalog = flows.as_ref().is_ok_and(|(flows, _)| {
                         flows.iter().any(|flow| catalog::source_of(flow).is_some())
                     });
-                    let gallery = from_gallery.then(catalog::cached).flatten();
-                    let look = from_gallery && catalog::is_stale();
+                    let catalog = from_catalog.then(catalog::cached).flatten();
+                    let look = from_catalog && catalog::is_stale();
                     (
                         flows,
                         runs,
                         scan_keybinds(),
                         installed_apps(),
                         templates(),
-                        gallery,
+                        catalog,
                         look,
                     )
                 })
                 .await;
             let look = loaded.6;
             this.update(cx, |this, cx| {
-                let (flows, runs, scan, apps, templates, gallery, _) = loaded;
+                let (flows, runs, scan, apps, templates, catalog, _) = loaded;
                 this.templates = templates;
                 this.last_runs = runs;
-                this.gallery = gallery;
+                this.catalog = catalog;
                 match flows {
                     Ok((flows, broken)) => {
                         this.flows = flows;
@@ -308,9 +308,9 @@ impl FlowsView {
             .ok();
             // At most once a day, and after the page is up: the network
             // may take its time.
-            if look && let Ok(gallery) = cx.background_spawn(async { catalog::load() }).await {
+            if look && let Ok(catalog) = cx.background_spawn(async { catalog::load() }).await {
                 this.update(cx, |this, cx| {
-                    this.gallery = Some(gallery);
+                    this.catalog = Some(catalog);
                     cx.notify();
                 })
                 .ok();
@@ -319,33 +319,33 @@ impl FlowsView {
         .detach();
     }
 
-    /// What the gallery says about a flow installed from it.
+    /// What the catalog says about a flow installed from it.
     fn standing(&self, flow: &Flow) -> Option<Standing> {
-        catalog::standing(flow, &self.gallery.as_ref()?.index)
+        catalog::standing(flow, &self.catalog.as_ref()?.index)
     }
 
-    /// Opens the gallery's page of a flow installed from it.
-    fn show_in_gallery(&mut self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
+    /// Opens the catalog's page of a flow installed from it.
+    fn show_in_catalog(&mut self, filtered_ix: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(flow) = self.flow_at(filtered_ix) else {
             return;
         };
         let Some((slug, version)) = catalog::source_of(flow) else {
             return;
         };
-        // Without a copy of the gallery there is nothing to show yet; its
+        // Without a copy of the catalog there is nothing to show yet; its
         // page fetches one.
-        let Some(gallery) = &self.gallery else {
-            emit(cx, AppEvent::Navigate(ActivePage::FlowGallery));
+        let Some(catalog) = &self.catalog else {
+            emit(cx, AppEvent::Navigate(ActivePage::FlowCatalog));
             return;
         };
-        let Some(entry) = gallery.index.entry(&slug) else {
-            notify::info(window, "The gallery no longer lists this flow", cx);
+        let Some(entry) = catalog.index.entry(&slug) else {
+            notify::info(window, "The catalog no longer lists this flow", cx);
             return;
         };
-        open_gallery_detail(
+        open_catalog_detail(
             entry.clone(),
-            gallery.installs.get(&slug).copied().unwrap_or(0),
-            gallery.index.is_verified(&entry.author),
+            catalog.installs.get(&slug).copied().unwrap_or(0),
+            catalog.index.is_verified(&entry.author),
             Some(Installed {
                 id: flow.id.clone(),
                 version,
@@ -565,9 +565,9 @@ impl FlowsView {
             )
             .child(toolbar::spacer())
             .child(
-                Button::new("browse-gallery")
+                Button::new("browse-catalog")
                     .icon(Icon::new(Icon::empty()).path("icons/store.svg"))
-                    .label("Gallery")
+                    .label("Catalog")
                     .outline()
                     .small()
                     .cursor_pointer()
@@ -577,7 +577,7 @@ impl FlowsView {
                     .on_click({
                         let page = self.focus_handle.clone();
                         move |_, window, cx| {
-                            page.dispatch_action(&app_menu::OpenGallery, window, cx)
+                            page.dispatch_action(&app_menu::OpenCatalog, window, cx)
                         }
                     }),
             )
@@ -613,7 +613,7 @@ impl FlowsView {
                         .dropdown_menu(|menu, _, _| {
                             menu.menu("From scratch", Box::new(NewFlow))
                                 .menu("From template", Box::new(BrowseTemplates))
-                                .menu("From the gallery", Box::new(app_menu::OpenGallery))
+                                .menu("From the catalog", Box::new(app_menu::OpenCatalog))
                                 .menu("Import flow", Box::new(ImportFlow))
                         }),
                 )
@@ -638,7 +638,7 @@ impl FlowsView {
             flow.description.trim().to_string()
         };
         let on_click_ix = filtered_ix;
-        let from_gallery = catalog::source_of(flow).is_some();
+        let from_catalog = catalog::source_of(flow).is_some();
 
         v_flex()
             .id(("flow-card", filtered_ix))
@@ -751,10 +751,10 @@ impl FlowsView {
                                             "Run history",
                                             Box::new(FlowHistory(filtered_ix)),
                                         );
-                                        let menu = if from_gallery {
+                                        let menu = if from_catalog {
                                             menu.menu(
-                                                "Show in the gallery",
-                                                Box::new(FlowInGallery(filtered_ix)),
+                                                "Show in the catalog",
+                                                Box::new(FlowInCatalog(filtered_ix)),
                                             )
                                         } else {
                                             menu
@@ -1022,8 +1022,8 @@ impl Render for FlowsView {
                     this.refresh(cx);
                 }
             }))
-            .on_action(cx.listener(|this, action: &FlowInGallery, window, cx| {
-                this.show_in_gallery(action.0, window, cx);
+            .on_action(cx.listener(|this, action: &FlowInCatalog, window, cx| {
+                this.show_in_catalog(action.0, window, cx);
             }))
             .on_action(cx.listener(|this, action: &FlowHistory, window, cx| {
                 if let Some(flow) = this.flow_at(action.0) {

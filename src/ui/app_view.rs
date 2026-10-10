@@ -6,7 +6,7 @@ use crate::ui::app_events::{AppEvent, AppEvents, emit};
 use crate::ui::config_page::config_view::ConfigView;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::share_ui::import_flow_from_dialog;
-use crate::ui::flows_page::{FlowEditPage, FlowEditSource, FlowsView, GalleryView, TemplatesView};
+use crate::ui::flows_page::{CatalogView, FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
 use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
@@ -58,9 +58,9 @@ pub enum ActivePage {
     /// The templates to start a new flow from.
     FlowTemplates,
     /// The flows other people shared.
-    FlowGallery,
+    FlowCatalog,
     /// The editor on the saved flow with this id, holding the steps of a
-    /// newer gallery version, not yet saved.
+    /// newer catalog version, not yet saved.
     FlowUpdate(String, Box<Imported>),
     Settings,
     About,
@@ -81,7 +81,7 @@ impl ActivePage {
             | ActivePage::FlowImport(_)
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
-            | ActivePage::FlowGallery => "flows",
+            | ActivePage::FlowCatalog => "flows",
             ActivePage::Settings => "settings",
             ActivePage::About => "about",
             ActivePage::Omarchy => "omarchy",
@@ -126,8 +126,8 @@ pub struct MainWindowView {
     flow_edit_view: Option<Entity<FlowEditPage>>,
     flow_templates_root: Option<AnyView>,
     flow_templates_view: Option<Entity<TemplatesView>>,
-    flow_gallery_root: Option<AnyView>,
-    flow_gallery_view: Option<Entity<GalleryView>>,
+    flow_catalog_root: Option<AnyView>,
+    flow_catalog_view: Option<Entity<CatalogView>>,
     settings_root: Option<AnyView>,
     settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
@@ -181,8 +181,8 @@ impl MainWindowView {
             flow_edit_view: None,
             flow_templates_root: None,
             flow_templates_view: None,
-            flow_gallery_root: None,
-            flow_gallery_view: None,
+            flow_catalog_root: None,
+            flow_catalog_view: None,
             settings_root: None,
             settings_view: None,
             about_root: None,
@@ -305,7 +305,7 @@ impl MainWindowView {
             | ActivePage::FlowImport(_)
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
-            | ActivePage::FlowGallery => Some(3),
+            | ActivePage::FlowCatalog => Some(3),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -358,13 +358,13 @@ impl MainWindowView {
                     self.flow_templates_view = Some(view);
                 }
             },
-            ActivePage::FlowGallery => match &self.flow_gallery_view {
+            ActivePage::FlowCatalog => match &self.flow_catalog_view {
                 // Every visit looks for what is new.
                 Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
                 None => {
-                    let view = cx.new(|cx| GalleryView::new(window, cx));
-                    self.flow_gallery_root = Some(view.clone().into());
-                    self.flow_gallery_view = Some(view);
+                    let view = cx.new(|cx| CatalogView::new(window, cx));
+                    self.flow_catalog_root = Some(view.clone().into());
+                    self.flow_catalog_view = Some(view);
                 }
             },
             ActivePage::Flows => {
@@ -445,9 +445,9 @@ impl MainWindowView {
         self.flow_edit_view.clone()
     }
 
-    /// The Gallery page, once it has been visited.
-    pub fn flow_gallery(&self) -> Option<Entity<GalleryView>> {
-        self.flow_gallery_view.clone()
+    /// The Catalog page, once it has been visited.
+    pub fn flow_catalog(&self) -> Option<Entity<CatalogView>> {
+        self.flow_catalog_view.clone()
     }
 
     pub fn active_page(&self) -> &ActivePage {
@@ -587,8 +587,8 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
-            ActivePage::FlowGallery => {
-                if let Some(view) = &self.flow_gallery_view {
+            ActivePage::FlowCatalog => {
+                if let Some(view) = &self.flow_catalog_view {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
@@ -630,8 +630,8 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
-            ActivePage::FlowGallery => {
-                if let Some(view) = &self.flow_gallery_view {
+            ActivePage::FlowCatalog => {
+                if let Some(view) = &self.flow_catalog_view {
                     view.update(cx, |view, cx| view.refresh(cx));
                 }
             }
@@ -744,8 +744,8 @@ impl MainWindowView {
                 .flow_templates_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::FlowGallery => self
-                .flow_gallery_root
+            ActivePage::FlowCatalog => self
+                .flow_catalog_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::Settings => self
@@ -778,7 +778,7 @@ impl MainWindowView {
                 | ActivePage::FlowUpdate(..),
                 ActivePage::Flows,
             ) => true,
-            (ActivePage::FlowTemplates | ActivePage::FlowGallery, ActivePage::Flows) => true,
+            (ActivePage::FlowTemplates | ActivePage::FlowCatalog, ActivePage::Flows) => true,
             (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
@@ -1031,9 +1031,9 @@ impl Render for MainWindowView {
                 },
             ))
             .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::OpenGallery, window, cx| {
+                |this, _: &crate::ui::menu::app_menu::OpenCatalog, window, cx| {
                     if !dialog_open(window, cx) {
-                        this.navigate_to(ActivePage::FlowGallery, window, cx);
+                        this.navigate_to(ActivePage::FlowCatalog, window, cx);
                     }
                 },
             ))

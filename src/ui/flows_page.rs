@@ -1,10 +1,10 @@
 pub mod app_picker;
 pub mod automation_dialog;
+pub mod catalog_detail;
+pub mod catalog_view;
 pub mod flow_card;
 pub mod flow_edit_view;
 pub mod flows_view;
-pub mod gallery_detail;
-pub mod gallery_view;
 pub mod history_dialog;
 pub mod icon_dialog;
 pub mod option_picker;
@@ -21,7 +21,7 @@ pub mod test_step_dialog;
 mod undo;
 pub mod var_token;
 
+pub use catalog_view::CatalogView;
 pub use flow_edit_view::{FlowEditPage, FlowEditSource};
 pub use flows_view::FlowsView;
-pub use gallery_view::GalleryView;
 pub use templates_view::TemplatesView;

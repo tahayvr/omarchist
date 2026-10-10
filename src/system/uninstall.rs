@@ -33,7 +33,7 @@ pub enum Step {
     DataDir(PathBuf),
     /// Delete `~/.local/state/omarchist` (the flows' run history).
     StateDir(PathBuf),
-    /// Delete `~/.cache/omarchist` (the copy of the gallery).
+    /// Delete `~/.cache/omarchist` (the copy of the catalog).
     CacheDir(PathBuf),
 }
 
@@ -111,7 +111,7 @@ pub fn plan() -> Vec<Step> {
     {
         steps.push(Step::StateDir(dir));
     }
-    // The gallery's folder is `omarchist/catalog`; the app's own is above it.
+    // The catalog's folder is `omarchist/catalog`; the app's own is above it.
     if let Ok(dir) = catalog::cache_dir()
         && let Some(dir) = dir.parent()
         && dir.is_dir()

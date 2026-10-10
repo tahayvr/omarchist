@@ -119,10 +119,10 @@ pub struct Meta {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub requires: Vec<String>,
     /// The URL the flow was imported from, when it came from one, or
-    /// `catalog:<slug>@<version>` for a flow installed from the gallery.
+    /// `catalog:<slug>@<version>` for a flow installed from the catalog.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub source: String,
-    /// Where the gallery files the flow: one of `catalog::CATEGORIES`.
+    /// Where the catalog files the flow: one of `catalog::CATEGORIES`.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub category: String,
     /// The license the flow is shared under, as an SPDX id.
@@ -672,7 +672,7 @@ impl StepKind {
     }
 
     /// An empty step of the type a [`type_tag`](Self::type_tag) names:
-    /// what the gallery draws a flow's icons from before it has the flow.
+    /// what the catalog draws a flow's icons from before it has the flow.
     pub fn from_type_tag(tag: &str) -> Option<StepKind> {
         if let Some(action) = tag.strip_prefix("action:") {
             return Some(StepKind::Action {
@@ -834,10 +834,10 @@ impl Flow {
             s.output.is_some() || !s.kind.references().is_empty() || s.kind.needs_format_2()
         });
         // Omarchist 2.0.0 refuses a key it does not know, so a file with
-        // the gallery's metadata is marked as needing a newer one.
-        let gallery_meta = !self.meta.category.is_empty() || !self.meta.license.is_empty();
+        // the catalog's metadata is marked as needing a newer one.
+        let catalog_meta = !self.meta.category.is_empty() || !self.meta.license.is_empty();
         if uses_format_2
-            || gallery_meta
+            || catalog_meta
             || !self.input.is_none()
             || self.triggers.files
             || !self.triggers.automations.is_empty()

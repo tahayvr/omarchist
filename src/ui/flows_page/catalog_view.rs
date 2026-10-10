@@ -1,4 +1,4 @@
-//! The Gallery page: flows other people shared, from the signed catalog.
+//! The Catalog page: flows other people shared, from the signed catalog.
 //! A card opens the flow's details; installing goes through the editor's
 //! review screen, so nothing from here is saved or run without a look.
 use std::collections::HashMap;
@@ -22,8 +22,8 @@ use crate::system::flows::StepKind;
 use crate::system::flows::catalog::{self, CATEGORIES, Catalog, Entry, Standing};
 use crate::system::flows::store::load_flows;
 use crate::ui::app_view::ActivePage;
+use crate::ui::flows_page::catalog_detail::{Installed, open_catalog_detail};
 use crate::ui::flows_page::flow_card::icon_tile;
-use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::focus;
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
@@ -31,14 +31,14 @@ use crate::ui::menu::app_menu;
 use crate::ui::text::{selectable, title_case};
 use crate::ui::toolbar;
 
-const KEY_CONTEXT: &str = "FlowGalleryPage";
+const KEY_CONTEXT: &str = "FlowCatalogPage";
 /// Wraps the search box so Escape clears it before it leaves the page.
-pub const SEARCH_CONTEXT: &str = "GallerySearch";
+pub const SEARCH_CONTEXT: &str = "CatalogSearch";
 
-pub mod gallery_nav {
-    gpui::actions!(flow_gallery, [ClearSearch]);
+pub mod catalog_nav {
+    gpui::actions!(flow_catalog, [ClearSearch]);
 }
-use gallery_nav::*;
+use catalog_nav::*;
 
 /// Which flows the page lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,7 +118,7 @@ pub fn kinds_strip(kinds: &[String], cx: &App) -> impl IntoElement {
     row
 }
 
-pub struct GalleryView {
+pub struct CatalogView {
     pub focus_handle: FocusHandle,
     search: Entity<InputState>,
     query: String,
@@ -126,7 +126,7 @@ pub struct GalleryView {
     /// Why there is nothing to show, when there is nothing.
     error: Option<String>,
     loading: bool,
-    /// The flows on this machine that came from the gallery, by slug.
+    /// The flows on this machine that came from the catalog, by slug.
     installed: HashMap<String, Installed>,
     filter: Filter,
     sort: Sort,
@@ -138,9 +138,9 @@ pub struct GalleryView {
     _subscriptions: Vec<Subscription>,
 }
 
-impl GalleryView {
+impl CatalogView {
     pub fn new(window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search the gallery"));
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search the catalog"));
         let subscriptions = vec![
             cx.subscribe(&search, |this, input, event: &InputEvent, cx| {
                 if matches!(event, InputEvent::Change) {
@@ -179,7 +179,7 @@ impl GalleryView {
         self.catalog.as_ref()
     }
 
-    /// Shows the copy kept from the last visit at once, then the gallery
+    /// Shows the copy kept from the last visit at once, then the catalog
     /// as it is now, both read off the UI thread.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
         self.loading = true;
@@ -201,7 +201,7 @@ impl GalleryView {
                             ))
                         })
                         .collect();
-                    (installed, catalog::cached(), settings().gallery_author)
+                    (installed, catalog::cached(), settings().catalog_author)
                 })
                 .await;
             this.update(cx, |this, cx| {
@@ -362,7 +362,7 @@ impl GalleryView {
         let Some(entry) = catalog.index.entry(slug) else {
             return;
         };
-        open_gallery_detail(
+        open_catalog_detail(
             entry.clone(),
             self.installs(slug),
             catalog.index.is_verified(&entry.author),
@@ -381,7 +381,7 @@ impl GalleryView {
         let installs = self.installs(&entry.slug);
         let standing = self.standing(entry);
         let slug = entry.slug.clone();
-        let card = Button::new(("gallery-card", ix))
+        let card = Button::new(("catalog-card", ix))
             .outline()
             .flex_1()
             .min_w_0()
@@ -408,7 +408,7 @@ impl GalleryView {
                                     .gap_0p5()
                                     .child(
                                         div().font_weight(FontWeight::SEMIBOLD).truncate().child(
-                                            selectable("gallery-name", title_case(&entry.name)),
+                                            selectable("catalog-name", title_case(&entry.name)),
                                         ),
                                     )
                                     .child(
@@ -419,7 +419,7 @@ impl GalleryView {
                                             .font_weight(FontWeight::NORMAL)
                                             .text_color(theme.muted_foreground)
                                             .child(selectable(
-                                                "gallery-author",
+                                                "catalog-author",
                                                 format!("by {}", entry.author),
                                             ))
                                             .when(verified, |this| {
@@ -456,7 +456,7 @@ impl GalleryView {
                             .min_h(rems(2.5))
                             .line_clamp(2)
                             .text_ellipsis()
-                            .child(selectable("gallery-description", entry.description.clone())),
+                            .child(selectable("catalog-description", entry.description.clone())),
                     )
                     .child(
                         h_flex()
@@ -525,7 +525,7 @@ impl GalleryView {
         let theme = cx.theme();
         let ring = focus::focus_border(self.filter_focus.is_focused(window), theme.transparent, cx);
         h_flex()
-            .id("gallery-filters")
+            .id("catalog-filters")
             .test_support()
             .key_context(FILTERS_CONTEXT)
             .track_focus(&self.filter_focus)
@@ -545,7 +545,7 @@ impl GalleryView {
                 let selected = self.filter == filter;
                 div()
                     .id(SharedString::from(format!(
-                        "gallery-filter-{}",
+                        "catalog-filter-{}",
                         filter.label().to_lowercase()
                     )))
                     .test_support()
@@ -600,7 +600,7 @@ impl GalleryView {
             Sort::Newest => Sort::Popular,
         };
         h_flex()
-            .id("gallery-sort")
+            .id("catalog-sort")
             .test_support()
             .key_context(FILTERS_CONTEXT)
             .track_focus(&self.sort_focus)
@@ -620,15 +620,15 @@ impl GalleryView {
             .border_color(ring)
             .p_0p5()
             .gap_0p5()
-            .child(option(Sort::Popular, "Popular", "gallery-sort-popular"))
-            .child(option(Sort::Newest, "Newest", "gallery-sort-newest"))
+            .child(option(Sort::Popular, "Popular", "catalog-sort-popular"))
+            .child(option(Sort::Newest, "Newest", "catalog-sort-newest"))
     }
 }
 
 /// The page is centred and never wider than this, like the Flows page.
 const PAGE_WIDTH: f32 = 1400.;
 
-impl Render for GalleryView {
+impl Render for CatalogView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let theme = cx.theme().clone();
         let muted = theme.muted_foreground;
@@ -662,7 +662,7 @@ impl Render for GalleryView {
         let label = |text: &'static str, cx: &App| heading::section(text, cx);
 
         v_flex()
-            .id("gallery-page")
+            .id("catalog-page")
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus_handle)
             .on_action(cx.listener(|this, _: &app_menu::NavigateBack, _, cx| this.back(cx)))
@@ -679,14 +679,14 @@ impl Render for GalleryView {
                         toolbar::bar()
                             .child(
                                 toolbar::back(
-                                    "gallery-back",
+                                    "catalog-back",
                                     "Back to Flows",
                                     &app_menu::NavigateBack,
                                     Some(KEY_CONTEXT),
                                 )
                                 .on_click(cx.listener(|this, _, _, cx| this.back(cx))),
                             )
-                            .child(toolbar::title("Gallery"))
+                            .child(toolbar::title("Catalog"))
                             .child(
                                 div()
                                     .key_context(SEARCH_CONTEXT)
@@ -696,12 +696,12 @@ impl Render for GalleryView {
                                     .w(px(toolbar::SEARCH_WIDTH))
                                     .max_w_full()
                                     .child(
-                                        toolbar::search_input(&self.search).id("gallery-search"),
+                                        toolbar::search_input(&self.search).id("catalog-search"),
                                     ),
                             )
                             .child(toolbar::spacer())
                             .child(
-                                Button::new("gallery-reload")
+                                Button::new("catalog-reload")
                                     .ghost()
                                     .small()
                                     .loading(self.loading)
@@ -721,12 +721,12 @@ impl Render for GalleryView {
                                 .child(self.render_sort(window, cx)),
                         )
                     })
-                    // What is still in review is on GitHub, not in the gallery yet.
+                    // What is still in review is on GitHub, not in the catalog yet.
                     .when(self.filter == Filter::Mine, |this| {
                         let url = catalog::submissions_url(&self.author);
                         this.child(
                             h_flex().child(
-                                Button::new("gallery-my-requests")
+                                Button::new("catalog-my-requests")
                                     .ghost()
                                     .small()
                                     .icon(Icon::new(Icon::empty()).path("icons/external-link.svg"))
@@ -738,7 +738,7 @@ impl Render for GalleryView {
                     })
                     .child(
                         div()
-                            .id("gallery-scroll")
+                            .id("catalog-scroll")
                             .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
@@ -747,26 +747,26 @@ impl Render for GalleryView {
                             .when(nothing_loaded && self.loading, |this| {
                                 this.child(
                                     div().text_sm().text_color(muted).child(selectable(
-                                        "gallery-loading",
-                                        "Opening the gallery…",
+                                        "catalog-loading",
+                                        "Opening the catalog…",
                                     )),
                                 )
                             })
                             .when(nothing_loaded && !self.loading, |this| {
                                 this.child(
                                     v_flex()
-                                        .id("gallery-unreachable")
+                                        .id("catalog-unreachable")
                                         .test_support()
                                         .gap_3()
                                         .items_start()
                                         .child(div().text_sm().text_color(muted).child(selectable(
-                                            "gallery-error",
+                                            "catalog-error",
                                             self.error.clone().unwrap_or_else(|| {
-                                                "The gallery could not be opened".to_string()
+                                                "The catalog could not be opened".to_string()
                                             }),
                                         )))
                                         .child(
-                                            Button::new("gallery-retry")
+                                            Button::new("catalog-retry")
                                                 .outline()
                                                 .small()
                                                 .label("Try again")
@@ -780,11 +780,11 @@ impl Render for GalleryView {
                             .when(!nothing_loaded && entries.is_empty(), |this| {
                                 this.child(
                                     div()
-                                        .id("gallery-none")
+                                        .id("catalog-none")
                                         .test_support()
                                         .text_sm()
                                         .text_color(muted)
-                                        .child(selectable("gallery-no-match", "No flow matches")),
+                                        .child(selectable("catalog-no-match", "No flow matches")),
                                 )
                             })
                             .when(!entries.is_empty(), |this| {

@@ -116,7 +116,7 @@ export default defineConfig({
           { text: "Input", link: "/flows/input" },
           { text: "Automations", link: "/flows/automations" },
           { text: "Run History", link: "/flows/history" },
-          { text: "Gallery", link: "/flows/gallery" },
+          { text: "Catalog", link: "/flows/catalog" },
           { text: "Templates", link: "/flows/#templates" },
           { text: "Sharing Flows", link: "/flows/#sharing-flows" },
         ],

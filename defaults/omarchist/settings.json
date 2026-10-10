@@ -10,8 +10,8 @@
 		"notify_updates": false,
 		"notify_flows": false,
 		"bar_widget": false,
-		"gallery_count_installs": true,
-		"gallery_author": ""
+		"catalog_count_installs": true,
+		"catalog_author": ""
 	},
 	"metadata": {
 		"created_at": "{{CREATED_AT}}",

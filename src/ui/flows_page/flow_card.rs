@@ -66,11 +66,11 @@ pub fn trigger_chips(
         any = true;
     }
     if catalog::source_of(flow).is_some() {
-        // From the gallery, and what the gallery says about it since.
+        // From the catalog, and what the catalog says about it since.
         row = row.child(match standing {
             Some(Standing::Update(_)) => Tag::primary().small().child("Update"),
             Some(Standing::Pulled(_)) => Tag::danger().small().child("Pulled"),
-            _ => Tag::secondary().small().child("Gallery"),
+            _ => Tag::secondary().small().child("Catalog"),
         });
         any = true;
     } else if !flow.meta.source.is_empty() {

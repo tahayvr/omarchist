@@ -49,8 +49,8 @@ use crate::ui::editable_title::{Title, TitleState};
 use crate::ui::flows_page::automation_dialog::{
     AutomationDialog, AutomationDialogEvent, EventKind, open_automation_dialog,
 };
+use crate::ui::flows_page::catalog_detail::{Installed, open_catalog_detail};
 use crate::ui::flows_page::flow_card::icon_tile;
-use crate::ui::flows_page::gallery_detail::{Installed, open_gallery_detail};
 use crate::ui::flows_page::history_dialog::open_history_dialog;
 use crate::ui::flows_page::icon_dialog::{IconDialog, IconDialogEvent, open_icon_dialog};
 use crate::ui::flows_page::publish_dialog::open_publish_dialog;
@@ -117,7 +117,7 @@ pub enum FlowEditSource {
     /// A flow from a file or URL, shown for review before its first save.
     Imported(Box<Imported>),
     /// The saved flow with this id, taking the steps of a newer version
-    /// from the gallery, shown for review before it is saved over.
+    /// from the catalog, shown for review before it is saved over.
     Update(String, Box<Imported>),
 }
 
@@ -197,11 +197,11 @@ pub struct FlowEditPage {
     pub(super) scroll: ScrollHandle,
     /// Where an imported flow came from, shown until it is saved.
     pub(super) import_origin: Option<String>,
-    /// What an update from the gallery brought, shown until it is saved.
+    /// What an update from the catalog brought, shown until it is saved.
     update_note: Option<String>,
-    /// What the gallery says about this flow, when it came from there:
+    /// What the catalog says about this flow, when it came from there:
     /// its entry, its install count, and whether its author is verified.
-    gallery: Option<(catalog::Entry, u64, bool)>,
+    catalog: Option<(catalog::Entry, u64, bool)>,
     /// Programs the flow needs that are not on this machine.
     pub(super) missing: Vec<String>,
     _subscriptions: Vec<Subscription>,
@@ -310,7 +310,7 @@ impl FlowEditPage {
             baseline,
             discarded: false,
             update_note,
-            gallery: None,
+            catalog: None,
             title: TitleState::new(name.clone(), cx),
             name,
             description,
@@ -409,15 +409,15 @@ impl FlowEditPage {
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let (apps, flows, scan, service_on, gallery) = loaded;
+                let (apps, flows, scan, service_on, catalog) = loaded;
                 this.service_on = service_on;
-                // The copy of the gallery kept from the last visit says
+                // The copy of the catalog kept from the last visit says
                 // whether this flow has an update or was pulled.
-                this.gallery = gallery.and_then(|gallery| {
+                this.catalog = catalog.and_then(|catalog| {
                     let (slug, _) = catalog::source_of(&this.flow)?;
-                    let entry = gallery.index.entry(&slug)?.clone();
-                    let installs = gallery.installs.get(&slug).copied().unwrap_or(0);
-                    let verified = gallery.index.is_verified(&entry.author);
+                    let entry = catalog.index.entry(&slug)?.clone();
+                    let installs = catalog.installs.get(&slug).copied().unwrap_or(0);
+                    let verified = catalog.index.is_verified(&entry.author);
                     Some((entry, installs, verified))
                 });
                 this.apps = apps;
@@ -484,10 +484,10 @@ impl FlowEditPage {
                 // running come down.
                 self.update_note = None;
                 self.import_origin = None;
-                // A first save of a flow from the gallery is an install.
+                // A first save of a flow from the catalog is an install.
                 if was_new
                     && let Some((slug, version)) = catalog::source_of(&flow)
-                    && settings().gallery_count_installs
+                    && settings().catalog_count_installs
                 {
                     cx.background_spawn(async move { catalog::count_install(&slug, version) })
                         .detach();
@@ -1248,7 +1248,7 @@ impl FlowEditPage {
             parts.push(meta.homepage.clone());
         }
         match catalog::source_of(&self.flow) {
-            Some(_) => parts.insert(0, "From the gallery".to_string()),
+            Some(_) => parts.insert(0, "From the catalog".to_string()),
             None if !meta.source.is_empty() => {
                 parts.push(format!("imported from {}", meta.source));
             }
@@ -1326,10 +1326,10 @@ impl FlowEditPage {
         )
     }
 
-    /// For a flow from the gallery: that a newer version is there, or that
+    /// For a flow from the catalog: that a newer version is there, or that
     /// it was pulled.
-    fn render_gallery_standing(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let (entry, installs, verified) = self.gallery.clone()?;
+    fn render_catalog_standing(&self, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let (entry, installs, verified) = self.catalog.clone()?;
         // Under review, the update is what is on screen already.
         if self.reviewing() {
             return None;
@@ -1342,11 +1342,11 @@ impl FlowEditPage {
         match catalog::standing(&self.flow, &index)? {
             catalog::Standing::Pulled(reason) => Some(
                 warning_banner(
-                    "gallery-pulled",
+                    "catalog-pulled",
                     if reason.is_empty() {
-                        "This flow was pulled from the gallery.".to_string()
+                        "This flow was pulled from the catalog.".to_string()
                     } else {
-                        format!("This flow was pulled from the gallery: {reason}")
+                        format!("This flow was pulled from the catalog: {reason}")
                     },
                     cx,
                 )
@@ -1369,17 +1369,17 @@ impl FlowEditPage {
                             .text_color(cx.theme().primary),
                     )
                     .child(div().flex_1().child(selectable(
-                        "gallery-update-text",
-                        format!("Version {newer} is in the gallery"),
+                        "catalog-update-text",
+                        format!("Version {newer} is in the catalog"),
                     )))
                     .child(
-                        Button::new("flow-gallery-update")
+                        Button::new("flow-catalog-update")
                             .outline()
                             .small()
                             .label("See what changes")
                             .cursor_pointer()
                             .on_click(cx.listener(move |this, _, window, cx| {
-                                open_gallery_detail(
+                                open_catalog_detail(
                                     entry.clone(),
                                     installs,
                                     verified,
@@ -1398,7 +1398,7 @@ impl FlowEditPage {
         }
     }
 
-    /// Opens the dialog that makes the flow ready for the gallery.
+    /// Opens the dialog that makes the flow ready for the catalog.
     fn publish(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let flow = self.current(cx);
         if flow.name.is_empty() {
@@ -1407,9 +1407,9 @@ impl FlowEditPage {
             return;
         }
         cx.spawn_in(window, async move |this, cx| {
-            // The gallery as last seen tells a new flow from a new version.
+            // The catalog as last seen tells a new flow from a new version.
             let index = cx
-                .background_spawn(async { catalog::cached().map(|gallery| gallery.index) })
+                .background_spawn(async { catalog::cached().map(|catalog| catalog.index) })
                 .await;
             this.update_in(cx, |_, window, cx| {
                 open_publish_dialog(flow, index, window, cx);
@@ -1609,7 +1609,7 @@ impl FlowEditPage {
                     .dropdown_menu(|menu, _, _| {
                         menu.menu("Save as template", Box::new(SaveAsTemplate))
                             .menu("Export…", Box::new(Export))
-                            .menu("Publish to the gallery…", Box::new(Publish))
+                            .menu("Publish to the catalog…", Box::new(Publish))
                     }),
             )
     }
@@ -1906,7 +1906,7 @@ impl Render for FlowEditPage {
             .child(self.render_header(window, cx))
             .children(self.render_import_banner(cx))
             .children(self.render_risks(cx))
-            .children(self.render_gallery_standing(cx))
+            .children(self.render_catalog_standing(cx))
             .children(self.render_requirements_banner(cx))
             .child(
                 div()

@@ -68,7 +68,7 @@ const STARTUP_PATHS: &[&str] = &[
     ".config/systemd/",
 ];
 
-/// How serious a risk named in a gallery entry is. One this build does
+/// How serious a risk named in a catalog entry is. One this build does
 /// not know is treated as the serious kind.
 pub fn level_of(what: &str) -> Level {
     if [STARTUP, NETWORK, SENDS].contains(&what) {

@@ -37,12 +37,15 @@ pub struct SettingsConfig {
     pub notify_flows: bool,
     /// The Omarchist bar widget is installed and enabled.
     pub bar_widget: bool,
-    /// Tell the gallery when a flow from it is saved, so its install
-    /// count grows. Only the flow's name and version are sent.
-    pub gallery_count_installs: bool,
+    /// Tell the catalog when a flow from it is saved, so its install
+    /// count grows. Only the flow's name and version are sent. (The
+    /// catalog was the "gallery" in 2.0; a file from then still reads.)
+    #[serde(alias = "gallery_count_installs")]
+    pub catalog_count_installs: bool,
     /// The GitHub user name flows are published under, remembered from the
     /// last time.
-    pub gallery_author: String,
+    #[serde(alias = "gallery_author")]
+    pub catalog_author: String,
 }
 
 impl Default for SettingsConfig {
@@ -57,8 +60,8 @@ impl Default for SettingsConfig {
             notify_updates: false,
             notify_flows: false,
             bar_widget: false,
-            gallery_count_installs: true,
-            gallery_author: String::new(),
+            catalog_count_installs: true,
+            catalog_author: String::new(),
         }
     }
 }
