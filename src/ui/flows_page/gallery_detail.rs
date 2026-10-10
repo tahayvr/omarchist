@@ -1,7 +1,9 @@
 //! One flow of the gallery, opened from its card: who made it, what it
-//! needs, what a reader should know, and every step. Installing hands the
-//! flow to the editor's review screen; an update opens the installed flow
-//! with the new steps, unsaved, after showing what changes.
+//! needs, what a reader should know, and every step with the command it
+//! runs in full. This dialog is where a gallery flow is read before it
+//! reaches the machine: Install writes the flow file and opens the editor
+//! on the installed flow. An update opens the installed flow with the new
+//! steps, unsaved, after showing what changes.
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::heading;
 use gpui::prelude::FluentBuilder;
@@ -16,12 +18,14 @@ use gpui_component::{
 use gpui_kit::TestSupportExt;
 
 use crate::system::apps::{DesktopApp, installed_apps};
+use crate::system::config::config_setup::settings;
 use crate::system::flows::catalog::{self, Change, DiffRow, Entry};
+use crate::system::flows::condition::Condition;
 use crate::system::flows::requirements::is_installed;
 use crate::system::flows::risks::{self, Level};
 use crate::system::flows::share::Imported;
-use crate::system::flows::store::load_flow;
-use crate::system::flows::{Flow, Step};
+use crate::system::flows::store::{existing_ids, load_flow, save_new_flow};
+use crate::system::flows::{Flow, InputFallback, OnError, Step, StepKind, unique_id};
 use crate::ui::app_view::ActivePage;
 use crate::ui::flows_page::flow_card::icon_tile;
 use crate::ui::flows_page::gallery_view::count_label;
@@ -29,6 +33,7 @@ use crate::ui::flows_page::share_ui::warning_banner;
 use crate::ui::flows_page::step_summary::SummaryContext;
 use crate::ui::flows_page::var_token;
 use crate::ui::focus;
+use crate::ui::notify;
 use crate::ui::text::{selectable, title_case};
 
 /// A flow on this machine that came from the gallery.
@@ -149,12 +154,75 @@ impl GalleryDetail {
             (Some(_), _) if updating => return,
             (Some(installed), _) => ActivePage::FlowEdit(installed.id.clone()),
             (None, Loaded::Ready { imported, .. }) if self.entry.yanked.is_none() => {
-                ActivePage::FlowImport(imported.clone())
+                let imported = imported.clone();
+                self.install(&imported, window, cx);
+                return;
             }
             _ => return,
         };
         window.close_dialog(cx);
         emit(cx, AppEvent::Navigate(page));
+    }
+
+    /// Writes the flow to this machine, with no triggers and an id of its
+    /// own, and opens the editor on it. The flow has been read here, so
+    /// from now on it is the person's: it can be run, changed and saved
+    /// like any other.
+    fn install(&mut self, imported: &Imported, window: &mut Window, cx: &mut Context<Self>) {
+        let mut flow = imported.flow.clone();
+        flow.id = unique_id(&flow.name, &existing_ids());
+        if let Err(e) = save_new_flow(&flow) {
+            notify::error(window, format!("Could not install the flow: {e}"), cx);
+            return;
+        }
+        if settings().gallery_count_installs
+            && let Some((slug, version)) = catalog::source_of(&flow)
+        {
+            cx.background_spawn(async move { catalog::count_install(&slug, version) })
+                .detach();
+        }
+        window.close_dialog(cx);
+        notify::success(
+            window,
+            format!("Installed '{}'", title_case(&flow.name)),
+            cx,
+        );
+        emit(cx, AppEvent::Navigate(ActivePage::FlowEdit(flow.id)));
+    }
+
+    /// The text a step hands to a shell or the compositor: what a reader
+    /// of somebody else's flow has to see in full.
+    fn code_of(kind: &StepKind) -> Option<&str> {
+        match kind {
+            StepKind::Exec { command, .. } => Some(command),
+            StepKind::Lua { expr } => Some(expr),
+            StepKind::If {
+                condition: Condition::Command { command },
+                ..
+            } => Some(command),
+            _ => None,
+        }
+    }
+
+    /// How the flow behaves as a whole: on a failing step, and where its
+    /// input comes from.
+    fn render_behaviour(flow: &Flow, cx: &App) -> AnyElement {
+        let theme = cx.theme();
+        let mut facts = vec![match flow.on_error {
+            OnError::Stop => "Stops at the first step that fails",
+            OnError::Continue => "Keeps going when a step fails",
+        }];
+        match flow.input {
+            InputFallback::None => {}
+            InputFallback::Selection => facts.push("Starts with the text selected on screen"),
+            InputFallback::Clipboard => facts.push("Starts with what is on the clipboard"),
+            InputFallback::Ask => facts.push("Asks for its input when started"),
+        }
+        div()
+            .text_xs()
+            .text_color(theme.muted_foreground)
+            .child(selectable("gallery-detail-behaviour", facts.join(" · ")))
+            .into_any_element()
     }
 
     fn render_step(
@@ -168,6 +236,10 @@ impl GalleryDetail {
     ) -> AnyElement {
         let theme = cx.theme();
         let summary = summaries.summarize(&step.kind);
+        let code = Self::code_of(&step.kind);
+        // A command step's detail is its command, shown in full below.
+        let detail = (!summary.detail.is_empty() && code != Some(summary.detail.as_str()))
+            .then(|| summary.detail.clone());
         let (mark, tint) = match change {
             Change::Same => ("", theme.transparent),
             Change::Added => ("+", theme.success),
@@ -182,16 +254,22 @@ impl GalleryDetail {
             .rounded(theme.radius)
             .when(change != Change::Same, |this| this.bg(tint.opacity(0.10)))
             .when(change == Change::Removed, |this| this.opacity(0.75))
-            // The column of marks is only there when something changes.
-            .when(comparing, |this| {
-                this.child(
-                    div()
-                        .w_3()
-                        .flex_shrink_0()
-                        .text_sm()
-                        .text_color(tint)
-                        .child(mark),
-                )
+            // The column of marks is only there when something changes;
+            // otherwise the steps are numbered as the editor numbers them.
+            .child(if comparing {
+                div()
+                    .w_3()
+                    .flex_shrink_0()
+                    .text_sm()
+                    .text_color(tint)
+                    .child(mark)
+            } else {
+                div()
+                    .w_5()
+                    .flex_shrink_0()
+                    .text_xs()
+                    .text_color(theme.muted_foreground)
+                    .child(format!("{}", ix + 1))
             })
             .child(
                 div()
@@ -208,14 +286,29 @@ impl GalleryDetail {
                         &summary.title,
                         cx,
                     ))
-                    .when(!summary.detail.is_empty(), |this| {
+                    .when_some(detail, |this, detail| {
                         this.child(div().text_xs().text_color(theme.muted_foreground).child(
-                            var_token::rich_text(
-                                &format!("gallery-step-detail-{ix}"),
-                                &summary.detail,
-                                cx,
-                            ),
+                            var_token::rich_text(&format!("gallery-step-detail-{ix}"), &detail, cx),
                         ))
+                    })
+                    // The command itself, whole, where it cannot be missed.
+                    .when_some(code, |this, code| {
+                        this.child(
+                            div()
+                                .id(ElementId::Name(format!("gallery-step-code-{ix}").into()))
+                                .test_support()
+                                .mt_1()
+                                .px_2()
+                                .py_1()
+                                .rounded(theme.radius)
+                                .bg(theme.secondary)
+                                .text_sm()
+                                .child(var_token::rich_text(
+                                    &format!("gallery-step-command-{ix}"),
+                                    code,
+                                    cx,
+                                )),
+                        )
                     }),
             )
             .into_any_element()
@@ -346,6 +439,12 @@ impl Render for GalleryDetail {
                     "gallery-detail-description",
                     entry.description.clone(),
                 )))
+                .children(match &self.loaded {
+                    Loaded::Ready { imported, .. } => {
+                        Some(Self::render_behaviour(&imported.flow, cx))
+                    }
+                    _ => None,
+                })
                 .when(!entry.tags.is_empty(), |this| {
                     this.child(
                         h_flex().gap_1().flex_wrap().children(
@@ -429,7 +528,7 @@ impl Render for GalleryDetail {
                         .child(
                             div()
                                 .id("gallery-detail-steps")
-                                .max_h(focus::dialog_height(300., window))
+                                .max_h(focus::dialog_height(380., window))
                                 .overflow_y_scroll()
                                 .track_scroll(&self.scroll)
                                 .rounded(theme.radius)
@@ -476,6 +575,11 @@ impl Render for GalleryDetail {
                                     Button::new("gallery-act")
                                         .primary()
                                         .small()
+                                        .when(label == "Install", |this| {
+                                            this.icon(
+                                                Icon::new(Icon::empty()).path("icons/download.svg"),
+                                            )
+                                        })
                                         .label(label)
                                         // Opening what is installed needs
                                         // nothing from the network.
@@ -515,7 +619,7 @@ pub fn open_gallery_detail(
     let list_focus = dialog.read(cx).list_focus.clone();
     window.open_dialog(cx, move |d, window, _| {
         d.title(title.clone())
-            .w(focus::dialog_width(680., window))
+            .w(focus::dialog_width(720., window))
             .overlay(true)
             .keyboard(true)
             .close_button(true)

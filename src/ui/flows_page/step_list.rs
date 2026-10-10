@@ -821,11 +821,13 @@ impl FlowEditPage {
                             .ghost()
                             .xsmall()
                             .tab_stop(false)
-                            .disabled(self.running)
+                            .disabled(self.running || self.reviewing())
                             .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                             .tooltip_with_action(
                                 if self.running {
                                     "Wait for the run to finish"
+                                } else if self.reviewing() {
+                                    "Save the flow first"
                                 } else {
                                     "Run only this step"
                                 },

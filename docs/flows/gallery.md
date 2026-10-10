@@ -51,7 +51,11 @@ A flag is not a verdict. A flow that updates your system needs `sudo`. It tells 
 
 ## Install
 
-**Install** opens the flow in the editor, as an unsaved flow. Nothing is saved and nothing runs yet. Read the steps, change what you like, and press **Save**. From then on the flow is yours: give it a keybind, edit it, rename it.
+A flow's dialog is where you read it before it reaches your machine. It shows who made it, what it does, what it needs, what is worth knowing, and every step. A step that runs a command shows that command in full, so there is nothing to guess at.
+
+**Install** saves the flow into your flows folder and opens it in the editor. From then on the flow is yours: run it, give it a keybind, edit it, rename it. Nothing runs until you run it.
+
+A flow you import from a file or a link, or an update from the gallery, opens in the editor unsaved, for you to read first. It cannot run until you save it.
 
 On the Flows page, a flow from the gallery carries a **Gallery** tag.
 
@@ -111,7 +115,7 @@ ok      focus.flow.toml  'Focus' (3 steps)
 ## Privacy
 
 - Browsing the Gallery downloads its list and the flows you open. No account, no identifier.
-- When you save a flow you installed, Omarchist tells the gallery the flow's name and version, so its install count grows. To count each install once, the server keeps a scrambled, one-way mark of your address and the flow for a day, then deletes it. Switch this off in **Settings → Flows → Count My Installs in the Gallery**.
+- When you install a flow, Omarchist tells the gallery the flow's name and version, so its install count grows. To count each install once, the server keeps a scrambled, one-way mark of your address and the flow for a day, then deletes it. Switch this off in **Settings → Flows → Count My Installs in the Gallery**.
 - Publishing and reporting happen on GitHub, in your browser, under your GitHub account.
 
 ## How the gallery is kept safe
@@ -119,6 +123,6 @@ ok      focus.flow.toml  'Focus' (3 steps)
 - Every flow and every new version is a pull request that a person reviews.
 - A published version never changes. A change is a new version, and you see what it changes before you take it.
 - The gallery's list is signed. Omarchist checks the signature, and checks every flow file against the list, so a flow that was not reviewed cannot reach you through the gallery, even if the server is broken into.
-- Installing never runs a flow. You read it, then you save it.
+- Installing never runs a flow. You read it in its dialog, with every command in full, then you install it.
 
 Omarchist keeps a copy of the list, so the Gallery opens without a connection, and says so.

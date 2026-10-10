@@ -14,6 +14,7 @@ use gpui_kit::component::WindowExt;
 use gpui_kit::test::TestAppContextExt;
 use gpui_kit::test::TestWindowExt;
 use omarchist::ActivePage;
+use omarchist::system::flows::share::{ImportSource, read_import};
 use omarchist::system::flows::{OnClick, StepKind};
 
 /// The step dialog's body (`dialog_body` in `step_dialog.rs`).
@@ -2029,7 +2030,7 @@ fn the_gallery_lists_flows_and_narrows_them(cx: &mut TestAppContext) {
 }
 
 #[gpui_kit::test]
-fn a_gallery_flow_is_installed_through_the_review_screen(cx: &mut TestAppContext) {
+fn a_gallery_flow_is_installed_from_its_dialog(cx: &mut TestAppContext) {
     let (handle, view) = open_gallery(cx);
     // "Careful" is the last card: the least installed, by name.
     with(cx, handle, |window, cx| {
@@ -2041,12 +2042,17 @@ fn a_gallery_flow_is_installed_through_the_review_screen(cx: &mut TestAppContext
     with(cx, handle, |window, _| {
         assert!(window.find("gallery-detail").visible());
         assert!(window.find("gallery-detail-needs").visible());
+        assert!(
+            window.find("gallery-step-code-0").visible(),
+            "the command a step runs is shown in full"
+        );
         assert_eq!(
             window.find("gallery-detail-list").focused(),
             Some(true),
             "the steps have the keyboard, to scroll through"
         );
     });
+    assert!(load_flow("careful").is_err());
     // Ctrl+Enter is the dialog's main button once the steps are fetched.
     wait_real(cx, handle, Duration::from_secs(10), |window, cx| {
         window.press("ctrl-enter", cx);
@@ -2054,23 +2060,65 @@ fn a_gallery_flow_is_installed_through_the_review_screen(cx: &mut TestAppContext
     });
     settle(cx, handle);
 
-    // Nothing is saved: the flow is in the editor, to be read first.
-    let flow = edited_flow(cx, &view);
-    assert!(flow.id.is_empty());
-    assert_eq!(flow.meta.source, "catalog:careful@1");
-    assert!(load_flow("careful").is_err());
-    with(cx, handle, |window, cx| {
-        assert!(
-            window.find("import-risks").visible(),
-            "the step that runs as administrator is pointed out"
-        );
-        window.press("ctrl-s", cx);
-    });
-    settle(cx, handle);
-    let saved = load_flow("careful").expect("saved after the review");
+    // Installed: the file is on this machine, and the editor holds it as
+    // a saved flow of the person's own, so it can be run.
+    let saved = load_flow("careful").expect("installed from the dialog");
     assert_eq!(catalog::source_of(&saved), Some(("careful".to_string(), 1)));
     assert!(saved.triggers.is_empty());
+    common::assert_page(cx, &view, ActivePage::FlowEdit("careful".into()));
+    let editor = common::editor(cx, &view);
+    assert!(cx.update(|cx| !editor.read(cx).is_dirty(cx) && !editor.read(cx).reviewing()));
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("import-risks").is_none());
+    });
     std::fs::remove_file(common::home().join(".config/omarchist/flows/careful.toml")).unwrap();
+}
+
+#[gpui_kit::test]
+fn an_imported_flow_cannot_run_until_it_is_saved(cx: &mut TestAppContext) {
+    // A file somebody shared: reviewed in the editor before its first save.
+    let path = common::home().join("ui-shared.flow.toml");
+    std::fs::write(
+        &path,
+        r#"
+format = 2
+name = "ui shared"
+icon = "sparkles"
+
+[[step]]
+type = "exec"
+command = "printf 'shared'"
+wait = true
+"#,
+    )
+    .unwrap();
+    let imported = read_import(&ImportSource::File(path.clone())).expect("a readable flow");
+    let (handle, view) = open(cx, ActivePage::FlowImport(Box::new(imported)));
+    settle(cx, handle);
+    let editor = common::editor(cx, &view);
+    assert!(cx.update(|cx| editor.read(cx).reviewing()));
+    with(cx, handle, |window, cx| {
+        // The Run shortcut is refused while the steps are under review.
+        window.press("ctrl-enter", cx);
+        assert!(!editor.read(cx).is_running());
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(window.try_find(("step-result", 1usize)).is_none());
+    });
+    assert!(load_flow("ui-shared").is_err(), "nothing saved yet");
+
+    with(cx, handle, |window, cx| window.press("ctrl-s", cx));
+    settle(cx, handle);
+    assert!(load_flow("ui-shared").is_ok());
+    assert!(cx.update(|cx| !editor.read(cx).reviewing()));
+    // Saved, so read: it runs like any flow of the person's own.
+    with(cx, handle, |window, cx| window.press("ctrl-enter", cx));
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find("flow-run").is_some() && window.try_find(("step-result", 1usize)).is_some()
+    });
+    std::fs::remove_file(common::home().join(".config/omarchist/flows/ui-shared.toml")).unwrap();
+    std::fs::remove_file(path).unwrap();
 }
 
 #[gpui_kit::test]

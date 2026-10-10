@@ -446,6 +446,10 @@ impl FlowEditPage {
     }
 
     /// Whether the editor holds changes that are not saved.
+    pub fn is_running(&self) -> bool {
+        self.running
+    }
+
     pub fn is_dirty(&self, cx: &App) -> bool {
         if self.discarded {
             return false;
@@ -476,7 +480,10 @@ impl FlowEditPage {
                 // ask to discard the flow that was just saved.
                 self.flow = flow.clone();
                 self.baseline = flow.clone();
+                // Saved, so read: the review banner and its block on
+                // running come down.
                 self.update_note = None;
+                self.import_origin = None;
                 // A first save of a flow from the gallery is an install.
                 if was_new
                     && let Some((slug, version)) = catalog::source_of(&flow)
@@ -508,6 +515,11 @@ impl FlowEditPage {
         if self.running {
             return;
         }
+        // Somebody else's steps run only once they are saved, and so read.
+        if self.reviewing() {
+            notify::warning(window, "Save the flow first", cx);
+            return;
+        }
         let flow = self.current(cx);
         if flow.enabled_steps() == 0 {
             notify::warning(window, "Add a step to run", cx);
@@ -529,6 +541,10 @@ impl FlowEditPage {
         cx: &mut Context<Self>,
     ) {
         if self.running || self.test_dialog.is_some() {
+            return;
+        }
+        if self.reviewing() {
+            notify::warning(window, "Save the flow first", cx);
             return;
         }
         let flow = self.current(cx);
@@ -1261,7 +1277,7 @@ impl FlowEditPage {
     }
 
     /// Whether somebody else's steps are on screen, waiting to be saved.
-    pub(super) fn reviewing(&self) -> bool {
+    pub fn reviewing(&self) -> bool {
         self.import_origin.is_some() || self.update_note.is_some()
     }
 
@@ -1560,7 +1576,17 @@ impl FlowEditPage {
                     .compact()
                     .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                     .label("Run")
-                    .tooltip_with_action("Run the flow as it is now", &Run, Some(KEY_CONTEXT))
+                    .map(|this| {
+                        if self.reviewing() {
+                            this.disabled(true).tooltip("Save the flow first")
+                        } else {
+                            this.tooltip_with_action(
+                                "Run the flow as it is now",
+                                &Run,
+                                Some(KEY_CONTEXT),
+                            )
+                        }
+                    })
                     .cursor_pointer()
                     .on_click(cx.listener(|this, _, window, cx| this.run(window, cx)))
             })
