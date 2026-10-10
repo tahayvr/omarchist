@@ -1044,11 +1044,12 @@ fn the_icon_is_picked_in_a_dialog(cx: &mut TestAppContext) {
 fn the_name_is_edited_in_the_header(cx: &mut TestAppContext) {
     write_flow("ui-three-steps", THREE_STEPS);
     let (handle, view) = open(cx, ActivePage::FlowEdit("ui-three-steps".into()));
-    // A named flow opens on its title; Enter edits it in place.
+    // A named flow opens on its steps, not ringing its title; a click on
+    // the title edits it in place.
     with(cx, handle, |window, cx| {
-        assert_eq!(window.find("flow-title").focused(), Some(true));
+        assert_eq!(window.find("flow-steps").focused(), Some(true));
         assert!(window.try_find("flow-name").is_none());
-        window.press("enter", cx);
+        window.click("flow-title", cx);
     });
     settle(cx, handle);
     // The whole name is selected, so typing replaces it.
@@ -1064,15 +1065,15 @@ fn the_name_is_edited_in_the_header(cx: &mut TestAppContext) {
     });
     assert_eq!(edited_flow(cx, &view).name, "Renamed");
 
-    // A click does the same.
-    with(cx, handle, |window, cx| window.click("flow-title", cx));
+    // Enter on the title, which has the keyboard again, does the same.
+    with(cx, handle, |window, cx| window.press("enter", cx));
     settle(cx, handle);
     with(cx, handle, |window, cx| {
         assert_eq!(window.find("flow-name").focused(), Some(true));
-        window.input("Clicked", cx);
+        window.input("Keyed", cx);
         window.press("enter", cx);
     });
-    assert_eq!(edited_flow(cx, &view).name, "Clicked");
+    assert_eq!(edited_flow(cx, &view).name, "Keyed");
 
     // A new flow starts by asking for its name.
     let (handle, _) = open(cx, ActivePage::FlowNew(None));

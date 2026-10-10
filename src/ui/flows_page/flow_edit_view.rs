@@ -346,11 +346,13 @@ impl FlowEditPage {
 
     /// A flow without a name starts by asking for one; a named one lands
     /// on its title.
+    /// A new flow starts by being named; a saved one opens on its steps,
+    /// so the title is not ringed on every visit.
     pub fn focus_entry(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.name.read(cx).value().trim().is_empty() {
             self.start_rename(window, cx);
         } else {
-            self.title.focus.focus(window, cx);
+            self.steps_focus.focus(window, cx);
         }
     }
 
