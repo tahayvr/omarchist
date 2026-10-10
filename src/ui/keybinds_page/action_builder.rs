@@ -929,7 +929,10 @@ impl ActionBuilder {
             }
             ActionKind::WebApp => v_flex()
                 .gap_2()
-                .child(var_token::with_tokens(Input::new(&self.webapp_url).small()))
+                .child(var_token::with_tokens(
+                    &self.webapp_url,
+                    Input::new(&self.webapp_url).small(),
+                ))
                 .child(
                     h_flex().gap_2().items_center().child(
                         div().flex_1().min_w_0().child(
@@ -951,6 +954,7 @@ impl ActionBuilder {
             ActionKind::Terminal => v_flex()
                 .gap_2()
                 .child(var_token::with_tokens(
+                    &self.terminal_command,
                     Input::new(&self.terminal_command).small(),
                 ))
                 .child(self.focus_switch(
@@ -1085,13 +1089,20 @@ impl ActionBuilder {
                 .into_any_element(),
             ActionKind::Command => v_flex()
                 .gap_2()
-                .child(var_token::with_tokens(Input::new(&self.command).small()))
+                .child(var_token::with_tokens(
+                    &self.command,
+                    Input::new(&self.command).small(),
+                ))
                 .into_any_element(),
         }
     }
 
-    /// What the action runs, once the form describes one.
+    /// What the action runs, once the form describes one. A command is
+    /// shown nowhere but its field: the preview would only repeat it.
     fn render_preview(&self, cx: &App) -> Option<impl IntoElement> {
+        if self.kind == ActionKind::Command {
+            return None;
+        }
         let theme = cx.theme();
         let dispatcher = self.dispatcher(cx).ok()?;
         Some(

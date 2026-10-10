@@ -105,10 +105,10 @@ impl Render for TestStepDialog {
                                 }),
                         ),
                 )
-                .children(self.fields.iter().map(|(name, state)| {
+                .children(self.fields.iter().enumerate().map(|(ix, (name, state))| {
                     v_flex()
                         .gap_1p5()
-                        .child(h_flex().text_sm().child(var_token::token(name, cx)))
+                        .child(h_flex().text_sm().child(var_token::token(name, ix, cx)))
                         .child(
                             div()
                                 .id(SharedString::from(format!("test-value-{name}")))

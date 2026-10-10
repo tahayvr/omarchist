@@ -1,5 +1,8 @@
 //! Flow variables drawn as tokens: a small pill with an icon and a readable
-//! name, in place of the `{{name}}` text a flow file stores.
+//! name, in place of the `{{name}}` text a flow file stores. Each distinct
+//! variable in a text wears its own colour from the theme's palette, in
+//! the order the variables first appear, so two of them in one command are
+//! told apart at a glance.
 use gpui::*;
 use gpui_component::{
     ActiveTheme, Icon, h_flex,
@@ -27,18 +30,52 @@ pub fn describe(name: &str) -> (String, &'static str) {
     }
 }
 
-/// One variable as a pill.
-pub fn token(name: &str, cx: &App) -> Div {
+/// The colour of the `slot`th distinct variable in a text: the palette's
+/// hues in turn, red left out because it means an error elsewhere.
+pub fn accent(slot: usize, cx: &App) -> Hsla {
+    let theme = cx.theme();
+    let hues = [
+        theme.blue,
+        theme.magenta,
+        theme.cyan,
+        theme.yellow,
+        theme.green,
+    ];
+    hues[slot % hues.len()]
+}
+
+/// The slot of each name among `names` in order of first appearance, so
+/// the same variable used twice keeps one colour.
+fn slots<'a>(names: impl Iterator<Item = &'a str>) -> Vec<usize> {
+    let mut seen: Vec<String> = Vec::new();
+    names
+        .map(|name| {
+            let name = vars::normalize(name);
+            match seen.iter().position(|s| *s == name) {
+                Some(slot) => slot,
+                None => {
+                    seen.push(name);
+                    seen.len() - 1
+                }
+            }
+        })
+        .collect()
+}
+
+/// One variable as a pill, in the colour of its `slot` (its place among
+/// the distinct variables shown next to it).
+pub fn token(name: &str, slot: usize, cx: &App) -> Div {
     let theme = cx.theme();
     let (label, icon) = describe(name);
+    let accent = accent(slot, cx);
     h_flex()
         .flex_shrink_0()
         .gap_1()
         .items_center()
         .px_1p5()
         .rounded(theme.radius)
-        .bg(theme.primary.opacity(0.14))
-        .text_color(theme.primary)
+        .bg(accent.opacity(0.16))
+        .text_color(accent)
         .child(Icon::new(Icon::empty()).path(icon).size_3())
         .child(label)
 }
@@ -55,6 +92,7 @@ pub fn rich_text(id: &str, text: &str, cx: &App) -> AnyElement {
             ))
             .into_any_element();
     }
+    let slots = slots(refs.iter().map(|r| r.name.as_str()));
     let mut parts: Vec<AnyElement> = Vec::new();
     let mut last = 0;
     for (ix, r) in refs.iter().enumerate() {
@@ -69,7 +107,7 @@ pub fn rich_text(id: &str, text: &str, cx: &App) -> AnyElement {
                     .into_any_element(),
             );
         }
-        parts.push(token(&r.name, cx).into_any_element());
+        parts.push(token(&r.name, slots[ix], cx).into_any_element());
         last = r.end;
     }
     let after = &text[last..];
@@ -138,10 +176,12 @@ pub fn insert(input: &Entity<InputState>, name: &str, window: &mut Window, cx: &
     });
 }
 
-/// Draws a token in a field the way [`token`] draws one elsewhere.
-pub fn render_inline(context: &InlineTokenContext, cx: &App) -> AnyElement {
+/// Draws a token in a field the way [`token`] draws one elsewhere, in the
+/// colour of its place among the field's distinct variables.
+pub fn render_inline(context: &InlineTokenContext, slot: usize, cx: &App) -> AnyElement {
     let theme = cx.theme();
     let (label, icon) = describe(context.token().id());
+    let accent = accent(slot, cx);
     h_flex()
         .id("variable-token")
         .flex_shrink_0()
@@ -154,15 +194,31 @@ pub fn render_inline(context: &InlineTokenContext, cx: &App) -> AnyElement {
         .bg(if context.is_selected() {
             theme.selection
         } else {
-            theme.primary.opacity(0.14)
+            accent.opacity(0.16)
         })
-        .text_color(theme.primary)
+        .text_color(accent)
         .child(Icon::new(Icon::empty()).path(icon).size_3())
         .child(div().min_w_0().text_ellipsis().child(label))
         .into_any_element()
 }
 
-/// The field drawn with its variables as tokens.
-pub fn with_tokens(input: Input) -> Input {
-    input.token(|context, _, cx| render_inline(context, cx))
+/// The field drawn with its variables as tokens, each distinct one in its
+/// own colour. `state` is the field's state, read for the order the
+/// variables appear in.
+pub fn with_tokens(state: &Entity<InputState>, input: Input) -> Input {
+    let state = state.clone();
+    input.token(move |context, _, cx| {
+        let slot = {
+            let state = state.read(cx);
+            let mut spans: Vec<_> = state.tokens().to_vec();
+            spans.sort_by_key(|span| span.range().start);
+            let slots = slots(spans.iter().map(|span| span.token().id().as_ref()));
+            spans
+                .iter()
+                .position(|span| span.range() == context.range())
+                .map(|ix| slots[ix])
+                .unwrap_or(0)
+        };
+        render_inline(context, slot, cx)
+    })
 }

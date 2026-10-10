@@ -1184,7 +1184,7 @@ impl StepBuilder {
                 .when(kind == ActionKind::Flow, |this| {
                     this.child(Self::field(
                         "Input",
-                        var_token::with_tokens(Input::new(&self.flow_input))
+                        var_token::with_tokens(&self.flow_input, Input::new(&self.flow_input))
                             .id("flow-input")
                             .small(),
                     ))
@@ -1249,13 +1249,13 @@ impl StepBuilder {
                     .gap_3()
                     .child(Self::field(
                         "Title",
-                        var_token::with_tokens(Input::new(&self.notify_title))
+                        var_token::with_tokens(&self.notify_title, Input::new(&self.notify_title))
                             .id("notify-title")
                             .small(),
                     ))
                     .child(Self::field(
                         "Message",
-                        var_token::with_tokens(Input::new(&self.notify_body))
+                        var_token::with_tokens(&self.notify_body, Input::new(&self.notify_body))
                             .id("notify-body")
                             .small(),
                     ))
@@ -1286,9 +1286,12 @@ impl StepBuilder {
                                 OnClick::Copy => "What to copy",
                                 OnClick::Open => "What to open",
                             },
-                            var_token::with_tokens(Input::new(&self.notify_target))
-                                .id("notify-target")
-                                .small(),
+                            var_token::with_tokens(
+                                &self.notify_target,
+                                Input::new(&self.notify_target),
+                            )
+                            .id("notify-target")
+                            .small(),
                         ))
                     })
                     .into_any_element()
@@ -1297,7 +1300,7 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    var_token::with_tokens(Input::new(&self.prompt))
+                    var_token::with_tokens(&self.prompt, Input::new(&self.prompt))
                         .id("step-prompt")
                         .small(),
                 ))
@@ -1306,7 +1309,7 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Title",
-                    var_token::with_tokens(Input::new(&self.prompt))
+                    var_token::with_tokens(&self.prompt, Input::new(&self.prompt))
                         .id("step-prompt")
                         .small(),
                 ))
@@ -1315,7 +1318,7 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    var_token::with_tokens(Input::new(&self.prompt))
+                    var_token::with_tokens(&self.prompt, Input::new(&self.prompt))
                         .id("step-prompt")
                         .small(),
                 ))
@@ -1338,7 +1341,7 @@ impl StepBuilder {
                     ),
                 ))
                 .child(if self.from_variable {
-                    var_token::with_tokens(Input::new(&self.from))
+                    var_token::with_tokens(&self.from, Input::new(&self.from))
                         .id("step-from")
                         .small()
                         .into_any_element()
@@ -1362,7 +1365,7 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Items",
-                    var_token::with_tokens(Input::new(&self.items))
+                    var_token::with_tokens(&self.items, Input::new(&self.items))
                         .id("step-items")
                         .small(),
                 ))
@@ -1371,7 +1374,7 @@ impl StepBuilder {
                 .gap_3()
                 .child(Self::field(
                     "Question",
-                    var_token::with_tokens(Input::new(&self.prompt))
+                    var_token::with_tokens(&self.prompt, Input::new(&self.prompt))
                         .id("step-prompt")
                         .small(),
                 ))
@@ -1406,6 +1409,7 @@ impl StepBuilder {
                     .gap_1()
                     .items_center()
                     .child(div().flex_1().min_w_0().child(var_token::with_tokens(
+                        input,
                         Input::new(input).id((which.row_id(), ix)).small(),
                     )))
                     .child(
@@ -1453,7 +1457,7 @@ impl StepBuilder {
             let id: SharedString = format!("action-{}", field.key).into();
             let element: AnyElement = match control {
                 ActionControl::Text(input) => {
-                    var_token::with_tokens(Input::new(input).id(ElementId::Name(id)).small())
+                    var_token::with_tokens(input, Input::new(input).id(ElementId::Name(id)).small())
                         .into_any_element()
                 }
                 ActionControl::Number(input) => {
@@ -1555,7 +1559,7 @@ impl StepBuilder {
         match kind {
             IfKind::Text => form
                 .child(
-                    var_token::with_tokens(Input::new(&self.if_value))
+                    var_token::with_tokens(&self.if_value, Input::new(&self.if_value))
                         .id("if-value")
                         .small(),
                 )
@@ -1563,14 +1567,14 @@ impl StepBuilder {
                 // "is empty" and "is not empty" compare with nothing.
                 .when(self.if_op < 4, |this| {
                     this.child(
-                        var_token::with_tokens(Input::new(&self.if_other))
+                        var_token::with_tokens(&self.if_other, Input::new(&self.if_other))
                             .id("if-other")
                             .small(),
                     )
                 }),
             IfKind::Command => form
                 .child(
-                    var_token::with_tokens(Input::new(&self.if_command))
+                    var_token::with_tokens(&self.if_command, Input::new(&self.if_command))
                         .id("if-command")
                         .small(),
                 )
@@ -1651,7 +1655,7 @@ impl StepBuilder {
                         .p_px()
                         .cursor_pointer()
                         .hover(|this| this.opacity(0.8))
-                        .child(var_token::token(&name, cx).text_xs())
+                        .child(var_token::token(&name, ix, cx).text_xs())
                         .on_click(cx.listener(move |this, _, window, cx| {
                             this.insert_variable(&name, window, cx)
                         }))

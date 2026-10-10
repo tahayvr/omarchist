@@ -693,7 +693,7 @@ impl FlowEditPage {
                                                 .path("icons/arrow-down.svg")
                                                 .size_3(),
                                         )
-                                        .child(var_token::token(&name, cx)),
+                                        .child(var_token::token(&name, 0, cx)),
                                 )
                             })
                             .when(is_block && collapsed, |this| {
