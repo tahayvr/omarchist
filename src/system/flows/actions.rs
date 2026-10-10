@@ -630,7 +630,11 @@ grim -g "$region" - | tesseract stdin stdout --oem 1 --psm 6 -l "${OMARCHY_OCR_L
         saves_as: "value",
         title: "Get {path} from {json}",
         requires: &["jq"],
-        run: Run::Shell(r#"printf '%s' "$ARG_JSON" | jq -r -- "$ARG_PATH""#),
+        // The path goes through a file: jq before 1.8 has no `--`, and a
+        // path starting with `-` would otherwise be read as an option.
+        run: Run::Shell(
+            r#"f=$(mktemp) && printf '%s' "$ARG_PATH" > "$f" && printf '%s' "$ARG_JSON" | jq -r -f "$f"; s=$?; rm -f "$f"; exit $s"#,
+        ),
     },
 ];
 
