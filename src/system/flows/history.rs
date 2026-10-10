@@ -228,8 +228,9 @@ fn history_path(id: &str) -> Result<PathBuf> {
 
 /// Adds a run to the flow's history, dropping the oldest beyond [`KEEP`].
 pub fn record(id: &str, run: &Run) -> Result<()> {
-    if id.is_empty() {
-        // A flow that was never saved has nowhere to keep a history.
+    if id.is_empty() || super::store::load_flow(id).is_err() {
+        // A flow that was never saved, or was deleted while it ran, has
+        // nowhere to keep a history.
         return Ok(());
     }
     let path = history_path(id)?;

@@ -8,6 +8,7 @@ outline: deep
 omarchist [--view <page>] [--theme <name>]
 omarchist theme from-image <image> [--name <name>] [--apply]
 omarchist flow <run | stop | history | list | check | export | import> ...
+omarchist automations <on | off | status | run>
 omarchist uninstall [--yes]
 ```
 

@@ -209,13 +209,17 @@ impl Vars {
         if refs.is_empty() {
             return Ok((command.to_string(), Vec::new()));
         }
+        if let Some(name) = reference_in_arithmetic(command) {
+            return Err(Error::Invalid(arithmetic_message(&name)));
+        }
         let mut env: Vec<(String, String)> = Vec::new();
         let mut out = String::with_capacity(command.len() + refs.len() * 16);
-        let mut quote = Quote::None;
+        let mut context = ShellContext::new();
         let mut last = 0;
         for r in &refs {
             let before = &command[last..r.start];
-            quote = quote.after(before);
+            context.read(before);
+            let quote = context.quote();
             out.push_str(before);
             let value = self.get(&r.name)?;
             let var = match env.iter().position(|(_, v)| *v == value) {
@@ -244,6 +248,16 @@ impl Vars {
         let refs = references(expr);
         if refs.is_empty() {
             return Ok(expr.to_string());
+        }
+        // `hl.dsp.exec_cmd` hands its text to a shell, where the Lua
+        // escaping means nothing; a value there is a Command step's job.
+        if lua_runs_a_shell(expr) {
+            return Err(Error::Invalid(format!(
+                "{{{{{}}}}} cannot be used in {}, which runs its text in a shell: \
+                 use a Command step instead",
+                refs[0].name,
+                lua_call_path(expr).unwrap_or("this action")
+            )));
         }
         let mut out = String::with_capacity(expr.len());
         let mut last = 0;
@@ -280,26 +294,151 @@ enum Quote {
     Double,
 }
 
-impl Quote {
-    /// The state after reading `text` from this one. Backslashes escape
-    /// outside single quotes, as in `sh`.
-    fn after(self, text: &str) -> Quote {
-        let mut state = self;
-        let mut chars = text.chars();
-        while let Some(c) = chars.next() {
-            match (state, c) {
-                (Quote::None, '\\') | (Quote::Double, '\\') => {
-                    chars.next();
+/// What a `$(`, a backtick or a `$((` opened: each starts its quoting
+/// afresh, and ends when its closer is read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Frame {
+    Top,
+    Substitution,
+    Backtick,
+    Arithmetic,
+}
+
+/// Where in a command the reader is: a stack of the substitutions opened
+/// so far, each with its own quoting state, as `sh` reads it.
+#[derive(Debug, Clone)]
+struct ShellContext {
+    frames: Vec<(Frame, Quote)>,
+}
+
+impl ShellContext {
+    fn new() -> Self {
+        Self {
+            frames: vec![(Frame::Top, Quote::None)],
+        }
+    }
+
+    fn quote(&self) -> Quote {
+        self.frames.last().map_or(Quote::None, |frame| frame.1)
+    }
+
+    fn set_quote(&mut self, quote: Quote) {
+        if let Some(frame) = self.frames.last_mut() {
+            frame.1 = quote;
+        }
+    }
+
+    /// Whether the reader is inside `$(( ))` or `(( ))`, however deep.
+    fn in_arithmetic(&self) -> bool {
+        self.frames.iter().any(|frame| frame.0 == Frame::Arithmetic)
+    }
+
+    /// Reads `text`. Backslashes escape outside single quotes, as in `sh`.
+    fn read(&mut self, text: &str) {
+        let chars: Vec<char> = text.chars().collect();
+        let mut i = 0;
+        while i < chars.len() {
+            let c = chars[i];
+            let next = chars.get(i + 1).copied();
+            let (frame, quote) = self
+                .frames
+                .last()
+                .copied()
+                .unwrap_or((Frame::Top, Quote::None));
+            if quote == Quote::Single {
+                if c == '\'' {
+                    self.set_quote(Quote::None);
                 }
-                (Quote::None, '\'') => state = Quote::Single,
-                (Quote::None, '"') => state = Quote::Double,
-                (Quote::Single, '\'') => state = Quote::None,
-                (Quote::Double, '"') => state = Quote::None,
+                i += 1;
+                continue;
+            }
+            match c {
+                '\\' => {
+                    i += 2;
+                    continue;
+                }
+                '\'' if quote == Quote::None => self.set_quote(Quote::Single),
+                '"' => self.set_quote(if quote == Quote::Double {
+                    Quote::None
+                } else {
+                    Quote::Double
+                }),
+                '$' if next == Some('(') => {
+                    if chars.get(i + 2) == Some(&'(') {
+                        self.frames.push((Frame::Arithmetic, Quote::None));
+                        i += 3;
+                    } else {
+                        self.frames.push((Frame::Substitution, Quote::None));
+                        i += 2;
+                    }
+                    continue;
+                }
+                '(' if next == Some('(') && quote == Quote::None => {
+                    self.frames.push((Frame::Arithmetic, Quote::None));
+                    i += 2;
+                    continue;
+                }
+                '`' => {
+                    if frame == Frame::Backtick {
+                        self.frames.pop();
+                    } else {
+                        self.frames.push((Frame::Backtick, Quote::None));
+                    }
+                }
+                ')' if quote == Quote::None => match frame {
+                    Frame::Arithmetic if next == Some(')') => {
+                        self.frames.pop();
+                        i += 2;
+                        continue;
+                    }
+                    Frame::Substitution => {
+                        self.frames.pop();
+                    }
+                    _ => {}
+                },
                 _ => {}
             }
+            i += 1;
         }
-        state
+        if self.frames.is_empty() {
+            self.frames.push((Frame::Top, Quote::None));
+        }
     }
+}
+
+/// The first reference in `command` that sits inside shell arithmetic,
+/// where bash evaluates the contents of a value as code.
+pub fn reference_in_arithmetic(command: &str) -> Option<String> {
+    let mut context = ShellContext::new();
+    let mut last = 0;
+    for r in references(command) {
+        context.read(&command[last..r.start]);
+        if context.in_arithmetic() {
+            return Some(r.name);
+        }
+        last = r.end;
+    }
+    None
+}
+
+/// Why a reference cannot sit in `$(( ))`.
+pub fn arithmetic_message(name: &str) -> String {
+    format!(
+        "{{{{{name}}}}} cannot be used inside $(( )), where the shell runs code hidden in a \
+         value; count with expr instead, as in expr {{{{{name}}}}} '*' 60"
+    )
+}
+
+/// The `hl.dsp.<path>` a Hyprland action calls, before its `(`.
+fn lua_call_path(expr: &str) -> Option<&str> {
+    let path = expr.trim().split('(').next()?.trim();
+    path.starts_with("hl.dsp.").then_some(path)
+}
+
+/// Whether a Hyprland action hands its text to a shell (`hl.dsp.exec_cmd`
+/// and the like), so a value in it would be read as shell code.
+pub fn lua_runs_a_shell(expr: &str) -> bool {
+    lua_call_path(expr).is_some_and(|path| path.starts_with("hl.dsp.exec"))
 }
 
 /// The Lua string quote open after reading `text`, if any.
@@ -379,7 +518,7 @@ fn read_builtin(name: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{Vars, is_name, names_in, references};
+    use super::{Vars, is_name, names_in, reference_in_arithmetic, references};
 
     fn reader(name: &str) -> String {
         match name {
@@ -427,6 +566,11 @@ mod tests {
             "printf %s '{{clipboard}}'",
             "printf %s \"before {{clipboard}} after\"",
             "printf %s 'before {{clipboard}} after'",
+            // A substitution starts its quoting afresh.
+            "printf %s \"$(printf %s {{clipboard}})\"",
+            "printf %s \"$(printf %s '{{clipboard}}')\"",
+            "printf %s \"$(printf %s \"{{clipboard}}\")\"",
+            "printf %s \"`printf %s {{clipboard}}`\"",
         ] {
             let (rewritten, env) = vars.shell(command).unwrap();
             let printed = sh(&rewritten, &env);
@@ -435,6 +579,40 @@ mod tests {
                 "{command} -> {rewritten} printed {printed:?}"
             );
         }
+    }
+
+    #[test]
+    fn a_reference_in_arithmetic_is_refused() {
+        let mut vars = Vars::with_reader(reader);
+        vars.set("n", "a[$(echo pwned >&2)]");
+        for command in [
+            "sleep $(( {{n}} * 60 ))",
+            "sleep $(( $(printf %s {{n}}) ))",
+            "(( {{n}} > 1 )) && echo big",
+            "echo \"$(( {{n}} ))\"",
+        ] {
+            assert!(vars.shell(command).is_err(), "{command}");
+            assert_eq!(reference_in_arithmetic(command).as_deref(), Some("n"));
+        }
+        // Closed arithmetic before the reference is fine.
+        assert_eq!(reference_in_arithmetic("echo $((1+1)) {{n}}"), None);
+        assert_eq!(reference_in_arithmetic("echo \"$(echo {{n}})\""), None);
+        assert!(vars.shell("echo $((1+1)) {{n}}").is_ok());
+    }
+
+    #[test]
+    fn a_reference_in_a_shell_dispatcher_is_refused() {
+        let mut vars = Vars::with_reader(reader);
+        assert!(
+            vars.lua("hl.dsp.exec_cmd(\"xdg-open {{clipboard}}\")")
+                .is_err()
+        );
+        assert!(vars.lua("hl.dsp.exec(\"{{clipboard}}\")").is_err());
+        assert!(vars.lua("hl.dsp.exec_cmd(\"xdg-open https://x\")").is_ok());
+        assert!(
+            vars.lua("hl.dsp.focus({ workspace = \"{{clipboard}}\" })")
+                .is_ok()
+        );
     }
 
     #[test]

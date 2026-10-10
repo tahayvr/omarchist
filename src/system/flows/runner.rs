@@ -140,6 +140,12 @@ impl Cancel {
             ix += 1;
         }
         let _ = Command::new("kill").args(&pids).status();
+        // A command that ignores the polite signal would keep the wait
+        // going for as long as it likes.
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_secs(2));
+            let _ = Command::new("kill").arg("-KILL").args(&pids).status();
+        });
     }
 
     pub fn is_cancelled(&self) -> bool {
@@ -786,6 +792,9 @@ impl<'a> Runner<'a> {
         stack.pop();
         if outcome.cancelled {
             Err(Halt::Cancelled)
+        } else if self.cancel.is_cancelled() {
+            // Cut short by a Stop: not a step that finished.
+            Err(Halt::Failed(STOPPED.to_string()))
         } else if outcome.is_ok() {
             Ok(outcome.last_output)
         } else {
@@ -890,8 +899,11 @@ fn notify(title: &str, body: &str, click: Option<(OnClick, String)>) -> Result<(
             } else {
                 cmd.arg(title);
             }
-            if !body.trim().is_empty() {
-                cmd.arg(body.trim());
+            let body = body.trim();
+            if body.starts_with('-') {
+                cmd.arg(format!("\u{200b}{body}"));
+            } else if !body.is_empty() {
+                cmd.arg(body);
             }
             cmd.arg("--exec");
             match action {

@@ -107,7 +107,7 @@ fn groups() -> Vec<Group> {
                     app_menu::OpenCatalog,
                 ),
                 entry(
-                    "Import flow",
+                    "Import flow…",
                     &["open", "file", "share"],
                     app_menu::ImportFlow,
                 ),
@@ -184,7 +184,7 @@ pub fn open_command_palette(target: FocusHandle, window: &mut Window, cx: &mut A
                         .items(group.entries.iter().map(palette_item)),
                 )
             })
-            .placeholder("Type a command...")
+            .placeholder("Type a command…")
             .bordered(false)
             .on_confirm(move |path: IndexPath, window, cx| {
                 window.close_dialog(cx);

@@ -57,7 +57,7 @@ pub fn desktop_exec_quote(argument: &str) -> String {
     if !argument.is_empty()
         && argument
             .chars()
-            .all(|c| c.is_ascii_alphanumeric() || "-_./:=+@%".contains(c))
+            .all(|c| c.is_ascii_alphanumeric() || "-_./:=+@".contains(c))
     {
         return argument.to_string();
     }
@@ -65,6 +65,10 @@ pub fn desktop_exec_quote(argument: &str) -> String {
     for c in argument.chars() {
         if matches!(c, '"' | '`' | '$' | '\\') {
             out.push('\\');
+        }
+        // A field code to the desktop entry, unless doubled.
+        if c == '%' {
+            out.push('%');
         }
         out.push(c);
     }

@@ -196,7 +196,12 @@ fn command_risks(command: &str) -> Vec<(Level, &'static str)> {
     if command.trim_start().starts_with("{{") {
         found.push((Level::Danger, VARIABLE_PROGRAM));
     }
-    if has_reference && (has(&["eval", "source"]) || code_holds_a_reference(command)) {
+    if has_reference
+        && (has(&["eval", "source"])
+            || code_holds_a_reference(command)
+            || lower.contains("$((")
+            || lower.contains("hl.dsp.exec"))
+    {
         found.push((Level::Danger, VARIABLE_CODE));
     }
     if SECRET_PATHS.iter().any(|path| lower.contains(path)) {

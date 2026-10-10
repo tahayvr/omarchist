@@ -59,6 +59,8 @@ A variable always stands for its text, wherever you put it in a command. If your
 
 In a **Window** step, put the variable inside the quotes of a value, as in `hl.dsp.focus({ workspace = "{{name}}" })`. Omarchist escapes the value for you, and refuses a variable outside quotes.
 
+Two places are refused, because there the shell itself would run what a value holds: arithmetic, as in `$(( {{minutes}} * 60 ))` (count with `expr {{minutes}} '*' 60` instead), and a Window step that starts a command, such as `hl.dsp.exec_cmd("…")` (use a Command step). Saving says which step.
+
 ## Example
 
 This flow searches the web for whatever you selected:

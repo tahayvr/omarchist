@@ -22,7 +22,6 @@ use gpui_component::{
 };
 
 use crate::system::apps::{DesktopApp, installed_apps};
-use crate::system::config::config_setup::settings;
 use crate::system::config::hypr_setup::HOOK_RESTORED_MESSAGE;
 use crate::system::flows::automations::Event;
 use crate::system::flows::catalog;
@@ -72,6 +71,7 @@ use crate::ui::keybinds_page::keybind_dialog::{
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
 use crate::ui::menu::app_menu;
 use crate::ui::text::{selectable, title_case};
+use crate::ui::toolbar;
 use gpui_kit::TestSupportExt;
 
 const KEY_CONTEXT: &str = "FlowEditPage";
@@ -484,14 +484,6 @@ impl FlowEditPage {
                 // running come down.
                 self.update_note = None;
                 self.import_origin = None;
-                // A first save of a flow from the catalog is an install.
-                if was_new
-                    && let Some((slug, version)) = catalog::source_of(&flow)
-                    && settings().catalog_count_installs
-                {
-                    cx.background_spawn(async move { catalog::count_install(&slug, version) })
-                        .detach();
-                }
                 cx.notify();
                 if was_new {
                     // A run started before the save is registered without
@@ -526,7 +518,7 @@ impl FlowEditPage {
             return;
         }
         if let Err(e) = flow.validate_content() {
-            notify::error(window, format!("Cannot run the flow: {e}"), cx);
+            notify::error(window, format!("Could not run the flow: {e}"), cx);
             return;
         }
         self.start_run(flow, None, window, cx);
@@ -549,7 +541,7 @@ impl FlowEditPage {
         }
         let flow = self.current(cx);
         if let Err(e) = flow.validate_step(path) {
-            notify::error(window, format!("Cannot run the step: {e}"), cx);
+            notify::error(window, format!("Could not run the step: {e}"), cx);
             return;
         }
         let needs = flow.needs_at(path);
@@ -690,6 +682,11 @@ impl FlowEditPage {
         };
         if changed {
             self.touch_steps(cx);
+        }
+        // Back to the saved steps: there is no update left to review.
+        if self.update_note.is_some() && !self.is_dirty(cx) {
+            self.update_note = None;
+            cx.notify();
         }
     }
 
@@ -1483,21 +1480,16 @@ impl FlowEditPage {
             window,
             cx,
         );
-        h_flex()
-            .gap_3()
-            .items_center()
-            .flex_wrap()
+        toolbar::bar()
             .child(
-                Button::new("flow-back")
-                    .label("Back")
-                    .compact()
-                    .tooltip_with_action(
-                        "Back to Flows",
-                        &app_menu::NavigateBack,
-                        Some(KEY_CONTEXT),
-                    )
-                    .cursor_pointer()
-                    .on_click(cx.listener(|this, _, window, cx| this.navigate_back(window, cx))),
+                toolbar::back(
+                    "flow-back",
+                    "Back to Flows",
+                    &app_menu::NavigateBack,
+                    Some(KEY_CONTEXT),
+                )
+                .cursor_pointer()
+                .on_click(cx.listener(|this, _, window, cx| this.navigate_back(window, cx))),
             )
             .child(
                 h_flex()
@@ -1514,7 +1506,7 @@ impl FlowEditPage {
                     .child(
                         Button::new("flow-undo")
                             .ghost()
-                            .compact()
+                            .small()
                             .disabled(!self.undo.can_undo())
                             .icon(Icon::new(Icon::empty()).path("icons/undo-2.svg"))
                             .tooltip_with_action(
@@ -1534,7 +1526,7 @@ impl FlowEditPage {
                     .child(
                         Button::new("flow-redo")
                             .ghost()
-                            .compact()
+                            .small()
                             .disabled(!self.undo.can_redo())
                             .icon(Icon::new(Icon::empty()).path("icons/redo-2.svg"))
                             .tooltip_with_action(
@@ -1556,7 +1548,7 @@ impl FlowEditPage {
                 this.child(
                     Button::new("flow-history")
                         .ghost()
-                        .compact()
+                        .small()
                         .icon(Icon::new(Icon::empty()).path("icons/rotate-ccw-clock.svg"))
                         .tooltip_with_action("Run history", &ShowHistory, Some(KEY_CONTEXT))
                         .cursor_pointer()
@@ -1565,7 +1557,7 @@ impl FlowEditPage {
             })
             .child(if self.running {
                 Button::new("flow-stop")
-                    .compact()
+                    .small()
                     .danger()
                     .icon(Icon::new(Icon::empty()).path("icons/square.svg"))
                     .label("Stop")
@@ -1573,7 +1565,8 @@ impl FlowEditPage {
                     .on_click(cx.listener(|this, _, _, cx| this.stop(cx)))
             } else {
                 Button::new("flow-run")
-                    .compact()
+                    .outline()
+                    .small()
                     .icon(Icon::new(Icon::empty()).path("icons/play.svg"))
                     .label("Run")
                     .map(|this| {
@@ -1593,7 +1586,7 @@ impl FlowEditPage {
             .child(
                 Button::new("flow-save")
                     .primary()
-                    .compact()
+                    .small()
                     .label("Save")
                     .tooltip_with_action("Save the flow", &Save, Some(KEY_CONTEXT))
                     .cursor_pointer()
@@ -1602,7 +1595,7 @@ impl FlowEditPage {
             .child(
                 Button::new("flow-more")
                     .ghost()
-                    .compact()
+                    .small()
                     .icon(Icon::new(Icon::empty()).path("icons/ellipsis-vertical.svg"))
                     .tooltip("More")
                     .cursor_pointer()

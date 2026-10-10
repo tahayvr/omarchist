@@ -897,6 +897,8 @@ impl FlowEditPage {
                         div().ml_1().child(
                             Switch::new(("step-enabled", number))
                                 .small()
+                                // The list is one tab stop; Space toggles.
+                                .tab_stop(false)
                                 .checked(step.enabled)
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     cx.stop_propagation();
@@ -1035,6 +1037,7 @@ impl FlowEditPage {
             .child(
                 Button::new("flow-add-step")
                     .outline()
+                    .small()
                     .w_full()
                     .icon(Icon::new(Icon::empty()).path("icons/plus.svg"))
                     .label("Add step")

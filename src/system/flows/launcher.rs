@@ -4,7 +4,7 @@
 //! that runs the flow on the selected files.
 use std::fs;
 use std::os::unix::fs::PermissionsExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::OmarchistAssets;
 use crate::error::{Error, Result};
@@ -123,7 +123,7 @@ fn sync_file_script(flow: &Flow) -> Result<()> {
     if let Some(path) = wanted {
         let text = file_script(flow);
         // A file of that name that is not this flow's is someone else's.
-        if path.exists() && !file_scripts_of(&flow.id).contains(&path) {
+        if script_taken(flow, &path) {
             return Err(Error::Invalid(format!(
                 "The file manager already has a script named '{}'",
                 file_script_name(flow)
@@ -267,6 +267,25 @@ pub fn sync_triggers(flow: &Flow) -> Result<()> {
         remove(&hook, "startup hook")?;
     }
     sync_file_script(flow)
+}
+
+/// Whether the file manager script `path` belongs to another flow.
+fn script_taken(flow: &Flow, path: &Path) -> bool {
+    path.exists() && !file_scripts_of(&flow.id).contains(&path.to_path_buf())
+}
+
+/// What `sync_triggers` would refuse, checked before anything is written.
+pub fn check_triggers(flow: &Flow) -> Result<()> {
+    if flow.triggers.files {
+        let path = file_scripts_dir()?.join(file_script_name(flow));
+        if script_taken(flow, &path) {
+            return Err(Error::Invalid(format!(
+                "The file manager already has a script named '{}'",
+                file_script_name(flow)
+            )));
+        }
+    }
+    Ok(())
 }
 
 pub fn remove_triggers(id: &str) -> Result<()> {

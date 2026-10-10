@@ -60,6 +60,9 @@ pub fn templates() -> Vec<Template> {
 pub fn template(key: &str) -> Option<Template> {
     match key.strip_prefix(USER_KEY_PREFIX) {
         Some(stem) => {
+            if !is_slug(stem) {
+                return None;
+            }
             let path = user_templates_dir()
                 .ok()?
                 .join(format!("{stem}{SHARED_SUFFIX}"));

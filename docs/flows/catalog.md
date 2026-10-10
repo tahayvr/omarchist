@@ -122,7 +122,7 @@ ok      focus.flow.toml  'Focus' (3 steps)
 
 - Every flow and every new version is a pull request that a person reviews.
 - A published version never changes. A change is a new version, and you see what it changes before you take it.
-- The catalog's list is signed. Omarchist checks the signature, and checks every flow file against the list, so a flow that was not reviewed cannot reach you through the catalog, even if the server is broken into.
+- The catalog's list is signed. Omarchist checks the signature, and checks every flow file against the list, so a flow that was not reviewed cannot reach you through the catalog, even if the server is broken into. Once Omarchist has seen a list, it refuses an older one, so a pulled flow cannot be brought back by replaying an old list.
 - Installing never runs a flow. You read it in its dialog, with every command in full, then you install it.
 
 Omarchist keeps a copy of the list, so the Catalog opens without a connection, and says so.

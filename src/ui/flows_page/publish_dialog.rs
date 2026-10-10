@@ -53,10 +53,12 @@ fn parse_tags(text: &str) -> Vec<String> {
 
 impl PublishDialog {
     fn new(flow: Flow, index: Option<Index>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        // A flow published before starts from what it was published with.
+        // The person's own flow starts from the name it was published
+        // with; a flow that came from the catalog carries somebody else's
+        // name, which is never offered as "your GitHub user name".
         let author = match flow.meta.author.trim() {
-            "" => settings().catalog_author,
-            author => author.to_string(),
+            author if !author.is_empty() && flow.meta.source.is_empty() => author.to_string(),
+            _ => settings().catalog_author,
         };
         let category = CATEGORIES
             .iter()

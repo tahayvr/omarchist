@@ -109,15 +109,32 @@ pub fn refresh() -> Result<()> {
         return Ok(());
     }
     let wanted = unit_text(&omarchist_binary());
-    if std::fs::read_to_string(&path).ok().as_deref() == Some(wanted.as_str()) {
+    let current = std::fs::read_to_string(&path).ok().as_deref() == Some(wanted.as_str());
+    if current && !runs_a_replaced_binary() {
         return Ok(());
     }
-    write_atomic(&path, wanted, "the automations service")?;
-    systemctl(&["daemon-reload"])?;
+    if !current {
+        write_atomic(&path, wanted, "the automations service")?;
+        systemctl(&["daemon-reload"])?;
+    }
     if is_active() {
         systemctl(&["restart", UNIT])?;
     }
     Ok(())
+}
+
+/// Whether the running service is an Omarchist that a package upgrade has
+/// since replaced on disk: its flows would start a binary that is gone.
+fn runs_a_replaced_binary() -> bool {
+    let pid = Command::new("systemctl")
+        .args(["--user", "show", "-p", "MainPID", "--value", UNIT])
+        .stdin(Stdio::null())
+        .output()
+        .ok()
+        .map(|out| String::from_utf8_lossy(&out.stdout).trim().to_string())
+        .filter(|pid| !pid.is_empty() && pid != "0");
+    pid.and_then(|pid| std::fs::read_link(format!("/proc/{pid}/exe")).ok())
+        .is_some_and(|exe| exe.to_string_lossy().ends_with(" (deleted)"))
 }
 
 #[cfg(test)]

@@ -25,7 +25,7 @@ type = "stop"
 
 [[step]]
 type = "exec"
-command = "out=~/archive-{{date}}-$(date +%H%M%S).tar.gz && printf '%s\\n' {{input}} | tar -czf \"$out\" --transform='s|.*/||' -T - && echo \"$out\""
+command = "out=~/archive-{{date}}-$(date +%H%M%S).tar.gz && printf '%s\\n' {{input}} | tar -czf \"$out\" --transform='s|.*/||' --verbatim-files-from -T - && echo \"$out\""
 wait = true
 output = "archive"
 

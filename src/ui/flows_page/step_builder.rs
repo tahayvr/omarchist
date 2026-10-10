@@ -26,7 +26,6 @@ use crate::ui::flows_page::var_token;
 use crate::ui::focus::{self, FocusableSwitch};
 use crate::ui::keybinds_page::action_builder::{ActionBuilder, ActionBuilderEvent};
 use crate::ui::keybinds_page::keybinds_view::{FILTERS_CONTEXT, keybinds_nav};
-use crate::ui::text::selectable;
 
 pub enum StepBuilderEvent {
     Changed,
@@ -1603,10 +1602,10 @@ impl StepBuilder {
 
     /// The variables this step can use, as tokens that insert them.
     fn render_variables(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let theme = cx.theme();
         if !self.takes_variables(cx) {
             return None;
         }
-        let theme = cx.theme();
         let row_focused = self.variables_focus.is_focused(window);
         let ring = focus::focus_border(row_focused, theme.transparent, cx);
         let count = self.variables.len();
@@ -1665,11 +1664,10 @@ impl StepBuilder {
     }
 
     /// "Save output as", for a step that produces output.
-    fn render_output(&self, cx: &App) -> Option<AnyElement> {
+    fn render_output(&self, _cx: &App) -> Option<AnyElement> {
         if !self.produces_output() {
             return None;
         }
-        let theme = cx.theme();
         Some(
             h_flex()
                 .gap_2()
@@ -1681,14 +1679,6 @@ impl StepBuilder {
                         .w_48()
                         .child(Input::new(&self.output_name).id("step-output-name").small()),
                 )
-                .when_some(self.output_name(cx).err(), |this, error| {
-                    this.child(
-                        div()
-                            .text_xs()
-                            .text_color(theme.danger)
-                            .child(selectable("output-name-error", error)),
-                    )
-                })
                 .into_any_element(),
         )
     }

@@ -21,8 +21,8 @@ use crate::system::apps::{DesktopApp, installed_apps};
 use crate::system::config::config_setup::settings;
 use crate::system::flows::catalog::{self, Change, DiffRow, Entry};
 use crate::system::flows::condition::Condition;
-use crate::system::flows::requirements::is_installed;
-use crate::system::flows::risks::{self, Level};
+use crate::system::flows::requirements::{is_installed, programs_of};
+use crate::system::flows::risks::{self, Level, Risk};
 use crate::system::flows::share::Imported;
 use crate::system::flows::store::{existing_ids, load_flow, save_new_flow};
 use crate::system::flows::{Flow, InputFallback, OnError, Step, StepKind, unique_id};
@@ -62,8 +62,14 @@ pub struct CatalogDetail {
     installed: Option<Installed>,
     loaded: Loaded,
     apps: Vec<DesktopApp>,
+    /// What the flow needs: the index's word until the flow is fetched,
+    /// then what this Omarchist reads in the steps themselves.
+    needs: Vec<String>,
     /// Programs the flow needs that are not on this machine.
     missing: Vec<String>,
+    /// What this Omarchist's own heuristics find in the fetched steps,
+    /// which may know more than the ones that built the index.
+    risks: Option<Vec<Risk>>,
     body_focus: FocusHandle,
     list_focus: FocusHandle,
     scroll: ScrollHandle,
@@ -81,24 +87,30 @@ impl CatalogDetail {
         cx.spawn(async move |this, cx| {
             let loaded = cx
                 .background_spawn(async move {
-                    let missing: Vec<String> = fetch_entry
-                        .requires
+                    let fetched = catalog::fetch_flow(&fetch_entry);
+                    // Read from the flow itself once it is here: the index
+                    // says what the catalog's build saw, this says what
+                    // this Omarchist sees.
+                    let (needs, risks) = match &fetched {
+                        Ok(imported) => {
+                            (needs_of(&imported.flow), Some(risks::risks(&imported.flow)))
+                        }
+                        Err(_) => (fetch_entry.requires.clone(), None),
+                    };
+                    let missing: Vec<String> = needs
                         .iter()
                         .filter(|program| !is_installed(program))
                         .cloned()
                         .collect();
                     let local: Option<Flow> = local_id.and_then(|id| load_flow(&id).ok());
-                    (
-                        catalog::fetch_flow(&fetch_entry),
-                        local,
-                        missing,
-                        installed_apps(),
-                    )
+                    (fetched, local, needs, missing, risks, installed_apps())
                 })
                 .await;
             this.update(cx, |this, cx| {
-                let (fetched, local, missing, apps) = loaded;
+                let (fetched, local, needs, missing, risks, apps) = loaded;
+                this.needs = needs;
                 this.missing = missing;
+                this.risks = risks;
                 this.apps = apps;
                 this.loaded = match fetched {
                     Ok(imported) => {
@@ -117,6 +129,7 @@ impl CatalogDetail {
             .ok();
         })
         .detach();
+        let needs = entry.requires.clone();
         Self {
             entry,
             installs,
@@ -124,7 +137,9 @@ impl CatalogDetail {
             installed,
             loaded: Loaded::Loading,
             apps: Vec::new(),
+            needs,
             missing: Vec::new(),
+            risks: None,
             body_focus: cx.focus_handle(),
             list_focus: focus::tab_stop(cx),
             scroll: ScrollHandle::new(),
@@ -380,6 +395,19 @@ impl Render for CatalogDetail {
         if self.installs > 0 {
             facts.insert(2, format!("{} installs", count_label(self.installs)));
         }
+        // The index's risks until the steps are here, then this
+        // Omarchist's own reading of them, step by step.
+        let worth_knowing: Vec<(Option<usize>, String)> = match &self.risks {
+            Some(found) => found
+                .iter()
+                .map(|risk| (Some(risk.step), risk.what.to_string()))
+                .collect(),
+            None => entry
+                .risks
+                .iter()
+                .map(|what| (None, what.clone()))
+                .collect(),
+        };
         // What the main button does, or nothing when there is nothing to do.
         let action: Option<&'static str> = match (&self.installed, update) {
             (Some(_), Some(_)) => Some("Update"),
@@ -466,7 +494,7 @@ impl Render for CatalogDetail {
                         cx,
                     ))
                 })
-                .when(!entry.requires.is_empty(), |this| {
+                .when(!self.needs.is_empty(), |this| {
                     this.child(
                         v_flex().gap_1p5().child(heading("Needs", cx)).child(
                             h_flex()
@@ -474,7 +502,7 @@ impl Render for CatalogDetail {
                                 .test_support()
                                 .gap_1()
                                 .flex_wrap()
-                                .children(entry.requires.iter().map(|program| {
+                                .children(self.needs.iter().map(|program| {
                                     if self.missing.contains(program) {
                                         Tag::danger()
                                             .small()
@@ -486,32 +514,38 @@ impl Render for CatalogDetail {
                         ),
                     )
                 })
-                .when(!entry.risks.is_empty(), |this| {
+                .when(!worth_knowing.is_empty(), |this| {
                     this.child(
                         v_flex()
                             .id("catalog-detail-risks")
                             .test_support()
                             .gap_1p5()
                             .child(heading("Worth knowing", cx))
-                            .children(entry.risks.iter().enumerate().map(|(ix, what)| {
-                                let danger = risks::level_of(what) == Level::Danger;
-                                h_flex()
-                                    .gap_2()
-                                    .items_center()
-                                    .text_sm()
-                                    .child(
-                                        Icon::new(Icon::empty())
-                                            .path("icons/shield-alert.svg")
-                                            .size_4()
-                                            .flex_shrink_0()
-                                            .text_color(if danger {
-                                                theme.danger
-                                            } else {
-                                                theme.warning
-                                            }),
-                                    )
-                                    .child(selectable(("catalog-risk", ix), what.clone()))
-                            })),
+                            .children(worth_knowing.iter().enumerate().map(
+                                |(ix, (step, what))| {
+                                    let danger = risks::level_of(what) == Level::Danger;
+                                    let what = match step {
+                                        Some(step) => format!("Step {step}: {what}"),
+                                        None => what.to_string(),
+                                    };
+                                    h_flex()
+                                        .gap_2()
+                                        .items_center()
+                                        .text_sm()
+                                        .child(
+                                            Icon::new(Icon::empty())
+                                                .path("icons/shield-alert.svg")
+                                                .size_4()
+                                                .flex_shrink_0()
+                                                .text_color(if danger {
+                                                    theme.danger
+                                                } else {
+                                                    theme.warning
+                                                }),
+                                        )
+                                        .child(selectable(("catalog-risk", ix), what))
+                                },
+                            )),
                     )
                 })
                 .child(
@@ -601,6 +635,23 @@ impl Render for CatalogDetail {
                 ),
         )
     }
+}
+
+/// Every program the flow's enabled steps start and what its author says
+/// it needs, each once, in order.
+fn needs_of(flow: &Flow) -> Vec<String> {
+    let mut needs: Vec<String> = Vec::new();
+    let steps = flow.walk();
+    let from_steps = steps
+        .iter()
+        .filter(|(_, step)| step.enabled)
+        .flat_map(|(_, step)| programs_of(&step.kind));
+    for program in from_steps.chain(flow.meta.requires.iter().cloned()) {
+        if !needs.contains(&program) {
+            needs.push(program);
+        }
+    }
+    needs
 }
 
 /// Opens the details of one catalog flow. `installed` names the copy of

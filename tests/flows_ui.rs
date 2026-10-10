@@ -1615,7 +1615,13 @@ fn the_history_opens_a_run_from_the_keyboard_and_can_be_cleared(cx: &mut TestApp
         assert!(window.try_find(("history-steps", 0usize)).is_none());
 
         window.click("history-clear", cx);
-        window.render_frame(cx);
+    });
+    settle(cx, handle);
+    // Clearing asks first: nothing is gone yet.
+    assert!(!history::load("ui-past").is_empty());
+    with(cx, handle, |window, cx| window.click("ok", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
         assert!(window.try_find(("history-run", 0usize)).is_none());
         assert!(window.find("history-dialog").visible(), "the dialog stays");
     });

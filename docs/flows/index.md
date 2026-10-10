@@ -9,9 +9,9 @@ A **flow** strings actions together and runs them in order, like Shortcuts on a 
 <img src="/images/flows-light.webp" alt="Flows page" class="screenshot light-only">
 <img src="/images/flows-dark.webp" alt="Flows page" class="screenshot dark-only">
 
-Each card shows a flow's steps and how it can be started. **Run** starts it (while it runs, from here or anywhere else, the card says **Running** and the button stops it), the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates it, saves it as a [template](#your-own-templates), exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, and startup hook.
+Each card shows a flow's steps and how it can be started. **Run** starts it (while it runs, from here or anywhere else, the card says **Running** and the button stops it), the pencil edits it, and the <span class="icon-inline icon-inline-more" aria-hidden="true"></span> menu shows its [run history](/flows/history), duplicates it, saves it as a [template](#your-own-templates), exports, or deletes it. Deleting a flow also removes its keybind, launcher entry, startup hook, Files menu script, and run history, and stops it if it is running. **Show in the catalog** appears on a flow that came from the [Catalog](/flows/catalog).
 
-**New flow** starts a blank flow; its arrow offers **From scratch**, **From template**, **From the catalog**, and **Import flow**. **Templates**, next to it, opens the starter flows and your own templates. **Catalog** opens the flows other people shared; see [Catalog](/flows/catalog). The **Flows** menu in the title bar has the same from any page, plus **Run** for every saved flow.
+**New flow** starts a blank flow; its arrow offers **From scratch**, **From template**, **From the catalog**, and **Import flow…**. **Templates**, next to it, opens the starter flows and your own templates. Until you have a flow, the page itself shows the templates and the New flow button, and only **Catalog** stays in the toolbar. **Catalog** opens the flows other people shared; see [Catalog](/flows/catalog). The **Flows** menu in the title bar has the same from any page, plus **Run** for every saved flow.
 
 ## Building a flow
 

@@ -345,7 +345,9 @@ impl Render for StepPicker {
                         this.grid_focus.focus(window, cx);
                         cx.notify();
                     }))
-                    .child(toolbar::search_input(&self.search).id("step-search")),
+                    .child(toolbar::search(
+                        toolbar::search_input(&self.search).id("step-search"),
+                    )),
             )
             .child(self.render_groups(window, cx))
             .child(

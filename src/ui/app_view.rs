@@ -667,6 +667,22 @@ impl MainWindowView {
     /// notification, the same way the Flows page does.
     fn run_flow(&self, id: String, window: &mut Window, cx: &mut Context<Self>) {
         cx.spawn_in(window, async move |this, cx| {
+            let already = {
+                let id = id.clone();
+                cx.background_spawn(async move {
+                    crate::system::flows::running::list()
+                        .into_iter()
+                        .any(|run| run.id == id)
+                })
+                .await
+            };
+            if already {
+                this.update_in(cx, |_, window, cx| {
+                    notify::warning(window, "That flow is already running", cx)
+                })
+                .ok();
+                return;
+            }
             let result = match load_flow(&id) {
                 Ok(flow) => crate::system::flows::runner::run_in_thread(flow.clone())
                     .await

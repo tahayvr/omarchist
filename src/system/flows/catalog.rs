@@ -13,7 +13,7 @@ use std::time::Duration;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD as BASE64;
 use isahc::config::{Configurable, RedirectPolicy};
-use isahc::{ReadResponseExt, RequestExt};
+use isahc::{ReadResponseExt, RequestExt, ResponseExt};
 use ring::signature::{ED25519, Ed25519KeyPair, KeyPair, UnparsedPublicKey};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -54,6 +54,8 @@ pub const CATEGORIES: &[&str] = &[
 const PUBLIC_KEYS: &[&str] = &["T/g9V9DY1EaynU9Nxja67Ve5g6+esdBeCt/FBBMMuOk="];
 
 const INDEX_PATH: &str = "v1/index.json";
+/// The format of the list this Omarchist reads and writes.
+const INDEX_VERSION: u32 = 1;
 const INSTALLS_PATH: &str = "v1/installs.json";
 const MAX_INDEX_BYTES: u64 = 4 * 1024 * 1024;
 const MAX_FLOW_BYTES: u64 = 64 * 1024;
@@ -628,8 +630,15 @@ fn verified_index(bytes: &[u8], keys: &[String]) -> Result<Index> {
     {
         return Err(unsigned());
     }
-    serde_json::from_str(&published.signed)
-        .map_err(|e| Error::json("Failed to read the catalog's list", e))
+    let index: Index = serde_json::from_str(&published.signed)
+        .map_err(|e| Error::json("Failed to read the catalog's list", e))?;
+    // A list in a format this Omarchist does not know is not guessed at.
+    if index.version != INDEX_VERSION {
+        return Err(Error::Invalid(
+            "The catalog's list is in a newer format: update Omarchist to read it".to_string(),
+        ));
+    }
+    Ok(index)
 }
 
 // MARK: Reading the catalog (the app)
@@ -664,6 +673,14 @@ fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
         }
         return fs::read(&file).map_err(|e| Error::io("Failed to read the catalog", e));
     }
+    // Only https: the list is signed and the files are hashed, but the
+    // install counts are not, and nothing here should ever travel in the
+    // clear.
+    if !base.starts_with("https://") {
+        return Err(Error::Network(
+            "The catalog address must start with https://".to_string(),
+        ));
+    }
     let url = format!("{base}/{path}");
     let mut response = isahc::Request::get(&url)
         .timeout(TIMEOUT)
@@ -680,6 +697,12 @@ fn get(base: &str, path: &str, limit: u64) -> Result<Vec<u8>> {
         return Err(Error::Network(format!(
             "The catalog answered with status {}",
             response.status()
+        )));
+    }
+    // A redirect must not drop to plain http.
+    if response.effective_uri().map(|u| u.scheme_str()) != Some(Some("https")) {
+        return Err(Error::Network(format!(
+            "The catalog redirected {path} away from https"
         )));
     }
     let mut bytes = Vec::new();
@@ -771,6 +794,13 @@ fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {
     if let Some(kept) = &kept
         && index.serial < kept.index.serial
     {
+        // The kept copy is as fresh as a look can make it: without this
+        // the daily check would run on every visit until the CDN catches up.
+        if let Ok(dir) = cache_dir()
+            && let Ok(file) = fs::File::options().write(true).open(dir.join("index.json"))
+        {
+            let _ = file.set_modified(std::time::SystemTime::now());
+        }
         return Ok(kept.clone());
     }
     // Counts are a nicety: without them the catalog still opens.
@@ -1038,7 +1068,17 @@ pub fn prepare_submission(
     shared.meta.category = category.to_string();
     shared.meta.tags = tags.to_vec();
     shared.meta.license = LICENSE.to_string();
-    let slug = slug(&shared.name);
+    // A flow installed from the catalog keeps its catalog slug through a
+    // rename here, so its author's next version is an update of it, not a
+    // second flow. Somebody else's flow is published afresh, by its name.
+    let slug = source_of(flow)
+        .map(|(source, _)| source)
+        .filter(|source| {
+            index
+                .and_then(|index| index.entry(source))
+                .is_some_and(|entry| entry.author.eq_ignore_ascii_case(&shared.meta.author))
+        })
+        .unwrap_or_else(|| slug(&shared.name));
     let existing = index.and_then(|index| index.entry(&slug));
     if let Some(entry) = existing
         && !entry.author.eq_ignore_ascii_case(&shared.meta.author)

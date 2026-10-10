@@ -1056,6 +1056,15 @@ impl Flow {
                     return fail(e.to_string());
                 }
             }
+            if let StepKind::Exec { command, .. }
+            | StepKind::If {
+                condition: Condition::Command { command },
+                ..
+            } = &step.kind
+                && let Some(name) = vars::reference_in_arithmetic(command)
+            {
+                return fail(vars::arithmetic_message(&name));
+            }
             match &step.kind {
                 StepKind::Exec { command, .. } if command.trim().is_empty() => {
                     return fail("the command is empty".to_string());

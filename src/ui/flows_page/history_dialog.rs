@@ -11,6 +11,7 @@ use gpui_component::{
 use gpui_kit::TestSupportExt;
 
 use crate::system::flows::history::{self, Run, RunResult, StepResult};
+use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::var_token;
 use crate::ui::focus;
 use crate::ui::text::{selectable, title_case};
@@ -73,15 +74,32 @@ impl HistoryDialog {
     }
 
     fn clear(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match history::clear(&self.id) {
-            Ok(()) => {
-                self.runs.clear();
-                self.open = None;
-                self.selected = 0;
-            }
-            Err(e) => notify::error(window, e.to_string(), cx),
-        }
-        cx.notify();
+        let view = cx.entity();
+        open_confirm_dialog(
+            ConfirmDialog {
+                title: "Clear the run history?",
+                message: "Every recorded run of this flow is forgotten.".to_string(),
+                confirm_label: "Clear",
+                danger: true,
+            },
+            move |window, cx| {
+                view.update(cx, |this, cx| {
+                    match history::clear(&this.id) {
+                        Ok(()) => {
+                            this.runs.clear();
+                            this.open = None;
+                            this.selected = 0;
+                        }
+                        Err(e) => {
+                            notify::error(window, format!("Could not clear the history: {e}"), cx)
+                        }
+                    }
+                    cx.notify();
+                });
+            },
+            window,
+            cx,
+        );
     }
 
     fn result_icon(result: RunResult, cx: &App) -> Icon {

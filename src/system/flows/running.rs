@@ -8,7 +8,7 @@
 //! gone is ignored and removed.
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -103,7 +103,7 @@ fn write_entry(flow: &Flow, trigger: &str, cancel: Option<Cancel>) -> Option<Reg
         trigger: trigger.to_string(),
         in_app: cancel.is_some(),
     };
-    fs::write(&path, serde_json::to_string(&running).ok()?).ok()?;
+    write_run(&path, &running)?;
     if let Some(cancel) = cancel {
         local()
             .get_or_insert_with(HashMap::new)
@@ -131,9 +131,7 @@ pub fn relabel_local(flow: &Flow) {
         {
             run.id = flow.id.clone();
             run.name = flow.name.clone();
-            if let Ok(text) = serde_json::to_string(&run) {
-                let _ = fs::write(&path, text);
-            }
+            write_run(&path, &run);
         }
         *id = flow.id.clone();
     }
@@ -155,9 +153,20 @@ pub fn stop_local(id: &str) -> usize {
     cancels.len()
 }
 
+/// Writes an entry whole: the bar widget and the Flows page read the
+/// folder as it changes, and a half-written file would read as a run that
+/// is gone.
+fn write_run(path: &Path, run: &Running) -> Option<()> {
+    let text = serde_json::to_string(run).ok()?;
+    let temp = path.with_extension("tmp");
+    fs::write(&temp, text).ok()?;
+    fs::rename(&temp, path).ok()
+}
+
 /// Whether a run's process is still that run. A pid can be reused after a
-/// crash, by anything, and `stop` signals it: a `flow run` must say so on
-/// its command line, and a run inside the window must be an Omarchist.
+/// crash, by anything, and `stop` signals it: a `flow run` must name this
+/// flow on its command line, and a run inside the window must be an
+/// Omarchist.
 fn alive(run: &Running) -> bool {
     let Ok(cmdline) = fs::read(format!("/proc/{}/cmdline", run.pid)) else {
         return false;
@@ -165,7 +174,7 @@ fn alive(run: &Running) -> bool {
     if run.in_app {
         is_omarchist(&cmdline)
     } else {
-        is_flow_run(&cmdline)
+        is_flow_run_of(&cmdline, &run.id, &run.name)
     }
 }
 
@@ -177,11 +186,17 @@ fn is_omarchist(cmdline: &[u8]) -> bool {
         .is_some_and(|name| name == b"omarchist")
 }
 
-/// Whether a NUL-separated command line is `… flow run …`.
-fn is_flow_run(cmdline: &[u8]) -> bool {
+/// Whether a NUL-separated command line is `… flow run <this flow> …`,
+/// by id or by name, as the command line takes either.
+fn is_flow_run_of(cmdline: &[u8], id: &str, name: &str) -> bool {
     let args: Vec<&[u8]> = cmdline.split(|byte| *byte == 0).collect();
-    args.windows(2)
-        .any(|pair| pair[0] == b"flow" && pair[1] == b"run")
+    args.windows(3).any(|w| {
+        w[0] == b"flow"
+            && w[1] == b"run"
+            && (w[2] == id.as_bytes()
+                || w[2].eq_ignore_ascii_case(name.as_bytes())
+                || std::str::from_utf8(w[2]).is_ok_and(|given| super::slug(given) == id))
+    })
 }
 
 /// Every run in progress, oldest first.
@@ -192,6 +207,10 @@ pub fn list() -> Vec<Running> {
     let mut running: Vec<Running> = Vec::new();
     for entry in fs::read_dir(dir).into_iter().flatten().flatten() {
         let path = entry.path();
+        // An entry on its way in is not a run that is gone.
+        if path.extension().is_none_or(|ext| ext != "json") {
+            continue;
+        }
         let parsed = fs::read_to_string(&path)
             .ok()
             .and_then(|text| serde_json::from_str::<Running>(&text).ok());
@@ -238,7 +257,7 @@ pub fn stop(id: &str) -> usize {
 
 #[cfg(test)]
 mod tests {
-    use super::{is_flow_run, is_omarchist};
+    use super::{is_flow_run_of, is_omarchist};
 
     #[test]
     fn a_window_is_an_omarchist_by_its_program_name() {
@@ -267,16 +286,22 @@ mod tests {
     }
 
     #[test]
-    fn only_a_flow_run_is_a_run() {
-        assert!(is_flow_run(b"/usr/bin/omarchist\0flow\0run\0morning\0"));
-        assert!(is_flow_run(
-            b"omarchist\0flow\0run\0morning\0--trigger\0Bar\0"
+    fn only_a_run_of_this_flow_is_its_run() {
+        let run = b"/usr/bin/omarchist\0flow\0run\0morning\0";
+        assert!(is_flow_run_of(run, "morning", "Morning start"));
+        // By name, as the command line takes one.
+        assert!(is_flow_run_of(
+            b"omarchist\0flow\0run\0Morning start\0",
+            "morning-start",
+            "Morning start"
         ));
-        // The window, the service, and anything a reused pid may be.
-        assert!(!is_flow_run(b"/usr/bin/omarchist\0--view\0flows\0"));
-        assert!(!is_flow_run(b"omarchist\0automations\0run\0"));
-        assert!(!is_flow_run(b"omarchist\0flow\0list\0--json\0"));
-        assert!(!is_flow_run(b"bash\0-c\0flow run\0"));
-        assert!(!is_flow_run(b""));
+        // A pid reused by another flow's run is not this one.
+        assert!(!is_flow_run_of(run, "evening", "Evening"));
+        assert!(!is_flow_run_of(
+            b"/usr/bin/omarchist\0flow\0list\0",
+            "morning",
+            "Morning"
+        ));
+        assert!(!is_flow_run_of(b"/usr/bin/bash\0", "morning", "Morning"));
     }
 }

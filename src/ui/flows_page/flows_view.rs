@@ -456,6 +456,12 @@ impl FlowsView {
         let Some(flow) = self.flow_at(filtered_ix).cloned() else {
             return;
         };
+        // The card shows Stop while the flow runs, from here or anywhere
+        // else: the same key stops it rather than starting a second run.
+        if self.running_ids.contains(&flow.id) {
+            self.stop(filtered_ix, window, cx);
+            return;
+        }
         if self.running.is_some() {
             notify::warning(window, "A flow is already running", cx);
             return;
@@ -499,8 +505,10 @@ impl FlowsView {
             name,
             ..flow
         };
-        // Triggers point at one flow each; the copy starts with none.
+        // Triggers point at one flow each; the copy starts with none, and
+        // it is not the catalog's flow either, or both would carry its tag.
         copy.triggers = Default::default();
+        copy.meta.source.clear();
         match save_new_flow(&copy) {
             Ok(()) => {
                 notify::success(window, format!("Created '{}'", copy.name), cx);
@@ -515,12 +523,19 @@ impl FlowsView {
             return;
         };
         let view = cx.entity();
+        let running = self.running_ids.contains(&flow.id);
         open_confirm_dialog(
             ConfirmDialog {
                 title: "Delete this flow?",
                 message: format!(
-                    "Delete '{}'? Its keybind, launcher entry, and startup hook are removed with it.",
-                    flow.name
+                    "Delete '{}'? Its keybind, launcher entry, startup hook, Files menu script \
+                     and run history are removed with it.{}",
+                    title_case(&flow.name),
+                    if running {
+                        " It is running now and will be stopped."
+                    } else {
+                        ""
+                    }
                 ),
                 confirm_label: "Delete",
                 danger: true,
@@ -528,6 +543,8 @@ impl FlowsView {
             move |window, cx| {
                 let id = flow.id.clone();
                 let name = flow.name.clone();
+                // A run that outlived its flow would write its history back.
+                running::stop(&id);
                 view.update(cx, |this, cx| match delete_flow(&id) {
                     Ok(()) => {
                         notify::success(window, format!("Deleted '{name}'"), cx);
@@ -614,7 +631,7 @@ impl FlowsView {
                             menu.menu("From scratch", Box::new(NewFlow))
                                 .menu("From template", Box::new(BrowseTemplates))
                                 .menu("From the catalog", Box::new(app_menu::OpenCatalog))
-                                .menu("Import flow", Box::new(ImportFlow))
+                                .menu("Import flow…", Box::new(ImportFlow))
                         }),
                 )
             })
@@ -935,13 +952,7 @@ impl FlowsView {
                     .gap_3()
                     .w_full()
                     .max_w(px(960.))
-                    .child(
-                        div()
-                            .text_xs()
-                            .font_weight(FontWeight::MEDIUM)
-                            .text_color(theme.muted_foreground)
-                            .child("OR START FROM A TEMPLATE"),
-                    )
+                    .child(crate::ui::heading::section("Or start from a template", cx))
                     .child(h_flex().gap_4().flex_wrap().items_stretch().children(
                         templates.iter().enumerate().map(|(ix, template)| {
                             let key = template.key.clone();
@@ -984,6 +995,11 @@ impl Render for FlowsView {
                 this.focus_entry(window, cx);
             }))
             .on_action(cx.listener(|this, _: &ClearSearch, window, cx| {
+                // Escape in an empty box moves on to the flows.
+                if this.query.is_empty() {
+                    this.focus_grid(window, cx);
+                    return;
+                }
                 this.search
                     .update(cx, |input, cx| input.set_value("", window, cx));
                 this.query.clear();

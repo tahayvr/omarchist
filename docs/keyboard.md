@@ -66,11 +66,28 @@ In the table: arrows, <kbd>Home</kbd>, <kbd>End</kbd>, <kbd>PgUp</kbd>, and <kbd
 | <kbd>Ctrl</kbd> + <kbd>F</kbd> | Search |
 | <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> | New flow |
 | <kbd>↓</kbd> from the search box | Go to the cards |
-| <kbd>Escape</kbd> in the search box | Clear the search |
+| <kbd>Escape</kbd> in the search box | Clear the search, then go to the cards |
 
-Among the cards: arrows, <kbd>Home</kbd>, and <kbd>End</kbd> move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, <kbd>Delete</kbd> deletes.
+Among the cards: arrows, <kbd>Home</kbd>, and <kbd>End</kbd> move between them, <kbd>Enter</kbd> edits, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs (or stops a flow that is running), <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates, <kbd>Delete</kbd> deletes.
 
-In the editor: <kbd>Ctrl</kbd> + <kbd>S</kbd> saves, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> runs, <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> adds a step, <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back (also on the Templates page). In the step list: <kbd>Enter</kbd> edits, <kbd>Space</kbd> turns a step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> moves it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, <kbd>Delete</kbd> removes it.
+On the Templates and Catalog pages: <kbd>Escape</kbd> clears the search, then goes back to Flows; <kbd>Alt</kbd> + <kbd>←</kbd> goes back at once; <kbd>Delete</kbd> on one of your own templates removes it. In a catalog flow's dialog, <kbd>Ctrl</kbd> + <kbd>Enter</kbd> installs, updates, or opens it.
+
+### In the editor
+
+| Keys | Action |
+| --- | --- |
+| <kbd>Ctrl</kbd> + <kbd>S</kbd> | Save |
+| <kbd>Ctrl</kbd> + <kbd>Enter</kbd> | Run the flow |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>N</kbd> | Add a step |
+| <kbd>Ctrl</kbd> + <kbd>Z</kbd> | Undo a change |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Z</kbd> or <kbd>Ctrl</kbd> + <kbd>Y</kbd> | Redo |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>H</kbd> | Run history |
+| <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>E</kbd> | Export the flow |
+| <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> | Back to Flows |
+
+In the step list: <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd>, and <kbd>End</kbd> move between steps, <kbd>Enter</kbd> edits, <kbd>Shift</kbd> + <kbd>Enter</kbd> runs only that step, <kbd>Space</kbd> turns a step on or off, <kbd>Alt</kbd> + <kbd>↑</kbd> / <kbd>↓</kbd> moves it, <kbd>Ctrl</kbd> + <kbd>D</kbd> duplicates it, <kbd>Delete</kbd> removes it, and <kbd>←</kbd> / <kbd>→</kbd> fold or unfold a block (<kbd>←</kbd> on a step inside a block goes to the block).
+
+In the step dialog: <kbd>↓</kbd> from the search goes to the step types, arrows, <kbd>Home</kbd>, and <kbd>End</kbd> move among them (<kbd>←</kbd> / <kbd>→</kbd> on the group row change the group), <kbd>Enter</kbd> or <kbd>Space</kbd> picks one. In a list of options, <kbd>Enter</kbd> adds another after the current one. On the **Insert** row of variables, <kbd>←</kbd> / <kbd>→</kbd> choose and <kbd>Enter</kbd> or <kbd>Space</kbd> inserts. The icon picker works the same way as the step types. In the run history, <kbd>↑</kbd> / <kbd>↓</kbd>, <kbd>Home</kbd>, and <kbd>End</kbd> move between runs and <kbd>Enter</kbd> or <kbd>Space</kbd> shows a run's steps.
 
 ## Dialogs
 

@@ -198,7 +198,9 @@ impl Render for IconDialog {
                             this.grid_focus.focus(window, cx);
                             cx.notify();
                         }))
-                        .child(toolbar::search_input(&self.search).id("icon-search")),
+                        .child(toolbar::search(
+                            toolbar::search_input(&self.search).id("icon-search"),
+                        )),
                 )
                 .child(
                     v_flex()

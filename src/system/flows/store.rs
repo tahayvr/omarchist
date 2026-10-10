@@ -195,6 +195,9 @@ fn save_flow_inner(flow: &Flow, new: bool) -> Result<()> {
     {
         fs::create_dir_all(dir).map_err(|e| Error::io("Failed to create flows directory", e))?;
     }
+    // What would make the trigger files fail is found before the flow
+    // is written, so a refused save leaves nothing half done.
+    launcher::check_triggers(flow)?;
     write_atomic(&path, flow.to_toml()?, "the flow")?;
     // A shared file copied in as `<id>.flow.toml` is superseded by this save.
     let _ = fs::remove_file(shared_path(&flow.id)?);

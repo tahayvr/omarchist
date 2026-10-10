@@ -678,10 +678,12 @@ impl Watched {
 /// Starts the flow for an automation: at once, or after a click on a
 /// notification when it asks first.
 fn start(flow: &Flow, automation: &Automation, input: &str) -> Option<Child> {
-    let binary = std::env::current_exe().ok()?;
+    // Never `current_exe`: after a package upgrade that is
+    // `/usr/bin/omarchist (deleted)` for as long as the service runs.
+    let binary = crate::system::binary::omarchist_binary();
     let label = automation.event.describe();
     let mut run: Vec<String> = vec![
-        binary.display().to_string(),
+        binary,
         "flow".into(),
         "run".into(),
         flow.id.clone(),

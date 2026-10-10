@@ -6,7 +6,7 @@ use gpui_component::{
     ActiveTheme, Icon, IconName, Side, Sizable, TitleBar,
     button::*,
     h_flex,
-    menu::{DropdownMenu, PopupMenu, PopupMenuItem},
+    menu::{DropdownMenu, PopupMenu},
 };
 
 use crate::system::flows::icon_path;
@@ -105,15 +105,17 @@ impl Render for MainTitleBar {
                             .dropdown_menu(|menu: PopupMenu, window, cx| {
                                 // Read on every open so the list matches the flows folder.
                                 let flows = load_flows().unwrap_or_default();
-                                menu.menu("New flow", Box::new(app_menu::NewFlow))
+                                let menu = menu.menu("New flow", Box::new(app_menu::NewFlow))
                                     .menu("New from template", Box::new(app_menu::NewFlowFromTemplate))
                                     .menu("Catalog", Box::new(app_menu::OpenCatalog))
-                                    .menu("Import flow…", Box::new(app_menu::ImportFlow))
-                                    .separator()
+                                    .menu("Import flow…", Box::new(app_menu::ImportFlow));
+                                // Nothing to run means no Run submenu, not a
+                                // disabled line in one.
+                                if flows.is_empty() {
+                                    return menu;
+                                }
+                                menu.separator()
                                     .submenu("Run", window, cx, move |menu, _, _| {
-                                        if flows.is_empty() {
-                                            return menu.item(PopupMenuItem::new("No flows yet").disabled(true));
-                                        }
                                         flows.iter().fold(menu, |menu, flow| {
                                             menu.menu_with_icon(
                                                 crate::ui::text::title_case(&flow.name),
