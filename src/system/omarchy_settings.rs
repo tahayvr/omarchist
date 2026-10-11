@@ -31,11 +31,55 @@ pub enum Read {
         path: &'static str,
         key: &'static str,
     },
-    /// What a command prints, read as `parse` says.
+    /// What a command prints, read as `parse` says; `changes` says what
+    /// announces a new value, since a command cannot be watched.
     Command {
         argv: &'static [&'static str],
         parse: Parse,
+        changes: Changes,
     },
+}
+
+/// What tells the Configuration page that a setting changed outside it
+/// (the bar, Omarchy's menu, a keybind), so it shows the truth while open.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Changes {
+    /// This file under `~/.local/state/omarchy/` is written on every change.
+    State(&'static str),
+    /// This file under `~/.config/` is written on every change.
+    Config(&'static str),
+    /// This file, by absolute path.
+    File(&'static str),
+    /// Nothing announces it: read again every few seconds while shown.
+    Poll,
+    /// It changes only through a terminal action or an install, which the
+    /// page reads back after: read again on visit and on window focus.
+    Rarely,
+}
+
+impl Read {
+    /// What announces a change of this value.
+    pub fn changes(&self) -> Changes {
+        match self {
+            Read::ShellJson(_) | Read::ShellWidget { .. } => Changes::Config("omarchy/shell.json"),
+            Read::Flag { flag, .. } => Changes::State(flag),
+            Read::StateFile(rel) => Changes::State(rel),
+            Read::EnvFile { path, .. } => Changes::File(path),
+            Read::Command { changes, .. } => *changes,
+        }
+    }
+}
+
+impl Changes {
+    /// The file whose writes announce a change, when there is one.
+    pub fn file(self) -> Option<PathBuf> {
+        match self {
+            Changes::State(rel) => omarchy_state_dir().map(|d| d.join(rel)),
+            Changes::Config(rel) => dirs::home_dir().map(|h| h.join(".config").join(rel)),
+            Changes::File(path) => Some(PathBuf::from(path)),
+            Changes::Poll | Changes::Rarely => None,
+        }
+    }
 }
 
 /// How a command's output becomes a value.
@@ -199,16 +243,41 @@ pub fn read_from(read: &Read) -> Option<Value> {
             let content = fs::read_to_string(path).ok()?;
             env_file_value(&content, key).map(Value::String)
         }
-        Read::Command { argv, parse } => {
-            let output = Command::new(argv[0])
-                .args(&argv[1..])
-                .stdin(Stdio::null())
-                .output()
-                .ok()?;
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            parse_output(*parse, output.status.success(), &stdout)
+        Read::Command { argv, parse, .. } => {
+            let (success, stdout) = run_read(argv)?;
+            parse_output(*parse, success, &stdout)
         }
     }
+}
+
+/// Reads several values, running each distinct command once (night
+/// light's state and temperature come from one `--status`). Blocking.
+pub fn read_all(reads: &[Read]) -> Vec<Option<Value>> {
+    let mut outputs: std::collections::HashMap<&[&str], Option<(bool, String)>> =
+        std::collections::HashMap::new();
+    reads
+        .iter()
+        .map(|read| match read {
+            Read::Command { argv, parse, .. } => {
+                let output = outputs.entry(*argv).or_insert_with(|| run_read(argv));
+                let (success, stdout) = output.as_ref()?;
+                parse_output(*parse, *success, stdout)
+            }
+            other => read_from(other),
+        })
+        .collect()
+}
+
+fn run_read(argv: &[&str]) -> Option<(bool, String)> {
+    let output = Command::new(argv[0])
+        .args(&argv[1..])
+        .stdin(Stdio::null())
+        .output()
+        .ok()?;
+    Some((
+        output.status.success(),
+        String::from_utf8_lossy(&output.stdout).into_owned(),
+    ))
 }
 
 fn parse_output(parse: Parse, success: bool, stdout: &str) -> Option<Value> {
@@ -567,6 +636,59 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+
+    /// One command answers several items (night light's state and
+    /// temperature), and runs once for them: the second read counts the
+    /// first's run in a file.
+    #[test]
+    fn a_command_shared_by_reads_runs_once() {
+        let dir = std::env::temp_dir().join(format!("omarchist-read-all-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let script = format!(
+            "echo x >> {0}/runs; echo '{{\"enabled\":true,\"temperature\":4000}}'",
+            dir.display()
+        );
+        let argv: &'static [&'static str] =
+            Box::leak(vec!["sh", "-c", Box::leak(script.into_boxed_str())].into_boxed_slice());
+        let reads = [
+            Read::Command {
+                argv,
+                parse: Parse::JsonBool("enabled"),
+                changes: Changes::Poll,
+            },
+            Read::Command {
+                argv,
+                parse: Parse::JsonInt {
+                    field: "temperature",
+                    fallback: 6500,
+                },
+                changes: Changes::Poll,
+            },
+        ];
+        assert_eq!(read_all(&reads), vec![Some(json!(true)), Some(json!(4000))]);
+        let runs = std::fs::read_to_string(dir.join("runs")).unwrap();
+        assert_eq!(runs.lines().count(), 1);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn files_announce_the_values_read_from_them() {
+        let home = dirs::home_dir().unwrap();
+        assert_eq!(
+            Read::ShellJson("idle.lock").changes().file(),
+            Some(home.join(".config/omarchy/shell.json"))
+        );
+        assert_eq!(
+            Read::Flag {
+                flag: "toggles/bar-off",
+                inverted: false
+            }
+            .changes()
+            .file(),
+            Some(home.join(".local/state/omarchy/toggles/bar-off"))
+        );
+        assert_eq!(Changes::Poll.file(), None);
+    }
 
     #[test]
     fn output_parsers() {

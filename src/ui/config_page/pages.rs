@@ -4,7 +4,7 @@
 //! from `hyprctl descriptions`, and a test checks them against the running
 //! compositor. An Omarchy item is a [`Backing`]: read and written through
 //! Omarchy's own files and scripts (`system::omarchy_settings`).
-use crate::system::omarchy_settings::{Backing, Options, Parse, Read, Write};
+use crate::system::omarchy_settings::{Backing, Changes, Options, Parse, Read, Write};
 
 /// Where an item's value lives.
 pub enum Source {
@@ -2470,6 +2470,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-shell", "notifications", "isDnd"],
                             parse: Parse::LineIs("on"),
+                            changes: Changes::State("notifications.json"),
                         },
                         write: Write::Bool {
                             on: &[&["omarchy-shell", "notifications", "setDnd", "true"]],
@@ -2522,6 +2523,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-default-browser"],
                             parse: Parse::Line,
+                            changes: Changes::Config("mimeapps.list"),
                         },
                         write: Write::Command(&["omarchy-default-browser"]),
                     },
@@ -2548,6 +2550,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-default-terminal"],
                             parse: Parse::Line,
+                            changes: Changes::Config("xdg-terminals.list"),
                         },
                         write: Write::Command(&["omarchy-default-terminal"]),
                     },
@@ -2566,6 +2569,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-default-editor"],
                             parse: Parse::Line,
+                            changes: Changes::State("defaults/editor"),
                         },
                         write: Write::Command(&["omarchy-default-editor"]),
                     },
@@ -2657,6 +2661,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-font-current"],
                             parse: Parse::Line,
+                            changes: Changes::Config("fontconfig/fonts.conf"),
                         },
                         write: Write::Command(&["omarchy-font-set"]),
                     },
@@ -2670,6 +2675,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-display-text-size"],
                             parse: Parse::Int,
+                            changes: Changes::Config("omarchy/shell.toml"),
                         },
                         write: Write::Command(&["omarchy-display-text-size"]),
                     },
@@ -2696,6 +2702,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-hyprland-monitor-scaling"],
                             parse: Parse::Line,
+                            changes: Changes::Poll,
                         },
                         write: Write::Command(&["omarchy-hyprland-monitor-scaling"]),
                     },
@@ -2720,6 +2727,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                             read: Read::Command {
                                 argv: &["omarchy-toggle-nightlight", "--status"],
                                 parse: Parse::JsonBool("enabled"),
+                                changes: Changes::Poll,
                             },
                             write: Write::ToggleIfDifferent(&["omarchy-toggle-nightlight"]),
                         },
@@ -2735,6 +2743,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                                     field: "temperature",
                                     fallback: 6500,
                                 },
+                                changes: Changes::Poll,
                             },
                             // The shell's indicator only re-reads on this
                             // call; `omarchy-toggle-nightlight` makes it too.
@@ -2843,6 +2852,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-bluetooth-power", "is-on"],
                             parse: Parse::Succeeds,
+                            changes: Changes::Poll,
                         },
                         write: Write::Bool {
                             on: &[&["omarchy-bluetooth-power", "on"]],
@@ -2869,6 +2879,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                         read: Read::Command {
                             argv: &["omarchy-dns"],
                             parse: Parse::Line,
+                            changes: Changes::Rarely,
                         },
                         write: Write::Command(&["omarchy-dns"]),
                     },
@@ -2887,6 +2898,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                             argv: &["omarchy-network-band"],
                             // `band` is the one in use; `selected` is the pin.
                             parse: Parse::TokenOfLine("selected"),
+                            changes: Changes::Rarely,
                         },
                         write: Write::Command(&["omarchy-network-band"]),
                     },
@@ -2917,6 +2929,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                     Read::Command {
                         argv: &["pacman", "-Q", "fprintd"],
                         parse: Parse::Succeeds,
+                        changes: Changes::Rarely,
                     },
                     &["omarchy-setup-security-fingerprint"],
                     Some(&["omarchy-remove-security-fingerprint"]),
@@ -2929,6 +2942,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                     Read::Command {
                         argv: &["pacman", "-Q", "pam-u2f"],
                         parse: Parse::Succeeds,
+                        changes: Changes::Rarely,
                     },
                     &["omarchy-setup-security-fido2"],
                     Some(&["omarchy-remove-security-fido2"])
@@ -2940,6 +2954,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                     Read::Command {
                         argv: &["systemctl", "is-enabled", "sshd"],
                         parse: Parse::Succeeds,
+                        changes: Changes::Rarely,
                     },
                     &["omarchy-setup-security-sshd"],
                     Some(&["omarchy-remove-security-sshd"])
@@ -2951,6 +2966,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                     Read::Command {
                         argv: &["omarchy-sudo-docker", "--configured"],
                         parse: Parse::Fails,
+                        changes: Changes::Rarely,
                     },
                     &["omarchy-setup-security-sudoless-docker"],
                     Some(&["omarchy-remove-security-sudoless-docker"])
@@ -2973,6 +2989,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                             read: Read::Command {
                                 argv: &["omarchy-channel-current"],
                                 parse: Parse::Line,
+                                changes: Changes::Rarely,
                             },
                             write: Write::Terminal(&["omarchy-channel-set"]),
                         },
@@ -3006,6 +3023,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                             read: Read::Command {
                                 argv: &["timedatectl", "show", "-p", "Timezone", "--value"],
                                 parse: Parse::Line,
+                                changes: Changes::File("/etc/localtime"),
                             },
                             write: Write::Terminal(&[
                                 "bash",
@@ -3024,6 +3042,7 @@ pub const OMARCHY_PAGES: &[PageDef] = &[
                             read: Read::Command {
                                 argv: &["timedatectl", "show", "-p", "NTP", "--value"],
                                 parse: Parse::LineIs("yes"),
+                                changes: Changes::Rarely,
                             },
                             write: Write::Terminal(&[
                                 "bash",

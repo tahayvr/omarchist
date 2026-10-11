@@ -4892,6 +4892,7 @@ dependencies = [
  "hex",
  "image",
  "isahc",
+ "notify",
  "palette",
  "percent-encoding",
  "rfd",

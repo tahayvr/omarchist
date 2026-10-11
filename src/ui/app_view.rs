@@ -112,6 +112,9 @@ pub struct MainWindowView {
     /// Whether the Flows page polls the run registry; `main.rs` turns it
     /// on, headless tests leave it off.
     watch_runs: bool,
+    /// Whether the Configuration page watches for outside changes while it
+    /// is shown; `main.rs` turns it on, headless tests leave it off.
+    watch_settings: bool,
     title_bar: Entity<MainTitleBar>,
     active_page: ActivePage,
     // The landing page and Themes are always present.
@@ -176,6 +179,7 @@ impl MainWindowView {
 
         let mut view = Self {
             watch_runs: false,
+            watch_settings: false,
             title_bar,
             active_page: ActivePage::Dashboard,
             dashboard_root,
@@ -541,6 +545,7 @@ impl MainWindowView {
         }
 
         self.active_page = page;
+        self.sync_settings_watch(window, cx);
         if let Some(ix) = Self::sidebar_index_for(&self.active_page) {
             self.sidebar_index = ix;
         }
@@ -856,6 +861,28 @@ impl MainWindowView {
             .update(cx, |view, cx| view.watch_runs(cx));
         if let Some(view) = &self.flows_view {
             view.update(cx, |view, cx| view.watch_runs(cx));
+        }
+    }
+
+    /// Lets the Configuration page watch for changes made outside it (the
+    /// bar, Omarchy's menu) whenever it is shown. `main.rs` calls it;
+    /// tests never do.
+    pub fn watch_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.watch_settings = true;
+        self.sync_settings_watch(window, cx);
+    }
+
+    /// The Configuration page watches only while it is the page shown.
+    fn sync_settings_watch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let shown = self.active_page == ActivePage::Configuration;
+        let allowed = self.watch_settings;
+        if let Some(view) = &self.config_view {
+            view.update(cx, |view, cx| {
+                if allowed {
+                    view.allow_watching();
+                }
+                view.set_live(shown, window, cx);
+            });
         }
     }
 

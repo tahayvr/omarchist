@@ -11,8 +11,9 @@
 // page opens and written in the background when a control changes.
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
+use std::path::PathBuf;
 use std::rc::Rc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gpui::*;
 use gpui_component::{
@@ -33,7 +34,8 @@ use serde_json::Value;
 use crate::system::config::hypr_setup::{self, HOOK_RESTORED_MESSAGE};
 use crate::system::hyprland_config::HyprlandConfigManager;
 use crate::system::hyprland_config::manager;
-use crate::system::omarchy_settings::{self, Choice};
+use crate::system::omarchy_settings::{self, Changes, Choice, Read};
+use crate::system::settings_watch::{Change, SettingsWatch};
 use crate::ui::config_page::pages::{
     FieldDef, GroupDef, ItemDef, KEYBOARD_LAYOUT_PATH, PageDef, PageGroup, Source, items, page,
     page_count, pages,
@@ -178,6 +180,43 @@ fn page_needs_load(page: &PageDef) -> bool {
     })
 }
 
+/// What an item reads its value from, when it is not a Hyprland option.
+fn read_of(item: &ItemDef) -> Option<Read> {
+    match (&item.source, &item.field) {
+        (Source::Omarchy(backing), _) => Some(backing.read),
+        (Source::None, FieldDef::Feature { status, .. }) => Some(*status),
+        _ => None,
+    }
+}
+
+/// Every file whose writes announce a change of an Omarchy item.
+fn watched_files() -> HashSet<PathBuf> {
+    items()
+        .filter_map(read_of)
+        .filter_map(|read| read.changes().file())
+        .collect()
+}
+
+/// A writer may touch a file more than once for one change (write, then
+/// rename); one read follows the burst.
+const SETTLE: Duration = Duration::from_millis(150);
+/// How often a value nothing announces (night light, Bluetooth, monitor
+/// scale) is read again while it is on screen.
+const POLL_EVERY: Duration = Duration::from_secs(2);
+/// The least time between two reads on window focus: the window loses and
+/// regains focus on every Hyprland reload.
+const FOCUS_READ_GAP: Duration = Duration::from_secs(10);
+/// A Hyprland reload this long after one the page caused is its own echo.
+const OWN_RELOAD: Duration = Duration::from_secs(3);
+
+/// Watching for changes made outside the page; dropped when it is hidden.
+struct Live {
+    watch: SettingsWatch,
+    files: HashSet<PathBuf>,
+    _changes: Task<()>,
+    _poll: Task<()>,
+}
+
 /// Values of the Omarchy-backed items, filled in page by page.
 #[derive(Default)]
 struct OmarchyState {
@@ -190,6 +229,8 @@ struct OmarchyState {
     /// Items whose change runs in Omarchy's terminal; read back once it
     /// is done, not the moment the terminal opens.
     pending: HashSet<&'static str>,
+    /// Items being written: a read meanwhile could show the old value.
+    writing: HashSet<&'static str>,
 }
 
 #[derive(Clone, Debug)]
@@ -249,6 +290,16 @@ pub struct ConfigView {
     hyprland_loading: bool,
     /// What `hyprctl configerrors` reported after the last save.
     config_errors: Option<String>,
+    /// `main.rs` lets the page watch for outside changes; a test window
+    /// never does, so it has no loop that never ends.
+    may_watch: bool,
+    /// Watching while the page is shown (`set_live`).
+    live: Option<Live>,
+    /// A poll's reads are still running; the next tick waits for them.
+    polling: bool,
+    /// Until when a Hyprland reload is this page's own doing.
+    own_reload_until: Option<Instant>,
+    last_focus_read: Option<Instant>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -346,8 +397,21 @@ impl ConfigView {
             hyprland_unavailable,
             hyprland_loading: compositor,
             config_errors: None,
+            may_watch: false,
+            live: None,
+            polling: false,
+            own_reload_until: None,
+            last_focus_read: None,
             _subscriptions: subscriptions,
         };
+        // Coming back to the window after changing something elsewhere
+        // (Omarchy's menu, a terminal) shows the change.
+        let activation = cx.observe_window_activation(window, |this, window, cx| {
+            if window.is_window_active() {
+                this.read_on_focus(window, cx);
+            }
+        });
+        this._subscriptions.push(activation);
         if compositor {
             this.load_hyprland(cx);
         }
@@ -559,6 +623,7 @@ impl ConfigView {
                 // Optimistic: the control shows the choice at once and the
                 // read-back after the write corrects it if Omarchy disagreed.
                 self.omarchy.values.insert(item.id, value.clone());
+                self.omarchy.writing.insert(item.id);
                 self.omarchy.errors.remove(item.id);
                 cx.notify();
                 let backing = *backing;
@@ -573,6 +638,9 @@ impl ConfigView {
                 );
                 if in_terminal {
                     self.omarchy.pending.insert(item.id);
+                }
+                if reloads_hyprland {
+                    self.expect_own_reload();
                 }
                 cx.spawn(async move |this, cx| {
                     let wanted = value.clone();
@@ -596,6 +664,7 @@ impl ConfigView {
                     this.update(cx, |this, cx| {
                         let (result, current) = result;
                         this.omarchy.pending.remove(item.id);
+                        this.omarchy.writing.remove(item.id);
                         // A script that did its work but ended with a slow
                         // `hyprctl reload` exits non-zero; the read-back is
                         // what counts.
@@ -614,7 +683,11 @@ impl ConfigView {
                     })
                     .ok();
                     if reloads_hyprland {
-                        this.update(cx, |this, cx| this.reload_baseline(cx)).ok();
+                        this.update(cx, |this, cx| {
+                            this.expect_own_reload();
+                            this.reload_baseline(cx);
+                        })
+                        .ok();
                     }
                 })
                 .detach();
@@ -713,6 +786,7 @@ impl ConfigView {
     fn persist(&mut self, cx: &mut Context<Self>) {
         let saved = self.config_manager.borrow().save();
         if saved.is_ok() {
+            self.expect_own_reload();
             // Reload, then ask what Hyprland rejected: a value another
             // Hyprland version does not know must not look applied.
             cx.spawn(async move |this, cx| {
@@ -757,6 +831,10 @@ impl ConfigView {
             if let FieldDef::Number { .. } | FieldDef::Pair { .. } = item.field
                 && let Some(input) = self.number_inputs.get(item.id)
             {
+                // Never under the cursor of someone typing.
+                if input.read(cx).focus_handle(cx).is_focused(window) {
+                    continue;
+                }
                 let value = self.number_at(item);
                 input.update(cx, |input, cx| {
                     input.set_value(format_number(value), window, cx);
@@ -901,10 +979,23 @@ impl ConfigView {
             self.omarchy.hidden.insert(id);
         }
         // Number inputs were created before the values were known.
-        let updates: Vec<(Entity<InputState>, String)> = page(load.page)
+        let ids: Vec<&'static str> = page(load.page)
             .into_iter()
             .flat_map(|p| p.groups)
             .flat_map(|g| g.items)
+            .map(|item| item.id)
+            .collect();
+        self.sync_controls(&ids, window, cx);
+        cx.notify();
+    }
+
+    /// Brings the controls that hold their own text or selection (number
+    /// fields, the keyboard layout, long selects) up to the values of `ids`,
+    /// except a number field someone is typing in.
+    fn sync_controls(&mut self, ids: &[&'static str], window: &mut Window, cx: &mut Context<Self>) {
+        let updates: Vec<(Entity<InputState>, String)> = ids
+            .iter()
+            .filter_map(|id| items().find(|item| item.id == *id))
             .filter(|item| matches!(item.field, FieldDef::Number { .. }))
             .filter_map(|item| {
                 let input = self.number_inputs.get(item.id)?.clone();
@@ -912,13 +1003,17 @@ impl ConfigView {
             })
             .collect();
         for (input, text) in updates {
+            if input.read(cx).focus_handle(cx).is_focused(window) {
+                continue;
+            }
             input.update(cx, |input, cx| input.set_value(text, window, cx));
         }
-        if let Some(layout) = self
-            .omarchy
-            .values
-            .get("kb-layout")
-            .and_then(|v| v.as_str())
+        if ids.contains(&"kb-layout")
+            && let Some(layout) = self
+                .omarchy
+                .values
+                .get("kb-layout")
+                .and_then(|v| v.as_str())
         {
             let layout: SharedString = layout.to_string().into();
             self.keyboard_layout_select.update(cx, |select, cx| {
@@ -931,6 +1026,7 @@ impl ConfigView {
         )> = self
             .long_selects
             .iter()
+            .filter(|(id, _)| ids.contains(id))
             .filter_map(|(id, select)| {
                 let value = self.omarchy.values.get(id)?.as_str()?.to_string();
                 Some((select.clone(), value.into()))
@@ -941,7 +1037,249 @@ impl ConfigView {
                 select.set_selected_value(&value, window, cx)
             });
         }
+    }
+
+    // ── outside changes ──────────────────────────────────────────────
+
+    /// Lets the page watch for changes made outside it whenever it is
+    /// shown. `main.rs` calls it (through the main view); tests never do.
+    pub fn allow_watching(&mut self) {
+        self.may_watch = true;
+    }
+
+    /// Watches for changes made outside the page (the bar, Omarchy's menu,
+    /// a keybind, an edited `hyprland.lua`) while `shown`, so the page
+    /// always shows the truth; stops when it is hidden. Files are watched
+    /// through inotify and Hyprland's reloads through its event socket, so
+    /// nothing is read until something changes; only the few values
+    /// nothing announces are polled, and only while they are on screen.
+    pub fn set_live(&mut self, shown: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !(shown && self.may_watch) {
+            self.live = None;
+            return;
+        }
+        if self.live.is_some() {
+            return;
+        }
+        let (tx, rx) = smol::channel::unbounded();
+        let files = watched_files();
+        let watch = SettingsWatch::start(&files, tx);
+        let changes = cx.spawn_in(window, async move |this, cx| {
+            while let Ok(first) = rx.recv().await {
+                cx.background_executor().timer(SETTLE).await;
+                let mut batch = vec![first];
+                while let Ok(more) = rx.try_recv() {
+                    batch.push(more);
+                }
+                if this
+                    .update_in(cx, |this, window, cx| this.on_changes(batch, window, cx))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+        let poll = cx.spawn_in(window, async move |this, cx| {
+            loop {
+                cx.background_executor().timer(POLL_EVERY).await;
+                if this
+                    .update_in(cx, |this, window, cx| this.poll(window, cx))
+                    .is_err()
+                {
+                    break;
+                }
+            }
+        });
+        self.live = Some(Live {
+            watch,
+            files,
+            _changes: changes,
+            _poll: poll,
+        });
+    }
+
+    fn on_changes(&mut self, batch: Vec<Change>, window: &mut Window, cx: &mut Context<Self>) {
+        let mut changed = HashSet::new();
+        let mut reloaded = false;
+        for change in batch {
+            match change {
+                Change::File(path) => {
+                    changed.insert(path);
+                }
+                Change::HyprlandReloaded => reloaded = true,
+            }
+        }
+        let own = self
+            .own_reload_until
+            .is_some_and(|until| Instant::now() < until);
+        if reloaded && !own && !self.hyprland_unavailable && !self.hyprland_loading {
+            self.reload_baseline(cx);
+        }
+        let Some(live) = self.live.as_mut() else {
+            return;
+        };
+        // A folder on the way to a watched file appeared (or went): watch
+        // it, and read what is under it, which may have been written
+        // before the watch began.
+        let folders: Vec<PathBuf> = changed
+            .iter()
+            .filter(|path| !live.files.contains(*path))
+            .cloned()
+            .collect();
+        if !folders.is_empty() {
+            live.watch.rearm();
+            for folder in folders {
+                changed.extend(
+                    live.files
+                        .iter()
+                        .filter(|f| f.starts_with(&folder))
+                        .cloned(),
+                );
+            }
+        }
+        if changed.is_empty() {
+            return;
+        }
+        // Every page read so far, not only the one shown: the others keep
+        // their values until they are shown again.
+        let loaded: Vec<usize> = self.omarchy.loaded.iter().copied().collect();
+        let reads = self.reads_on(&loaded, |c| c.file().is_some_and(|f| changed.contains(&f)));
+        self.reread(reads, false, window, cx);
+    }
+
+    fn poll(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.polling {
+            return;
+        }
+        let reads = self.reads_on(&self.shown_pages(cx), |c| c == Changes::Poll);
+        self.reread(reads, true, window, cx);
+    }
+
+    /// Back in the window: what only changes through a terminal or an
+    /// install may have changed meanwhile.
+    fn read_on_focus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.live.is_none()
+            || self
+                .last_focus_read
+                .is_some_and(|last| last.elapsed() < FOCUS_READ_GAP)
+        {
+            return;
+        }
+        self.last_focus_read = Some(Instant::now());
+        let reads = self.reads_on(&self.shown_pages(cx), |c| {
+            matches!(c, Changes::Rarely | Changes::Poll)
+        });
+        self.reread(reads, false, window, cx);
+    }
+
+    /// The pages on screen: the open one, or every one with a match while
+    /// searching.
+    fn shown_pages(&self, cx: &App) -> Vec<usize> {
+        let query = self.query(cx);
+        if query.is_empty() {
+            return vec![self.active_page];
+        }
+        pages()
+            .enumerate()
+            .filter(|(_, page)| {
+                page.groups
+                    .iter()
+                    .flat_map(|g| g.items)
+                    .any(|item| Self::item_matches(item, &query))
+            })
+            .map(|(ix, _)| ix)
+            .collect()
+    }
+
+    /// The reads of the shown, already loaded items of `page_ixs` whose
+    /// changes `wanted` picks.
+    fn reads_on(
+        &self,
+        page_ixs: &[usize],
+        wanted: impl Fn(Changes) -> bool,
+    ) -> Vec<(&'static str, Read)> {
+        page_ixs
+            .iter()
+            .filter(|ix| self.omarchy.loaded.contains(ix))
+            .filter_map(|ix| page(*ix))
+            .flat_map(|p| p.groups)
+            .flat_map(|g| g.items)
+            .filter(|item| !self.omarchy.hidden.contains(item.id))
+            .filter_map(|item| Some((item.id, read_of(item)?)))
+            .filter(|(_, read)| wanted(read.changes()))
+            .collect()
+    }
+
+    /// Reads `reads` again off the UI thread and shows what changed. A
+    /// value being written is left alone: the write reads it back itself.
+    fn reread(
+        &mut self,
+        reads: Vec<(&'static str, Read)>,
+        poll: bool,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let reads: Vec<(&'static str, Read)> = reads
+            .into_iter()
+            .filter(|(id, _)| {
+                !self.omarchy.writing.contains(id) && !self.omarchy.pending.contains(id)
+            })
+            .collect();
+        if reads.is_empty() {
+            return;
+        }
+        self.polling |= poll;
+        cx.spawn_in(window, async move |this, cx| {
+            let (ids, reads): (Vec<&'static str>, Vec<Read>) = reads.into_iter().unzip();
+            let values = cx
+                .background_spawn(async move { omarchy_settings::read_all(&reads) })
+                .await;
+            this.update_in(cx, |this, window, cx| {
+                if poll {
+                    this.polling = false;
+                }
+                this.apply_values(ids.into_iter().zip(values).collect(), window, cx);
+            })
+            .ok();
+        })
+        .detach();
+    }
+
+    fn apply_values(
+        &mut self,
+        values: Vec<(&'static str, Option<Value>)>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let mut changed = Vec::new();
+        for (id, value) in values {
+            // A failed read keeps what is shown; so does a write that
+            // started while the read ran.
+            let Some(value) = value else { continue };
+            if self.omarchy.writing.contains(id)
+                || self.omarchy.pending.contains(id)
+                || self
+                    .omarchy
+                    .values
+                    .get(id)
+                    .is_some_and(|shown| omarchy_settings::same_value(shown, &value))
+            {
+                continue;
+            }
+            self.omarchy.values.insert(id, value);
+            self.omarchy.errors.remove(id);
+            changed.push(id);
+        }
+        if changed.is_empty() {
+            return;
+        }
+        self.sync_controls(&changed, window, cx);
         cx.notify();
+    }
+
+    /// The Hyprland reload this page is about to cause is not news.
+    fn expect_own_reload(&mut self) {
+        self.own_reload_until = Some(Instant::now() + OWN_RELOAD);
     }
 
     /// Builds the searchable select for a long dynamic dropdown the first
@@ -1020,6 +1358,11 @@ impl ConfigView {
             self.scroll.set_offset(Point::default());
             self.nav_scroll.scroll_to_item(Self::nav_child_index(index));
             self.load_page(index, window, cx);
+            // Its polled values went unread while another page was shown.
+            if self.live.is_some() {
+                let reads = self.reads_on(&[index], |c| c == Changes::Poll);
+                self.reread(reads, false, window, cx);
+            }
             cx.notify();
         }
     }

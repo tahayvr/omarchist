@@ -555,7 +555,8 @@ pub fn locked_in(monitors: &serde_json::Value) -> Option<bool> {
         .then_some(false)
 }
 
-fn hyprland_socket() -> Option<PathBuf> {
+/// Hyprland's event socket (`.socket2.sock`) for this session.
+pub(crate) fn hyprland_socket() -> Option<PathBuf> {
     let runtime = std::env::var_os("XDG_RUNTIME_DIR")?;
     let instance = std::env::var_os("HYPRLAND_INSTANCE_SIGNATURE")?;
     Some(

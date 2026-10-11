@@ -282,7 +282,10 @@ fn main() -> ExitCode {
                     cx.new(|cx| MainWindowView::new(title_bar, initial_page.clone(), window, cx));
                 // Background loops start here, never in a view, so a
                 // headless test window has none.
-                main_view.update(cx, |view, cx| view.watch_runs(cx));
+                main_view.update(cx, |view, cx| {
+                    view.watch_runs(cx);
+                    view.watch_settings(window, cx);
+                });
                 cx.new(|cx| Root::new(main_view, window, cx))
             })?;
 

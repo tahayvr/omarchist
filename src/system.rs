@@ -11,6 +11,7 @@ pub mod notify;
 pub mod omarchy;
 pub mod omarchy_paths;
 pub mod omarchy_settings;
+pub mod settings_watch;
 pub mod software_catalog;
 pub mod themes;
 pub mod ui_theme_watcher;
