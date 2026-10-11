@@ -630,16 +630,19 @@ impl FlowEditPage {
                 None => {
                     // Seen by the bar widget and the Flows page, which can
                     // stop it as the Stop button here does.
-                    let _registered = running::register_in_app(&flow, "Editor", cancel.clone());
+                    let registered = running::register_in_app(&flow, "Editor", cancel.clone());
                     let mut recorder = Recorder::new(&flow, "Editor");
                     let outcome = runner.run(&flow, &mut |event| {
                         recorder.event(&event);
+                        if let Some(registered) = &registered {
+                            registered.event(&event);
+                        }
                         let _ = tx.send_blocking(RunMessage::Event(run_id, event));
                     });
                     // A flow that was never saved has no history to add to;
                     // one saved during the run has the id it was given then.
                     let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
-                    let id = _registered
+                    let id = registered
                         .as_ref()
                         .and_then(|r| r.flow_id())
                         .unwrap_or_else(|| flow.id.clone());

@@ -444,7 +444,8 @@ impl MainWindowView {
                     self.omarchy_view = Some(omarchy_view);
                 }
             }
-            ActivePage::Dashboard => {}
+            // Always present; a visit reads its cards again.
+            ActivePage::Dashboard => self.dashboard_view.update(cx, |view, cx| view.refresh(cx)),
             // Themes is always present; a visit rescans, because the editor,
             // the CLI and Omarchy itself change the folder behind its back.
             ActivePage::Themes => {
@@ -634,7 +635,7 @@ impl MainWindowView {
     /// Ctrl+R: reload whatever the active page shows.
     fn reload_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.active_page {
-            ActivePage::Dashboard => {}
+            ActivePage::Dashboard => self.dashboard_view.update(cx, |view, cx| view.refresh(cx)),
             ActivePage::Themes | ActivePage::ThemeEdit(_) => {
                 self.themes_view
                     .update(cx, |page, cx| page.refresh_themes(window, cx));
@@ -851,6 +852,8 @@ impl MainWindowView {
     /// Flows page made later. `main.rs` calls it; tests never do.
     pub fn watch_runs(&mut self, cx: &mut Context<Self>) {
         self.watch_runs = true;
+        self.dashboard_view
+            .update(cx, |view, cx| view.watch_runs(cx));
         if let Some(view) = &self.flows_view {
             view.update(cx, |view, cx| view.watch_runs(cx));
         }

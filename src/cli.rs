@@ -376,7 +376,7 @@ fn run_flow(name: &str, input: &[String], trigger: Option<&str>) -> ExitCode {
     );
     // While it runs, the bar widget and the Flows page can see it and ask
     // it to stop, which arrives here as a signal.
-    let _registered = running::register(&flow, trigger);
+    let registered = running::register(&flow, trigger);
     let cancel = Cancel::new();
     let stopped = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     {
@@ -400,6 +400,9 @@ fn run_flow(name: &str, input: &[String], trigger: Option<&str>) -> ExitCode {
         .input(run_input(input))
         .run(&flow, &mut |event| {
             recorder.event(&event);
+            if let Some(registered) = &registered {
+                registered.event(&event);
+            }
             match event {
                 RunEvent::Started { path } => {
                     if let Some(step) = flow.step_at(&path) {

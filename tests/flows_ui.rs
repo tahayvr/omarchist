@@ -2261,3 +2261,30 @@ fn publishing_makes_the_flow_ready_and_hands_it_to_github(cx: &mut TestAppContex
     // The flow in the editor is as it was.
     assert!(edited_flow(cx, &view).meta.author.is_empty());
 }
+
+// MARK: The Dashboard
+
+#[gpui_kit::test]
+fn the_dashboard_lists_flows_and_opens_one_in_the_editor(cx: &mut TestAppContext) {
+    write_flow(
+        "dashboard-flow",
+        "format = 1\nname = \"Dashboard flow\"\n\n[[step]]\ntype = \"wait\"\nms = 10\n",
+    );
+    let (handle, view) = open(cx, ActivePage::Dashboard);
+    wait_real(cx, handle, Duration::from_secs(10), |window, _| {
+        window.try_find(("dashboard-open-flow", 0usize)).is_some()
+    });
+    with(cx, handle, |window, _| {
+        assert!(window.find("dashboard-flows").visible());
+        assert!(window.find(("dashboard-run-flow", 0usize)).visible());
+    });
+    with(cx, handle, |window, cx| {
+        window.click(("dashboard-open-flow", 0usize), cx)
+    });
+    settle(cx, handle);
+    let page = cx.update(|cx| view.read(cx).active_page().clone());
+    assert!(
+        matches!(page, ActivePage::FlowEdit(_)),
+        "a row opens its flow in the editor, not {page:?}"
+    );
+}

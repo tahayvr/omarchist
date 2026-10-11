@@ -119,7 +119,7 @@ fn last_runs(flows: &[Flow]) -> HashMap<String, LastRun> {
 }
 
 /// The chord of every bind that runs a flow, keyed by flow id.
-fn flow_chords(
+pub fn flow_chords(
     scan: crate::error::Result<crate::system::keybinds::replay::ScanResult>,
 ) -> HashMap<String, Chord> {
     let mut chords = HashMap::new();

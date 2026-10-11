@@ -15,8 +15,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-use super::Flow;
-use super::runner::Cancel;
+use super::runner::{Cancel, RunEvent};
+use super::{Flow, StepPath};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Running {
@@ -29,6 +29,9 @@ pub struct Running {
     /// A run inside the Omarchist window rather than a `flow run` process.
     #[serde(default)]
     pub in_app: bool,
+    /// The step the run is at, by its path in the flow, once one started.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<StepPath>,
 }
 
 /// The runs of this process that can be cancelled, by their file name.
@@ -62,6 +65,21 @@ impl Registered {
             .get(name)
             .map(|(id, _)| id.clone())
             .filter(|id| !id.is_empty())
+    }
+}
+
+impl Registered {
+    /// Follows the run's events: a step that starts becomes the step the
+    /// run is at, which the Dashboard shows as "Step 2 of 5".
+    pub fn event(&self, event: &RunEvent) {
+        if let RunEvent::Started { path } = event
+            && let Some(mut run) = fs::read_to_string(&self.0)
+                .ok()
+                .and_then(|text| serde_json::from_str::<Running>(&text).ok())
+        {
+            run.step = Some(path.clone());
+            write_run(&self.0, &run);
+        }
     }
 }
 
@@ -102,6 +120,7 @@ fn write_entry(flow: &Flow, trigger: &str, cancel: Option<Cancel>) -> Option<Reg
         started: chrono::Local::now().timestamp(),
         trigger: trigger.to_string(),
         in_app: cancel.is_some(),
+        step: None,
     };
     write_run(&path, &running)?;
     if let Some(cancel) = cancel {
@@ -283,6 +302,29 @@ mod tests {
         assert!(cancel.is_cancelled());
         drop(registered);
         assert_eq!(stop_local("test-stop-local"), 0);
+    }
+
+    #[test]
+    fn a_run_records_the_step_it_is_at() {
+        use super::{Running, register_in_app};
+        use crate::system::flows::Flow;
+        use crate::system::flows::runner::{Cancel, RunEvent};
+        let flow = Flow::new("test-run-step".into(), "Test".into());
+        let Some(registered) = register_in_app(&flow, "Test", Cancel::new()) else {
+            return; // no runtime directory here
+        };
+        let step = || {
+            let text = std::fs::read_to_string(&registered.0).unwrap();
+            serde_json::from_str::<Running>(&text).unwrap().step
+        };
+        assert_eq!(step(), None);
+        registered.event(&RunEvent::Started {
+            path: vec![2, 0, 1],
+        });
+        assert_eq!(step(), Some(vec![2, 0, 1]));
+        let path = registered.0.clone();
+        drop(registered);
+        assert!(!path.exists());
     }
 
     #[test]

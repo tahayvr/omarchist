@@ -835,11 +835,16 @@ pub async fn run_in_thread(flow: Flow) -> Result<Outcome> {
     std::thread::spawn(move || {
         let cancel = Cancel::new();
         // Seen by the bar widget and the Flows page, which can stop it.
-        let _registered = super::running::register_in_app(&flow, "Omarchist", cancel.clone());
+        let registered = super::running::register_in_app(&flow, "Omarchist", cancel.clone());
         let mut recorder = Recorder::new(&flow, "Omarchist");
         let outcome = Runner::new(true)
             .cancellable(cancel.clone())
-            .run(&flow, &mut |event| recorder.event(&event));
+            .run(&flow, &mut |event| {
+                recorder.event(&event);
+                if let Some(registered) = &registered {
+                    registered.event(&event);
+                }
+            });
         let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
         if let Err(e) = history::record(&flow.id, &run) {
             eprintln!("{e}");
