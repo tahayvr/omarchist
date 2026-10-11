@@ -14,7 +14,6 @@ use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::notify;
 use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::palette::Area;
-use crate::ui::settings_page::settings_view::SettingsView;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 use crate::ui::themes_page::themes_view::ThemesPage;
@@ -66,7 +65,6 @@ pub enum ActivePage {
     /// The editor on the saved flow with this id, holding the steps of a
     /// newer catalog version, not yet saved.
     FlowUpdate(String, Box<Imported>),
-    Settings,
     About,
     Omarchy,
 }
@@ -87,7 +85,6 @@ impl ActivePage {
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
             | ActivePage::FlowCatalog => "flows",
-            ActivePage::Settings => "settings",
             ActivePage::About => "about",
             ActivePage::Omarchy => "omarchy",
         }
@@ -100,7 +97,6 @@ impl ActivePage {
             "config" => ActivePage::Configuration,
             "keybinds" => ActivePage::Keybinds,
             "flows" => ActivePage::Flows,
-            "settings" => ActivePage::Settings,
             "about" => ActivePage::About,
             "omarchy" => ActivePage::Omarchy,
             _ => return None,
@@ -139,8 +135,6 @@ pub struct MainWindowView {
     flow_templates_view: Option<Entity<TemplatesView>>,
     flow_catalog_root: Option<AnyView>,
     flow_catalog_view: Option<Entity<CatalogView>>,
-    settings_root: Option<AnyView>,
-    settings_view: Option<Entity<SettingsView>>,
     about_root: Option<AnyView>,
     about_view: Option<Entity<AboutView>>,
     omarchy_root: Option<AnyView>,
@@ -200,8 +194,6 @@ impl MainWindowView {
             flow_templates_view: None,
             flow_catalog_root: None,
             flow_catalog_view: None,
-            settings_root: None,
-            settings_view: None,
             about_root: None,
             about_view: None,
             omarchy_root: None,
@@ -324,7 +316,7 @@ impl MainWindowView {
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
             | ActivePage::FlowCatalog => Some(4),
-            ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
+            ActivePage::About | ActivePage::Omarchy => None,
         }
     }
 
@@ -424,14 +416,6 @@ impl MainWindowView {
                 self.flow_edit_root = Some(view.clone().into());
                 self.flow_edit_view = Some(view);
             }
-            ActivePage::Settings => match &self.settings_view {
-                Some(view) => view.update(cx, |view, cx| view.refresh(cx)),
-                None => {
-                    let settings_view = cx.new(SettingsView::new);
-                    self.settings_root = Some(settings_view.clone().into());
-                    self.settings_view = Some(settings_view);
-                }
-            },
             ActivePage::About => {
                 if self.about_root.is_none() {
                     let about_view = cx.new(AboutView::new);
@@ -549,7 +533,7 @@ impl MainWindowView {
         if let Some(ix) = Self::sidebar_index_for(&self.active_page) {
             self.sidebar_index = ix;
         }
-        // Only written when the Settings page asks to reopen on the last page.
+        // Only written when Settings asks to reopen on the last page.
         if let Err(e) =
             crate::system::config::config_setup::remember_last_page(self.active_page.view_name())
         {
@@ -588,11 +572,6 @@ impl MainWindowView {
             }
             ActivePage::Configuration => {
                 if let Some(view) = &self.config_view {
-                    view.update(cx, |v, cx| v.focus_entry(window, cx));
-                }
-            }
-            ActivePage::Settings => {
-                if let Some(view) = &self.settings_view {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
@@ -679,11 +658,6 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.check_again(cx));
                 }
             }
-            ActivePage::Settings => {
-                if let Some(view) = &self.settings_view {
-                    view.update(cx, |view, cx| view.refresh(cx));
-                }
-            }
             ActivePage::About => {}
         }
     }
@@ -737,6 +711,7 @@ impl MainWindowView {
     fn handle_app_event(&mut self, event: AppEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event {
             AppEvent::Navigate(page) => self.navigate_to(page, window, cx),
+            AppEvent::OpenSettings => self.open_settings(window, cx),
             AppEvent::RefreshThemes => {
                 self.themes_view.update(cx, |themes_page, cx| {
                     themes_page.refresh_themes(window, cx);
@@ -790,10 +765,6 @@ impl MainWindowView {
                 .flow_catalog_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::Settings => self
-                .settings_root
-                .clone()
-                .unwrap_or_else(|| self.themes_root.clone()),
             ActivePage::About => self
                 .about_root
                 .clone()
@@ -822,7 +793,6 @@ impl MainWindowView {
                 ActivePage::Flows,
             ) => true,
             (ActivePage::FlowTemplates | ActivePage::FlowCatalog, ActivePage::Flows) => true,
-            (ActivePage::Settings, ActivePage::Settings) => true,
             (ActivePage::About, ActivePage::About) => true,
             (ActivePage::Omarchy, ActivePage::Omarchy) => true,
             _ => false,
@@ -851,6 +821,15 @@ impl MainWindowView {
     fn move_sidebar_index(&mut self, index: usize, cx: &mut Context<Self>) {
         self.sidebar_index = index.min(SIDEBAR_ITEMS.len() - 1);
         cx.notify();
+    }
+
+    /// Opens the Settings dialog over the page shown, unless a dialog is
+    /// already up.
+    fn open_settings(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if dialog_open(window, cx) {
+            return;
+        }
+        crate::ui::dialogs::settings_dialog::open_settings_dialog(window, cx);
     }
 
     /// Starts the Flows page's poll of the run registry, now and for every
@@ -1027,8 +1006,8 @@ impl Render for MainWindowView {
             .flex_col()
             .size_full()
             .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NavigateToSettings, window, cx| {
-                    this.navigate_to(ActivePage::Settings, window, cx);
+                |this, _: &crate::ui::menu::app_menu::OpenSettings, window, cx| {
+                    this.open_settings(window, cx);
                 },
             ))
             .on_action(cx.listener(

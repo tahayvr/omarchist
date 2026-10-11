@@ -74,7 +74,11 @@ fn groups() -> Vec<Group> {
                     &["page", "update", "release notes"],
                     app_menu::NavigateToOmarchy,
                 ),
-                entry("Settings", &["page"], app_menu::NavigateToSettings),
+                entry(
+                    "Settings",
+                    &["preferences", "options"],
+                    app_menu::OpenSettings,
+                ),
                 entry("About", &["page", "version"], app_menu::NavigateToAbout),
             ],
         },

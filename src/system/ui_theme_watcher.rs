@@ -418,7 +418,7 @@ fn embedded_themes() -> (Option<ThemeConfig>, Option<ThemeConfig>) {
     (light, dark)
 }
 
-/// Applies the look the Settings page holds (`theme_mode`): `light` and
+/// Applies the look Settings holds (`theme_mode`): `light` and
 /// `dark` are the app's own themes, with their own palette; `omarchy`
 /// follows the desktop theme, built from its `colors.toml` with its
 /// palette, and falls back to the app's dark theme when that cannot be
@@ -467,7 +467,7 @@ pub fn apply_ui_theme(cx: &mut App) {
     Theme::global_mut(cx).notification.placement = crate::ui::toasts::PLACEMENT;
 }
 
-/// The text size the Settings page holds, in pixels.
+/// The text size Settings holds, in pixels.
 pub fn font_size_px(size: &str) -> f32 {
     match size {
         "small" => 14.0,

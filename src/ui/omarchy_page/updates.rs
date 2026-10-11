@@ -138,7 +138,7 @@ impl OmarchyUpdates {
         .detach();
     }
 
-    /// Checks now and again on the schedule from the Settings page
+    /// Checks now and again on the schedule set in Settings
     /// (`check_updates`, `update_check_hours`). The wait is taken in short
     /// slices against the time of the last check, and the schedule is
     /// re-read on each, so turning the check on or shortening the interval

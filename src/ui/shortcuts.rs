@@ -4,6 +4,7 @@
 use gpui::{Action, KeyBinding};
 
 use crate::ui::config_page::config_view::config_nav;
+use crate::ui::dialogs::settings_dialog::{self, settings_nav};
 use crate::ui::editable_title::title;
 use crate::ui::flows_page::catalog_view::catalog_nav;
 use crate::ui::flows_page::flow_edit_view::flow_edit_nav;
@@ -101,13 +102,7 @@ pub const SHORTCUTS: &[Shortcut] = &[
         GLOBAL,
         "Flows page"
     ),
-    shortcut!(
-        "ctrl-,",
-        app_menu::NavigateToSettings,
-        None,
-        GLOBAL,
-        "Settings"
-    ),
+    shortcut!("ctrl-,", app_menu::OpenSettings, None, GLOBAL, "Settings"),
     shortcut!("ctrl-n", app_menu::NewTheme, None, GLOBAL, "New theme"),
     shortcut!(
         "ctrl-r",
@@ -614,6 +609,49 @@ pub const SHORTCUTS: &[Shortcut] = &[
         Some("ConfigContent"),
         CONFIG,
         "Back to the section list"
+    ),
+    // Settings dialog
+    shortcut!(
+        "up",
+        settings_nav::Prev,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "Previous settings page"
+    ),
+    shortcut!(
+        "down",
+        settings_nav::Next,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "Next settings page"
+    ),
+    shortcut!(
+        "home",
+        settings_nav::First,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "First settings page"
+    ),
+    shortcut!(
+        "end",
+        settings_nav::Last,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "Last settings page"
+    ),
+    shortcut!(
+        "enter",
+        settings_nav::Activate,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "Go to the page's settings"
+    ),
+    shortcut!(
+        "right",
+        settings_nav::Activate,
+        Some(settings_dialog::NAV_CONTEXT),
+        DIALOGS,
+        "Go to the page's settings"
     ),
     // Keybinds page
     shortcut!(

@@ -2,7 +2,7 @@
 //! tahayvr.omarchist`, a manifest and one QML file) that lists the user's
 //! flows and opens the app on a page. Omarchist installs it into
 //! `~/.config/omarchy/plugins/` and enables it through Omarchy's own
-//! `omarchy plugin` commands when the Settings page switch is on, and
+//! `omarchy plugin` commands when the switch in Settings is on, and
 //! refreshes the files at startup when the embedded version is newer.
 use std::fs;
 use std::path::{Path, PathBuf};

@@ -14,6 +14,8 @@ use crate::ui::app_view::ActivePage;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AppEvent {
     Navigate(ActivePage),
+    /// Open the Settings dialog over the page shown (`--view settings`).
+    OpenSettings,
     RefreshThemes,
     ToggleSidebar,
     ReloadUiTheme,

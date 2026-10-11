@@ -15,7 +15,6 @@ pub use ui::menu;
 pub use ui::menu::app_menu;
 pub use ui::menu::title_bar::MainTitleBar;
 pub use ui::omarchy_page::updates::OmarchyUpdates;
-pub use ui::settings_page;
 pub use ui::theme_edit_page;
 pub use ui::theme_edit_page::theme_edit_view::ThemeEditPage;
 pub use ui::themes_page;

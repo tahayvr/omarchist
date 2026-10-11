@@ -12,15 +12,15 @@ use omarchist::ui::menu::app_menu;
 use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
 
-/// The page to open: `--view` wins, then the Settings page's startup page
-/// (or the page shown last), then the Dashboard.
+/// The page to open: `--view` wins, then the startup page set in Settings
+/// (or the page shown last), then the Dashboard. `--view settings` opens
+/// the Settings dialog over the startup page.
 fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
         Some(ViewOption::Dashboard) => ActivePage::Dashboard,
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Flows) => ActivePage::Flows,
-        Some(ViewOption::Settings) => ActivePage::Settings,
         Some(ViewOption::About) => ActivePage::About,
         Some(ViewOption::Omarchy) => ActivePage::Omarchy,
         Some(ViewOption::Themes) => {
@@ -30,7 +30,7 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
                 ActivePage::Themes
             }
         }
-        None => {
+        Some(ViewOption::Settings) | None => {
             let name = match settings.settings.startup_page.as_str() {
                 "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
                 name => name,
@@ -40,7 +40,7 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
     }
 }
 
-/// Saves the Settings page's "Look" and applies it: a forced light or dark
+/// Saves the "Look" in Settings and applies it: a forced light or dark
 /// mode, or `omarchy` to follow the desktop theme again.
 fn set_theme_mode(mode: &str, cx: &mut App) {
     let mode = mode.to_string();
@@ -74,6 +74,7 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
                 omarchist::system::flows::running::stop_local(&id);
                 continue;
             }
+            let settings = request.view.as_deref() == Some("settings");
             let page = match (request.view.as_deref(), request.theme) {
                 (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
                 (Some(view), _) => ActivePage::from_view_name(view),
@@ -82,6 +83,9 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
             cx.update(|cx| {
                 if let Some(page) = page {
                     app_events::emit(cx, AppEvent::Navigate(page));
+                }
+                if settings {
+                    app_events::emit(cx, AppEvent::OpenSettings);
                 }
                 for window in cx.windows() {
                     let _ = window.update(cx, |_, window, _| window.activate_window());
@@ -173,6 +177,10 @@ fn main() -> ExitCode {
         }
 
         cx.set_global(AppEvents::default());
+        // Drained with the first frame, once the window's dialog layer exists.
+        if cli_args.view == Some(ViewOption::Settings) {
+            app_events::emit(cx, AppEvent::OpenSettings);
+        }
         if let Some(listener) = listener {
             serve_open_requests(listener, cx);
         }
@@ -215,7 +223,7 @@ fn main() -> ExitCode {
         ui_theme_watcher::apply_ui_theme(cx);
         ui_theme_watcher::spawn_ui_theme_watcher(cx);
 
-        // The menu's light/dark switch is the Settings page's "Look"; the
+        // The menu's light/dark switch is the "Look" in Settings; the
         // page re-reads the file when shown, so the two never disagree.
         cx.on_action(|_: &app_menu::SwitchToLight, cx: &mut App| {
             set_theme_mode("light", cx);

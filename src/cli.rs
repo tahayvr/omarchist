@@ -42,6 +42,7 @@ pub struct CliArgs {
 pub enum ViewOption {
     Dashboard,
     Themes,
+    /// Opens the Settings dialog over the startup page.
     Settings,
     About,
     Omarchy,

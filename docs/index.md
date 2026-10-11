@@ -34,16 +34,16 @@ sudo pacman -R omarchist-bin
 
 ## Settings
 
-The **Settings** page (<kbd>Ctrl</kbd> + <kbd>,</kbd>) holds the app's own options. They live in `~/.config/omarchist/settings.json`, and an Omarchist update adds new options without touching the ones you set.
+**Settings** holds the app's own options. It opens over whatever page you are on: press <kbd>Ctrl</kbd> + <kbd>,</kbd>, choose **Settings** in the Omarchist menu or the command palette, or run `omarchist --view settings`. The options live in `~/.config/omarchist/settings.json`, and an Omarchist update adds new options without touching the ones you set.
 
-<img src="/images/settings-light.webp" alt="Settings page" class="screenshot light-only">
-<img src="/images/settings-dark.webp" alt="Settings page" class="screenshot dark-only">
+<img src="/images/settings-light.webp" alt="Settings dialog" class="screenshot light-only">
+<img src="/images/settings-dark.webp" alt="Settings dialog" class="screenshot dark-only">
 
-| Section | Options |
+Pick a page from the list on the left, or type in the search box to see every option that matches, on all pages at once. On the list, <kbd>↑</kbd> and <kbd>↓</kbd> move between pages and <kbd>Enter</kbd> takes you to the page's options. Every change saves at once.
+
+| Page | Options |
 | --- | --- |
-| **Appearance** | Font size. Look: **Omarchy** colors the app with your desktop theme's palette, including its accent and terminal colors; **Light** and **Dark** use Omarchist's own. The gear menu's Appearance switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. |
-| **Startup** | The page Omarchist opens on when you start it without `--view` (the Dashboard unless you pick another), or the page you used last. |
-| **Omarchy Updates** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. |
-| **Theme Designer** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |
+| **General** | Font size. Look: **Omarchy** colors the app with your desktop theme's palette, including its accent and terminal colors; **Light** and **Dark** use Omarchist's own. The gear menu's Appearance switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. Open on: the page Omarchist opens on when you start it without `--view` (the Dashboard unless you pick another), or the page you used last. |
+| **Themes** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |
 | **Flows** | A desktop notification when a flow run from a keybind or the command line finishes. Run [automations](/flows/automations) in the background. Count your installs in the [Catalog](/flows/catalog#privacy). |
-| **Bar** | Show Omarchist in Omarchy's bar. See [Bar Widget](/configuring/bar-widget). |
+| **Omarchy** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. Show Omarchist in Omarchy's bar; see [Bar Widget](/configuring/bar-widget). |

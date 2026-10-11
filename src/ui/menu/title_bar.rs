@@ -65,7 +65,7 @@ impl Render for MainTitleBar {
                                 menu.menu("Command palette", Box::new(crate::ui::focus::ShowCommands))
                                     .menu("Keyboard shortcuts", Box::new(crate::ui::focus::ShowShortcuts))
                                     .separator()
-                                    .menu("Settings", Box::new(super::app_menu::NavigateToSettings))
+                                    .menu("Settings", Box::new(super::app_menu::OpenSettings))
                                     .menu("About", Box::new(super::app_menu::NavigateToAbout))
                                     .separator()
                                     .menu("Quit", Box::new(super::app_menu::Quit))

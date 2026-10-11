@@ -6,7 +6,7 @@ actions!(
         About,
         Quit,
         NavigateToAbout,
-        NavigateToSettings,
+        OpenSettings,
         NavigateToOmarchy,
         Copy,
         Paste,

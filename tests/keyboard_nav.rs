@@ -205,7 +205,7 @@ async fn command_palette_runs_the_chosen_command(cx: &mut TestAppContext) {
 async fn command_palette_runs_the_command_named_by_the_query(cx: &mut TestAppContext) {
     let (handle, view) = open(cx, ActivePage::Themes);
     // "settings" is also a word people reach Configuration with, but the
-    // command named Settings comes first.
+    // command named Settings comes first. It opens a dialog over the page.
     cx.update_window(handle.into(), |_, window, cx| {
         window.press("ctrl-shift-p", cx);
         window.render_frame(cx);
@@ -213,12 +213,48 @@ async fn command_palette_runs_the_command_named_by_the_query(cx: &mut TestAppCon
         window.press("enter", cx);
     })
     .unwrap();
-    cx.wait_for(handle.into(), Duration::from_secs(2), |window, cx| {
-        !window.has_active_dialog(cx)
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, _| {
+        window.try_find("settings-nav").is_some()
     })
     .await;
     cx.run_until_parked();
-    assert_page(cx, &view, ActivePage::Settings);
+    assert_page(cx, &view, ActivePage::Themes);
+}
+
+#[gpui_kit::test]
+async fn settings_open_over_any_page_and_search_every_section(cx: &mut TestAppContext) {
+    let (handle, view) = open(cx, ActivePage::Keybinds);
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.press("ctrl-,", cx);
+    })
+    .unwrap();
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, _| {
+        window
+            .try_find("settings-nav")
+            .is_some_and(|nav| nav.focused() == Some(true))
+    })
+    .await;
+    // The list starts on General; Down moves to Themes.
+    cx.update_window(handle.into(), |_, window, cx| {
+        assert!(window.try_find("font-size").is_some());
+        assert!(window.try_find("auto-apply-theme").is_none());
+        window.press("down", cx);
+        window.render_frame(cx);
+        assert!(window.try_find("auto-apply-theme").is_some());
+        assert!(window.try_find("font-size").is_none());
+    })
+    .unwrap();
+    // A search shows what matches on every page.
+    cx.update_window(handle.into(), |_, window, cx| {
+        window.press("shift-tab", cx);
+        window.input("notify", cx);
+        window.render_frame(cx);
+        assert!(window.try_find("notify-flows").is_some());
+        assert!(window.try_find("notify-updates").is_some());
+        assert!(window.try_find("auto-apply-theme").is_none());
+    })
+    .unwrap();
+    assert_page(cx, &view, ActivePage::Keybinds);
 }
 
 #[gpui_kit::test]

@@ -19,7 +19,7 @@ pub struct SettingsSchema {
     pub metadata: Metadata,
 }
 
-/// The user's choices on the Settings page. Every field has a default so
+/// The user's choices in Settings. Every field has a default so
 /// a file from an older Omarchist still loads.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
