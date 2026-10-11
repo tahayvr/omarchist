@@ -13,9 +13,10 @@ use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
 
 /// The page to open: `--view` wins, then the Settings page's startup page
-/// (or the page shown last), then Themes.
+/// (or the page shown last), then the Dashboard.
 fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
+        Some(ViewOption::Dashboard) => ActivePage::Dashboard,
         Some(ViewOption::Config) => ActivePage::Configuration,
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Flows) => ActivePage::Flows,
@@ -34,7 +35,7 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
                 "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
                 name => name,
             };
-            ActivePage::from_view_name(name).unwrap_or(ActivePage::Themes)
+            ActivePage::from_view_name(name).unwrap_or(ActivePage::Dashboard)
         }
     }
 }

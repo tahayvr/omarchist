@@ -67,6 +67,13 @@ pub const FLOWS: &str = "Flows";
 pub const SHORTCUTS: &[Shortcut] = &[
     // Global
     shortcut!(
+        "ctrl-0",
+        app_menu::NavigateToDashboard,
+        None,
+        GLOBAL,
+        "Dashboard"
+    ),
+    shortcut!(
         "ctrl-1",
         app_menu::NavigateToThemes,
         None,

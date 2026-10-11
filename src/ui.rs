@@ -3,6 +3,7 @@ pub mod app_events;
 pub mod app_view;
 pub mod color_utils;
 pub mod config_page;
+pub mod dashboard_page;
 pub mod dialogs;
 pub mod editable_title;
 pub mod explain;

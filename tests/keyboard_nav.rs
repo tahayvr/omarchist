@@ -30,11 +30,16 @@ fn ctrl_number_switches_pages(cx: &mut TestAppContext) {
         .unwrap();
     cx.run_until_parked();
     assert_page(cx, &view, ActivePage::Keybinds);
+
+    cx.update_window(handle.into(), |_, window, cx| window.press("ctrl-0", cx))
+        .unwrap();
+    cx.run_until_parked();
+    assert_page(cx, &view, ActivePage::Dashboard);
 }
 
 #[gpui_kit::test]
 fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
-    let (handle, view) = open(cx, ActivePage::Themes);
+    let (handle, view) = open(cx, ActivePage::Dashboard);
 
     cx.update_window(handle.into(), |_, window, cx| {
         let sidebar = window.find(SIDEBAR);
@@ -46,9 +51,10 @@ fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
         );
 
         window.press("down", cx);
+        window.press("down", cx);
     })
     .unwrap();
-    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 1));
+    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 2));
 
     cx.update_window(handle.into(), |_, window, cx| window.press("enter", cx))
         .unwrap();
@@ -68,7 +74,7 @@ fn sidebar_arrows_and_enter_navigate(cx: &mut TestAppContext) {
         window.press("end", cx);
     })
     .unwrap();
-    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 3));
+    cx.update(|cx| assert_eq!(view.read(cx).sidebar_index(), 4));
 }
 
 #[gpui_kit::test]

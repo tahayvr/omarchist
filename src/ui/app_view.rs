@@ -4,6 +4,7 @@ use crate::system::themes::theme_file_ops::is_omarchist_theme;
 use crate::ui::about_page::about_view::AboutView;
 use crate::ui::app_events::{AppEvent, AppEvents, emit};
 use crate::ui::config_page::config_view::ConfigView;
+use crate::ui::dashboard_page::dashboard_view::DashboardView;
 use crate::ui::dialogs::confirm_dialog::{ConfirmDialog, open_confirm_dialog};
 use crate::ui::flows_page::share_ui::import_flow_from_dialog;
 use crate::ui::flows_page::{CatalogView, FlowEditPage, FlowEditSource, FlowsView, TemplatesView};
@@ -35,7 +36,8 @@ const KEY_CONTEXT: &str = "MainWindow";
 const SIDEBAR_CONTEXT: &str = "Sidebar";
 
 /// Sidebar entries in display order: label, icon, page.
-const SIDEBAR_ITEMS: [(&str, &str); 4] = [
+const SIDEBAR_ITEMS: [(&str, &str); 5] = [
+    ("Dashboard", "ctrl-0"),
     ("Themes", "ctrl-1"),
     ("Configuration", "ctrl-2"),
     ("Keybinds", "ctrl-3"),
@@ -44,6 +46,8 @@ const SIDEBAR_ITEMS: [(&str, &str); 4] = [
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ActivePage {
+    /// The page the app opens on.
+    Dashboard,
     Themes,
     ThemeEdit(String), // Holds the theme name being edited
     Configuration,
@@ -72,6 +76,7 @@ impl ActivePage {
     /// `settings.json`; the editors count as their list page.
     pub fn view_name(&self) -> &'static str {
         match self {
+            ActivePage::Dashboard => "dashboard",
             ActivePage::Themes | ActivePage::ThemeEdit(_) => "themes",
             ActivePage::Configuration => "config",
             ActivePage::Keybinds => "keybinds",
@@ -90,6 +95,7 @@ impl ActivePage {
 
     pub fn from_view_name(name: &str) -> Option<Self> {
         Some(match name {
+            "dashboard" => ActivePage::Dashboard,
             "themes" => ActivePage::Themes,
             "config" => ActivePage::Configuration,
             "keybinds" => ActivePage::Keybinds,
@@ -108,7 +114,9 @@ pub struct MainWindowView {
     watch_runs: bool,
     title_bar: Entity<MainTitleBar>,
     active_page: ActivePage,
-    // Default page — always present
+    // The landing page and Themes are always present.
+    dashboard_root: AnyView,
+    dashboard_view: Entity<DashboardView>,
     themes_root: AnyView,
     themes_view: Entity<ThemesPage>,
     // ThemeEdit is created on first navigation to a given theme
@@ -155,7 +163,10 @@ impl MainWindowView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
-        // The Themes page is the default landing page — created eagerly.
+        // The Dashboard is the landing page and Themes the fallback for a
+        // page not created yet; both are created eagerly.
+        let dashboard_view = cx.new(DashboardView::new);
+        let dashboard_root = dashboard_view.clone().into();
         let themes_view = cx.new(|cx| ThemesPage::new(window, cx));
         let themes_root = themes_view.clone().into();
 
@@ -166,7 +177,9 @@ impl MainWindowView {
         let mut view = Self {
             watch_runs: false,
             title_bar,
-            active_page: ActivePage::Themes,
+            active_page: ActivePage::Dashboard,
+            dashboard_root,
+            dashboard_view,
             themes_root,
             themes_view,
             theme_edit_root: None,
@@ -245,7 +258,7 @@ impl MainWindowView {
 
         // A page requested on the command line gets focus; otherwise the
         // sidebar does.
-        if initial_page != ActivePage::Themes {
+        if initial_page != ActivePage::Dashboard {
             view.navigate_to(initial_page, window, cx);
         } else {
             view.sidebar_focus.focus(window, cx);
@@ -296,16 +309,17 @@ impl MainWindowView {
 
     fn sidebar_index_for(page: &ActivePage) -> Option<usize> {
         match page {
-            ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(0),
-            ActivePage::Configuration => Some(1),
-            ActivePage::Keybinds => Some(2),
+            ActivePage::Dashboard => Some(0),
+            ActivePage::Themes | ActivePage::ThemeEdit(_) => Some(1),
+            ActivePage::Configuration => Some(2),
+            ActivePage::Keybinds => Some(3),
             ActivePage::Flows
             | ActivePage::FlowEdit(_)
             | ActivePage::FlowNew(_)
             | ActivePage::FlowImport(_)
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
-            | ActivePage::FlowCatalog => Some(3),
+            | ActivePage::FlowCatalog => Some(4),
             ActivePage::Settings | ActivePage::About | ActivePage::Omarchy => None,
         }
     }
@@ -430,6 +444,7 @@ impl MainWindowView {
                     self.omarchy_view = Some(omarchy_view);
                 }
             }
+            ActivePage::Dashboard => {}
             // Themes is always present; a visit rescans, because the editor,
             // the CLI and Omarchy itself change the folder behind its back.
             ActivePage::Themes => {
@@ -544,6 +559,9 @@ impl MainWindowView {
     /// Focuses the active page's entry control (search box, tab strip, …).
     fn focus_page_entry(&self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.active_page {
+            ActivePage::Dashboard => self
+                .dashboard_view
+                .update(cx, |v, cx| v.focus_entry(window, cx)),
             ActivePage::Themes => self
                 .themes_view
                 .update(cx, |v, cx| v.focus_entry(window, cx)),
@@ -616,6 +634,7 @@ impl MainWindowView {
     /// Ctrl+R: reload whatever the active page shows.
     fn reload_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match &self.active_page {
+            ActivePage::Dashboard => {}
             ActivePage::Themes | ActivePage::ThemeEdit(_) => {
                 self.themes_view
                     .update(cx, |page, cx| page.refresh_themes(window, cx));
@@ -732,6 +751,7 @@ impl MainWindowView {
 
     fn current_page_view(&self) -> AnyView {
         match &self.active_page {
+            ActivePage::Dashboard => self.dashboard_root.clone(),
             ActivePage::Themes => self.themes_root.clone(),
             ActivePage::ThemeEdit(_) => self
                 .theme_edit_root
@@ -781,6 +801,7 @@ impl MainWindowView {
 
     fn is_page_active(&self, page: ActivePage) -> bool {
         match (&self.active_page, &page) {
+            (ActivePage::Dashboard, ActivePage::Dashboard) => true,
             (ActivePage::Themes, ActivePage::Themes) => true,
             (ActivePage::ThemeEdit(_), ActivePage::Themes) => true, // ThemeEdit is under Themes in sidebar
             (ActivePage::ThemeEdit(a), ActivePage::ThemeEdit(b)) => a == b,
@@ -804,11 +825,11 @@ impl MainWindowView {
 
     fn page_from_sidebar_index(&self, index: usize) -> ActivePage {
         match index {
-            0 => ActivePage::Themes,
-            1 => ActivePage::Configuration,
-            2 => ActivePage::Keybinds,
-            3 => ActivePage::Flows,
-            _ => ActivePage::Themes,
+            0 => ActivePage::Dashboard,
+            1 => ActivePage::Themes,
+            2 => ActivePage::Configuration,
+            3 => ActivePage::Keybinds,
+            _ => ActivePage::Flows,
         }
     }
 
@@ -842,9 +863,13 @@ impl MainWindowView {
         // Each page's icon wears the page's colour, the same one its
         // badges and section icons wear elsewhere.
         let (icon, area) = match ix {
-            0 => (Icon::new(IconName::LayoutDashboard), Area::Themes),
-            1 => (Icon::new(IconName::Settings), Area::Configuration),
-            2 => (
+            0 => (
+                Icon::new(Icon::empty()).path("icons/house.svg"),
+                Area::Dashboard,
+            ),
+            1 => (Icon::new(IconName::LayoutDashboard), Area::Themes),
+            2 => (Icon::new(IconName::Settings), Area::Configuration),
+            3 => (
                 Icon::new(Icon::empty()).path("icons/keyboard.svg"),
                 Area::Keybinds,
             ),
@@ -1007,6 +1032,11 @@ impl Render for MainWindowView {
                 }),
             )
             // Global page shortcuts
+            .on_action(cx.listener(
+                |this, _: &crate::ui::menu::app_menu::NavigateToDashboard, window, cx| {
+                    this.navigate_to(ActivePage::Dashboard, window, cx);
+                },
+            ))
             .on_action(cx.listener(
                 |this, _: &crate::ui::menu::app_menu::NavigateToThemes, window, cx| {
                     this.navigate_to(ActivePage::Themes, window, cx);

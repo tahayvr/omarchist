@@ -48,6 +48,11 @@ fn groups() -> Vec<Group> {
         Group {
             title: "Go to",
             entries: vec![
+                entry(
+                    "Dashboard",
+                    &["page", "home", "start"],
+                    app_menu::NavigateToDashboard,
+                ),
                 entry("Themes", &["page"], app_menu::NavigateToThemes),
                 entry(
                     "Configuration",

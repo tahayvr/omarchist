@@ -250,6 +250,7 @@ Centralized in `MainWindowView`:
 
 ```rust
 pub enum ActivePage {
+    Dashboard,             // the landing page (Ctrl+0), empty until it is designed
     Themes,
     ThemeEdit(String),
     Configuration,
@@ -430,7 +431,7 @@ The app supports command-line arguments via `clap`. CLI args are parsed at start
 #[derive(Parser)]
 pub struct CliArgs {
     #[arg(short, long)]
-    pub view: Option<ViewOption>,  // themes, config, keybinds, flows, settings, about, omarchy
+    pub view: Option<ViewOption>,  // dashboard, themes, config, keybinds, flows, settings, about, omarchy
     
     #[arg(short, long, requires = "view")]
     pub theme: Option<String>,     // For editing specific theme

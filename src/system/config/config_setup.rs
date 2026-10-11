@@ -54,7 +54,7 @@ impl Default for SettingsConfig {
             font_size: "small".to_string(),
             auto_apply_theme: false,
             theme_mode: "omarchy".to_string(),
-            startup_page: "themes".to_string(),
+            startup_page: "dashboard".to_string(),
             check_updates: true,
             update_check_hours: 6,
             notify_updates: false,
@@ -355,6 +355,7 @@ fn migrate_settings_file(settings_path: &Path) -> Result<()> {
 /// The defaults with the user's values on top: every key under `settings`
 /// the defaults know keeps the user's value when it has the right type,
 /// `metadata` keeps what the user had, and `version` is the defaults'.
+/// Then the steps in `migrate_values` for the versions the file skipped.
 pub fn merge_settings(user: &Value, defaults: &Value) -> Value {
     let mut merged = defaults.clone();
     if let (Some(target), Some(source)) = (
@@ -382,7 +383,22 @@ pub fn merge_settings(user: &Value, defaults: &Value) -> Value {
     if merged.get("metadata").is_none() {
         merged["metadata"] = Value::Object(Map::new());
     }
+    let from = user["version"]
+        .as_str()
+        .and_then(|v| parse_version(v).ok())
+        .unwrap_or((0, 0, 0));
+    migrate_values(from, &mut merged);
     merged
+}
+
+/// Changes a version makes to values the user already has, applied to a
+/// file written by version `from`.
+fn migrate_values(from: (u32, u32, u32), merged: &mut Value) {
+    // 1.4.0: the Dashboard is the landing page. Themes was the old
+    // default, so a file that still says so moves to the Dashboard.
+    if from < (1, 4, 0) && merged["settings"]["startup_page"] == "themes" {
+        merged["settings"]["startup_page"] = Value::from("dashboard");
+    }
 }
 
 fn same_kind(a: &Value, b: &Value) -> bool {
@@ -501,6 +517,23 @@ mod tests {
         assert_eq!(merged["metadata"]["created_at"], "2025-01-01T00:00:00Z");
         assert_eq!(merged["metadata"]["last_modified"], "now");
         assert_eq!(merged["metadata"]["last_page"], "flows");
+    }
+
+    #[test]
+    fn a_file_before_1_4_0_on_themes_moves_to_the_dashboard() {
+        let defaults = json!({ "version": "1.4.0", "settings": { "startup_page": "dashboard" }, "metadata": {} });
+        let page = |version: &str, page: &str| {
+            let user = json!({ "version": version, "settings": { "startup_page": page } });
+            merge_settings(&user, &defaults)["settings"]["startup_page"].clone()
+        };
+        assert_eq!(page("1.3.0", "themes"), "dashboard");
+        assert_eq!(page("1.3.0", "flows"), "flows", "another choice is kept");
+        assert_eq!(page("1.3.0", "last"), "last");
+        assert_eq!(
+            page("1.4.0", "themes"),
+            "themes",
+            "a choice made after the Dashboard existed is kept"
+        );
     }
 
     #[test]

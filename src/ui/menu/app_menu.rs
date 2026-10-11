@@ -15,6 +15,7 @@ actions!(
         ToggleSidebar,
         NewTheme,
         // Page navigation shortcuts
+        NavigateToDashboard,
         NavigateToThemes,
         NavigateToConfig,
         NavigateToKeybinds,

@@ -14,6 +14,7 @@ use crate::ui::config_page::pages::PageGroup;
 /// A part of the app with a colour of its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Area {
+    Dashboard,
     Themes,
     Configuration,
     Keybinds,
@@ -27,6 +28,7 @@ impl Area {
     pub fn accent(self, cx: &App) -> Hsla {
         let theme = cx.theme();
         match self {
+            Area::Dashboard => theme.cyan,
             Area::Themes => theme.magenta,
             Area::Configuration => theme.blue,
             Area::Keybinds => theme.yellow,

@@ -30,6 +30,7 @@ const FONT_SIZES: &[(&str, &str)] = &[("small", "Small"), ("medium", "Medium"), 
 const THEME_MODES: &[(&str, &str)] =
     &[("omarchy", "Omarchy"), ("light", "Light"), ("dark", "Dark")];
 const STARTUP_PAGES: &[(&str, &str)] = &[
+    ("dashboard", "Dashboard"),
     ("themes", "Themes"),
     ("config", "Configuration"),
     ("keybinds", "Keybinds"),
@@ -330,7 +331,7 @@ impl Render for SettingsView {
             .iter()
             .map(|(v, _)| *v)
             .find(|v| *v == s.startup_page)
-            .unwrap_or("themes");
+            .unwrap_or("dashboard");
         let interval = CHECK_INTERVALS
             .iter()
             .map(|(v, _)| *v)
