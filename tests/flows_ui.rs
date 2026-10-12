@@ -1843,6 +1843,10 @@ use omarchist::ui::flows_page::flow_edit_view::flow_edit_nav::SaveAsTemplate;
 #[gpui_kit::test]
 async fn a_flow_deleted_from_its_menu_leaves_the_toolbar_clickable(cx: &mut TestAppContext) {
     write_flow("ui-doomed", &PRINTS.replace("ui-prints", "ui-doomed"));
+    // Another flow keeps the toolbar's Templates button: with none left the
+    // page shows its empty state instead (nextest gives each test a home of
+    // its own, so nothing else is there).
+    write_flow("ui-survivor", &PRINTS.replace("ui-prints", "ui-survivor"));
     let (handle, view) = open(cx, ActivePage::Flows);
     settle(cx, handle);
     with(cx, handle, |window, cx| window.input("ui-doomed", cx));
