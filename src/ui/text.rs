@@ -25,6 +25,16 @@ const CONNECTORS: &[&str] = &[
     "with", "as", "up", "off", "into", "onto", "per", "via", "vs",
 ];
 
+/// Text as a search compares it: lower case without spaces, hyphens or
+/// underscores, so "wifi" finds "Wi-Fi" and "tokyonight" finds
+/// "tokyo-night".
+pub fn folds(text: &str) -> String {
+    text.chars()
+        .filter(|c| !matches!(c, ' ' | '-' | '_'))
+        .flat_map(char::to_lowercase)
+        .collect()
+}
+
 /// A flow's or template's name the way a title is shown: every word
 /// capitalised except the connectors ("Four Sets of Pomodoros"), the
 /// first and last word always. A word that already carries a capital

@@ -1,10 +1,12 @@
 use crate::types::themes::{ThemeEntry, ThemeOrigin};
 use crate::ui::dialogs::create_theme_dialog::open_create_theme_dialog;
 use crate::ui::focus;
+use crate::ui::text::folds;
 use crate::ui::themes_page::theme_card::ThemeCard;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{ActiveTheme, button::Button, h_flex, scroll::ScrollableElement, v_flex};
+use gpui_kit::TestSupportExt;
 
 // Two columns from 560 px so a narrow window shows more than one theme
 // per screen; a card is never narrower than about 260 px.
@@ -98,6 +100,8 @@ impl GridNav {
 pub struct ThemeGrid {
     themes: Vec<ThemeEntry>,
     filter: ThemeFilter,
+    /// The search box's text, folded (`text::folds`); empty shows every theme.
+    query: String,
     cards: Vec<Entity<ThemeCard>>,
     /// False until the first scan lands, so a slow disk shows "Loading"
     /// rather than "no themes".
@@ -126,6 +130,7 @@ impl ThemeGrid {
         Self {
             themes,
             filter: ThemeFilter::All,
+            query: String::new(),
             cards,
             loaded: false,
             sidebar_collapsed: true,
@@ -155,6 +160,17 @@ impl ThemeGrid {
         }
     }
 
+    /// Shows only the themes whose name or folder holds `query`.
+    pub fn set_query(&mut self, query: &str, cx: &mut Context<Self>) {
+        let query = folds(query.trim());
+        if self.query != query {
+            self.query = query;
+            self.nav.focused_index = None;
+            self.scroll.set_offset(point(px(0.), px(0.)));
+            cx.notify();
+        }
+    }
+
     pub fn update_themes(&mut self, themes: Vec<ThemeEntry>, cx: &mut Context<Self>) {
         self.themes = themes;
         self.loaded = true;
@@ -167,16 +183,16 @@ impl ThemeGrid {
     }
 
     fn filtered_indices(&self) -> Vec<usize> {
-        match &self.filter {
-            ThemeFilter::All => (0..self.themes.len()).collect(),
-            ThemeFilter::Only(origin) => self
-                .themes
-                .iter()
-                .enumerate()
-                .filter(|(_, t)| &t.origin == origin)
-                .map(|(i, _)| i)
-                .collect(),
-        }
+        self.themes
+            .iter()
+            .enumerate()
+            .filter(|(_, theme)| match &self.filter {
+                ThemeFilter::All => true,
+                ThemeFilter::Only(origin) => &theme.origin == origin,
+            })
+            .filter(|(_, theme)| matches_query(theme, &self.query))
+            .map(|(i, _)| i)
+            .collect()
     }
 
     fn focused_card(&self) -> Option<Entity<ThemeCard>> {
@@ -276,14 +292,16 @@ impl Render for ThemeGrid {
                     .filter_map(|(col_ix, &idx)| {
                         let filtered_idx = row_ix * column_count + col_ix;
                         self.cards.get(idx).map(|card| {
+                            let id = format!("theme-card-{}", self.themes[idx].dir);
                             div()
-                                .id(("theme-card", idx))
+                                .id(SharedString::from(id))
                                 .flex_1()
                                 .min_w_0()
                                 .on_click(cx.listener(move |this, _, window, cx| {
                                     this.select_card(filtered_idx, window, cx);
                                 }))
                                 .child(card.clone())
+                                .test_support()
                                 .into_any_element()
                         })
                     })
@@ -307,6 +325,7 @@ impl Render for ThemeGrid {
 
         div()
             .id("theme-grid")
+            .test_support()
             .key_context(KEY_CONTEXT)
             .track_focus(&self.focus)
             .on_action(cx.listener(|this, _: &Up, _, cx| {
@@ -370,6 +389,8 @@ impl Render for ThemeGrid {
             .when(is_empty, |this| {
                 let message = if !self.loaded {
                     "Loading themes…"
+                } else if !self.query.is_empty() {
+                    "No themes match the search"
                 } else if matches!(self.filter, ThemeFilter::Only(ThemeOrigin::Omarchist)) {
                     "No themes made with Omarchist yet"
                 } else {
@@ -380,7 +401,7 @@ impl Render for ThemeGrid {
                         .items_center()
                         .gap_4()
                         .child(div().text_color(muted).mt_12().text_sm().child(message))
-                        .when(self.loaded, |this| {
+                        .when(self.loaded && self.query.is_empty(), |this| {
                             this.child(
                                 h_flex().child(
                                     Button::new("empty-create-theme-btn")
@@ -411,9 +432,33 @@ impl Render for ThemeGrid {
     }
 }
 
+/// Whether a theme's name or folder holds a folded query.
+fn matches_query(theme: &ThemeEntry, query: &str) -> bool {
+    query.is_empty() || folds(&theme.title).contains(query) || folds(&theme.dir).contains(query)
+}
+
 #[cfg(test)]
 mod tests {
-    use super::GridNav;
+    use super::{GridNav, matches_query};
+    use crate::types::themes::{ThemeEntry, ThemeOrigin};
+    use crate::ui::text::folds;
+
+    #[test]
+    fn search_reads_the_name_and_the_folder_loosely() {
+        let theme = ThemeEntry {
+            dir: "tokyo-night".into(),
+            title: "Tokyo Night".into(),
+            origin: ThemeOrigin::System,
+            image: String::new(),
+            colors: None,
+            applied: false,
+        };
+        assert!(matches_query(&theme, ""));
+        assert!(matches_query(&theme, &folds("tokyonight")));
+        assert!(matches_query(&theme, &folds("Night")));
+        assert!(matches_query(&theme, &folds("tokyo-n")));
+        assert!(!matches_query(&theme, &folds("gruvbox")));
+    }
 
     #[test]
     fn moves_by_rows_and_clamps_to_the_last_card() {

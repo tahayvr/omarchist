@@ -1391,16 +1391,8 @@ impl ConfigView {
 
     fn item_matches(item: &ItemDef, query: &str) -> bool {
         query.is_empty()
-            || Self::folds(item.label).contains(&Self::folds(query))
-            || Self::folds(item.description).contains(&Self::folds(query))
-    }
-
-    /// Lower case without spaces or hyphens, so "wifi" finds "Wi-Fi".
-    fn folds(text: &str) -> String {
-        text.chars()
-            .filter(|c| !matches!(c, ' ' | '-' | '_'))
-            .flat_map(char::to_lowercase)
-            .collect()
+            || crate::ui::text::folds(item.label).contains(&crate::ui::text::folds(query))
+            || crate::ui::text::folds(item.description).contains(&crate::ui::text::folds(query))
     }
 
     // ── rendering ────────────────────────────────────────────────────

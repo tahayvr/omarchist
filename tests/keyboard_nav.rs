@@ -284,6 +284,8 @@ async fn theme_designer_refuses_themes_omarchist_did_not_create(cx: &mut TestApp
 
 #[gpui_kit::test]
 fn the_theme_is_renamed_from_its_title(cx: &mut TestAppContext) {
+    // The test home first, so the theme is never made in the real one.
+    common::home();
     omarchist::system::themes::theme_management::create_theme_from_defaults("ui-rename")
         .expect("a theme in the test home");
     let (handle, view) = open(cx, ActivePage::ThemeEdit("ui-rename".into()));
@@ -338,4 +340,43 @@ fn about_page_text_can_be_selected(cx: &mut TestAppContext) {
         assert!(concat!("v", env!("CARGO_PKG_VERSION")).contains(&selected));
     })
     .unwrap();
+}
+
+#[gpui_kit::test]
+async fn the_themes_page_searches_by_name(cx: &mut TestAppContext) {
+    use omarchist::system::themes::theme_management::create_theme_from_defaults;
+    // The test home first, so the themes are never made in the real one.
+    common::home();
+    create_theme_from_defaults("ui-search-ember").expect("a theme in the test home");
+    create_theme_from_defaults("ui-search-frost").expect("a theme in the test home");
+    let (handle, _view) = open(cx, ActivePage::Themes);
+    // Ctrl+F reaches the box; the search reads the name loosely. Cards
+    // scrolled out of view are not drawn, so check only once filtered.
+    with(cx, handle, |window, cx| {
+        window.press("ctrl-f", cx);
+        window.input("searchember", cx);
+    });
+    cx.wait_for(handle.into(), Duration::from_secs(2), |window, _| {
+        window.try_find("theme-card-ui-search-ember").is_some()
+    })
+    .await;
+    with(cx, handle, |window, cx| {
+        assert!(window.try_find("theme-card-ui-search-frost").is_none());
+        window.input("x", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert!(window.try_find("theme-card-ui-search-ember").is_none());
+    });
+    // Escape clears the search, and once empty moves on to the themes.
+    with(cx, handle, |window, cx| window.press("escape", cx));
+    settle(cx, handle);
+    with(cx, handle, |window, cx| {
+        assert_eq!(window.find("themes-search-input").focused(), Some(true));
+        window.press("escape", cx);
+    });
+    settle(cx, handle);
+    with(cx, handle, |window, _| {
+        assert_eq!(window.find("theme-grid").focused(), Some(true));
+    });
 }

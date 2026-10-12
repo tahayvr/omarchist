@@ -28,7 +28,7 @@ Everything in Omarchist works from the keyboard. <kbd>Ctrl</kbd> + <kbd>/</kbd> 
 
 ## Themes
 
-The filter tabs switch with <kbd>←</kbd> / <kbd>→</kbd>; <kbd>Enter</kbd> or <kbd>↓</kbd> goes to the grid.
+The filter tabs switch with <kbd>←</kbd> / <kbd>→</kbd>; <kbd>Enter</kbd> or <kbd>↓</kbd> goes to the grid. <kbd>Ctrl</kbd> + <kbd>F</kbd> goes to the search box, where <kbd>↓</kbd> goes to the grid and <kbd>Escape</kbd> clears the search, then goes to the grid.
 
 | Keys | Action |
 | --- | --- |
@@ -37,7 +37,7 @@ The filter tabs switch with <kbd>←</kbd> / <kbd>→</kbd>; <kbd>Enter</kbd> or
 | <kbd>E</kbd> | Edit the theme |
 | <kbd>O</kbd> | Open the theme folder |
 | <kbd>Delete</kbd> | Delete the theme |
-| <kbd>Escape</kbd> | Back to the filter tabs |
+| <kbd>Escape</kbd> | Back to the search box |
 
 In the Theme Designer, <kbd>Ctrl</kbd> + <kbd>PgUp</kbd> / <kbd>PgDn</kbd> or <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>Tab</kbd> / <kbd>Ctrl</kbd> + <kbd>Tab</kbd> switch tabs, <kbd>Ctrl</kbd> + <kbd>S</kbd> applies the theme, and <kbd>Escape</kbd> or <kbd>Alt</kbd> + <kbd>←</kbd> goes back (in a text field, the first <kbd>Escape</kbd> only leaves the field). Color pickers open with <kbd>Enter</kbd>; switches and icon colors toggle with <kbd>Space</kbd>.
 

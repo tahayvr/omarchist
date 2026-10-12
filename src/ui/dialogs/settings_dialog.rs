@@ -31,6 +31,7 @@ use crate::ui::focus::{self, FocusSection, FocusableSwitch};
 use crate::ui::heading;
 use crate::ui::notify;
 use crate::ui::palette::{self, Area};
+use crate::ui::text::folds;
 use crate::ui::toolbar;
 
 pub const NAV_CONTEXT: &str = "SettingsNav";
@@ -200,15 +201,6 @@ const PAGES: &[Page] = &[
         ],
     },
 ];
-
-/// Lower case without spaces or hyphens, so "autoapply" finds
-/// "Auto-apply".
-fn folds(text: &str) -> String {
-    text.chars()
-        .filter(|c| !matches!(c, ' ' | '-' | '_'))
-        .flat_map(char::to_lowercase)
-        .collect()
-}
 
 fn row_matches(row: Row, query: &str) -> bool {
     query.is_empty()
@@ -781,7 +773,8 @@ impl Render for SettingsPanel {
 
 #[cfg(test)]
 mod tests {
-    use super::{PAGES, Row, folds, row_matches};
+    use super::{PAGES, Row, row_matches};
+    use crate::ui::text::folds;
 
     #[test]
     fn every_setting_is_on_one_page() {

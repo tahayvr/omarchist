@@ -21,6 +21,7 @@ use crate::ui::menu::app_menu;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view as theme_edit;
 use crate::ui::themes_page::theme_grid;
+use crate::ui::themes_page::themes_view::themes_nav;
 
 pub struct Shortcut {
     pub keys: &'static str,
@@ -494,7 +495,29 @@ pub const SHORTCUTS: &[Shortcut] = &[
         theme_grid::LeaveGrid,
         Some("ThemeGrid"),
         THEMES,
-        "Back to the filter tabs"
+        "Back to the search box"
+    ),
+    // Themes page
+    shortcut!(
+        "ctrl-f",
+        themes_nav::FocusSearch,
+        Some("ThemesPage"),
+        THEMES,
+        "Search themes"
+    ),
+    shortcut!(
+        "down",
+        themes_nav::FocusGrid,
+        Some("ThemesSearch > Input"),
+        THEMES,
+        "From the search box to the themes"
+    ),
+    shortcut!(
+        "escape",
+        themes_nav::ClearSearch,
+        Some("ThemesSearch > Input"),
+        THEMES,
+        "Clear the search, then go to the themes"
     ),
     // Theme Designer
     shortcut!(

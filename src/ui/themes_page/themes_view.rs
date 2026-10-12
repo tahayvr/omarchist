@@ -6,23 +6,32 @@ use crate::ui::focus::{self, tab_strip_container};
 use crate::ui::menu::app_menu::NewTheme;
 use crate::ui::notify;
 use crate::ui::themes_page::theme_grid::{self, ThemeFilter, ThemeGrid};
+use crate::ui::toolbar;
 use gpui::*;
 use gpui_component::{
     Icon, Sizable as _,
     button::{Button, ButtonVariants as _},
-    h_flex,
+    input::{InputEvent, InputState},
     tab::{Tab, TabBar},
     v_flex,
 };
 const KEY_CONTEXT: &str = "ThemesPage";
+/// Wraps the search box so Down and Escape hand off from inside the input.
+pub const SEARCH_CONTEXT: &str = "ThemesSearch";
 const TAB_COUNT: usize = 2;
+
+pub mod themes_nav {
+    gpui::actions!(themes, [FocusSearch, ClearSearch, FocusGrid]);
+}
 
 pub struct ThemesPage {
     active_tab: usize,
     theme_grid: Entity<ThemeGrid>,
     /// The "All / Omarchist" strip is one tab stop; left/right switch tabs.
     tabs_focus: FocusHandle,
+    search: Entity<InputState>,
     pub focus_handle: FocusHandle,
+    _subscriptions: Vec<Subscription>,
 }
 
 impl ThemesPage {
@@ -34,12 +43,43 @@ impl ThemesPage {
         // Not `smol::unblock`: the test scheduler only drives gpui's own executor.
         Self::spawn_load(window, cx);
 
+        let search = cx.new(|cx| InputState::new(window, cx).placeholder("Search themes"));
+        let subscriptions =
+            vec![
+                cx.subscribe(&search, |this: &mut Self, input, event: &InputEvent, cx| {
+                    if matches!(event, InputEvent::Change) {
+                        let query = input.read(cx).value().to_string();
+                        this.theme_grid
+                            .update(cx, |grid, cx| grid.set_query(&query, cx));
+                    }
+                }),
+            ];
+
         Self {
             active_tab: 0,
             theme_grid,
             tabs_focus: focus::tab_stop(cx),
+            search,
             focus_handle: cx.focus_handle(),
+            _subscriptions: subscriptions,
         }
+    }
+
+    fn focus_search(&self, window: &mut Window, cx: &mut Context<Self>) {
+        self.search.update(cx, |input, cx| input.focus(window, cx));
+    }
+
+    /// Escape in the search box: clears it, and once empty moves on to
+    /// the themes.
+    fn clear_search(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.search.read(cx).value().is_empty() {
+            self.focus_grid(window, cx);
+            return;
+        }
+        self.search
+            .update(cx, |input, cx| input.set_value("", window, cx));
+        self.theme_grid
+            .update(cx, |grid, cx| grid.set_query("", cx));
     }
 
     /// Focuses the tab strip, the page's first control.
@@ -131,12 +171,23 @@ impl Render for ThemesPage {
             .overflow_hidden()
             .gap_4()
             .on_action(cx.listener(|this, _: &theme_grid::LeaveGrid, window, cx| {
-                this.tabs_focus.focus(window, cx);
+                this.focus_search(window, cx);
+            }))
+            .on_action(
+                cx.listener(|this, _: &themes_nav::FocusSearch, window, cx| {
+                    this.focus_search(window, cx);
+                }),
+            )
+            .on_action(
+                cx.listener(|this, _: &themes_nav::ClearSearch, window, cx| {
+                    this.clear_search(window, cx);
+                }),
+            )
+            .on_action(cx.listener(|this, _: &themes_nav::FocusGrid, window, cx| {
+                this.focus_grid(window, cx);
             }))
             .child(
-                h_flex()
-                    .gap_3()
-                    .justify_between()
+                toolbar::bar()
                     .child(
                         div().min_w_0().child(
                             tab_strip_container("theme-tabs-strip", &self.tabs_focus, window, cx)
@@ -177,6 +228,14 @@ impl Render for ThemesPage {
                                 ),
                         ),
                     )
+                    .child(
+                        toolbar::search(
+                            toolbar::search_input(&self.search).id("themes-search-input"),
+                        )
+                        .id("themes-search")
+                        .key_context(SEARCH_CONTEXT),
+                    )
+                    .child(toolbar::spacer())
                     .child(
                         Button::new("new-theme")
                             .primary()
