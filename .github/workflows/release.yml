@@ -4,7 +4,12 @@ on:
   push:
     tags:
       - "v*"
+  # Rebuilds an existing tag with this workflow (a tag's own copy may be broken).
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to build and upload to (e.g. v2.2.0)"
+        required: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -22,6 +27,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.tag || github.ref }}
           fetch-depth: 0
 
       - name: Generate changelog
@@ -49,6 +55,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -89,6 +97,8 @@ jobs:
           sudo sed -i 's/^deb /deb [arch=amd64] /' /etc/apt/sources.list
           echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
+          # amd64 already has the security updates; arm64 must match their versions.
+          echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse" | sudo tee -a /etc/apt/sources.list
           sudo apt-get update
           sudo apt-get install -y \
             libxcb1-dev:arm64 \
@@ -148,5 +158,5 @@ jobs:
           files: |
             ${{ matrix.artifact }}.tar.gz
             ${{ matrix.artifact }}.tar.gz.sha256
-          tag_name: ${{ github.ref_name }}
+          tag_name: ${{ inputs.tag || github.ref_name }}
           body: ${{ needs.changelog.outputs.release_body }}
