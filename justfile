@@ -34,9 +34,12 @@ build:
 docs DOCS:
     cd docs/ && bun run docs:{{ DOCS }} 
 
-# Tag and push a release using version from Cargo.toml
-release:
+# Check, test, then tag and push a release using version from Cargo.toml
+release: check test
     #!/usr/bin/env bash
+    set -e
+    # `check` formats; a tag must hold exactly what was checked.
+    if ! git diff --quiet; then echo "Uncommitted changes; commit them first."; exit 1; fi
     VER=$(grep '^version' Cargo.toml | head -1 | sed 's/.*"\(.*\)"/\1/')
     git tag -a "v$VER" -m "Release v$VER"
     git push origin main "v$VER"
