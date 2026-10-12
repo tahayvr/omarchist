@@ -2265,26 +2265,40 @@ fn publishing_makes_the_flow_ready_and_hands_it_to_github(cx: &mut TestAppContex
 // MARK: The Dashboard
 
 #[gpui_kit::test]
-fn the_dashboard_lists_flows_and_opens_one_in_the_editor(cx: &mut TestAppContext) {
+fn the_dashboard_lists_runs_and_automations(cx: &mut TestAppContext) {
+    use omarchist::system::flows::automations::Event;
+    use omarchist::system::flows::history::{self, Run, RunResult};
     write_flow(
         "dashboard-flow",
-        "format = 1\nname = \"Dashboard flow\"\n\n[[step]]\ntype = \"wait\"\nms = 10\n",
+        "format = 2\nname = \"Dashboard flow\"\n\n[[triggers.automation]]\non = \"locked\"\n\n[[step]]\ntype = \"wait\"\nms = 10\n",
     );
+    let run = Run {
+        started: chrono::Local::now().timestamp() - 120,
+        ms: 400,
+        trigger: Event::Locked.describe(),
+        result: RunResult::Failed,
+        summary: "Failed".into(),
+        steps: Vec::new(),
+    };
+    history::record("dashboard-flow", &run).expect("a run in the test home");
     let (handle, view) = open(cx, ActivePage::Dashboard);
     wait_real(cx, handle, Duration::from_secs(10), |window, _| {
-        window.try_find(("dashboard-open-flow", 0usize)).is_some()
+        window.try_find(("dashboard-automation", 0usize)).is_some()
     });
     with(cx, handle, |window, _| {
         assert!(window.find("dashboard-flows").visible());
-        assert!(window.find(("dashboard-run-flow", 0usize)).visible());
+        // The run is listed with a button to run it again, next to the
+        // automation that started it.
+        assert!(window.find(("dashboard-run", 0usize)).visible());
+        assert!(window.find(("dashboard-run-again", 0usize)).visible());
     });
     with(cx, handle, |window, cx| {
-        window.click(("dashboard-open-flow", 0usize), cx)
+        window.click(("dashboard-automation-open", 0usize), cx)
     });
     settle(cx, handle);
     let page = cx.update(|cx| view.read(cx).active_page().clone());
     assert!(
         matches!(page, ActivePage::FlowEdit(_)),
-        "a row opens its flow in the editor, not {page:?}"
+        "an automation opens its flow in the editor, not {page:?}"
     );
 }
