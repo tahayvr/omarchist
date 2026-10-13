@@ -68,6 +68,22 @@ impl ViewOption {
     }
 }
 
+impl Command {
+    /// What the process is called in the log.
+    pub fn log_role(&self) -> crate::system::logging::Role {
+        use crate::system::logging::Role;
+        match self {
+            Command::Flow {
+                action: FlowCommand::Run { .. },
+            } => Role::Flow,
+            Command::Automations {
+                action: AutomationsCommand::Run,
+            } => Role::Service,
+            _ => Role::Cli,
+        }
+    }
+}
+
 /// Commands that run without opening the window.
 #[derive(Subcommand, Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -86,6 +102,21 @@ pub enum Command {
     Automations {
         #[command(subcommand)]
         action: AutomationsCommand,
+    },
+    /// Print Omarchist's log: today's, or from --since on
+    Logs {
+        /// Keep printing what is written, until Ctrl+C
+        #[arg(short, long)]
+        follow: bool,
+        /// Print the log folder and stop
+        #[arg(long)]
+        path: bool,
+        /// Only records at this level or worse: error, warn, info, debug, trace
+        #[arg(short, long)]
+        level: Option<String>,
+        /// Only records from this long ago on: 30m, 2h, 3d
+        #[arg(short, long)]
+        since: Option<String>,
     },
     /// Remove everything Omarchist added outside its package (Hyprland
     /// hook, bar widget, flow launchers, settings); themes stay
@@ -293,6 +324,12 @@ pub fn run_command(command: &Command) -> ExitCode {
             action: ThemeCommand::FromImage { image, name, apply },
         } => theme_from_image(image, name.as_deref(), *apply),
         Command::Uninstall { yes } => uninstall(*yes),
+        Command::Logs {
+            follow,
+            path,
+            level,
+            since,
+        } => logs(*follow, *path, level.as_deref(), since.as_deref()),
         Command::Catalog { action } => catalog_command(action),
         Command::Flow {
             action:
@@ -496,6 +533,92 @@ fn flow_history(name: &str, json: bool) -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+/// `omarchist logs`: prints the records asked for, then with `--follow`
+/// what is written next, across a new part or a new day.
+fn logs(follow: bool, path: bool, level: Option<&str>, since: Option<&str>) -> ExitCode {
+    use crate::system::logging::{self, Wanted};
+    use std::io::{Read, Seek, SeekFrom, Write};
+
+    let dir = match logging::log_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            eprintln!("{e}");
+            return ExitCode::FAILURE;
+        }
+    };
+    if path {
+        println!("{}", dir.display());
+        return ExitCode::SUCCESS;
+    }
+    let level = match level.map(str::parse::<log::LevelFilter>) {
+        None => log::LevelFilter::Trace,
+        Some(Ok(level)) => level,
+        Some(Err(_)) => {
+            eprintln!("--level is one of error, warn, info, debug, trace");
+            return ExitCode::FAILURE;
+        }
+    };
+    let since = match since.map(logging::parse_since) {
+        None => None,
+        Some(Some(span)) => Some(chrono::Local::now() - span),
+        Some(None) => {
+            eprintln!("--since is a number and a unit: 30s, 15m, 2h, 3d");
+            return ExitCode::FAILURE;
+        }
+    };
+    let mut wanted = Wanted::new(level, since);
+    let mut out = std::io::stdout().lock();
+    let files = logging::files_since(&dir, since);
+    if files.is_empty() && !follow {
+        eprintln!("No log yet in {}", dir.display());
+        return ExitCode::SUCCESS;
+    }
+    // A closed pipe (`| head`) ends the command quietly.
+    let mut print = |text: &str, wanted: &mut Wanted| -> bool {
+        text.lines()
+            .filter(|line| wanted.wants(line))
+            .all(|line| writeln!(out, "{line}").is_ok())
+    };
+    let mut current: Option<(std::path::PathBuf, u64)> = None;
+    for file in &files {
+        let text = std::fs::read(&file.path).unwrap_or_default();
+        // A record still being written waits for its line to end.
+        let end = text.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+        if !print(&String::from_utf8_lossy(&text[..end]), &mut wanted) {
+            return ExitCode::SUCCESS;
+        }
+        current = Some((file.path.clone(), end as u64));
+    }
+    if !follow {
+        return ExitCode::SUCCESS;
+    }
+    loop {
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        let newest = logging::list_files(&dir).pop();
+        let Some(newest) = newest else { continue };
+        let (path, offset) = match &current {
+            Some((path, offset)) => (path.clone(), *offset),
+            None => (newest.path.clone(), 0),
+        };
+        let mut chunk = Vec::new();
+        if let Ok(mut file) = std::fs::File::open(&path)
+            && file.seek(SeekFrom::Start(offset)).is_ok()
+        {
+            let _ = file.read_to_end(&mut chunk);
+        }
+        let end = chunk.iter().rposition(|&b| b == b'\n').map_or(0, |i| i + 1);
+        if !print(&String::from_utf8_lossy(&chunk[..end]), &mut wanted) {
+            return ExitCode::SUCCESS;
+        }
+        // Once the file in hand is read to its end, move to a newer one.
+        current = if end == chunk.len() && newest.path != path {
+            Some((newest.path, 0))
+        } else {
+            Some((path, offset + end as u64))
+        };
+    }
 }
 
 fn automations(action: &AutomationsCommand) -> ExitCode {

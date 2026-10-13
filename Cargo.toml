@@ -55,6 +55,7 @@ sha2 = "0.10"
 hex = "0.4"
 percent-encoding = "2"
 notify = "8.2.0"
+log = "0.4"
 
 [dev-dependencies]
 # Headless UI tests under tests/.

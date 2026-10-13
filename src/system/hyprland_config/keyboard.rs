@@ -57,16 +57,17 @@ pub fn load_keyboard_catalog() -> Result<KeyboardCatalog> {
             Ok(catalog)
         }
         Ok(_) => {
-            eprintln!(
+            log::warn!(
                 "System XKB rules file at {} contained no definitions; using bundled fallback",
                 SYSTEM_BASE_LST
             );
             fallback_keyboard_catalog()
         }
         Err(err) => {
-            eprintln!(
+            log::warn!(
                 "Failed to load system XKB rules from {}: {}; using bundled fallback",
-                SYSTEM_BASE_LST, err
+                SYSTEM_BASE_LST,
+                err
             );
             fallback_keyboard_catalog()
         }
@@ -75,7 +76,7 @@ pub fn load_keyboard_catalog() -> Result<KeyboardCatalog> {
 
 fn fallback_keyboard_catalog() -> Result<KeyboardCatalog> {
     parse_keyboard_catalog(FALLBACK_RULES).map_err(|err| {
-        eprintln!(
+        log::error!(
             "Bundled fallback keyboard catalog failed to parse (this should not happen): {}",
             err
         );

@@ -647,7 +647,7 @@ impl FlowEditPage {
                         .and_then(|r| r.flow_id())
                         .unwrap_or_else(|| flow.id.clone());
                     if let Err(e) = history::record(&id, &run) {
-                        eprintln!("{e}");
+                        log::error!("Could not record the run of '{id}': {e}");
                     }
                     outcome
                 }

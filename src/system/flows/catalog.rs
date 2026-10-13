@@ -765,7 +765,16 @@ pub fn cached() -> Option<Catalog> {
 /// cannot be reached, or what came back does not check out, the copy from
 /// the last visit is returned with a notice saying so.
 pub fn load() -> Result<Catalog> {
-    load_from(&base_url(), &cache_dir()?, &trusted_keys())
+    let base = base_url();
+    let loaded = load_from(&base, &cache_dir()?, &trusted_keys());
+    match &loaded {
+        Ok(catalog) => match &catalog.notice {
+            Some(notice) => log::warn!("catalog {base}: {notice}"),
+            None => log::info!("catalog {base}: serial {}", catalog.index.serial),
+        },
+        Err(e) => log::warn!("could not load the catalog {base}: {e}"),
+    }
+    loaded
 }
 
 fn load_from(base: &str, cache: &Path, keys: &[String]) -> Result<Catalog> {

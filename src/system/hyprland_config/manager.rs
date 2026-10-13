@@ -194,7 +194,7 @@ fn scan_user_config() -> Scanned {
     match baseline::scan_config(&dir.join("hyprland.lua")) {
         Ok(scanned) => scanned,
         Err(e) => {
-            eprintln!("Could not read Omarchy's Hyprland settings: {e}");
+            log::warn!("Could not read Omarchy's Hyprland settings: {e}");
             Scanned::new()
         }
     }
@@ -228,7 +228,7 @@ fn load_overrides(state_path: &Path, scanned: &Scanned) -> Result<Value> {
     fs::rename(state_path, &legacy_path)
         .map_err(|e| Error::io("Failed to keep the old Hyprland state file", e))?;
     write_state(state_path, &overrides)?;
-    eprintln!(
+    log::info!(
         "Migrated Hyprland settings: {} setting(s) kept, previous file at {}",
         baseline::flatten(&overrides).len(),
         legacy_path.display()
@@ -249,24 +249,24 @@ fn write_state(state_path: &Path, overrides: &Value) -> Result<()> {
 /// Asks Hyprland to re-read its config, in the background so saves never
 /// block on the compositor.
 pub fn reload_hyprland() {
-    std::thread::spawn(|| {
-        let _ = Command::new("hyprctl").arg("reload").output();
-    });
+    std::thread::spawn(reload_hyprland_blocking);
 }
 
 /// Reloads Hyprland and waits for it, for the CLI.
 pub fn reload_hyprland_blocking() {
-    let _ = Command::new("hyprctl").arg("reload").output();
+    let started = std::time::Instant::now();
+    let result = Command::new("hyprctl").arg("reload").output();
+    crate::system::logging::ran(log::Level::Info, &["hyprctl", "reload"], &result, started);
 }
 
 /// Reloads Hyprland and waits for it, then asks what it rejected. Blocking:
 /// run it off the UI thread. `Ok(Some(text))` is Hyprland's own error list;
 /// `Ok(None)` means the config loaded clean.
 pub fn reload_hyprland_checked() -> Result<Option<String>> {
-    Command::new("hyprctl")
-        .arg("reload")
-        .output()
-        .map_err(|e| Error::io("Failed to run hyprctl reload", e))?;
+    let started = std::time::Instant::now();
+    let result = Command::new("hyprctl").arg("reload").output();
+    crate::system::logging::ran(log::Level::Info, &["hyprctl", "reload"], &result, started);
+    result.map_err(|e| Error::io("Failed to run hyprctl reload", e))?;
     let output = Command::new("hyprctl")
         .args(["-j", "configerrors"])
         .output()
@@ -277,6 +277,9 @@ pub fn reload_hyprland_checked() -> Result<Option<String>> {
         .map(|e| e.trim().to_string())
         .filter(|e| !e.is_empty())
         .collect();
+    if !errors.is_empty() {
+        log::warn!("Hyprland reported config errors:\n{}", errors.join("\n"));
+    }
     Ok((!errors.is_empty()).then(|| errors.join("\n")))
 }
 
@@ -298,7 +301,7 @@ pub fn saved_overrides() -> Value {
         Scanned::new()
     };
     load_overrides(&state_path, &scanned).unwrap_or_else(|e| {
-        eprintln!("Failed to read Hyprland settings: {e}");
+        log::error!("Failed to read Hyprland settings: {e}");
         Value::Object(Map::new())
     })
 }

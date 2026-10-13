@@ -10,7 +10,7 @@ const KEY_CONTEXT: &str = "AboutView";
 const ISSUES_URL: &str = "https://github.com/tahayvr/omarchist/issues/new";
 
 /// What a bug report needs: the versions of Omarchist, Omarchy, and
-/// Hyprland, and whether this is a Quattro install. Blocking on two short
+/// Hyprland, whether this is a Quattro install, and where the logs are. Blocking on two short
 /// commands, so it is gathered when the button is pressed.
 pub fn debug_info() -> String {
     let omarchy = crate::system::omarchy::updates::installed_version()
@@ -23,7 +23,7 @@ pub fn debug_info() -> String {
         .and_then(|v| v["tag"].as_str().map(str::to_string))
         .unwrap_or_else(|| "not running".to_string());
     format!(
-        "Omarchist {}\nOmarchy {omarchy}{}\nHyprland {hyprland}\nOMARCHY_PATH {}",
+        "Omarchist {}\nOmarchy {omarchy}{}\nHyprland {hyprland}\nOMARCHY_PATH {}\nLogs {}",
         env!("CARGO_PKG_VERSION"),
         if crate::system::omarchy_paths::is_quattro_installed() {
             ""
@@ -31,6 +31,9 @@ pub fn debug_info() -> String {
             " (not Quattro)"
         },
         crate::system::omarchy_paths::omarchy_install_dir().display(),
+        crate::system::logging::log_dir()
+            .map(|dir| dir.display().to_string())
+            .unwrap_or_else(|e| e.to_string()),
     )
 }
 

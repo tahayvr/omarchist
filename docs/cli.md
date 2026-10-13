@@ -9,6 +9,7 @@ omarchist [--view <page>] [--theme <name>]
 omarchist theme from-image <image> [--name <name>] [--apply]
 omarchist flow <run | stop | history | list | check | export | import> ...
 omarchist automations <on | off | status | run>
+omarchist logs [--follow] [--level <level>] [--since <time>] [--path]
 omarchist uninstall [--yes]
 ```
 
@@ -60,6 +61,22 @@ omarchist flow import https://example.com/focus.flow.toml
 
 See [Flows](/flows/) for what a flow is and [Sharing flows](/flows/#sharing-flows) for the file format.
 
+## Logs
+
+Prints Omarchist's [log](/logs): today's, or everything since `--since`.
+
+| Option | What it does |
+| --- | --- |
+| `--follow` (`-f`) | Keeps printing new records as Omarchist writes them, until you press <kbd>Ctrl</kbd> + <kbd>C</kbd>. |
+| `--level` (`-l`) `<level>` | Only records at this level or more serious: `error`, `warn`, `info`, `debug` or `trace`. |
+| `--since` (`-s`) `<time>` | Only records from this long ago on: `30s`, `15m`, `2h`, `3d`. |
+| `--path` | Prints the log folder and stops. |
+
+```bash
+omarchist logs --level warn --since 1d
+omarchist logs -f
+```
+
 ## Uninstall
 
 `omarchist uninstall` removes everything Omarchist added outside its package, in this order, and stops at the first failure so nothing is left half done:
@@ -68,6 +85,6 @@ See [Flows](/flows/) for what a flow is and [Sharing flows](/flows/#sharing-flow
 2. The bar widget, taken off the bar and deleted from `~/.config/omarchy/plugins`.
 3. The service that runs [automations](/flows/automations), stopped and removed.
 4. Every flow's launcher entry, icon, startup hook, and Files menu script.
-5. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates), `~/.local/share/omarchist`, `~/.local/state/omarchist` (the flows' run history), and `~/.cache/omarchist` (the copy of the Catalog).
+5. `~/.config/omarchist` (settings, Hyprland state, keybind overrides, flows, templates), `~/.local/share/omarchist`, `~/.local/state/omarchist` (the flows' run history and the [logs](/logs)), and `~/.cache/omarchist` (the copy of the Catalog).
 
 It prints that list and asks first; `--yes` skips the question. Quit Omarchist before you run it, because a running window would write its files back on the next save. Themes you made stay in `~/.config/omarchy/themes`. Remove the package afterwards with `sudo pacman -R omarchist-bin`.

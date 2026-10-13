@@ -453,6 +453,11 @@ impl MainWindowView {
         if dialog_open(window, cx) {
             return;
         }
+        match &page {
+            ActivePage::ThemeEdit(name) => log::debug!("page: theme '{name}'"),
+            ActivePage::FlowEdit(id) => log::debug!("page: flow '{id}'"),
+            page => log::debug!("page: {}", page.view_name()),
+        }
         let page = match page {
             ActivePage::ThemeEdit(name) if !is_omarchist_theme(&name) => {
                 // Deferred: at startup this runs before the window's `Root`
@@ -520,7 +525,7 @@ impl MainWindowView {
         if let Err(e) =
             crate::system::config::config_setup::remember_last_page(self.active_page.view_name())
         {
-            eprintln!("Failed to remember the last page: {e}");
+            log::warn!("Failed to remember the last page: {e}");
         }
 
         // Keyboard users land on the page's first control.

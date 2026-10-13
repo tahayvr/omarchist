@@ -43,7 +43,7 @@ Pick a page from the list on the left, or type in the search box to see every op
 
 | Page | Options |
 | --- | --- |
-| **General** | Font size. Look: **Omarchy** colors the app with your desktop theme's palette, including its accent and terminal colors; **Light** and **Dark** use Omarchist's own. The gear menu's Appearance switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. Open on: the page Omarchist opens on when you start it without `--view` (the Dashboard unless you pick another), or the page you used last. |
+| **General** | Font size. Look: **Omarchy** colors the app with your desktop theme's palette, including its accent and terminal colors; **Light** and **Dark** use Omarchist's own. The gear menu's Appearance switch (<kbd>Ctrl</kbd> + <kbd>Alt</kbd> + <kbd>L</kbd> / <kbd>D</kbd>) sets the same option. Open on: the page Omarchist opens on when you start it without `--view` (the Dashboard unless you pick another), or the page you used last. Logs: how long the [log](/logs) is kept, and **Open folder**. |
 | **Themes** | Auto-apply theme on edit: apply a theme to your desktop as soon as you open it in the Theme Designer. |
 | **Flows** | A desktop notification when a flow run from a keybind or the command line finishes. Run [automations](/flows/automations) in the background. Count your installs in the [Catalog](/flows/catalog#privacy). |
 | **Omarchy** | Whether the app checks for Omarchy updates in the background, how often, and whether a found update raises a desktop notification. Show Omarchist in Omarchy's bar; see [Bar Widget](/configuring/bar-widget). |

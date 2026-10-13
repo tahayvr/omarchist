@@ -56,7 +56,7 @@ impl SettingsWatch {
                     }
                 }
             })
-            .map_err(|e| eprintln!("Could not watch Omarchy's settings: {e}"))
+            .map_err(|e| log::warn!("Could not watch Omarchy's settings: {e}"))
             .ok();
         let mut watch = Self {
             files: files_watcher,
@@ -158,7 +158,7 @@ impl HyprlandEvents {
                 }
             });
         if let Err(e) = spawned {
-            eprintln!("Could not read Hyprland's events: {e}");
+            log::warn!("Could not read Hyprland's events: {e}");
         }
         Self { stop, stream }
     }

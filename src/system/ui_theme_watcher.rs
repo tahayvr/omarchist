@@ -387,10 +387,7 @@ fn build_theme_config(colors: &HashMap<String, String>, theme_name: &str) -> The
     let theme_json = serde_json::Value::Object(theme_map);
 
     serde_json::from_value(theme_json).unwrap_or_else(|e| {
-        eprintln!(
-            "[ui_theme_watcher] Failed to build ThemeConfig from colors.toml: {}",
-            e
-        );
+        log::error!("Failed to build ThemeConfig from colors.toml: {}", e);
         ThemeConfig::default()
     })
 }
@@ -402,7 +399,7 @@ fn embedded_themes() -> (Option<ThemeConfig>, Option<ThemeConfig>) {
     let theme_set: ThemeSet = match serde_json::from_str(THEME_FILE) {
         Ok(theme_set) => theme_set,
         Err(err) => {
-            eprintln!("Failed to parse the Omarchist theme JSON: {err}");
+            log::error!("Failed to parse the Omarchist theme JSON: {err}");
             return (None, None);
         }
     };

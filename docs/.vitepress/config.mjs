@@ -86,6 +86,7 @@ export default defineConfig({
           { text: "Settings", link: "/#settings" },
           { text: "CLI", link: "/cli" },
           { text: "Keyboard Navigation", link: "/keyboard" },
+          { text: "Logs", link: "/logs" },
         ],
       },
       {

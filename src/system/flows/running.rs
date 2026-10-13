@@ -108,6 +108,19 @@ pub fn register_in_app(flow: &Flow, trigger: &str, cancel: Cancel) -> Option<Reg
 }
 
 fn write_entry(flow: &Flow, trigger: &str, cancel: Option<Cancel>) -> Option<Registered> {
+    log::info!(
+        "flow '{}' started ({})",
+        if flow.id.is_empty() {
+            &flow.name
+        } else {
+            &flow.id
+        },
+        if trigger.is_empty() {
+            "no trigger"
+        } else {
+            trigger
+        }
+    );
     let dir = dir()?;
     fs::create_dir_all(&dir).ok()?;
     let pid = std::process::id();
@@ -251,6 +264,7 @@ pub fn list() -> Vec<Running> {
 /// inside a window is cancelled here when it is this process, and asked
 /// over the instance socket otherwise.
 pub fn stop(id: &str) -> usize {
+    log::info!("stopping flow '{id}'");
     let me = std::process::id();
     let runs: Vec<Running> = list().into_iter().filter(|run| run.id == id).collect();
     let mut asked_window = false;

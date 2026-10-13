@@ -31,8 +31,11 @@ pub fn write_atomic(path: &Path, contents: impl AsRef<[u8]>, what: &str) -> Resu
     }
     fs::rename(&tmp, &target).map_err(|e| {
         let _ = fs::remove_file(&tmp);
+        log::error!("could not write {}: {e}", target.display());
         Error::io(format!("Failed to replace {what}"), e)
-    })
+    })?;
+    log::info!("wrote {}", target.display());
+    Ok(())
 }
 
 #[cfg(test)]

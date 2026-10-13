@@ -125,7 +125,7 @@ fn built_in_templates() -> Vec<Template> {
         .filter_map(|path| match built_in(path) {
             Ok(template) => Some(template),
             Err(e) => {
-                eprintln!("Skipping template {path}: {e}");
+                log::warn!("Skipping template {path}: {e}");
                 None
             }
         })
@@ -175,7 +175,7 @@ fn user_templates() -> Vec<Template> {
         .filter_map(|path| match user_template(&path) {
             Ok(template) => Some(template),
             Err(e) => {
-                eprintln!("Skipping template {}: {e}", path.display());
+                log::warn!("Skipping template {}: {e}", path.display());
                 None
             }
         })

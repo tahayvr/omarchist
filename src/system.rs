@@ -7,6 +7,7 @@ pub mod fs;
 pub mod hyprland_config;
 pub mod instance;
 pub mod keybinds;
+pub mod logging;
 pub mod notify;
 pub mod omarchy;
 pub mod omarchy_paths;

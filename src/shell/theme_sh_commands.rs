@@ -18,11 +18,10 @@ async fn apply_theme_with_cmd(cmd: &'static str, dir: String) -> Result<()> {
 }
 
 fn run_theme_cmd(cmd: &str, dir: &str) -> Result<()> {
-    let output = Command::new(cmd)
-        .arg(dir)
-        .stdin(Stdio::null())
-        .output()
-        .map_err(|e| Error::io(format!("Failed to execute {cmd}"), e))?;
+    let started = std::time::Instant::now();
+    let result = Command::new(cmd).arg(dir).stdin(Stdio::null()).output();
+    crate::system::logging::ran(log::Level::Info, &[cmd, dir], &result, started);
+    let output = result.map_err(|e| Error::io(format!("Failed to execute {cmd}"), e))?;
 
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
@@ -40,10 +39,17 @@ fn run_theme_cmd(cmd: &str, dir: &str) -> Result<()> {
 /// `omarchy-theme-refresh`, waiting for it. Blocking: run it off the UI
 /// thread.
 pub fn refresh_theme_blocking() -> Result<()> {
-    let output = Command::new("omarchy-theme-refresh")
+    let started = std::time::Instant::now();
+    let result = Command::new("omarchy-theme-refresh")
         .stdin(Stdio::null())
-        .output()
-        .map_err(|e| Error::io("Failed to execute omarchy-theme-refresh", e))?;
+        .output();
+    crate::system::logging::ran(
+        log::Level::Info,
+        &["omarchy-theme-refresh"],
+        &result,
+        started,
+    );
+    let output = result.map_err(|e| Error::io("Failed to execute omarchy-theme-refresh", e))?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stderr = stderr.trim();

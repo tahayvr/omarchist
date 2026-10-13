@@ -212,6 +212,33 @@ fn clip(text: &str) -> String {
     format!("{}…", &text[..end])
 }
 
+/// Logs how a run ended. Only a failed step's error is logged, never a
+/// step's output, which can hold what the flow read or was given.
+fn log_run(id: &str, run: &Run) {
+    let id = if id.is_empty() { "unsaved" } else { id };
+    let how = match run.result {
+        RunResult::Finished => "finished",
+        RunResult::Failed => "failed",
+        RunResult::Cancelled => "was cancelled",
+        RunResult::Stopped => "was stopped",
+    };
+    let ended = format!("flow '{id}' {how} after {} ms ({})", run.ms, run.trigger);
+    match run
+        .steps
+        .iter()
+        .find(|step| step.result == StepResult::Failed)
+    {
+        Some(step) if run.result == RunResult::Failed => log::warn!(
+            "{ended}: step {} '{}': {}",
+            step.number,
+            step.title,
+            step.detail
+        ),
+        _ if run.result == RunResult::Failed => log::warn!("{ended}: {}", run.summary),
+        _ => log::info!("{ended}"),
+    }
+}
+
 /// `$XDG_STATE_HOME/omarchist` (`~/.local/state/omarchist`).
 pub fn state_dir() -> Result<PathBuf> {
     std::env::var_os("XDG_STATE_HOME")
@@ -228,6 +255,7 @@ fn history_path(id: &str) -> Result<PathBuf> {
 
 /// Adds a run to the flow's history, dropping the oldest beyond [`KEEP`].
 pub fn record(id: &str, run: &Run) -> Result<()> {
+    log_run(id, run);
     if id.is_empty() || super::store::load_flow(id).is_err() {
         // A flow that was never saved, or was deleted while it ran, has
         // nowhere to keep a history.

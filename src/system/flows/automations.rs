@@ -706,25 +706,30 @@ fn start(flow: &Flow, automation: &Automation, input: &str) -> Option<Child> {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status();
-        if !status.is_ok_and(|s| s.success()) {
-            eprintln!("Could not ask before running '{}'", flow.id);
+        if status.is_ok_and(|s| s.success()) {
+            log::info!("{label}: asked before running '{}'", flow.id);
+        } else {
+            log::warn!("Could not ask before running '{}'", flow.id);
         }
         return None;
     }
-    println!("{label}: running '{}'", flow.id);
+    log::info!("{label}: running '{}'", flow.id);
     Command::new(&run[0])
         .args(&run[1..])
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .spawn()
-        .map_err(|e| eprintln!("Could not run '{}': {e}", flow.id))
+        .map_err(|e| log::error!("Could not run '{}': {e}", flow.id))
         .ok()
 }
 
 /// Runs every automation `signal` is for.
 fn dispatch(signal: &Signal, flows: &[Flow], throttle: &mut Throttle) {
     let now = Instant::now();
+    if !matches!(signal, Signal::Minute { .. }) {
+        log::debug!("{signal:?}");
+    }
     for flow in flows {
         for (index, automation) in flow.triggers.automations.iter().enumerate() {
             if !automation.enabled {
@@ -736,6 +741,12 @@ fn dispatch(signal: &Signal, flows: &[Flow], throttle: &mut Throttle) {
             if throttle.allows(&flow.id, index, now) {
                 let child = start(flow, automation, &input);
                 throttle.started(&flow.id, index, now, child);
+            } else {
+                log::debug!(
+                    "{}: '{}' held back, still running or just started",
+                    automation.event.describe(),
+                    flow.id
+                );
             }
         }
     }
@@ -767,7 +778,8 @@ pub fn run() -> Result<()> {
     let mut locked: Option<bool> = None;
     let mut minute: Option<u32> = None;
     let mut tick: u64 = 0;
-    println!("Omarchist automations are running");
+    let mut purged_on = chrono::Local::now().date_naive();
+    log::info!("Omarchist automations are running");
 
     loop {
         // A second at most between polls; Hyprland's events come at once.
@@ -784,7 +796,7 @@ pub fn run() -> Result<()> {
         tick += 1;
         if tick % 3 == 1 && watched.reload_if_changed() {
             needs = Needs::of(&watched.flows);
-            println!(
+            log::info!(
                 "Watching {} flow{} with automations",
                 watched.flows.len(),
                 if watched.flows.len() == 1 { "" } else { "s" }
@@ -793,6 +805,13 @@ pub fn run() -> Result<()> {
         let mut happened: Vec<Signal> = Vec::new();
 
         let now = chrono::Local::now();
+        // The service runs for days; old logs go once a day.
+        if now.date_naive() != purged_on {
+            purged_on = now.date_naive();
+            crate::system::logging::purge_now(
+                crate::system::config::config_setup::settings().log_keep_days,
+            );
+        }
         use chrono::{Datelike, Timelike};
         let of_day = now.hour() * 60 + now.minute();
         if minute != Some(of_day) {

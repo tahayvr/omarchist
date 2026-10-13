@@ -38,7 +38,15 @@ pub fn check_for_updates() -> Result<UpdateCheck> {
         .output()
         .map_err(|e| Error::io("Failed to run omarchy-update-available", e))?;
     let stdout = String::from_utf8_lossy(&output.stdout);
-    parse_check(output.status.code(), &stdout)
+    let check = parse_check(output.status.code(), &stdout);
+    match &check {
+        Ok(UpdateCheck::UpToDate) => log::info!("Omarchy is up to date"),
+        Ok(UpdateCheck::Available(lines)) => {
+            log::info!("an Omarchy update is available:\n{}", lines.join("\n"))
+        }
+        Err(e) => log::warn!("could not check for Omarchy updates: {e}"),
+    }
+    check
 }
 
 fn parse_check(code: Option<i32>, stdout: &str) -> Result<UpdateCheck> {

@@ -507,12 +507,15 @@ fn run(argv: &[&str]) -> Result<()> {
 }
 
 fn run_with(argv: &[&str], extra: &[&str]) -> Result<()> {
-    let output = Command::new(argv[0])
+    let started = std::time::Instant::now();
+    let result = Command::new(argv[0])
         .args(&argv[1..])
         .args(extra)
         .stdin(Stdio::null())
-        .output()
-        .map_err(|e| Error::io(format!("Failed to run {}", argv[0]), e))?;
+        .output();
+    let full: Vec<&str> = argv.iter().chain(extra).copied().collect();
+    crate::system::logging::ran(log::Level::Info, &full, &result, started);
+    let output = result.map_err(|e| Error::io(format!("Failed to run {}", argv[0]), e))?;
     if output.status.success() {
         return Ok(());
     }

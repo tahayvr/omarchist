@@ -41,14 +41,24 @@ pub fn unit_text(binary: &str) -> String {
 }
 
 fn systemctl(args: &[&str]) -> Result<bool> {
-    Command::new("systemctl")
+    let started = std::time::Instant::now();
+    let result = Command::new("systemctl")
         .arg("--user")
         .args(args)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|status| status.success())
+        .output();
+    // `is-enabled` and `is-active` answer with their exit code; only what
+    // changes the service is logged.
+    if !args[0].starts_with("is-") {
+        let argv: Vec<&str> = ["systemctl", "--user"]
+            .iter()
+            .chain(args)
+            .copied()
+            .collect();
+        crate::system::logging::ran(log::Level::Info, &argv, &result, started);
+    }
+    result
+        .map(|output| output.status.success())
         .map_err(|e| Error::io("Could not run systemctl", e))
 }
 

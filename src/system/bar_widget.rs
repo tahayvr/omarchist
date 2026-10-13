@@ -129,12 +129,12 @@ pub fn ensure_current() -> Result<Option<String>> {
     let embedded = embedded_version()?;
     let newer = installed.as_deref() != Some(embedded.as_str());
     if newer {
-        eprintln!(
+        log::info!(
             "Refreshing the bar widget: version {} -> {embedded}",
             installed.as_deref().unwrap_or("none")
         );
     } else if saved_command.trim() != command {
-        eprintln!("Refreshing the bar widget: binary moved to {command}");
+        log::info!("Refreshing the bar widget: binary moved to {command}");
     } else {
         return Ok(None);
     }
@@ -186,10 +186,13 @@ fn omarchy(args: &[&str]) -> Result<()> {
 }
 
 fn run(program: &str, args: &[&str]) -> Result<()> {
-    let output = Command::new(program)
-        .args(args)
-        .output()
-        .map_err(|e| Error::io(format!("Failed to run {program}"), e))?;
+    let started = std::time::Instant::now();
+    let result = Command::new(program).args(args).output();
+    let argv: Vec<&str> = std::iter::once(program)
+        .chain(args.iter().copied())
+        .collect();
+    crate::system::logging::ran(log::Level::Info, &argv, &result, started);
+    let output = result.map_err(|e| Error::io(format!("Failed to run {program}"), e))?;
     if output.status.success() {
         return Ok(());
     }

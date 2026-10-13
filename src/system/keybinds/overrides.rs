@@ -199,7 +199,7 @@ impl KeybindOverrides {
                 .filter(|o| match validate_override(o) {
                     Ok(()) => true,
                     Err(e) => {
-                        eprintln!("Skipping an invalid keybind override: {e}");
+                        log::warn!("Skipping an invalid keybind override: {e}");
                         false
                     }
                 })

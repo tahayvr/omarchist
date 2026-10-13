@@ -46,6 +46,8 @@ pub struct SettingsConfig {
     /// last time.
     #[serde(alias = "gallery_author")]
     pub catalog_author: String,
+    /// How many days of logs are kept (`logging::KEEP_DAYS`).
+    pub log_keep_days: u32,
 }
 
 impl Default for SettingsConfig {
@@ -62,6 +64,7 @@ impl Default for SettingsConfig {
             bar_widget: false,
             catalog_count_installs: true,
             catalog_author: String::new(),
+            log_keep_days: crate::system::logging::DEFAULT_KEEP_DAYS,
         }
     }
 }
@@ -91,7 +94,7 @@ pub fn ensure_config() -> Result<()> {
             // Check if user's version needs updating
             match should_update_settings(&settings_path, &default_version) {
                 Ok(UpdateAction::Update) => {
-                    println!(
+                    log::info!(
                         "Updating settings.json from older version to {}",
                         default_version
                     );
@@ -109,7 +112,7 @@ pub fn ensure_config() -> Result<()> {
                         Error::io("Failed to set the broken settings.json aside", e)
                     })?;
                     copy_settings_from_default(&settings_path)?;
-                    eprintln!(
+                    log::warn!(
                         "settings.json could not be read ({e}); kept as {} and recreated",
                         broken.display()
                     );
@@ -140,7 +143,7 @@ pub fn ensure_config() -> Result<()> {
         write_atomic(&settings_path, updated_content, "settings.json")?;
     }
 
-    println!("Created default config at: {:?}", config_dir);
+    log::info!("Created default config at: {:?}", config_dir);
 
     Ok(())
 }
@@ -427,7 +430,7 @@ fn remove_legacy_hyprland_conf(config_dir: &Path) -> Result<()> {
     if legacy_conf.exists() {
         fs::remove_file(&legacy_conf)
             .map_err(|e| Error::io("Failed to remove legacy hyprland.conf", e))?;
-        println!("Removed legacy config: {}", legacy_conf.display());
+        log::info!("Removed legacy config: {}", legacy_conf.display());
     }
 
     Ok(())

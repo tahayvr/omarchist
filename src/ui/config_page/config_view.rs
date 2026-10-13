@@ -328,7 +328,7 @@ impl ConfigView {
                 })
                 .collect(),
             Err(e) => {
-                eprintln!("Failed to load keyboard catalog: {}", e);
+                log::error!("Failed to load keyboard catalog: {}", e);
                 vec![KeyboardLayoutItem {
                     value: "us".into(),
                     label: "English (US)".into(),

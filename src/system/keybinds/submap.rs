@@ -69,6 +69,7 @@ pub fn enter_recording_submap() -> Result<()> {
         hyprctl(&["eval", &define_recording_submap_lua()])?;
         dispatch_submap(RECORDING_SUBMAP)?;
     }
+    log::debug!("entered the recording submap");
     ACTIVE.store(true, Ordering::SeqCst);
     Ok(())
 }
@@ -77,6 +78,7 @@ pub fn enter_recording_submap() -> Result<()> {
 /// no recording is active.
 pub fn leave_recording_submap() {
     if ACTIVE.swap(false, Ordering::SeqCst) {
+        log::debug!("left the recording submap");
         let _ = dispatch_submap("reset");
     }
 }

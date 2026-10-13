@@ -698,6 +698,9 @@ impl<'a> Runner<'a> {
     /// is not quiet (the command line). `env` holds the values its
     /// `{{references}}` expand to.
     fn exec(&self, command: &str, env: &[(String, String)], wait: bool) -> Result<Option<String>> {
+        // The command as written: variables are `${OMARCHIST_VAR_n}` here,
+        // their values only in `env`, which is never logged.
+        log::debug!("{} {command}", if wait { "running" } else { "starting" });
         let mut cmd = if wait {
             let mut cmd = Command::new("sh");
             cmd.args(["-c", command]);
@@ -847,7 +850,7 @@ pub async fn run_in_thread(flow: Flow) -> Result<Outcome> {
             });
         let run = recorder.finish(&flow, &outcome, cancel.is_cancelled());
         if let Err(e) = history::record(&flow.id, &run) {
-            eprintln!("{e}");
+            log::error!("Could not record the run of '{}': {e}", flow.id);
         }
         let _ = tx.send_blocking(outcome);
     });

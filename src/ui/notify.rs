@@ -13,11 +13,16 @@ pub fn info(window: &mut Window, message: impl Into<SharedString>, cx: &mut App)
     window.push_notification(Notification::info(message), cx);
 }
 
+/// Warnings and errors are logged too, so a report can say what was shown.
 pub fn warning(window: &mut Window, message: impl Into<SharedString>, cx: &mut App) {
+    let message = message.into();
+    log::warn!(target: "omarchist::toast", "{message}");
     window.push_notification(Notification::warning(message), cx);
 }
 
 pub fn error(window: &mut Window, message: impl Into<SharedString>, cx: &mut App) {
+    let message = message.into();
+    log::error!(target: "omarchist::toast", "{message}");
     window.push_notification(Notification::error(message), cx);
 }
 

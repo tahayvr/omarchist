@@ -120,7 +120,7 @@ impl PublishDialog {
         };
         let name = author.trim_start_matches('@').to_string();
         if let Err(e) = update_settings(|settings| settings.catalog_author = name) {
-            eprintln!("{e}");
+            log::error!("Could not save the catalog author: {e}");
         }
         // The text travels on the clipboard too: GitHub's page for a new
         // version takes none from its address, and a long file may not fit.

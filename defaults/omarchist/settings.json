@@ -1,5 +1,5 @@
 {
-	"version": "1.4.0",
+	"version": "1.5.0",
 	"settings": {
 		"font_size": "small",
 		"auto_apply_theme": false,
@@ -11,7 +11,8 @@
 		"notify_flows": false,
 		"bar_widget": false,
 		"catalog_count_installs": true,
-		"catalog_author": ""
+		"catalog_author": "",
+		"log_keep_days": 7
 	},
 	"metadata": {
 		"created_at": "{{CREATED_AT}}",

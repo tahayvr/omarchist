@@ -4,6 +4,7 @@ use omarchist::cli::{CliArgs, ViewOption};
 use omarchist::system::config::config_setup;
 use omarchist::system::config::hypr_setup;
 use omarchist::system::instance;
+use omarchist::system::logging;
 use omarchist::system::omarchy_paths;
 use omarchist::system::ui_theme_watcher;
 use omarchist::ui::app_events::{self, AppEvent, AppEvents};
@@ -44,7 +45,7 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
 fn set_theme_mode(mode: &str, cx: &mut App) {
     let mode = mode.to_string();
     if let Err(e) = config_setup::update_settings(move |s| s.theme_mode = mode.clone()) {
-        eprintln!("Failed to save the appearance setting: {e}");
+        log::error!("Failed to save the appearance setting: {e}");
     }
     ui_theme_watcher::apply_ui_theme(cx);
     cx.refresh_windows();
@@ -106,22 +107,38 @@ fn load_custom_fonts(cx: &mut App) {
     {
         Ok(Some(data)) => data,
         Ok(None) => {
-            eprintln!("Font file not found in assets");
+            log::error!("Font file not found in assets");
             return;
         }
         Err(err) => {
-            eprintln!("Failed to load font: {}", err);
+            log::error!("Failed to load font: {}", err);
             return;
         }
     };
 
     if let Err(err) = cx.text_system().add_fonts(vec![font_data]) {
-        eprintln!("Failed to add font: {}", err);
+        log::error!("Failed to add font: {}", err);
     }
 }
 
 fn main() -> ExitCode {
     let cli_args = CliArgs::parse_args();
+    let role = cli_args
+        .command
+        .as_ref()
+        .map_or(logging::Role::App, |command| command.log_role());
+    logging::init(role);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let started = format!(
+        "Omarchist {} started{}{}",
+        env!("CARGO_PKG_VERSION"),
+        if args.is_empty() { "" } else { ": " },
+        args.join(" ")
+    );
+    match role {
+        logging::Role::App | logging::Role::Service => log::info!("{started}"),
+        _ => log::debug!("{started}"),
+    }
 
     // Subcommands such as `omarchist flow run` never open the window.
     if let Some(command) = &cli_args.command {
@@ -135,6 +152,7 @@ fn main() -> ExitCode {
         theme: cli_args.theme.clone(),
     };
     if instance::forward(&request) {
+        log::info!("handed the request to the running window");
         return ExitCode::SUCCESS;
     }
     // Own the socket before the window exists, so two launches in the same
@@ -155,10 +173,10 @@ fn main() -> ExitCode {
 
     app.run(move |cx| {
         if let Err(e) = config_setup::ensure_config() {
-            eprintln!("Failed to initialize config: {}", e);
+            log::error!("Failed to initialize config: {}", e);
         }
         let settings = config_setup::read_settings().unwrap_or_else(|e| {
-            eprintln!("Failed to read settings: {e}");
+            log::error!("Failed to read settings: {e}");
             config_setup::SettingsSchema {
                 version: String::new(),
                 settings: config_setup::SettingsConfig::default(),
@@ -173,9 +191,9 @@ fn main() -> ExitCode {
         let quattro = omarchy_paths::is_quattro_installed();
         if quattro {
             match hypr_setup::ensure_hypr_source() {
-                Ok(true) => println!("Added the omarchist require line to hyprland.lua"),
+                Ok(true) => log::info!("Added the omarchist require line to hyprland.lua"),
                 Ok(false) => {}
-                Err(e) => eprintln!("Failed to set up Hyprland config: {}", e),
+                Err(e) => log::error!("Failed to set up Hyprland config: {}", e),
             }
         }
 
@@ -216,10 +234,10 @@ fn main() -> ExitCode {
             if let Ok(flows) = omarchist::system::flows::store::load_flows()
                 && let Err(e) = omarchist::system::flows::launcher::refresh_all(&flows)
             {
-                eprintln!("Failed to refresh the flow launcher entries: {e}");
+                log::error!("Failed to refresh the flow launcher entries: {e}");
             }
             if let Err(e) = omarchist::system::flows::service::refresh() {
-                eprintln!("Failed to refresh the automations service: {e}");
+                log::error!("Failed to refresh the automations service: {e}");
             }
         });
         gpui_component::init(cx);
@@ -250,7 +268,7 @@ fn main() -> ExitCode {
                 _ => "medium",
             };
             if let Err(e) = config_setup::update_font_size(font_size_str) {
-                eprintln!("Failed to save font size setting: {}", e);
+                log::error!("Failed to save font size setting: {}", e);
             }
             ui_theme_watcher::apply_font_size(cx);
             cx.refresh_windows();

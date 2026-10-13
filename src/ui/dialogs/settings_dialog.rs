@@ -9,7 +9,7 @@ use std::rc::Rc;
 use gpui::prelude::FluentBuilder as _;
 use gpui::*;
 use gpui_component::{
-    ActiveTheme, Sizable as _, WindowExt,
+    ActiveTheme, Icon, Sizable as _, WindowExt,
     button::Button,
     group_box::{GroupBox, GroupBoxVariant, GroupBoxVariants},
     h_flex,
@@ -24,6 +24,7 @@ use gpui_kit::TestSupportExt;
 use crate::system::bar_widget;
 use crate::system::config::config_setup::{SettingsConfig, settings, update_settings};
 use crate::system::flows::service;
+use crate::system::logging;
 use crate::system::ui_theme_watcher;
 use crate::ui::app_events::{AppEvent, emit};
 use crate::ui::explain::{explain, explained_label};
@@ -51,6 +52,7 @@ const STARTUP_PAGES: &[(&str, &str)] = &[
     ("flows", "Flows"),
     ("last", "Last page used"),
 ];
+const LOG_KEEP_DAYS: &[(u32, &str)] = &[(3, "3 days"), (7, "7 days"), (30, "30 days")];
 const CHECK_INTERVALS: &[(u32, &str)] = &[
     (1, "Every hour"),
     (3, "Every 3 hours"),
@@ -73,6 +75,8 @@ enum Row {
     UpdateInterval,
     NotifyUpdates,
     BarWidget,
+    LogKeepDays,
+    LogFolder,
 }
 
 impl Row {
@@ -89,6 +93,8 @@ impl Row {
             Row::UpdateInterval => "update-interval",
             Row::NotifyUpdates => "notify-updates",
             Row::BarWidget => "bar-widget",
+            Row::LogKeepDays => "log-keep-days",
+            Row::LogFolder => "log-folder",
         }
     }
 
@@ -105,6 +111,8 @@ impl Row {
             Row::UpdateInterval => "Check Interval",
             Row::NotifyUpdates => "Notify When an Update Is Found",
             Row::BarWidget => "Show Omarchist in the Bar",
+            Row::LogKeepDays => "Keep Logs For",
+            Row::LogFolder => "Log Files",
         }
     }
 
@@ -127,6 +135,8 @@ impl Row {
             Row::UpdateInterval => "How often the background check runs",
             Row::NotifyUpdates => "A desktop notification when a background check finds an update",
             Row::BarWidget => "A bar widget that runs your flows and opens Omarchist on a page",
+            Row::LogKeepDays => "Older logs are deleted; the folder never grows past 50 MB",
+            Row::LogFolder => "One file a day in ~/.local/state/omarchist/logs",
         }
     }
 }
@@ -157,6 +167,10 @@ const PAGES: &[Page] = &[
             Group {
                 title: "Startup",
                 rows: &[Row::StartupPage],
+            },
+            Group {
+                title: "Logs",
+                rows: &[Row::LogKeepDays, Row::LogFolder],
             },
         ],
     },
@@ -200,6 +214,19 @@ const PAGES: &[Page] = &[
         ],
     },
 ];
+
+/// Opens the log folder in the file manager, making it first if no log
+/// has been written yet.
+fn open_log_folder(window: &mut Window, cx: &mut App) {
+    match logging::log_dir().and_then(|dir| {
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| crate::error::Error::io("Failed to create the log folder", e))?;
+        Ok(dir)
+    }) {
+        Ok(dir) => cx.open_url(&format!("file://{}", dir.display())),
+        Err(e) => notify::error(window, format!("Could not open the log folder: {e}"), cx),
+    }
+}
 
 fn row_matches(row: Row, query: &str) -> bool {
     query.is_empty()
@@ -507,6 +534,29 @@ impl SettingsPanel {
                 |this, value, cx| this.change(move |s| s.startup_page = value.to_string(), cx),
                 cx,
             ),
+            Row::LogKeepDays => self.dropdown(
+                "log-keep-days-pick",
+                LOG_KEEP_DAYS
+                    .iter()
+                    .map(|(v, _)| *v)
+                    .find(|v| *v == s.log_keep_days)
+                    .unwrap_or(logging::DEFAULT_KEEP_DAYS),
+                LOG_KEEP_DAYS,
+                |this, value, cx| {
+                    this.change(move |s| s.log_keep_days = value, cx);
+                    cx.background_spawn(async move { logging::purge_now(value) })
+                        .detach();
+                },
+                cx,
+            ),
+            Row::LogFolder => Button::new("log-folder-open")
+                .icon(Icon::new(Icon::empty()).path("icons/folder-open.svg"))
+                .label("Open folder")
+                .outline()
+                .small()
+                .cursor_pointer()
+                .on_click(cx.listener(|_, _, window, cx| open_log_folder(window, cx)))
+                .into_any_element(),
             Row::UpdateInterval => self.dropdown(
                 "update-interval-pick",
                 CHECK_INTERVALS

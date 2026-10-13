@@ -31,7 +31,7 @@ pub enum Step {
     ConfigDir(PathBuf),
     /// Delete `~/.local/share/omarchist` (flow icons).
     DataDir(PathBuf),
-    /// Delete `~/.local/state/omarchist` (the flows' run history).
+    /// Delete `~/.local/state/omarchist` (the flows' run history and the logs).
     StateDir(PathBuf),
     /// Delete `~/.cache/omarchist` (the copy of the catalog).
     CacheDir(PathBuf),
