@@ -45,6 +45,7 @@ pub enum ViewOption {
     /// Opens the Settings dialog over the startup page.
     Settings,
     About,
+    /// Opens the Omarchy dialog over the startup page.
     Omarchy,
     Config,
     Keybinds,

@@ -13,8 +13,8 @@ use omarchist::{CombinedAssets, MainTitleBar, MainWindowView, OmarchyUpdates};
 use std::process::ExitCode;
 
 /// The page to open: `--view` wins, then the startup page set in Settings
-/// (or the page shown last), then the Dashboard. `--view settings` opens
-/// the Settings dialog over the startup page.
+/// (or the page shown last), then the Dashboard. `--view settings` and
+/// `--view omarchy` open their dialog over the startup page.
 fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSchema) -> ActivePage {
     match args.view {
         Some(ViewOption::Dashboard) => ActivePage::Dashboard,
@@ -22,7 +22,6 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
         Some(ViewOption::Keybinds) => ActivePage::Keybinds,
         Some(ViewOption::Flows) => ActivePage::Flows,
         Some(ViewOption::About) => ActivePage::About,
-        Some(ViewOption::Omarchy) => ActivePage::Omarchy,
         Some(ViewOption::Themes) => {
             if let Some(ref theme_name) = args.theme {
                 ActivePage::ThemeEdit(theme_name.clone())
@@ -30,7 +29,7 @@ fn cli_args_to_active_page(args: &CliArgs, settings: &config_setup::SettingsSche
                 ActivePage::Themes
             }
         }
-        Some(ViewOption::Settings) | None => {
+        Some(ViewOption::Settings | ViewOption::Omarchy) | None => {
             let name = match settings.settings.startup_page.as_str() {
                 "last" => settings.metadata.last_page.as_deref().unwrap_or("themes"),
                 name => name,
@@ -74,7 +73,11 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
                 omarchist::system::flows::running::stop_local(&id);
                 continue;
             }
-            let settings = request.view.as_deref() == Some("settings");
+            let dialog = match request.view.as_deref() {
+                Some("settings") => Some(AppEvent::OpenSettings),
+                Some("omarchy") => Some(AppEvent::OpenOmarchy),
+                _ => None,
+            };
             let page = match (request.view.as_deref(), request.theme) {
                 (Some("themes"), Some(theme)) => Some(ActivePage::ThemeEdit(theme)),
                 (Some(view), _) => ActivePage::from_view_name(view),
@@ -84,8 +87,8 @@ fn serve_open_requests(listener: std::os::unix::net::UnixListener, cx: &mut App)
                 if let Some(page) = page {
                     app_events::emit(cx, AppEvent::Navigate(page));
                 }
-                if settings {
-                    app_events::emit(cx, AppEvent::OpenSettings);
+                if let Some(dialog) = dialog {
+                    app_events::emit(cx, dialog);
                 }
                 for window in cx.windows() {
                     let _ = window.update(cx, |_, window, _| window.activate_window());
@@ -178,8 +181,10 @@ fn main() -> ExitCode {
 
         cx.set_global(AppEvents::default());
         // Drained with the first frame, once the window's dialog layer exists.
-        if cli_args.view == Some(ViewOption::Settings) {
-            app_events::emit(cx, AppEvent::OpenSettings);
+        match cli_args.view {
+            Some(ViewOption::Settings) => app_events::emit(cx, AppEvent::OpenSettings),
+            Some(ViewOption::Omarchy) => app_events::emit(cx, AppEvent::OpenOmarchy),
+            _ => {}
         }
         if let Some(listener) = listener {
             serve_open_requests(listener, cx);

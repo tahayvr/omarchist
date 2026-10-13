@@ -1,5 +1,4 @@
 use crate::ui::app_events::{AppEvent, emit};
-use crate::ui::app_view::ActivePage;
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 use gpui_component::{
@@ -145,7 +144,7 @@ impl Render for MainTitleBar {
                                     .ghost()
                                     .cursor_pointer()
                                     .on_click(|_, _, cx| {
-                                        emit(cx, AppEvent::Navigate(ActivePage::Omarchy));
+                                        emit(cx, AppEvent::OpenOmarchy);
                                     }),
                             )
                             .when(self.updates.read(cx).available(), |this| {

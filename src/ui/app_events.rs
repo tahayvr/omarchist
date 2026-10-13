@@ -16,6 +16,8 @@ pub enum AppEvent {
     Navigate(ActivePage),
     /// Open the Settings dialog over the page shown (`--view settings`).
     OpenSettings,
+    /// Open the Omarchy dialog over the page shown (`--view omarchy`).
+    OpenOmarchy,
     RefreshThemes,
     ToggleSidebar,
     ReloadUiTheme,

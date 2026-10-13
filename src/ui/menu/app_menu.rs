@@ -7,7 +7,7 @@ actions!(
         Quit,
         NavigateToAbout,
         OpenSettings,
-        NavigateToOmarchy,
+        OpenOmarchy,
         Copy,
         Paste,
         Cut,

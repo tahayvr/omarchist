@@ -49,7 +49,6 @@ const STARTUP_PAGES: &[(&str, &str)] = &[
     ("config", "Configuration"),
     ("keybinds", "Keybinds"),
     ("flows", "Flows"),
-    ("omarchy", "Omarchy"),
     ("last", "Last page used"),
 ];
 const CHECK_INTERVALS: &[(u32, &str)] = &[

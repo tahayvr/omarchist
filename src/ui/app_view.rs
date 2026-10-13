@@ -12,7 +12,6 @@ use crate::ui::focus;
 use crate::ui::keybinds_page::KeybindsView;
 use crate::ui::menu::title_bar::MainTitleBar;
 use crate::ui::notify;
-use crate::ui::omarchy_page::omarchy_view::OmarchyView;
 use crate::ui::palette::Area;
 use crate::ui::sidebar_nav;
 use crate::ui::theme_edit_page::theme_edit_view::ThemeEditPage;
@@ -66,7 +65,6 @@ pub enum ActivePage {
     /// newer catalog version, not yet saved.
     FlowUpdate(String, Box<Imported>),
     About,
-    Omarchy,
 }
 
 impl ActivePage {
@@ -86,7 +84,6 @@ impl ActivePage {
             | ActivePage::FlowTemplates
             | ActivePage::FlowCatalog => "flows",
             ActivePage::About => "about",
-            ActivePage::Omarchy => "omarchy",
         }
     }
 
@@ -98,7 +95,6 @@ impl ActivePage {
             "keybinds" => ActivePage::Keybinds,
             "flows" => ActivePage::Flows,
             "about" => ActivePage::About,
-            "omarchy" => ActivePage::Omarchy,
             _ => return None,
         })
     }
@@ -137,8 +133,6 @@ pub struct MainWindowView {
     flow_catalog_view: Option<Entity<CatalogView>>,
     about_root: Option<AnyView>,
     about_view: Option<Entity<AboutView>>,
-    omarchy_root: Option<AnyView>,
-    omarchy_view: Option<Entity<OmarchyView>>,
     /// The user's own choice from the toggle; `None` follows the width.
     sidebar_expanded: Option<bool>,
     /// The sidebar is one tab stop; arrow keys move `sidebar_index`.
@@ -196,8 +190,6 @@ impl MainWindowView {
             flow_catalog_view: None,
             about_root: None,
             about_view: None,
-            omarchy_root: None,
-            omarchy_view: None,
             sidebar_expanded: None,
             sidebar_focus,
             sidebar_index: initial_sidebar_index,
@@ -316,7 +308,7 @@ impl MainWindowView {
             | ActivePage::FlowUpdate(..)
             | ActivePage::FlowTemplates
             | ActivePage::FlowCatalog => Some(4),
-            ActivePage::About | ActivePage::Omarchy => None,
+            ActivePage::About => None,
         }
     }
 
@@ -421,15 +413,6 @@ impl MainWindowView {
                     let about_view = cx.new(AboutView::new);
                     self.about_root = Some(about_view.clone().into());
                     self.about_view = Some(about_view);
-                }
-            }
-            ActivePage::Omarchy => {
-                let updates = self.title_bar.read(cx).updates().clone();
-                updates.update(cx, |updates, cx| updates.refresh_if_stale(cx));
-                if self.omarchy_root.is_none() {
-                    let omarchy_view = cx.new(|cx| OmarchyView::new(updates, cx));
-                    self.omarchy_root = Some(omarchy_view.clone().into());
-                    self.omarchy_view = Some(omarchy_view);
                 }
             }
             // Always present; a visit reads its cards again.
@@ -565,11 +548,6 @@ impl MainWindowView {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
                 }
             }
-            ActivePage::Omarchy => {
-                if let Some(view) = &self.omarchy_view {
-                    view.update(cx, |v, cx| v.focus_entry(window, cx));
-                }
-            }
             ActivePage::Configuration => {
                 if let Some(view) = &self.config_view {
                     view.update(cx, |v, cx| v.focus_entry(window, cx));
@@ -653,11 +631,6 @@ impl MainWindowView {
                     view.update(cx, |view, cx| view.reload(window, cx));
                 }
             }
-            ActivePage::Omarchy => {
-                if let Some(view) = &self.omarchy_view {
-                    view.update(cx, |view, cx| view.check_again(cx));
-                }
-            }
             ActivePage::About => {}
         }
     }
@@ -712,6 +685,7 @@ impl MainWindowView {
         match event {
             AppEvent::Navigate(page) => self.navigate_to(page, window, cx),
             AppEvent::OpenSettings => self.open_settings(window, cx),
+            AppEvent::OpenOmarchy => self.open_omarchy(window, cx),
             AppEvent::RefreshThemes => {
                 self.themes_view.update(cx, |themes_page, cx| {
                     themes_page.refresh_themes(window, cx);
@@ -769,10 +743,6 @@ impl MainWindowView {
                 .about_root
                 .clone()
                 .unwrap_or_else(|| self.themes_root.clone()),
-            ActivePage::Omarchy => self
-                .omarchy_root
-                .clone()
-                .unwrap_or_else(|| self.themes_root.clone()),
         }
     }
 
@@ -794,7 +764,6 @@ impl MainWindowView {
             ) => true,
             (ActivePage::FlowTemplates | ActivePage::FlowCatalog, ActivePage::Flows) => true,
             (ActivePage::About, ActivePage::About) => true,
-            (ActivePage::Omarchy, ActivePage::Omarchy) => true,
             _ => false,
         }
     }
@@ -830,6 +799,16 @@ impl MainWindowView {
             return;
         }
         crate::ui::dialogs::settings_dialog::open_settings_dialog(window, cx);
+    }
+
+    /// Opens the Omarchy dialog (version, updates, release notes) over the
+    /// page shown, unless a dialog is already up.
+    fn open_omarchy(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if dialog_open(window, cx) {
+            return;
+        }
+        let updates = self.title_bar.read(cx).updates().clone();
+        crate::ui::dialogs::omarchy_dialog::open_omarchy_dialog(updates, window, cx);
     }
 
     /// Starts the Flows page's poll of the run registry, now and for every
@@ -1023,8 +1002,8 @@ impl Render for MainWindowView {
                 }),
             )
             .on_action(cx.listener(
-                |this, _: &crate::ui::menu::app_menu::NavigateToOmarchy, window, cx| {
-                    this.navigate_to(ActivePage::Omarchy, window, cx);
+                |this, _: &crate::ui::menu::app_menu::OpenOmarchy, window, cx| {
+                    this.open_omarchy(window, cx);
                 },
             ))
             .on_action(cx.listener(

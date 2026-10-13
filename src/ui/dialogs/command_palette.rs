@@ -71,8 +71,8 @@ fn groups() -> Vec<Group> {
                 ),
                 entry(
                     "Omarchy",
-                    &["page", "update", "release notes"],
-                    app_menu::NavigateToOmarchy,
+                    &["version", "update", "release notes"],
+                    app_menu::OpenOmarchy,
                 ),
                 entry(
                     "Settings",
