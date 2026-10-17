@@ -979,9 +979,13 @@ impl KeybindsView {
             )
         };
         Some(
-            h_flex()
+            // The error can be long (a path and Lua's message), so it wraps
+            // and the icon stays beside its first line.
+            div()
+                .flex()
+                .flex_row()
                 .gap_2()
-                .items_center()
+                .items_start()
                 .px_3()
                 .py_2()
                 .rounded(theme.radius)
@@ -991,14 +995,16 @@ impl KeybindsView {
                 .text_sm()
                 .text_color(theme.foreground)
                 .child(
-                    Icon::new(IconName::TriangleAlert)
-                        .size_4()
-                        .text_color(theme.warning),
+                    div().flex_none().h_5().flex().items_center().child(
+                        Icon::new(IconName::TriangleAlert)
+                            .size_4()
+                            .text_color(theme.warning),
+                    ),
                 )
                 .child(
                     div()
+                        .flex_1()
                         .min_w_0()
-                        .truncate()
                         .child(selectable("kb-notice", text)),
                 )
                 .into_any_element(),
